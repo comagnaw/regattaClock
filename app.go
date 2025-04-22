@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/layout"
@@ -39,6 +38,7 @@ func (CustomTheme) Size(name fyne.ThemeSizeName) float32 {
 type lapTime struct {
 	number int
 	time   string
+	oof    string // Add OOF field
 }
 
 type keyboardHandler struct {
@@ -66,153 +66,188 @@ func (h *keyboardHandler) TypedKey(event *fyne.KeyEvent) {
 
 func (h *keyboardHandler) TypedRune(rune) {}
 
+type TableRow struct {
+	oofEntry   *widget.Entry
+	placeLabel *widget.Label
+	splitLabel *widget.Label
+}
+
 type App struct {
 	window    fyne.Window
 	clock     *canvas.Text
-	table     *widget.Table
+	tableRows []TableRow
 	lapTimes  []lapTime
 	isRunning bool
 	startTime time.Time
 }
 
-func NewApp() *App {
-	a := app.New()
-	w := a.NewWindow("Clock")
-	w.Resize(fyne.NewSize(800, 1000)) // Increased window height significantly
-
-	// Create the clock text with custom size
-	clockText := canvas.NewText("00:00:00.000", theme.ForegroundColor())
-	clockText.TextStyle = fyne.TextStyle{
-		Monospace: true,
-		Bold:      true,
-	}
-	clockText.Alignment = fyne.TextAlignCenter
-	clockText.TextSize = 48
-
-	app := &App{
-		window:    w,
-		clock:     clockText,
-		lapTimes:  make([]lapTime, 0),
-		isRunning: false,
-		startTime: time.Now(),
-	}
-
-	app.setupTable()
-	app.setupButtons()
-	app.setupKeyboardHandler()
-
-	return app
-}
-
 func (a *App) setupTable() {
-	a.table = widget.NewTable(
-		func() (int, int) {
-			rows := len(a.lapTimes)
-			if rows < 20 {
-				rows = 20
-			}
-			return rows, 2
-		},
-		func() fyne.CanvasObject {
-			label := widget.NewLabel("")
-			label.Resize(fyne.NewSize(200, 30))
-			return label
-		},
-		func(id widget.TableCellID, cell fyne.CanvasObject) {
-			label := cell.(*widget.Label)
-			if id.Row < len(a.lapTimes) {
-				if id.Col == 0 {
-					label.SetText(a.lapTimes[id.Row].time)
-				} else {
-					label.SetText(fmt.Sprintf("Boat %d", a.lapTimes[id.Row].number))
-				}
-			} else {
-				label.SetText("")
-			}
-		},
+	// Create a container for the table
+	tableContainer := container.NewVBox()
+
+	// Create header row with fixed widths
+	headerRow := container.NewHBox(
+		widget.NewLabelWithStyle("OOF", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+		widget.NewLabelWithStyle("Place", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+		widget.NewLabelWithStyle("Split", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 	)
-	a.table.SetColumnWidth(0, 200)
-	a.table.SetColumnWidth(1, 100)
+	// Set fixed widths for header cells
+	headerRow.Objects[0].Resize(fyne.NewSize(50, 30))  // OOF
+	headerRow.Objects[1].Resize(fyne.NewSize(60, 30))  // Place
+	headerRow.Objects[2].Resize(fyne.NewSize(150, 30)) // Split
+	tableContainer.Add(headerRow)
 
-	// Set a fixed size for the table
-	a.table.Resize(fyne.NewSize(300, 600))
-}
+	// Create data rows
+	a.tableRows = make([]TableRow, 10)
+	for i := 0; i < 10; i++ {
+		row := container.NewHBox()
 
-func (a *App) setupButtons() {
-	startButton := widget.NewButton("Start (F2)", func() {
-		if !a.isRunning {
-			a.startTime = time.Now()
-			a.isRunning = true
-			a.lapTimes = append(a.lapTimes, lapTime{
-				number: 1,
-				time:   "00:00:00.000",
-			})
-			a.table.Refresh()
+		// OOF entry
+		oofEntry := widget.NewEntry()
+		oofEntry.Resize(fyne.NewSize(50, 30))
+		oofEntry.Disable()
+
+		// Place label with padding
+		placeLabel := widget.NewLabel("")
+		placeLabel.TextStyle = fyne.TextStyle{Bold: true}
+		placeLabel.Alignment = fyne.TextAlignTrailing // Right-align the numbers
+		placeLabel.Resize(fyne.NewSize(60, 30))
+
+		// Split label
+		splitLabel := widget.NewLabel("")
+		splitLabel.TextStyle = fyne.TextStyle{Bold: true}
+		splitLabel.Resize(fyne.NewSize(150, 30))
+
+		// Store the widgets
+		a.tableRows[i] = TableRow{
+			oofEntry:   oofEntry,
+			placeLabel: placeLabel,
+			splitLabel: splitLabel,
 		}
-	})
 
-	lapButton := widget.NewButton("Lap (F4)", func() {
-		if a.isRunning {
-			elapsed := time.Since(a.startTime)
-			hours := int(elapsed.Hours())
-			minutes := int(elapsed.Minutes()) % 60
-			seconds := int(elapsed.Seconds()) % 60
-			milliseconds := int(elapsed.Milliseconds()) % 1000
-			formatted := time.Date(0, 0, 0, hours, minutes, seconds, milliseconds*1000000, time.UTC).Format("15:04:05.000")
+		row.Add(oofEntry)
+		row.Add(placeLabel)
+		row.Add(splitLabel)
 
-			a.lapTimes = append(a.lapTimes, lapTime{
-				number: len(a.lapTimes) + 1,
-				time:   formatted,
-			})
-			a.table.Refresh()
-		}
-	})
+		tableContainer.Add(row)
+	}
 
-	stopButton := widget.NewButton("Stop", func() {
-		a.isRunning = false
-		a.clock.Text = "00:00:00.000"
-		a.clock.Refresh()
-	})
+	// Create a scroll container for the table
+	scrollContainer := container.NewScroll(tableContainer)
+	scrollContainer.Resize(fyne.NewSize(350, 330))
 
-	clearButton := widget.NewButton("Clear", func() {
-		a.lapTimes = make([]lapTime, 0)
-		a.table.Refresh()
-	})
-
-	// Create a container with centered buttons and spacing
-	buttonContainer := container.NewHBox(
-		layout.NewSpacer(),
-		startButton,
-		layout.NewSpacer(),
-		lapButton,
-		layout.NewSpacer(),
-		stopButton,
-		layout.NewSpacer(),
-		clearButton,
-		layout.NewSpacer(),
-	)
-
-	// Center the clock in its own container
-	clockContainer := container.NewCenter(a.clock)
-
-	// Create a border layout with the clock and buttons at the top
-	// and the table taking up the remaining space
+	// Add the table to the window content
 	content := container.NewBorder(
 		container.NewVBox( // Top
-			clockContainer,
-			buttonContainer,
-			widget.NewLabel("Boat Times:"),
+			container.NewCenter(a.clock),
+			container.NewHBox(
+				layout.NewSpacer(),
+				widget.NewButton("Start (F2)", func() {
+					if !a.isRunning {
+						a.startTime = time.Now()
+						a.isRunning = true
+						a.lapTimes = append(a.lapTimes, lapTime{
+							number: 1,
+							time:   "00:00:00.000",
+							oof:    "",
+						})
+						a.refreshTable()
+					}
+				}),
+				layout.NewSpacer(),
+				widget.NewButton("Lap (F4)", func() {
+					if a.isRunning {
+						elapsed := time.Since(a.startTime)
+						hours := int(elapsed.Hours())
+						minutes := int(elapsed.Minutes()) % 60
+						seconds := int(elapsed.Seconds()) % 60
+						milliseconds := int(elapsed.Milliseconds()) % 1000
+						formatted := time.Date(0, 0, 0, hours, minutes, seconds, milliseconds*1000000, time.UTC).Format("15:04:05.000")
+
+						a.lapTimes = append(a.lapTimes, lapTime{
+							number: len(a.lapTimes) + 1,
+							time:   formatted,
+							oof:    "",
+						})
+						a.refreshTable()
+					}
+				}),
+				layout.NewSpacer(),
+				widget.NewButton("Stop", func() {
+					a.isRunning = false
+					a.refreshTable()
+				}),
+				layout.NewSpacer(),
+				widget.NewButton("Clear", func() {
+					a.isRunning = false
+					a.clock.Text = "00:00:00.000"
+					a.clock.Refresh()
+					a.lapTimes = make([]lapTime, 0)
+					a.refreshTable()
+				}),
+				layout.NewSpacer(),
+			),
 		),
-		nil,     // Bottom
-		nil,     // Left
-		nil,     // Right
-		a.table, // Center content
+		nil,             // Bottom
+		nil,             // Left
+		nil,             // Right
+		scrollContainer, // Center content
 	)
 
 	// Set a minimum size for the content
 	content.Resize(fyne.NewSize(800, 1000))
 
 	a.window.SetContent(content)
+}
+
+func (a *App) refreshTable() {
+	// Update all rows
+	for i := 0; i < 10; i++ {
+		if i < len(a.lapTimes) {
+			// Set OOF entry
+			a.tableRows[i].oofEntry.SetText(a.lapTimes[i].oof)
+			if !a.isRunning {
+				a.tableRows[i].oofEntry.Enable()
+				// Set up the OnChanged handler for OOF editing
+				row := i // Capture the row index
+				a.tableRows[i].oofEntry.OnChanged = func(text string) {
+					if !a.isRunning && row < len(a.lapTimes) {
+						a.lapTimes[row].oof = text
+					}
+				}
+				// Add return key handling to move to next row
+				a.tableRows[i].oofEntry.OnSubmitted = func(text string) {
+					if !a.isRunning && row < len(a.lapTimes) {
+						// Update the current entry's text
+						a.tableRows[row].oofEntry.SetText(text)
+						a.lapTimes[row].oof = text
+
+						// Move focus to next row's OOF entry if it exists
+						if row+1 < len(a.tableRows) && row+1 < len(a.lapTimes) {
+							// Clear any existing text in the next entry
+							a.tableRows[row+1].oofEntry.SetText("")
+							// Move focus to the next entry
+							a.window.Canvas().Focus(a.tableRows[row+1].oofEntry)
+						}
+					}
+				}
+			} else {
+				a.tableRows[i].oofEntry.Disable()
+			}
+
+			// Set Place label
+			a.tableRows[i].placeLabel.SetText(fmt.Sprintf("%d", a.lapTimes[i].number))
+
+			// Set Split label
+			a.tableRows[i].splitLabel.SetText(a.lapTimes[i].time)
+		} else {
+			// Clear row
+			a.tableRows[i].oofEntry.SetText("")
+			a.tableRows[i].oofEntry.Disable()
+			a.tableRows[i].placeLabel.SetText("")
+			a.tableRows[i].splitLabel.SetText("")
+		}
+	}
 }
 
 func (a *App) setupKeyboardHandler() {
@@ -223,8 +258,9 @@ func (a *App) setupKeyboardHandler() {
 			a.lapTimes = append(a.lapTimes, lapTime{
 				number: 1,
 				time:   "00:00:00.000",
+				oof:    "",
 			})
-			a.table.Refresh()
+			a.refreshTable()
 			a.startTime = time.Now()
 			a.isRunning = true
 		},
@@ -245,8 +281,9 @@ func (a *App) setupKeyboardHandler() {
 				a.lapTimes = append(a.lapTimes, lapTime{
 					number: len(a.lapTimes) + 1,
 					time:   formatted,
+					oof:    "",
 				})
-				a.table.Refresh()
+				a.refreshTable()
 			}
 		},
 	}
@@ -274,4 +311,28 @@ func (a *App) Run() {
 		}
 	}()
 	a.window.ShowAndRun()
+}
+
+func NewApp(app fyne.App) *App {
+	regattaApp := &App{
+		window:    app.NewWindow("Regatta Clock"),
+		lapTimes:  make([]lapTime, 0),
+		isRunning: false,
+	}
+
+	// Create the clock display
+	regattaApp.clock = canvas.NewText("00:00:00.000", color.White)
+	regattaApp.clock.TextStyle = fyne.TextStyle{Monospace: true, Bold: true}
+	regattaApp.clock.Alignment = fyne.TextAlignCenter
+	regattaApp.clock.TextSize = 48
+
+	// Set up the window
+	regattaApp.window.Resize(fyne.NewSize(800, 1000))
+	regattaApp.window.SetMaster()
+
+	// Set up the table and keyboard handler
+	regattaApp.setupTable()
+	regattaApp.setupKeyboardHandler()
+
+	return regattaApp
 }
