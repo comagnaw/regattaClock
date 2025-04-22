@@ -42,33 +42,27 @@ jobs:
       - name: Build
         run: |
           cd cmd/regattaClock
-          fyne package -os darwin -app-id com.github.comagnaw.regattaClock
+          mkdir -p build
+          fyne package -os darwin -app-id com.github.comagnaw.regattaClock -release
+          mv regattaClock.app build/
 
       - name: Create DMG
         run: |
-          cd cmd/regattaClock
+          cd cmd/regattaClock/build
           hdiutil create -volname "Regatta Clock" -srcfolder . -ov -format UDZO regattaClock.dmg
 
       - name: Create Release
         id: create_release
-        uses: actions/create-release@v1
+        uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
           draft: false
           prerelease: false
-
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./cmd/regattaClock/regattaClock.dmg
-          asset_name: regattaClock.dmg
-          asset_content_type: application/octet-stream
+          files: |
+            cmd/regattaClock/build/regattaClock.dmg
 
   build-windows:
     runs-on: ubuntu-latest
@@ -84,7 +78,7 @@ jobs:
       - name: Install Fyne
         run: |
           go install fyne.io/tools/cmd/fyne@latest
-          go install github.com/fyne-io/fyne-cross@latest
+          go install github.com/fyne-io/fyne-cross@v1.3.0
 
       - name: Create default icon
         run: |
@@ -103,19 +97,16 @@ jobs:
           go get github.com/comagnaw/regattaClock
 
       - name: Build Windows executable
-        env:
-          GOTOOLCHAIN: local
         run: |
           cd cmd/regattaClock
-          fyne-cross windows -arch amd64 -app-id com.github.comagnaw.regattaClock
-          mv fyne-cross/dist/windows-amd64/regattaClock.exe .
+          mkdir -p build
+          fyne-cross windows -arch amd64 -app-id com.github.comagnaw.regattaClock -release
+          mv fyne-cross/dist/windows-amd64/regattaClock.exe build/
 
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
+      - name: Upload Windows Release Asset
+        uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         with:
-          upload_url: ${{ needs.build-macos.outputs.upload_url }}
-          asset_path: ./cmd/regattaClock/regattaClock.exe
-          asset_name: regattaClock.exe
-          asset_content_type: application/octet-stream 
+          files: |
+            cmd/regattaClock/build/regattaClock.exe 
