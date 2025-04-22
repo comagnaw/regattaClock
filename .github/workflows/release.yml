@@ -48,6 +48,8 @@ jobs:
           mv regattaClock.app build/regattaClock-intel.app
           GOARCH=arm64 fyne package -os darwin -app-id com.github.comagnaw.regattaClock -release
           mv regattaClock.app build/regattaClock-arm.app
+          # Create app bundle structure
+          mkdir -p build/regattaClock.app/Contents/MacOS
           # Create universal binary
           lipo -create -output build/regattaClock.app/Contents/MacOS/regattaClock build/regattaClock-intel.app/Contents/MacOS/regattaClock build/regattaClock-arm.app/Contents/MacOS/regattaClock
           # Copy other necessary files
