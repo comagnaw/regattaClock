@@ -1,0 +1,121 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: '1.23.5'
+
+      - name: Install Fyne
+        run: |
+          go install fyne.io/tools/cmd/fyne@latest
+          go install github.com/fyne-io/fyne-cross@latest
+
+      - name: Install ImageMagick
+        run: |
+          brew install imagemagick
+
+      - name: Create default icon
+        run: |
+          cd cmd/regattaClock
+          # Create a simple icon using ImageMagick
+          convert -size 1024x1024 xc:white -fill '#007AFF' -draw 'circle 512,512 512,0' Icon.png
+
+      - name: Initialize Go module
+        run: |
+          cd cmd/regattaClock
+          go mod init regattaClock
+          go mod tidy
+          go get fyne.io/fyne/v2
+          go get github.com/comagnaw/regattaClock
+
+      - name: Build
+        run: |
+          cd cmd/regattaClock
+          fyne package -os darwin -app-id com.github.comagnaw.regattaClock
+
+      - name: Create DMG
+        run: |
+          cd cmd/regattaClock
+          hdiutil create -volname "Regatta Clock" -srcfolder . -ov -format UDZO regattaClock.dmg
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./cmd/regattaClock/regattaClock.dmg
+          asset_name: regattaClock.dmg
+          asset_content_type: application/octet-stream
+
+  build-windows:
+    runs-on: ubuntu-latest
+    needs: build-macos
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: '1.23.5'
+
+      - name: Install Fyne
+        run: |
+          go install fyne.io/tools/cmd/fyne@latest
+          go install github.com/fyne-io/fyne-cross@latest
+
+      - name: Create default icon
+        run: |
+          cd cmd/regattaClock
+          # Install ImageMagick
+          sudo apt-get update && sudo apt-get install -y imagemagick
+          # Create a simple icon using ImageMagick
+          convert -size 1024x1024 xc:white -fill '#007AFF' -draw 'circle 512,512 512,0' Icon.png
+
+      - name: Initialize Go module
+        run: |
+          cd cmd/regattaClock
+          go mod init regattaClock
+          go mod tidy
+          go get fyne.io/fyne/v2
+          go get github.com/comagnaw/regattaClock
+
+      - name: Build Windows executable
+        env:
+          GOTOOLCHAIN: local
+        run: |
+          cd cmd/regattaClock
+          fyne-cross windows -arch amd64 -app-id com.github.comagnaw.regattaClock
+          mv fyne-cross/dist/windows-amd64/regattaClock.exe .
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        with:
+          upload_url: ${{ needs.build-macos.outputs.upload_url }}
+          asset_path: ./cmd/regattaClock/regattaClock.exe
+          asset_name: regattaClock.exe
+          asset_content_type: application/octet-stream 
