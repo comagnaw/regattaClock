@@ -261,8 +261,12 @@ func (a *App) Run() {
 				seconds := int(elapsed.Seconds()) % 60
 				milliseconds := int(elapsed.Milliseconds()) % 1000
 				formatted := time.Date(0, 0, 0, hours, minutes, seconds, milliseconds*1000000, time.UTC).Format("15:04:05.000")
-				a.clock.Text = formatted
-				a.clock.Refresh()
+
+				// Use fyne.Do to update UI on the main thread
+				fyne.Do(func() {
+					a.clock.Text = formatted
+					a.clock.Refresh()
+				})
 			}
 		}
 	}()
