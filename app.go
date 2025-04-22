@@ -195,15 +195,18 @@ func (a *App) setupButtons() {
 	// Center the clock in its own container
 	clockContainer := container.NewCenter(a.clock)
 
-	// Create a fixed-size container for the table
-	tableContainer := container.NewMax(a.table)
-	tableContainer.Resize(fyne.NewSize(300, 600))
-
-	content := container.NewVBox(
-		clockContainer,
-		buttonContainer,
-		widget.NewLabel("Boat Times:"),
-		tableContainer,
+	// Create a border layout with the clock and buttons at the top
+	// and the table taking up the remaining space
+	content := container.NewBorder(
+		container.NewVBox( // Top
+			clockContainer,
+			buttonContainer,
+			widget.NewLabel("Boat Times:"),
+		),
+		nil,     // Bottom
+		nil,     // Left
+		nil,     // Right
+		a.table, // Center content
 	)
 
 	// Set a minimum size for the content
