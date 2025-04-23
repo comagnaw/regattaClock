@@ -24,7 +24,6 @@ jobs:
     - name: Initialize Go module
       run: |
         cd cmd/regattaClock
-        go mod init regattaClock
         go mod tidy
         go get fyne.io/fyne/v2
         go get github.com/comagnaw/regattaClock
@@ -83,7 +82,6 @@ jobs:
     - name: Initialize Go module
       run: |
         cd cmd/regattaClock
-        go mod init regattaClock
         go mod tidy
         go get fyne.io/fyne/v2
         go get github.com/comagnaw/regattaClock
