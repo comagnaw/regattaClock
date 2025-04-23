@@ -81,17 +81,15 @@ jobs:
 
     - name: Initialize Go module
       run: |
-        cd cmd/regattaClock
         go mod tidy
         go get fyne.io/fyne/v2
         go get github.com/comagnaw/regattaClock
 
     - name: Build Windows executable
       run: |
-        cd cmd/regattaClock
-        mkdir -p build
+        mkdir -p cmd/regattaClock/build
         fyne-cross windows -arch amd64 -app-id com.github.comagnaw.regattaClock
-        mv fyne-cross/dist/windows-amd64/regattaClock.exe build/
+        mv fyne-cross/dist/windows-amd64/regattaClock.exe cmd/regattaClock/build/
 
     - name: Upload Windows Release Asset
       uses: softprops/action-gh-release@v1
