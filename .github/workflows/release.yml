@@ -14,22 +14,12 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v3
       with:
-        go-version: '1.23.5'
+        go-version: '1.24.2'
 
     - name: Install Fyne
       run: |
         go install fyne.io/tools/cmd/fyne@latest
-        go install github.com/fyne-io/fyne-cross@v1.3.0
-
-    - name: Install ImageMagick
-      run: |
-        brew install imagemagick
-
-    - name: Create default icon
-      run: |
-        cd cmd/regattaClock
-        # Create a simple icon using ImageMagick
-        convert -size 1024x1024 xc:white -fill '#007AFF' -draw 'circle 512,512 512,0' Icon.png
+        go install github.com/fyne-io/fyne-cross@latest
 
     - name: Initialize Go module
       run: |
@@ -83,20 +73,12 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v3
       with:
-        go-version: '1.23.5'
+        go-version: '1.24.2'
 
     - name: Install Fyne
       run: |
         go install fyne.io/tools/cmd/fyne@latest
-        go install github.com/fyne-io/fyne-cross@v1.3.0
-
-    - name: Create default icon
-      run: |
-        cd cmd/regattaClock
-        # Install ImageMagick
-        sudo apt-get update && sudo apt-get install -y imagemagick
-        # Create a simple icon using ImageMagick
-        convert -size 1024x1024 xc:white -fill '#007AFF' -draw 'circle 512,512 512,0' Icon.png
+        go install github.com/fyne-io/fyne-cross@latest
 
     - name: Initialize Go module
       run: |
