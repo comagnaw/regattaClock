@@ -19,7 +19,6 @@ jobs:
     - name: Install Fyne
       run: |
         go install fyne.io/tools/cmd/fyne@latest
-        go install github.com/fyne-io/fyne-cross@latest
 
     - name: Initialize Go module
       run: |
@@ -79,17 +78,9 @@ jobs:
         go install fyne.io/tools/cmd/fyne@latest
         go install github.com/fyne-io/fyne-cross@latest
 
-    - name: Initialize Go module
-      run: |
-        go mod tidy
-        go get fyne.io/fyne/v2
-        go get github.com/comagnaw/regattaClock
-
     - name: Build Windows executable
       run: |
-        mkdir -p cmd/regattaClock/build
-        fyne-cross windows -arch amd64 -app-id com.github.comagnaw.regattaClock
-        mv fyne-cross/dist/windows-amd64/regattaClock.exe cmd/regattaClock/build/
+        fyne-cross windows -arch amd64 -app-id com.github.comagnaw.regattaClock ./cmd/regattaClock
 
     - name: Upload Windows Release Asset
       uses: softprops/action-gh-release@v1
@@ -97,4 +88,4 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
       with:
         files: |
-          cmd/regattaClock/build/regattaClock.exe 
+          fyne-cross/dist/windows-amd64/regattaClock.exe.zip
