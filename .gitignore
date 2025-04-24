@@ -27,4 +27,5 @@ go.work.sum
 # developer added
 .build
 .DS_Store
+.vscode
 fyne-cross/

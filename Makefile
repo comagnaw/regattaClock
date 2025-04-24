@@ -13,3 +13,4 @@ run:
 clean:
 	rm -rf ${BUILD_DIR}
 	rm -rf fyne-cross/
+	rm -rf regattaClock.app/

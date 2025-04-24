@@ -29,12 +29,11 @@ jobs:
 
     - name: Build
       run: |
-        cd cmd/regattaClock
         mkdir -p build
         # Build for both architectures
-        GOARCH=amd64 fyne package -os darwin -app-id com.github.comagnaw.regattaClock -release
+        GOARCH=amd64 fyne package -os darwin -app-id com.github.comagnaw.regattaClock -release -src ./cmd/regattaClock/
         mv regattaClock.app build/regattaClock-intel.app
-        GOARCH=arm64 fyne package -os darwin -app-id com.github.comagnaw.regattaClock -release
+        GOARCH=arm64 fyne package -os darwin -app-id com.github.comagnaw.regattaClock -release -src ./cmd/regattaClock/
         mv regattaClock.app build/regattaClock-arm.app
         # Create app bundle structure
         mkdir -p build/regattaClock.app/Contents/MacOS
@@ -43,10 +42,12 @@ jobs:
         # Copy other necessary files
         cp -r build/regattaClock-intel.app/Contents/Resources build/regattaClock.app/Contents/
         cp -r build/regattaClock-intel.app/Contents/Info.plist build/regattaClock.app/Contents/
+        rm -rf build/regattaClock-arm.app
+        rm -rf build/regattaClock-intel.app
 
     - name: Create DMG
       run: |
-        cd cmd/regattaClock/build
+        cd build
         hdiutil create -volname "Regatta Clock" -srcfolder . -ov -format UDZO regattaClock.dmg
 
     - name: Create Release
@@ -60,7 +61,7 @@ jobs:
         draft: false
         prerelease: false
         files: |
-          cmd/regattaClock/build/regattaClock.dmg
+          build/regattaClock.dmg
 
   build-windows:
     runs-on: ubuntu-latest
@@ -80,12 +81,14 @@ jobs:
 
     - name: Build Windows executable
       run: |
-        fyne-cross windows -arch amd64 -app-id com.github.comagnaw.regattaClock ./cmd/regattaClock
-
+        fyne-cross windows -arch amd64,386 -app-id com.github.comagnaw.regattaClock ./cmd/regattaClock
+        mv fyne-cross/dist/windows-amd64/regattaClock.exe.zip fyne-cross/dist/windows-amd64/regattaClock-amd64.exe.zip
+        mv fyne-cross/dist/windows-386/regattaClock.exe.zip fyne-cross/dist/windows-386/regattaClock-386.exe.zip
     - name: Upload Windows Release Asset
       uses: softprops/action-gh-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
       with:
         files: |
-          fyne-cross/dist/windows-amd64/regattaClock.exe.zip
+          fyne-cross/dist/windows-amd64/regattaClock-amd64.exe.zip
+          fyne-cross/dist/windows-386/regattaClock-386.exe.zip
