@@ -38,7 +38,7 @@ func (a *App) startButton() *widget.Button {
 				oof:            "",
 				dq:             false,
 			})
-			a.refreshTable()
+			a.refreshContent()
 			a.raceNumber.Disable()
 			a.winningTime.Disable()
 		}
@@ -61,7 +61,7 @@ func (a *App) lapButton() *widget.Button {
 				oof:            "",
 				dq:             false,
 			})
-			a.refreshTable()
+			a.refreshContent()
 		}
 	})
 }
@@ -69,7 +69,7 @@ func (a *App) lapButton() *widget.Button {
 func (a *App) stopButton() *widget.Button {
 	return widget.NewButton("Stop", func() {
 		a.isRunning = false
-		a.refreshTable()
+		a.refreshContent()
 		a.raceNumber.Enable()
 		a.winningTime.Enable()
 	})
@@ -81,7 +81,9 @@ func (a *App) clearButton() *widget.Button {
 		a.clock.Text = "00:00:00.000"
 		a.clock.Refresh()
 		a.lapTimes = make([]lapTime, 0)
-		a.refreshTable()
+		a.winningTime.Text = ""
+		a.winningTime.Refresh()
+		a.refreshContent()
 		a.raceNumber.Enable()
 		a.winningTime.Enable()
 	})

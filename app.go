@@ -46,18 +46,16 @@ func NewApp(app fyne.App) *App {
 	regattaApp.setupRaceNumber()
 	regattaApp.setupWinningTime()
 
-	// Set up the window
-	regattaApp.window.Resize(fyne.NewSize(800, 1000))
 	regattaApp.window.SetMaster()
+	regattaApp.window.SetMainMenu(regattaApp.makeMenu())
 
-	// Set up the system tray
-	regattaApp.window.SetMainMenu(regattaApp.makeMenu())	
+	// regattaApp.setupContent()
 
-	// Set up the table and keyboard handler
-	regattaApp.setupTables()
+	// Set the window content
+	regattaApp.window.SetContent(regattaApp.setupContent())
+	regattaApp.window.Resize(fyne.NewSize(800, 1000))
 	regattaApp.setupKeyboardHandler()
 
-	// Show startup dialog to load Excel file
 	regattaApp.showStartupDialog()
 
 	return regattaApp
@@ -137,15 +135,9 @@ func (h *keyboardHandler) TypedKey(event *fyne.KeyEvent) {
 	}
 }
 
-func (a *App) setupTables() {
+func (a *App) setupContent() *fyne.Container {
 
-	// Add event handler for winning time changes
-	a.winningTime.OnChanged = func(text string) {
-		a.refreshTable()
-	}
-
-	// Create the main content container
-	mainContent := container.NewVBox(
+	return container.NewVBox(
 		container.NewCenter(a.clock),
 		container.NewCenter(a.regattaTitle),
 		container.NewCenter(a.scheduledRaces),
@@ -154,16 +146,9 @@ func (a *App) setupTables() {
 		a.inputPanel(),
 		a.lapTable(),
 	)
-
-	// Create a scroll container for the main content
-	scrollContent := container.NewScroll(mainContent)
-
-	// Set the window content
-	a.window.SetContent(scrollContent)
-	a.window.Resize(fyne.NewSize(800, 1000))
 }
 
-func (a *App) refreshTable() {
+func (a *App) refreshContent() {
 	// First pass: calculate adjusted place numbers
 	adjustedPlaces := make([]int, len(a.lapTimes))
 	placeAdjustment := 0
@@ -256,7 +241,7 @@ func (a *App) refreshTable() {
 				a.tableRows[i].dqCheck.OnChanged = func(checked bool) {
 					if !a.isRunning && row < len(a.lapTimes) {
 						a.lapTimes[row].dq = checked
-						a.refreshTable() // Refresh the entire table to update all place numbers
+						a.refreshContent() // Refresh the entire table to update all place numbers
 					}
 				}
 			}
@@ -285,7 +270,7 @@ func (a *App) setupKeyboardHandler() {
 				oof:            "",
 				dq:             false,
 			})
-			a.refreshTable()
+			a.refreshContent()
 			a.startTime = time.Now()
 			a.isRunning = true
 		},
@@ -309,7 +294,7 @@ func (a *App) setupKeyboardHandler() {
 					oof:            "",
 					dq:             false,
 				})
-				a.refreshTable()
+				a.refreshContent()
 			}
 		},
 	}

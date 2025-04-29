@@ -2,23 +2,16 @@ package regattaClock
 
 import (
 	"fmt"
-	"strings"
 	"strconv"
+	"strings"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 )
 
-func (a *App) inputPanel() *fyne.Container {
-	return container.NewHBox(
-		layout.NewSpacer(),
-		a.raceNumberInput(),
-		layout.NewSpacer(),
-		a.winningTimeInput(),
-		layout.NewSpacer(),
-	)
+func (a *App) inputPanel() *widget.Form {
+	return widget.NewForm(a.raceNumberInput(), a.winningTimeInput())
 }
 
 func (a *App) setupRaceNumber() {
@@ -34,12 +27,12 @@ func (a *App) setupRaceNumber() {
 	}
 }
 
-func (a *App) raceNumberInput() *fyne.Container {
-	return container.NewHBox(
-		widget.NewLabel("Race Number:"),
+func (a *App) raceNumberInput() *widget.FormItem {
+	item := container.NewHBox(
 		a.raceNumber,
 		a.loadRaceButton(),
 	)
+	return widget.NewFormItem("Race Number", item)
 }
 
 func (a *App) setupWinningTime() {
@@ -71,13 +64,21 @@ func (a *App) setupWinningTime() {
 		}
 		return nil
 	}
+
+	// Add event handler for winning time changes
+	a.winningTime.OnChanged = func(text string) {
+		a.refreshContent()
+	}
+
 	a.winningTime.Enable()
 	a.winningTime.TextStyle = fyne.TextStyle{Monospace: true}
 }
 
-func (a *App) winningTimeInput() *fyne.Container {
-	return container.NewHBox(
-		widget.NewLabel("Winning Time (00:00.0):"),
+func (a *App) winningTimeInput() *widget.FormItem {
+	item := widget.NewFormItem(
+		"Winning Time:",
 		a.winningTime,
 	)
+	item.HintText = zeroTime
+	return item
 }
