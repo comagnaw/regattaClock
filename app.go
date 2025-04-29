@@ -11,6 +11,7 @@ import (
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -49,12 +50,10 @@ func NewApp(app fyne.App) *App {
 	regattaApp.window.SetMaster()
 	regattaApp.window.SetMainMenu(regattaApp.makeMenu())
 
-	// regattaApp.setupContent()
-
-	// Set the window content
 	regattaApp.window.SetContent(regattaApp.setupContent())
 	regattaApp.window.Resize(fyne.NewSize(800, 1000))
-	regattaApp.setupKeyboardHandler()
+	regattaApp.window.Canvas().SetOnTypedKey(regattaApp.setupKeyboardHandler())
+	
 
 	regattaApp.showStartupDialog()
 
@@ -84,7 +83,6 @@ func (a *App) Run() {
 }
 
 func (a *App) setClock() {
-	// Create the clock display
 	a.clock = canvas.NewText("00:00:00.000", color.White)
 	a.clock.TextStyle = fyne.TextStyle{Monospace: true, Bold: true}
 	a.clock.Alignment = fyne.TextAlignCenter
@@ -112,39 +110,18 @@ func (a *App) setRaceDate() {
 	a.regattaDate.TextSize = 20
 }
 
-type keyboardHandler struct {
-	startTime *time.Time
-	isRunning *bool
-	startFunc func()
-	stopFunc  func()
-	lapFunc   func()
-}
-
-func (h *keyboardHandler) TypedKey(event *fyne.KeyEvent) {
-	switch event.Name {
-	case fyne.KeyF2:
-		if !*h.isRunning {
-			*h.startTime = time.Now()
-			*h.isRunning = true
-			h.startFunc()
-		}
-	case fyne.KeyF4:
-		if *h.isRunning {
-			h.lapFunc()
-		}
-	}
-}
-
 func (a *App) setupContent() *fyne.Container {
 
 	return container.NewVBox(
-		container.NewCenter(a.clock),
 		container.NewCenter(a.regattaTitle),
 		container.NewCenter(a.scheduledRaces),
 		container.NewCenter(a.regattaDate),
+		container.NewCenter(a.clock),
 		a.buttonPanel(),
-		a.inputPanel(),
+		layout.NewSpacer(),
 		a.lapTable(),
+		a.inputPanel(),
+		layout.NewSpacer(),
 	)
 }
 
@@ -256,50 +233,6 @@ func (a *App) refreshContent() {
 			a.tableRows[i].dqCheck.Disable()
 		}
 	}
-}
-
-func (a *App) setupKeyboardHandler() {
-	handler := &keyboardHandler{
-		startTime: &a.startTime,
-		isRunning: &a.isRunning,
-		startFunc: func() {
-			a.lapTimes = append(a.lapTimes, lapTime{
-				number:         1,
-				time:           zeroTime,
-				calculatedTime: zeroTime,
-				oof:            "",
-				dq:             false,
-			})
-			a.refreshContent()
-			a.startTime = time.Now()
-			a.isRunning = true
-		},
-		stopFunc: func() {
-			a.isRunning = false
-			a.clock.Text = "00:00:00.000"
-			a.clock.Refresh()
-		},
-		lapFunc: func() {
-			if a.isRunning {
-				elapsed := time.Since(a.startTime)
-				minutes := int(elapsed.Minutes()) % 60
-				seconds := int(elapsed.Seconds()) % 60
-				tenths := int(elapsed.Milliseconds()/100) % 10
-				formatted := fmt.Sprintf("%02d:%02d.%d", minutes, seconds, tenths)
-
-				a.lapTimes = append(a.lapTimes, lapTime{
-					number:         len(a.lapTimes) + 1,
-					time:           formatted,
-					calculatedTime: formatted,
-					oof:            "",
-					dq:             false,
-				})
-				a.refreshContent()
-			}
-		},
-	}
-
-	a.window.Canvas().SetOnTypedKey(handler.TypedKey)
 }
 
 func (a *App) showStartupDialog() {

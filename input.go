@@ -10,8 +10,12 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-func (a *App) inputPanel() *widget.Form {
-	return widget.NewForm(a.raceNumberInput(), a.winningTimeInput())
+func (a *App) inputPanel() *fyne.Container {
+	return container.NewGridWithColumns(
+		2,
+		widget.NewForm(a.raceNumberInput()),
+		widget.NewForm( a.winningTimeInput()),
+	)
 }
 
 func (a *App) setupRaceNumber() {
@@ -28,7 +32,8 @@ func (a *App) setupRaceNumber() {
 }
 
 func (a *App) raceNumberInput() *widget.FormItem {
-	item := container.NewHBox(
+	item := container.NewGridWithColumns(
+		2,
 		a.raceNumber,
 		a.loadRaceButton(),
 	)

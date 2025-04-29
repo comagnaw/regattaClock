@@ -45,8 +45,34 @@ func (a *App) startButton() *widget.Button {
 	})
 }
 
+func (a *App) startFunc() func() {
+	return func() {
+		if !a.isRunning {
+			a.startTime = time.Now()
+			a.isRunning = true
+			a.lapTimes = append(a.lapTimes, lapTime{
+				number:         1,
+				time:           zeroTime,
+				calculatedTime: zeroTime,
+				oof:            "",
+				dq:             false,
+			})
+			a.refreshContent()
+			a.raceNumber.Disable()
+			a.winningTime.Disable()	
+		}
+	}
+}
+
 func (a *App) lapButton() *widget.Button {
-	return widget.NewButton("Lap (F4)", func() {
+	return widget.NewButton(
+		"Lap (F4)",
+		a.lapFunc(),
+	)
+}
+
+func (a *App) lapFunc() func() {
+	return func() {
 		if a.isRunning {
 			elapsed := time.Since(a.startTime)
 			minutes := int(elapsed.Minutes()) % 60
@@ -63,7 +89,7 @@ func (a *App) lapButton() *widget.Button {
 			})
 			a.refreshContent()
 		}
-	})
+	}
 }
 
 func (a *App) stopButton() *widget.Button {
