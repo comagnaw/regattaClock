@@ -18,10 +18,10 @@ func (h *keyboardHandler) TypedKey(event *fyne.KeyEvent) {
 	}
 }
 
-func (a *App) setupKeyboardHandler() func(*fyne.KeyEvent){
+func (a *App) setupKeyboardHandler() func(*fyne.KeyEvent) {
 	handler := &keyboardHandler{
 		startFunc: a.startFunc(),
-		lapFunc: a.lapFunc(), 
+		lapFunc:   a.lapFunc(),
 	}
 	return handler.TypedKey
 }

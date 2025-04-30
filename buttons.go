@@ -28,32 +28,17 @@ func (a *App) buttonPanel() *fyne.Container {
 
 func (a *App) startButton() *widget.Button {
 	return widget.NewButton(
-		"Start (F2)", 
+		"Start (F2)",
 		a.startFunc(),
 	)
-		// func() {
-		// 	if !a.isRunning {
-		// 		a.startTime = time.Now()
-		// 		a.isRunning = true
-		// 		a.lapTimes = append(a.lapTimes, lapTime{
-		// 			number:         1,
-		// 			time:           zeroTime,
-		// 			calculatedTime: zeroTime,
-		// 			oof:            "",
-		// 			dq:             false,
-		// 		})
-		// 		a.refreshContent()
-		// 		a.raceNumber.Disable()
-		// 		a.winningTime.Disable()
-		// 	}
-		// })
 }
 
 func (a *App) startFunc() func() {
 	return func() {
-		if !a.isRunning {
+		if !a.isRunning && a.isCleared {
 			a.startTime = time.Now()
 			a.isRunning = true
+			a.isCleared = false
 			a.lapTimes = append(a.lapTimes, lapTime{
 				number:         1,
 				time:           zeroTime,
@@ -63,7 +48,7 @@ func (a *App) startFunc() func() {
 			})
 			a.refreshContent()
 			a.raceNumber.Disable()
-			a.winningTime.Disable()	
+			a.winningTime.Disable()
 		}
 	}
 }
@@ -107,15 +92,18 @@ func (a *App) stopButton() *widget.Button {
 
 func (a *App) clearButton() *widget.Button {
 	return widget.NewButton("Clear", func() {
-		a.isRunning = false
-		a.clock.Text = "00:00:00.000"
-		a.clock.Refresh()
-		a.lapTimes = make([]lapTime, 0)
-		a.winningTime.Text = ""
-		a.winningTime.Refresh()
-		a.refreshContent()
-		a.raceNumber.Enable()
-		a.winningTime.Enable()
+		if !a.isRunning {
+			a.isRunning = false
+			a.clock.Text = "00:00:00.000"
+			a.clock.Refresh()
+			a.lapTimes = make([]lapTime, 0)
+			a.winningTime.Text = ""
+			a.winningTime.Refresh()
+			a.refreshContent()
+			a.raceNumber.Enable()
+			a.winningTime.Enable()
+			a.isCleared = true
+		}
 	})
 }
 

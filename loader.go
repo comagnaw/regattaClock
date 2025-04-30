@@ -1,10 +1,10 @@
 package regattaClock
+
 import (
 	"fmt"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/dialog"
-
 )
 
 func (a *App) loadExcel(fromStartup bool) {

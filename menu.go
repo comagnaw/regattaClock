@@ -1,9 +1,7 @@
 package regattaClock
 
 import (
-
 	"fyne.io/fyne/v2"
-
 )
 
 func (a *App) makeMenu() *fyne.MainMenu {

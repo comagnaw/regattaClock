@@ -14,7 +14,7 @@ func (a *App) inputPanel() *fyne.Container {
 	return container.NewGridWithColumns(
 		2,
 		widget.NewForm(a.raceNumberInput()),
-		widget.NewForm( a.winningTimeInput()),
+		widget.NewForm(a.winningTimeInput()),
 	)
 }
 

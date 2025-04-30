@@ -26,6 +26,7 @@ type App struct {
 	tableRows      []LapTableRow
 	lapTimes       []lapTime
 	isRunning      bool
+	isCleared      bool
 	startTime      time.Time
 	raceNumber     *widget.Entry
 	winningTime    *widget.Entry
@@ -33,12 +34,13 @@ type App struct {
 }
 
 func NewApp(app fyne.App) *App {
-	
+
 	regattaApp := &App{
 		window:    app.NewWindow("Regatta Clock"),
 		app:       app,
 		lapTimes:  make([]lapTime, 0),
 		isRunning: false,
+		isCleared: true,
 	}
 
 	regattaApp.initAppData()
@@ -48,7 +50,7 @@ func NewApp(app fyne.App) *App {
 	regattaApp.window.SetContent(regattaApp.setupContent())
 	regattaApp.window.Resize(fyne.NewSize(800, 1000))
 	regattaApp.window.Canvas().SetOnTypedKey(regattaApp.setupKeyboardHandler())
-	
+
 	regattaApp.setupStartupDialog()
 
 	return regattaApp
@@ -264,8 +266,6 @@ func (a *App) refreshContent() {
 	}
 }
 
-
-
 // parseTime parses a time string in format "00:00.0" or "00:00:00.000" to time.Duration
 func parseTime(timeStr string) (time.Duration, error) {
 	if timeStr == "" {
@@ -342,17 +342,4 @@ func formatTime(d time.Duration) string {
 	seconds := int(d.Seconds()) % 60
 	tenths := int(d.Milliseconds()/100) % 10
 	return fmt.Sprintf("%02d:%02d.%d", minutes, seconds, tenths)
-}
-
-type Race struct {
-	RaceNumber int
-	Lanes      map[int]LaneEntry
-}
-
-type LaneEntry struct {
-	SchoolName     string
-	AdditionalInfo string
-	Place          string
-	Split          string
-	Time           string
 }
