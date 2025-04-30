@@ -27,22 +27,26 @@ func (a *App) buttonPanel() *fyne.Container {
 }
 
 func (a *App) startButton() *widget.Button {
-	return widget.NewButton("Start (F2)", func() {
-		if !a.isRunning {
-			a.startTime = time.Now()
-			a.isRunning = true
-			a.lapTimes = append(a.lapTimes, lapTime{
-				number:         1,
-				time:           zeroTime,
-				calculatedTime: zeroTime,
-				oof:            "",
-				dq:             false,
-			})
-			a.refreshContent()
-			a.raceNumber.Disable()
-			a.winningTime.Disable()
-		}
-	})
+	return widget.NewButton(
+		"Start (F2)", 
+		a.startFunc(),
+	)
+		// func() {
+		// 	if !a.isRunning {
+		// 		a.startTime = time.Now()
+		// 		a.isRunning = true
+		// 		a.lapTimes = append(a.lapTimes, lapTime{
+		// 			number:         1,
+		// 			time:           zeroTime,
+		// 			calculatedTime: zeroTime,
+		// 			oof:            "",
+		// 			dq:             false,
+		// 		})
+		// 		a.refreshContent()
+		// 		a.raceNumber.Disable()
+		// 		a.winningTime.Disable()
+		// 	}
+		// })
 }
 
 func (a *App) startFunc() func() {

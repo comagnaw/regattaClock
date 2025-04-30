@@ -33,6 +33,7 @@ type App struct {
 }
 
 func NewApp(app fyne.App) *App {
+	
 	regattaApp := &App{
 		window:    app.NewWindow("Regatta Clock"),
 		app:       app,
@@ -40,22 +41,15 @@ func NewApp(app fyne.App) *App {
 		isRunning: false,
 	}
 
-	regattaApp.setClock()
-	regattaApp.setTitle()
-	regattaApp.setScheduledRaces()
-	regattaApp.setRaceDate()
-	regattaApp.setupRaceNumber()
-	regattaApp.setupWinningTime()
+	regattaApp.initAppData()
 
 	regattaApp.window.SetMaster()
 	regattaApp.window.SetMainMenu(regattaApp.makeMenu())
-
 	regattaApp.window.SetContent(regattaApp.setupContent())
 	regattaApp.window.Resize(fyne.NewSize(800, 1000))
 	regattaApp.window.Canvas().SetOnTypedKey(regattaApp.setupKeyboardHandler())
 	
-
-	regattaApp.showStartupDialog()
+	regattaApp.setupStartupDialog()
 
 	return regattaApp
 }
@@ -80,6 +74,15 @@ func (a *App) Run() {
 		}
 	}()
 	a.window.ShowAndRun()
+}
+
+func (a *App) initAppData() {
+	a.setClock()
+	a.setTitle()
+	a.setScheduledRaces()
+	a.setRaceDate()
+	a.setupRaceNumber()
+	a.setupWinningTime()
 }
 
 func (a *App) setClock() {
@@ -122,6 +125,32 @@ func (a *App) setupContent() *fyne.Container {
 		a.lapTable(),
 		a.inputPanel(),
 		layout.NewSpacer(),
+	)
+}
+
+func (a *App) setupStartupDialog() {
+	// Create a custom dialog
+	dialog.ShowCustomConfirm(
+		"Load Regatta Data",
+		"Load",
+		"Cancel",
+		container.NewVBox(
+			widget.NewLabel("Welcome to Regatta Clock!"),
+			widget.NewLabel("Please load your regatta Excel file to begin."),
+			widget.NewLabel("You can also load it later from the menu."),
+		),
+		func(load bool) {
+			if load {
+				a.loadExcel(true)
+			} else {
+				dialog.ShowInformation(
+					"Load Later",
+					"You can load the Excel file later by selecting 'Import Regatta Table' from the menu.",
+					a.window,
+				)
+			}
+		},
+		a.window,
 	)
 }
 
@@ -235,31 +264,7 @@ func (a *App) refreshContent() {
 	}
 }
 
-func (a *App) showStartupDialog() {
-	// Create a custom dialog
-	dialog.ShowCustomConfirm(
-		"Load Regatta Data",
-		"Load",
-		"Cancel",
-		container.NewVBox(
-			widget.NewLabel("Welcome to Regatta Clock!"),
-			widget.NewLabel("Please load your regatta Excel file to begin."),
-			widget.NewLabel("You can also load it later from the menu."),
-		),
-		func(load bool) {
-			if load {
-				a.loadExcel(true)
-			} else {
-				dialog.ShowInformation(
-					"Load Later",
-					"You can load the Excel file later by selecting 'Import Regatta Table' from the menu.",
-					a.window,
-				)
-			}
-		},
-		a.window,
-	)
-}
+
 
 // parseTime parses a time string in format "00:00.0" or "00:00:00.000" to time.Duration
 func parseTime(timeStr string) (time.Duration, error) {
