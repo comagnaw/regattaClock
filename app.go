@@ -11,7 +11,6 @@ import (
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
-	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -89,7 +88,7 @@ func (a *App) initAppData() {
 }
 
 func (a *App) setClock() {
-	a.clock = canvas.NewText("00:00.000", color.White)
+	a.clock = canvas.NewText(zeroTimeFullMilli, color.White)
 	a.clock.TextStyle = fyne.TextStyle{Monospace: true, Bold: true}
 	a.clock.Alignment = fyne.TextAlignCenter
 	a.clock.TextSize = 48
@@ -350,5 +349,5 @@ func formatTime(d time.Duration) string {
 	minutes := int(d.Minutes()) % 60
 	seconds := int(d.Seconds()) % 60
 	tenths := int(d.Milliseconds()/100) % 10
-	return fmt.Sprintf("%02d:%02d.%03d", minutes, seconds, tenths)
+	return fmt.Sprintf("%02d:%02d.%d", minutes, seconds, tenths)
 }

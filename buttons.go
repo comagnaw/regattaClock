@@ -94,7 +94,7 @@ func (a *App) clearButton() *widget.Button {
 	return widget.NewButton("Clear", func() {
 		if !a.isRunning {
 			a.isRunning = false
-			a.clock.Text = "00:00.000"
+			a.clock.Text = zeroTimeFullMilli
 			a.clock.Refresh()
 			a.lapTimes = make([]lapTime, 0)
 			a.winningTime.Text = emptyString
