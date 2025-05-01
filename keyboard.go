@@ -9,11 +9,8 @@ import (
 // 	return &desktop.CustomShortcut{
 // 		KeyName:  fyne.Key2,
 // 		Modifier: fyne.KeyModifierShortcutDefault,
-// 	}	
+// 	}
 // }
-
-
-
 
 type keyboardHandler struct {
 	startFunc func()

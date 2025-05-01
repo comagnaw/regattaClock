@@ -11,6 +11,7 @@ import (
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -123,25 +124,18 @@ func (a *App) setupContent() *fyne.Container {
 		container.NewCenter(a.regattaDate),
 	)
 
+	middleContent := container.NewVBox(
+		container.NewCenter(a.clock),
+		a.buttonPanel(),
+		a.lapTable(),
+		a.inputPanel(),
+	)
 
-
-	// middleContent := container.NewHSplit(
-	middleContent :=	container.NewVBox(
-			container.NewCenter(a.clock),
-				a.buttonPanel(),
-				a.lapTable(),
-				a.inputPanel(),
-			)
-			
-		// )
-	// middleContent.Offset = 0.8
-		
 	bottomContent := container.NewGridWrap(
 		fyne.Size{Width: 800, Height: 80},
 		a.newTable(),
 	)
-		
-	
+
 	return container.NewVBox(topContent, middleContent, bottomContent)
 }
 

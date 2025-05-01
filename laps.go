@@ -67,7 +67,7 @@ func (a *App) lapHeader() *fyne.Container {
 }
 
 func (a *App) lapTable() *fyne.Container {
-	
+
 	tablesContainer := container.NewVBox()
 	tablesContainer.Add(a.lapHeader())
 
