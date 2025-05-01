@@ -11,7 +11,6 @@ import (
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
-	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -117,17 +116,31 @@ func (a *App) setRaceDate() {
 
 func (a *App) setupContent() *fyne.Container {
 
-	return container.NewVBox(
+	topContent := container.NewVBox(
 		container.NewCenter(a.regattaTitle),
 		container.NewCenter(a.scheduledRaces),
 		container.NewCenter(a.regattaDate),
-		container.NewCenter(a.clock),
-		a.buttonPanel(),
-		layout.NewSpacer(),
-		a.lapTable(),
-		a.inputPanel(),
-		layout.NewSpacer(),
 	)
+
+
+
+	middleContent := container.NewHSplit(
+		container.NewVBox(
+			container.NewCenter(a.clock),
+				a.buttonPanel(),
+				a.lapTable(),
+			),
+			a.inputPanel(),
+		)
+	middleContent.Offset = 0.8
+		
+	bottomContent := container.NewGridWrap(
+		fyne.Size{Width: 800, Height: 80},
+		a.newTable(),
+	)
+		
+	
+	return container.NewVBox(topContent, middleContent, bottomContent)
 }
 
 func (a *App) setupStartupDialog() {

@@ -22,24 +22,43 @@ type LapTableRow struct {
 	dqCheck    *widget.Check
 }
 
-// LapTableData represents a row in the lap table
-type LapTableData struct {
-	OOF   string `table:"OOF"`
-	DQ    bool   `table:"DQ"`
-	Place string `table:"Place"`
-	Split string `table:"Split"`
-	Time  string `table:"Time"`
+var data = [][]string{[]string{"top left", "top right"},
+	[]string{"bottom left", "bottom right"}}
+
+func (a *App) newTable() *fyne.Container {
+	list := widget.NewTable(
+		func() (int, int) {
+			return len(data), len(data[0])
+		},
+		func() fyne.CanvasObject {
+			return widget.NewLabel("wide content")
+		},
+		func(i widget.TableCellID, o fyne.CanvasObject) {
+			o.(*widget.Label).SetText(data[i.Row][i.Col])
+		})
+	return container.NewStack(list)
 }
 
 func (a *App) lapTable() *fyne.Container {
 	// Create a container for both tables with proper spacing
 	tablesContainer := container.NewVBox()
 
+	oof := widget.NewLabelWithStyle("OOF", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+	oof.Resize(fyne.NewSize(80,30))
+
+	dq := widget.NewLabelWithStyle("DQ", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+	dq.Resize(fyne.NewSize(30,30))
+
+	place := widget.NewLabelWithStyle("Place", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+	place.Resize(fyne.NewSize(80,30))
 	// Create lap table header
 	lapHeader := container.NewHBox(
-		widget.NewLabelWithStyle("OOF", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-		widget.NewLabelWithStyle("DQ", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-		widget.NewLabelWithStyle("Place", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+		oof,
+		dq,
+		place,
+		// widget.NewLabelWithStyle("OOF", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+		// widget.NewLabelWithStyle("DQ", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+		// widget.NewLabelWithStyle("Place", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 		widget.NewLabelWithStyle("Split", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 		widget.NewLabelWithStyle("Time", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 	)
