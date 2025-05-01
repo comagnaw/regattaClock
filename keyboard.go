@@ -2,7 +2,18 @@ package regattaClock
 
 import (
 	"fyne.io/fyne/v2"
+	// "fyne.io/fyne/v2/driver/desktop"
 )
+
+// func blah() fyne.Shortcut {
+// 	return &desktop.CustomShortcut{
+// 		KeyName:  fyne.Key2,
+// 		Modifier: fyne.KeyModifierShortcutDefault,
+// 	}	
+// }
+
+
+
 
 type keyboardHandler struct {
 	startFunc func()

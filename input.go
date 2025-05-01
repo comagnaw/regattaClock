@@ -46,7 +46,7 @@ func (a *App) raceNumberInput() *widget.FormItem {
 func (a *App) setupWinningTime() {
 	a.winningTime = widget.NewEntry()
 	a.winningTime.Validator = func(s string) error {
-		if s == "" {
+		if s == emptyString {
 			return nil
 		}
 		// Validate format 00:00.0

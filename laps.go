@@ -17,7 +17,7 @@ type lapTime struct {
 type LapTableRow struct {
 	oofEntry   *widget.Entry
 	placeLabel *widget.Label
-	splitLabel *widget.Label
+	splitLabel *widget.Entry
 	timeLabel  *widget.Label
 	dqCheck    *widget.Check
 }
@@ -39,53 +39,49 @@ func (a *App) newTable() *fyne.Container {
 	return container.NewStack(list)
 }
 
+func (a *App) lapHeader() *fyne.Container {
+	header := container.NewGridWithColumns(5)
+
+	oofHeader := widget.NewLabel("OOF")
+	oofHeader.TextStyle = fyne.TextStyle{Bold: true}
+
+	dqHeader := widget.NewLabel("DQ")
+	dqHeader.TextStyle = fyne.TextStyle{Bold: true}
+
+	placeHeader := widget.NewLabel("Place")
+	placeHeader.TextStyle = fyne.TextStyle{Bold: true}
+
+	splitHeader := widget.NewLabel("Split")
+	splitHeader.TextStyle = fyne.TextStyle{Bold: true}
+
+	timeHeader := widget.NewLabel("Time")
+	timeHeader.TextStyle = fyne.TextStyle{Bold: true}
+
+	header.Add(oofHeader)
+	header.Add(dqHeader)
+	header.Add(placeHeader)
+	header.Add(splitHeader)
+	header.Add(timeHeader)
+
+	return header
+}
+
 func (a *App) lapTable() *fyne.Container {
-	// Create a container for both tables with proper spacing
+	
 	tablesContainer := container.NewVBox()
+	tablesContainer.Add(a.lapHeader())
 
-	oof := widget.NewLabelWithStyle("OOF", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
-	oof.Resize(fyne.NewSize(80,30))
-
-	dq := widget.NewLabelWithStyle("DQ", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
-	dq.Resize(fyne.NewSize(30,30))
-
-	place := widget.NewLabelWithStyle("Place", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
-	place.Resize(fyne.NewSize(80,30))
-	// Create lap table header
-	lapHeader := container.NewHBox(
-		oof,
-		dq,
-		place,
-		// widget.NewLabelWithStyle("OOF", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-		// widget.NewLabelWithStyle("DQ", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-		// widget.NewLabelWithStyle("Place", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-		widget.NewLabelWithStyle("Split", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-		widget.NewLabelWithStyle("Time", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-	)
-	lapHeader.Resize(fyne.NewSize(800, 30))
-
-	tablesContainer.Add(lapHeader)
-
-	// Initialize tableRows
 	a.tableRows = make([]LapTableRow, 6)
 	for i := 0; i < 6; i++ {
-		row := container.NewHBox()
+
+		row := container.NewGridWithColumns(5)
 
 		// Create widgets for each column
 		oofEntry := widget.NewEntry()
-		oofEntry.Resize(fyne.NewSize(80, 30))
-
-		dqCheck := widget.NewCheck("", nil)
-		dqCheck.Resize(fyne.NewSize(30, 30))
-
+		dqCheck := widget.NewCheck(emptyString, nil)
 		placeLabel := widget.NewLabel("")
-		placeLabel.Resize(fyne.NewSize(80, 30))
-
-		splitLabel := widget.NewLabel("")
-		splitLabel.Resize(fyne.NewSize(280, 30))
-
+		splitLabel := widget.NewEntry()
 		timeLabel := widget.NewLabel("")
-		timeLabel.Resize(fyne.NewSize(280, 30))
 
 		// Add widgets to row
 		row.Add(oofEntry)

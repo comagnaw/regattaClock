@@ -43,7 +43,7 @@ func (a *App) startFunc() func() {
 				number:         1,
 				time:           zeroTime,
 				calculatedTime: zeroTime,
-				oof:            "",
+				oof:            emptyString,
 				dq:             false,
 			})
 			a.refreshContent()
@@ -73,7 +73,7 @@ func (a *App) lapFunc() func() {
 				number:         len(a.lapTimes) + 1,
 				time:           formatted,
 				calculatedTime: formatted,
-				oof:            "",
+				oof:            emptyString,
 				dq:             false,
 			})
 			a.refreshContent()
@@ -94,10 +94,10 @@ func (a *App) clearButton() *widget.Button {
 	return widget.NewButton("Clear", func() {
 		if !a.isRunning {
 			a.isRunning = false
-			a.clock.Text = "00:00:00.000"
+			a.clock.Text = "00:00.000"
 			a.clock.Refresh()
 			a.lapTimes = make([]lapTime, 0)
-			a.winningTime.Text = ""
+			a.winningTime.Text = emptyString
 			a.winningTime.Refresh()
 			a.refreshContent()
 			a.raceNumber.Enable()

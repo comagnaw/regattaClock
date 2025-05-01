@@ -42,7 +42,7 @@ func ReadExcelFile(filePath string) (*RegattaData, error) {
 
 	// Get the first sheet name
 	sheetName := f.GetSheetName(0)
-	if sheetName == "" {
+	if sheetName == emptyString {
 		return nil, fmt.Errorf("no sheets found in Excel file")
 	}
 
@@ -121,7 +121,7 @@ func ReadExcelFile(filePath string) (*RegattaData, error) {
 						}
 
 						// Only add the lane if it has a school name or additional info
-						if entry.SchoolName != "" || entry.AdditionalInfo != "" {
+						if entry.SchoolName != emptyString || entry.AdditionalInfo != emptyString {
 							race.Lanes[lane] = entry
 						}
 					}

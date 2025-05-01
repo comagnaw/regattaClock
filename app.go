@@ -48,6 +48,7 @@ func NewApp(app fyne.App) *App {
 	regattaApp.window.SetMainMenu(regattaApp.makeMenu())
 	regattaApp.window.SetContent(regattaApp.setupContent())
 	regattaApp.window.Resize(fyne.NewSize(800, 1000))
+	// regattaApp.window.Canvas().AddShortcut(blah(), func(sc fyne.Shortcut){regattaApp.startFunc()})
 	regattaApp.window.Canvas().SetOnTypedKey(regattaApp.setupKeyboardHandler())
 
 	regattaApp.setupStartupDialog()
@@ -60,11 +61,11 @@ func (a *App) Run() {
 		for range time.Tick(time.Millisecond) {
 			if a.isRunning {
 				elapsed := time.Since(a.startTime)
-				hours := int(elapsed.Hours())
+				// hours := int(elapsed.Hours())
 				minutes := int(elapsed.Minutes()) % 60
 				seconds := int(elapsed.Seconds()) % 60
 				milliseconds := int(elapsed.Milliseconds()) % 1000
-				formatted := time.Date(0, 0, 0, hours, minutes, seconds, milliseconds*1000000, time.UTC).Format("15:04:05.000")
+				formatted := time.Date(0, 0, 0, 0, minutes, seconds, milliseconds*1000000, time.UTC).Format("04:05.000")
 
 				// Use fyne.Do to update UI on the main thread
 				fyne.Do(func() {
@@ -87,28 +88,28 @@ func (a *App) initAppData() {
 }
 
 func (a *App) setClock() {
-	a.clock = canvas.NewText("00:00:00.000", color.White)
+	a.clock = canvas.NewText("00:00.000", color.White)
 	a.clock.TextStyle = fyne.TextStyle{Monospace: true, Bold: true}
 	a.clock.Alignment = fyne.TextAlignCenter
 	a.clock.TextSize = 48
 }
 
 func (a *App) setTitle() {
-	a.regattaTitle = canvas.NewText("", color.White)
+	a.regattaTitle = canvas.NewText(emptyString, color.White)
 	a.regattaTitle.TextStyle = fyne.TextStyle{Bold: true}
 	a.regattaTitle.Alignment = fyne.TextAlignCenter
 	a.regattaTitle.TextSize = 24
 }
 
 func (a *App) setScheduledRaces() {
-	a.scheduledRaces = canvas.NewText("", color.White)
+	a.scheduledRaces = canvas.NewText(emptyString, color.White)
 	a.scheduledRaces.TextStyle = fyne.TextStyle{Bold: true}
 	a.scheduledRaces.Alignment = fyne.TextAlignCenter
 	a.scheduledRaces.TextSize = 20
 }
 
 func (a *App) setRaceDate() {
-	a.regattaDate = canvas.NewText("", color.White)
+	a.regattaDate = canvas.NewText(emptyString, color.White)
 	a.regattaDate.TextStyle = fyne.TextStyle{Bold: true}
 	a.regattaDate.Alignment = fyne.TextAlignCenter
 	a.regattaDate.TextSize = 20
@@ -184,7 +185,7 @@ func (a *App) refreshContent() {
 
 	// Calculate time adjustments if winning time is set
 	var timeAdjustment time.Duration
-	if a.winningTime.Text != "" {
+	if a.winningTime.Text != emptyString {
 		winningTime, err := parseTime(a.winningTime.Text)
 		if err == nil && len(a.lapTimes) > 0 {
 			// Calculate the adjustment based on the first lap time
@@ -219,7 +220,7 @@ func (a *App) refreshContent() {
 						// Move focus to next row's OOF entry if it exists
 						if row+1 < len(a.tableRows) && row+1 < len(a.lapTimes) {
 							// Clear any existing text in the next entry
-							a.tableRows[row+1].oofEntry.SetText("")
+							a.tableRows[row+1].oofEntry.SetText(emptyString)
 							// Move focus to the next entry
 							a.window.Canvas().Focus(a.tableRows[row+1].oofEntry)
 						}
@@ -232,8 +233,8 @@ func (a *App) refreshContent() {
 			// Set Place label
 			if a.lapTimes[i].dq {
 				a.tableRows[i].placeLabel.SetText("DQ")
-				a.tableRows[i].splitLabel.SetText("")
-				a.tableRows[i].timeLabel.SetText("")
+				a.tableRows[i].splitLabel.SetText(emptyString)
+				a.tableRows[i].timeLabel.SetText(emptyString)
 			} else {
 				a.tableRows[i].placeLabel.SetText(fmt.Sprintf("%d", adjustedPlaces[i]))
 				a.tableRows[i].splitLabel.SetText(a.lapTimes[i].time)
@@ -268,11 +269,11 @@ func (a *App) refreshContent() {
 			}
 		} else {
 			// Clear row
-			a.tableRows[i].oofEntry.SetText("")
+			a.tableRows[i].oofEntry.SetText(emptyString)
 			a.tableRows[i].oofEntry.Disable()
-			a.tableRows[i].placeLabel.SetText("")
-			a.tableRows[i].splitLabel.SetText("")
-			a.tableRows[i].timeLabel.SetText("")
+			a.tableRows[i].placeLabel.SetText(emptyString)
+			a.tableRows[i].splitLabel.SetText(emptyString)
+			a.tableRows[i].timeLabel.SetText(emptyString)
 			a.tableRows[i].dqCheck.Checked = false
 			a.tableRows[i].dqCheck.Disable()
 		}
@@ -281,7 +282,7 @@ func (a *App) refreshContent() {
 
 // parseTime parses a time string in format "00:00.0" or "00:00:00.000" to time.Duration
 func parseTime(timeStr string) (time.Duration, error) {
-	if timeStr == "" {
+	if timeStr == emptyString {
 		return 0, nil
 	}
 
@@ -354,5 +355,5 @@ func formatTime(d time.Duration) string {
 	minutes := int(d.Minutes()) % 60
 	seconds := int(d.Seconds()) % 60
 	tenths := int(d.Milliseconds()/100) % 10
-	return fmt.Sprintf("%02d:%02d.%d", minutes, seconds, tenths)
+	return fmt.Sprintf("%02d:%02d.%03d", minutes, seconds, tenths)
 }
