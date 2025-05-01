@@ -12,7 +12,7 @@ import (
 )
 
 func (a *App) inputPanel() *fyne.Container {
-	return container.NewVBox(
+	return container.NewHBox(
 		layout.NewSpacer(),
 		widget.NewForm(a.raceNumberInput()),
 		layout.NewSpacer(),

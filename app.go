@@ -125,15 +125,16 @@ func (a *App) setupContent() *fyne.Container {
 
 
 
-	middleContent := container.NewHSplit(
-		container.NewVBox(
+	// middleContent := container.NewHSplit(
+	middleContent :=	container.NewVBox(
 			container.NewCenter(a.clock),
 				a.buttonPanel(),
 				a.lapTable(),
-			),
-			a.inputPanel(),
-		)
-	middleContent.Offset = 0.8
+				a.inputPanel(),
+			)
+			
+		// )
+	// middleContent.Offset = 0.8
 		
 	bottomContent := container.NewGridWrap(
 		fyne.Size{Width: 800, Height: 80},
