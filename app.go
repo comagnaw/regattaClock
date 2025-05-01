@@ -227,11 +227,33 @@ func (a *App) refreshContent() {
 			// Set Place label
 			if a.lapTimes[i].dq {
 				a.tableRows[i].placeLabel.SetText("DQ")
-				a.tableRows[i].splitLabel.SetText(emptyString)
+				a.tableRows[i].splitEntry.SetText(emptyString)
 				a.tableRows[i].timeLabel.SetText(emptyString)
 			} else {
 				a.tableRows[i].placeLabel.SetText(fmt.Sprintf("%d", adjustedPlaces[i]))
-				a.tableRows[i].splitLabel.SetText(a.lapTimes[i].time)
+				a.tableRows[i].splitEntry.SetText(a.lapTimes[i].time)
+
+				// Set up the OnChanged handler for split time editing
+				if !a.isRunning {
+					row := i // Capture the row index
+					a.tableRows[i].splitEntry.OnChanged = func(text string) {
+						if !a.isRunning && row < len(a.lapTimes) {
+							// Update the lap time
+							a.lapTimes[row].time = text
+
+							// Calculate and update the time label
+							lapTime, err := parseTime(text)
+							if err == nil {
+								if timeAdjustment != 0 {
+									adjustedTime := lapTime + timeAdjustment
+									a.tableRows[row].timeLabel.SetText(formatTime(adjustedTime))
+								} else {
+									a.tableRows[row].timeLabel.SetText(formatTime(lapTime))
+								}
+							}
+						}
+					}
+				}
 
 				// Calculate and set the adjusted time
 				if timeAdjustment != 0 {
@@ -266,7 +288,7 @@ func (a *App) refreshContent() {
 			a.tableRows[i].oofEntry.SetText(emptyString)
 			a.tableRows[i].oofEntry.Disable()
 			a.tableRows[i].placeLabel.SetText(emptyString)
-			a.tableRows[i].splitLabel.SetText(emptyString)
+			a.tableRows[i].splitEntry.SetText(emptyString)
 			a.tableRows[i].timeLabel.SetText(emptyString)
 			a.tableRows[i].dqCheck.Checked = false
 			a.tableRows[i].dqCheck.Disable()

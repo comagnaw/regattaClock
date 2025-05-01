@@ -7,17 +7,14 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 )
 
 func (a *App) inputPanel() *fyne.Container {
-	return container.NewHBox(
-		layout.NewSpacer(),
+	return container.NewGridWithColumns(
+		2,
 		widget.NewForm(a.raceNumberInput()),
-		layout.NewSpacer(),
 		widget.NewForm(a.winningTimeInput()),
-		layout.NewSpacer(),
 	)
 }
 

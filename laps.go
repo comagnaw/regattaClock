@@ -17,7 +17,7 @@ type lapTime struct {
 type LapTableRow struct {
 	oofEntry   *widget.Entry
 	placeLabel *widget.Label
-	splitLabel *widget.Entry
+	splitEntry *widget.Entry
 	timeLabel  *widget.Label
 	dqCheck    *widget.Check
 }
@@ -79,22 +79,22 @@ func (a *App) lapTable() *fyne.Container {
 		// Create widgets for each column
 		oofEntry := widget.NewEntry()
 		dqCheck := widget.NewCheck(emptyString, nil)
-		placeLabel := widget.NewLabel("")
-		splitLabel := widget.NewEntry()
-		timeLabel := widget.NewLabel("")
+		placeLabel := widget.NewLabel(emptyString)
+		splitEntry := widget.NewEntry()
+		timeLabel := widget.NewLabel(emptyString)
 
 		// Add widgets to row
 		row.Add(oofEntry)
 		row.Add(dqCheck)
 		row.Add(placeLabel)
-		row.Add(splitLabel)
+		row.Add(splitEntry)
 		row.Add(timeLabel)
 
 		// Store the widgets
 		a.tableRows[i] = LapTableRow{
 			oofEntry:   oofEntry,
 			placeLabel: placeLabel,
-			splitLabel: splitLabel,
+			splitEntry: splitEntry,
 			timeLabel:  timeLabel,
 			dqCheck:    dqCheck,
 		}
