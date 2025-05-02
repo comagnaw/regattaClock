@@ -3,6 +3,7 @@ package regattaClock
 import (
 	"fmt"
 	"image/color"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -25,32 +27,36 @@ type App struct {
 	tableRows      []LapTableRow
 	resultsTable   [][]string
 	lapTimes       []lapTime
-	isRunning      bool
-	isCleared      bool
-	startTime      time.Time
 	raceNumber     *widget.Entry
 	winningTime    *widget.Entry
 	regattaData    *RegattaData
+	clockState     *clockState
+}
+
+type clockState struct {
+	isRunning bool
+	isCleared bool
+	startTime time.Time
+	stopChan  chan struct{}
 }
 
 func NewApp(app fyne.App) *App {
-
 	regattaApp := &App{
-		window:    app.NewWindow("Regatta Clock"),
-		app:       app,
-		lapTimes:  make([]lapTime, 0),
-		isRunning: false,
-		isCleared: true,
+		window:   app.NewWindow("Regatta Clock"),
+		app:      app,
+		lapTimes: make([]lapTime, 0),
+		clockState: &clockState{
+			isRunning: false,
+			isCleared: true,
+			stopChan:  make(chan struct{}),
+		},
 	}
 
 	regattaApp.initAppData()
 
 	regattaApp.window.SetMaster()
 	regattaApp.window.SetMainMenu(regattaApp.makeMenu())
-	regattaApp.window.SetContent(regattaApp.setupContent())
-	regattaApp.window.Resize(fyne.NewSize(1240, 800))
-	// regattaApp.window.Canvas().AddShortcut(blah(), func(sc fyne.Shortcut){regattaApp.startFunc()})
-	regattaApp.window.Canvas().SetOnTypedKey(regattaApp.setupKeyboardHandler())
+	regattaApp.window.Resize(fyne.NewSize(800, 600))
 
 	regattaApp.setupStartupDialog()
 
@@ -58,25 +64,37 @@ func NewApp(app fyne.App) *App {
 }
 
 func (a *App) Run() {
-	go func() {
-		for range time.Tick(time.Millisecond) {
-			if a.isRunning {
-				elapsed := time.Since(a.startTime)
-				// hours := int(elapsed.Hours())
+	// Start the clock update goroutine for the main window
+	go a.startClockUpdate()
+	a.window.ShowAndRun()
+}
+
+func (a *App) startClockUpdate() {
+	ticker := time.NewTicker(100 * time.Millisecond) // Update every 0.1 seconds
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			if a.clockState.isRunning {
+				elapsed := time.Since(a.clockState.startTime)
 				minutes := int(elapsed.Minutes()) % 60
 				seconds := int(elapsed.Seconds()) % 60
-				milliseconds := int(elapsed.Milliseconds()) % 1000
-				formatted := time.Date(0, 0, 0, 0, minutes, seconds, milliseconds*1000000, time.UTC).Format("04:05.000")
+				tenths := int(elapsed.Milliseconds()/100) % 10
+				formatted := fmt.Sprintf("%02d:%02d.%d", minutes, seconds, tenths)
 
 				// Use fyne.Do to update UI on the main thread
 				fyne.Do(func() {
-					a.clock.Text = formatted
-					a.clock.Refresh()
+					if a.clock != nil { // Add nil check for safety
+						a.clock.Text = formatted
+						a.clock.Refresh()
+					}
 				})
 			}
+		case <-a.clockState.stopChan:
+			return
 		}
-	}()
-	a.window.ShowAndRun()
+	}
 }
 
 func (a *App) initAppData() {
@@ -84,12 +102,11 @@ func (a *App) initAppData() {
 	a.setTitle()
 	a.setScheduledRaces()
 	a.setRaceDate()
-	a.setupRaceNumber()
 	a.setupWinningTime()
 }
 
 func (a *App) setClock() {
-	a.clock = canvas.NewText(zeroTimeFullMilli, color.White)
+	a.clock = canvas.NewText(zeroTime, color.White)
 	a.clock.TextStyle = fyne.TextStyle{Monospace: true, Bold: true}
 	a.clock.Alignment = fyne.TextAlignCenter
 	a.clock.TextSize = 48
@@ -117,18 +134,11 @@ func (a *App) setRaceDate() {
 }
 
 func (a *App) setupContent() *fyne.Container {
-
-	topContent := container.NewVBox(
-		container.NewCenter(a.regattaTitle),
-		container.NewCenter(a.scheduledRaces),
-		container.NewCenter(a.regattaDate),
-	)
-
 	middleContent := container.NewVBox(
 		container.NewCenter(a.clock),
 		a.buttonPanel(),
 		a.lapTable(),
-		a.inputPanel(),
+		widget.NewForm(a.winningTimeInput()),
 	)
 
 	bottomContent := container.NewGridWrap(
@@ -136,7 +146,7 @@ func (a *App) setupContent() *fyne.Container {
 		a.raceResults(),
 	)
 
-	return container.NewVBox(topContent, middleContent, bottomContent)
+	return container.NewVBox(middleContent, bottomContent)
 }
 
 func (a *App) setupStartupDialog() {
@@ -196,12 +206,12 @@ func (a *App) refreshContent() {
 		if i < len(a.lapTimes) {
 			// Set OOF entry
 			a.tableRows[i].oofEntry.SetText(a.lapTimes[i].oof)
-			if !a.isRunning {
+			if !a.clockState.isRunning {
 				a.tableRows[i].oofEntry.Enable()
 				// Set up the OnChanged handler for OOF editing
 				row := i // Capture the row index
 				a.tableRows[i].oofEntry.OnChanged = func(text string) {
-					if !a.isRunning && row < len(a.lapTimes) {
+					if !a.clockState.isRunning && row < len(a.lapTimes) {
 						// Update resultsTable if OOF matches a lane number
 						if laneNum, err := strconv.Atoi(text); err == nil && laneNum >= 1 && laneNum <= 6 {
 							// Check for duplicate OOF values in other rows
@@ -263,10 +273,10 @@ func (a *App) refreshContent() {
 				}
 
 				// Set up the OnSubmitted handler for OOF editing (Tab or Enter)
-				if !a.isRunning {
+				if !a.clockState.isRunning {
 					row := i // Capture the row index
 					a.tableRows[i].oofEntry.OnSubmitted = func(text string) {
-						if !a.isRunning && row < len(a.tableRows) && row < len(a.lapTimes) {
+						if !a.clockState.isRunning && row < len(a.tableRows) && row < len(a.lapTimes) {
 							// Move focus to next row's OOF entry if it exists
 							if row+1 < len(a.tableRows) && row+1 < len(a.lapTimes) {
 								// Clear any existing text in the next entry
@@ -291,10 +301,10 @@ func (a *App) refreshContent() {
 				a.tableRows[i].splitEntry.SetText(a.lapTimes[i].time)
 
 				// Set up the OnChanged handler for split time editing
-				if !a.isRunning {
+				if !a.clockState.isRunning {
 					row := i // Capture the row index
 					a.tableRows[i].splitEntry.OnChanged = func(text string) {
-						if !a.isRunning && row < len(a.lapTimes) {
+						if !a.clockState.isRunning && row < len(a.lapTimes) {
 							// Update the lap time
 							a.lapTimes[row].time = text
 
@@ -340,12 +350,12 @@ func (a *App) refreshContent() {
 			// Set DQ checkbox state and enable/disable based on running state
 			a.tableRows[i].dqCheck.Checked = a.lapTimes[i].dq
 			a.tableRows[i].dqCheck.Disable()
-			if !a.isRunning {
+			if !a.clockState.isRunning {
 				a.tableRows[i].dqCheck.Enable()
 				// Add handler for DQ checkbox changes
 				row := i // Capture the row index
 				a.tableRows[i].dqCheck.OnChanged = func(checked bool) {
-					if !a.isRunning && row < len(a.lapTimes) {
+					if !a.clockState.isRunning && row < len(a.lapTimes) {
 						a.lapTimes[row].dq = checked
 						a.refreshContent() // Refresh the entire table to update all place numbers
 					}
@@ -440,4 +450,158 @@ func formatTime(d time.Duration) string {
 	seconds := int(d.Seconds()) % 60
 	tenths := int(d.Milliseconds()/100) % 10
 	return fmt.Sprintf("%02d:%02d.%d", minutes, seconds, tenths)
+}
+
+func (a *App) showRaceTree() {
+	if a.regattaData == nil {
+		return
+	}
+
+	// Create a container for the race tree
+	mainContainer := container.NewVBox()
+
+	// Add regatta information at the top
+	regattaInfo := container.NewVBox(
+		container.NewCenter(a.regattaTitle),
+		container.NewCenter(a.scheduledRaces),
+		container.NewCenter(a.regattaDate),
+	)
+	mainContainer.Add(regattaInfo)
+
+	// Add a separator
+	separator := widget.NewSeparator()
+	mainContainer.Add(separator)
+
+	// Add a title for the race list
+	title := widget.NewLabel("Scheduled Races")
+	title.TextStyle = fyne.TextStyle{Bold: true}
+	mainContainer.Add(title)
+
+	// Create a list to hold the race nodes
+	raceList := container.NewVBox()
+
+	// Sort races by race number
+	races := make([]RaceData, len(a.regattaData.Races))
+	copy(races, a.regattaData.Races)
+	sort.Slice(races, func(i, j int) bool {
+		return races[i].RaceNumber < races[j].RaceNumber
+	})
+
+	// Add each race to the tree
+	for _, race := range races {
+		// Count non-empty school names
+		boatCount := 0
+		for _, lane := range race.Lanes {
+			if lane.SchoolName != "" {
+				boatCount++
+			}
+		}
+
+		// Create a container for this race
+		raceContainer := container.NewHBox(
+			widget.NewLabel(fmt.Sprintf("Race %d (%d boats)", race.RaceNumber, boatCount)),
+			layout.NewSpacer(),
+		)
+
+		// Create a button to time this race
+		timeButton := widget.NewButton("Time Race", func(raceData RaceData) func() {
+			return func() {
+				a.openRaceClock(raceData)
+			}
+		}(race))
+		raceContainer.Add(timeButton)
+
+		raceList.Add(raceContainer)
+	}
+
+	// Create a scroll container for the race list
+	scroll := container.NewScroll(raceList)
+	scroll.SetMinSize(fyne.NewSize(400, 400))
+	mainContainer.Add(scroll)
+
+	// Set the window content
+	a.window.SetContent(mainContainer)
+	a.window.Resize(fyne.NewSize(500, 600))
+}
+
+func (a *App) openRaceClock(race RaceData) {
+	// Create a new window for this race
+	raceWindow := a.app.NewWindow(fmt.Sprintf("Race %d Clock", race.RaceNumber))
+
+	// Create a new App instance for this race
+	raceApp := &App{
+		window:   raceWindow,
+		app:      a.app,
+		lapTimes: make([]lapTime, 0),
+		clockState: &clockState{
+			isRunning: false,
+			isCleared: true,
+			stopChan:  make(chan struct{}),
+		},
+		regattaData: a.regattaData,
+	}
+
+	// Initialize the app data (this sets up all necessary widgets)
+	raceApp.initAppData()
+
+	// Initialize the clock specifically for this window
+	raceApp.clock = canvas.NewText(zeroTime, color.White)
+	raceApp.clock.TextStyle = fyne.TextStyle{Monospace: true, Bold: true}
+	raceApp.clock.Alignment = fyne.TextAlignCenter
+	raceApp.clock.TextSize = 48
+
+	// Initialize the results table with the race data
+	raceApp.resultsTable = make([][]string, 6)
+	for i := range raceApp.resultsTable {
+		raceApp.resultsTable[i] = make([]string, 7)
+	}
+
+	// Set up the results table headers
+	raceApp.resultsTable[0][0] = ""
+	raceApp.resultsTable[1][0] = ""
+	raceApp.resultsTable[2][0] = ""
+	raceApp.resultsTable[3][0] = "Place"
+	raceApp.resultsTable[4][0] = "Split"
+	raceApp.resultsTable[5][0] = "Time"
+
+	// Always show all lane headers (1-6)
+	for lane := 1; lane <= 6; lane++ {
+		raceApp.resultsTable[0][lane] = fmt.Sprintf("Lane %d", lane)
+		// Initialize empty strings for all other columns
+		raceApp.resultsTable[1][lane] = ""
+		raceApp.resultsTable[2][lane] = ""
+		raceApp.resultsTable[3][lane] = ""
+		raceApp.resultsTable[4][lane] = ""
+		raceApp.resultsTable[5][lane] = ""
+	}
+
+	// Populate school data for scheduled lanes
+	for lane, entry := range race.Lanes {
+		if lane >= 1 && lane <= 6 {
+			// Set school name
+			raceApp.resultsTable[1][lane] = entry.SchoolName
+			// Set additional info
+			raceApp.resultsTable[2][lane] = entry.AdditionalInfo
+		}
+	}
+
+	// Initialize race number and winning time fields
+	raceApp.raceNumber = widget.NewEntry()
+	raceApp.raceNumber.SetText(fmt.Sprintf("%d", race.RaceNumber))
+	raceApp.raceNumber.Disable()
+	raceApp.setupWinningTime()
+
+	// Set up the window content
+	raceWindow.SetContent(raceApp.setupContent())
+	raceWindow.Resize(fyne.NewSize(1240, 800))
+
+	// Start the clock update goroutine for this window
+	go raceApp.startClockUpdate()
+
+	// Set up window close handler to clean up the goroutine
+	raceWindow.SetOnClosed(func() {
+		close(raceApp.clockState.stopChan)
+	})
+
+	raceWindow.Show()
 }

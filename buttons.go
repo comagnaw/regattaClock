@@ -35,10 +35,10 @@ func (a *App) startButton() *widget.Button {
 
 func (a *App) startFunc() func() {
 	return func() {
-		if !a.isRunning && a.isCleared {
-			a.startTime = time.Now()
-			a.isRunning = true
-			a.isCleared = false
+		if !a.clockState.isRunning && a.clockState.isCleared {
+			a.clockState.startTime = time.Now()
+			a.clockState.isRunning = true
+			a.clockState.isCleared = false
 			a.lapTimes = append(a.lapTimes, lapTime{
 				number:         1,
 				time:           zeroTime,
@@ -62,8 +62,8 @@ func (a *App) lapButton() *widget.Button {
 
 func (a *App) lapFunc() func() {
 	return func() {
-		if a.isRunning {
-			elapsed := time.Since(a.startTime)
+		if a.clockState.isRunning {
+			elapsed := time.Since(a.clockState.startTime)
 			minutes := int(elapsed.Minutes()) % 60
 			seconds := int(elapsed.Seconds()) % 60
 			tenths := int(elapsed.Milliseconds()/100) % 10
@@ -83,7 +83,7 @@ func (a *App) lapFunc() func() {
 
 func (a *App) stopButton() *widget.Button {
 	return widget.NewButton("Stop", func() {
-		a.isRunning = false
+		a.clockState.isRunning = false
 		a.refreshContent()
 		a.raceNumber.Enable()
 		a.winningTime.Enable()
@@ -92,9 +92,9 @@ func (a *App) stopButton() *widget.Button {
 
 func (a *App) clearButton() *widget.Button {
 	return widget.NewButton("Clear", func() {
-		if !a.isRunning {
-			a.isRunning = false
-			a.clock.Text = zeroTimeFullMilli
+		if !a.clockState.isRunning {
+			a.clockState.isRunning = false
+			a.clock.Text = zeroTime
 			a.clock.Refresh()
 			a.lapTimes = make([]lapTime, 0)
 			a.winningTime.Text = emptyString
@@ -102,7 +102,7 @@ func (a *App) clearButton() *widget.Button {
 			a.refreshContent()
 			a.raceNumber.Enable()
 			a.winningTime.Enable()
-			a.isCleared = true
+			a.clockState.isCleared = true
 		}
 	})
 }

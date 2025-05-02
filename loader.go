@@ -70,5 +70,8 @@ func (a *App) loadExcel(fromStartup bool) {
 
 		// Show success message
 		dialog.ShowInformation("Import", "Successfully read Excel file", a.window)
+
+		// Show the race tree
+		a.showRaceTree()
 	}, a.window)
 }

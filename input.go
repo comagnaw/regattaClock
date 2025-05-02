@@ -7,39 +7,8 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 )
-
-func (a *App) inputPanel() *fyne.Container {
-	return container.NewGridWithColumns(
-		2,
-		widget.NewForm(a.raceNumberInput()),
-		widget.NewForm(a.winningTimeInput()),
-	)
-}
-
-func (a *App) setupRaceNumber() {
-	a.raceNumber = widget.NewEntry()
-	a.raceNumber.Validator = func(s string) error {
-		// Only allow numbers
-		for _, r := range s {
-			if r < '0' || r > '9' {
-				return fmt.Errorf("only numbers allowed")
-			}
-		}
-		return nil
-	}
-}
-
-func (a *App) raceNumberInput() *widget.FormItem {
-	item := container.NewGridWithColumns(
-		2,
-		a.raceNumber,
-		a.loadRaceButton(),
-	)
-	return widget.NewFormItem("Race Number", item)
-}
 
 func (a *App) setupWinningTime() {
 	a.winningTime = widget.NewEntry()

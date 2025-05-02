@@ -22,6 +22,13 @@ type LapTableRow struct {
 	dqCheck    *widget.Check
 }
 
+type RaceTreeNode struct {
+	RaceNumber int
+	BoatCount  int
+	TimeButton *widget.Button
+	RaceData   *RaceData
+}
+
 func (a *App) raceResults() *fyne.Container {
 	// Initialize table data if not already done
 	if a.resultsTable == nil {
