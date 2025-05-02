@@ -58,6 +58,9 @@ func NewApp(app fyne.App) *App {
 	regattaApp.window.SetMainMenu(regattaApp.makeMenu())
 	regattaApp.window.Resize(fyne.NewSize(800, 600))
 
+	// Set up keyboard handler for the main window
+	regattaApp.window.Canvas().SetOnTypedKey(regattaApp.setupKeyboardHandler())
+
 	regattaApp.setupStartupDialog()
 
 	return regattaApp
@@ -497,9 +500,30 @@ func (a *App) showRaceTree() {
 			}
 		}
 
+		// Get boat class and flight/heat/final information from RawData
+		boatClass := ""
+		flightInfo := ""
+		if len(race.RawData) > 0 {
+			if len(race.RawData[0]) > 0 {
+				boatClass = race.RawData[0][0]
+			}
+			if len(race.RawData) > 1 && len(race.RawData[1]) > 0 {
+				flightInfo = race.RawData[1][0]
+			}
+		}
+
+		// Create the race description
+		raceDesc := fmt.Sprintf("Race %d (%d boats)", race.RaceNumber, boatCount)
+		if boatClass != "" {
+			raceDesc = fmt.Sprintf("%s - %s", raceDesc, boatClass)
+		}
+		if flightInfo != "" {
+			raceDesc = fmt.Sprintf("%s - %s", raceDesc, flightInfo)
+		}
+
 		// Create a container for this race
 		raceContainer := container.NewHBox(
-			widget.NewLabel(fmt.Sprintf("Race %d (%d boats)", race.RaceNumber, boatCount)),
+			widget.NewLabel(raceDesc),
 			layout.NewSpacer(),
 		)
 
@@ -550,6 +574,40 @@ func (a *App) openRaceClock(race RaceData) {
 	raceApp.clock.Alignment = fyne.TextAlignCenter
 	raceApp.clock.TextSize = 48
 
+	// Count the number of boats in the race
+	boatCount := 0
+	for _, entry := range race.Lanes {
+		if entry.SchoolName != "" {
+			boatCount++
+		}
+	}
+
+	// Get boat class and flight/heat/final information from RawData
+	boatClass := ""
+	flightInfo := ""
+	if len(race.RawData) > 0 {
+		if len(race.RawData[0]) > 0 {
+			boatClass = race.RawData[0][0]
+		}
+		if len(race.RawData) > 1 && len(race.RawData[1]) > 0 {
+			flightInfo = race.RawData[1][0]
+		}
+	}
+
+	// Create the race title text
+	titleText := fmt.Sprintf("Race %d (%d Boats)", race.RaceNumber, boatCount)
+	if boatClass != "" {
+		titleText = fmt.Sprintf("%s - %s", titleText, boatClass)
+	}
+	if flightInfo != "" {
+		titleText = fmt.Sprintf("%s - %s", titleText, flightInfo)
+	}
+
+	raceTitle := canvas.NewText(titleText, color.White)
+	raceTitle.TextStyle = fyne.TextStyle{Bold: true}
+	raceTitle.Alignment = fyne.TextAlignCenter
+	raceTitle.TextSize = 24
+
 	// Initialize the results table with the race data
 	raceApp.resultsTable = make([][]string, 6)
 	for i := range raceApp.resultsTable {
@@ -591,9 +649,16 @@ func (a *App) openRaceClock(race RaceData) {
 	raceApp.raceNumber.Disable()
 	raceApp.setupWinningTime()
 
-	// Set up the window content
-	raceWindow.SetContent(raceApp.setupContent())
+	// Set up the window content with the race title above the clock
+	content := raceApp.setupContent()
+	raceWindow.SetContent(container.NewVBox(
+		container.NewCenter(raceTitle),
+		content,
+	))
 	raceWindow.Resize(fyne.NewSize(1240, 800))
+
+	// Set up keyboard handler for this window
+	raceWindow.Canvas().SetOnTypedKey(raceApp.setupKeyboardHandler())
 
 	// Start the clock update goroutine for this window
 	go raceApp.startClockUpdate()
