@@ -131,7 +131,7 @@ func (a *App) setupContent() *fyne.Container {
 	)
 
 	bottomContent := container.NewGridWrap(
-		fyne.Size{Width: 800, Height: 80},
+		fyne.Size{Width: 800, Height: 200},
 		a.newTable(),
 	)
 

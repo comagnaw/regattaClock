@@ -22,8 +22,12 @@ type LapTableRow struct {
 	dqCheck    *widget.Check
 }
 
-var data = [][]string{[]string{"top left", "top right"},
-	[]string{"bottom left", "bottom right"}}
+var data = [][]string{[]string{"Class", "Lane 1", "Lane 2", "Lane 3", "Lane 4", "Lane 5", "Lane 6"},
+	[]string{"Heat/Flight", "", "", "", "", "", ""},
+	[]string{"Place", "", "", "", "", "", ""},
+	[]string{"Split", "", "", "", "", "", ""},
+	[]string{"Time", "", "", "", "", "", ""},
+}
 
 func (a *App) newTable() *fyne.Container {
 	list := widget.NewTable(
@@ -36,6 +40,7 @@ func (a *App) newTable() *fyne.Container {
 		func(i widget.TableCellID, o fyne.CanvasObject) {
 			o.(*widget.Label).SetText(data[i.Row][i.Col])
 		})
+		
 	return container.NewStack(list)
 }
 
