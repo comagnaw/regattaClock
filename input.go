@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -72,7 +73,63 @@ func (a *App) setupWinningTime() {
 
 	// Add event handler for winning time changes
 	a.winningTime.OnChanged = func(text string) {
-		a.refreshContent()
+		if text == emptyString {
+			// If winning time is cleared, reset all times
+			for i := 0; i < len(a.lapTimes); i++ {
+				if a.lapTimes[i].oof != emptyString {
+					if laneNum, err := strconv.Atoi(a.lapTimes[i].oof); err == nil && laneNum >= 1 && laneNum <= 6 {
+						a.resultsTable[4][laneNum] = a.lapTimes[i].time // Reset Split
+						a.resultsTable[5][laneNum] = a.lapTimes[i].time // Reset Time
+					}
+				}
+			}
+			a.window.Content().Refresh()
+			return
+		}
+
+		winningTime, err := parseTime(text)
+		if err != nil {
+			return
+		}
+
+		// Find the first non-DQ lap time
+		var firstLapTime time.Duration
+		for i := 0; i < len(a.lapTimes); i++ {
+			if !a.lapTimes[i].dq {
+				firstLapTime, err = parseTime(a.lapTimes[i].time)
+				if err == nil {
+					break
+				}
+			}
+		}
+
+		if err != nil {
+			return
+		}
+
+		// Calculate the time adjustment
+		timeAdjustment := winningTime - firstLapTime
+
+		// Update all lap times and results table
+		for i := 0; i < len(a.lapTimes); i++ {
+			if !a.lapTimes[i].dq {
+				lapTime, err := parseTime(a.lapTimes[i].time)
+				if err == nil {
+					adjustedTime := lapTime + timeAdjustment
+					a.lapTimes[i].calculatedTime = formatTime(adjustedTime)
+					a.tableRows[i].timeLabel.SetText(formatTime(adjustedTime))
+
+					// Update results table if OOF is set
+					if a.lapTimes[i].oof != emptyString {
+						if laneNum, err := strconv.Atoi(a.lapTimes[i].oof); err == nil && laneNum >= 1 && laneNum <= 6 {
+							a.resultsTable[4][laneNum] = a.lapTimes[i].time       // Update Split
+							a.resultsTable[5][laneNum] = formatTime(adjustedTime) // Update Time
+						}
+					}
+				}
+			}
+		}
+		a.window.Content().Refresh()
 	}
 
 	a.winningTime.Enable()

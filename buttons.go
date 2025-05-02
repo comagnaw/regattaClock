@@ -140,6 +140,36 @@ func (a *App) loadRaceButton() *widget.Button {
 			return
 		}
 
+		// Update the resultsTable with raw data from the race
+		// Keep the first row with lane numbers
+		a.resultsTable[0] = []string{"", "Lane 1", "Lane 2", "Lane 3", "Lane 4", "Lane 5", "Lane 6"}
+
+		// Update the remaining rows with raw data
+		for i := 1; i < len(a.resultsTable); i++ {
+			if i-1 < len(foundRace.RawData) {
+				// Copy the raw data for this row
+				a.resultsTable[i] = make([]string, 7)
+				copy(a.resultsTable[i], foundRace.RawData[i-1])
+			} else {
+				// If no data for this row, clear it
+				a.resultsTable[i] = []string{"", "", "", "", "", "", ""}
+			}
+		}
+
+		// Debug output to verify data
+		fmt.Println("\nResults Table after update:")
+		for i, row := range a.resultsTable {
+			fmt.Printf("Row %d: %v\n", i, row)
+		}
+		fmt.Println("\nRaw Data from race:")
+		for i, row := range foundRace.RawData {
+			fmt.Printf("Row %d: %v\n", i, row)
+		}
+
+		// Refresh the table to show the new data
+		a.refreshContent()
+		a.window.Content().Refresh()
+
 		// Print race details
 		fmt.Printf("\nFound Race %d:\n", foundRace.RaceNumber)
 		for lane := 1; lane <= 6; lane++ {

@@ -23,6 +23,7 @@ type App struct {
 	regattaDate    *canvas.Text
 	scheduledRaces *canvas.Text
 	tableRows      []LapTableRow
+	resultsTable   [][]string
 	lapTimes       []lapTime
 	isRunning      bool
 	isCleared      bool
@@ -47,7 +48,7 @@ func NewApp(app fyne.App) *App {
 	regattaApp.window.SetMaster()
 	regattaApp.window.SetMainMenu(regattaApp.makeMenu())
 	regattaApp.window.SetContent(regattaApp.setupContent())
-	regattaApp.window.Resize(fyne.NewSize(800, 1000))
+	regattaApp.window.Resize(fyne.NewSize(1240, 800))
 	// regattaApp.window.Canvas().AddShortcut(blah(), func(sc fyne.Shortcut){regattaApp.startFunc()})
 	regattaApp.window.Canvas().SetOnTypedKey(regattaApp.setupKeyboardHandler())
 
@@ -131,8 +132,8 @@ func (a *App) setupContent() *fyne.Container {
 	)
 
 	bottomContent := container.NewGridWrap(
-		fyne.Size{Width: 800, Height: 80},
-		a.newTable(),
+		fyne.Size{Width: 1240, Height: 240},
+		a.raceResults(),
 	)
 
 	return container.NewVBox(topContent, middleContent, bottomContent)
@@ -201,22 +202,78 @@ func (a *App) refreshContent() {
 				row := i // Capture the row index
 				a.tableRows[i].oofEntry.OnChanged = func(text string) {
 					if !a.isRunning && row < len(a.lapTimes) {
-						a.lapTimes[row].oof = text
+						// Update resultsTable if OOF matches a lane number
+						if laneNum, err := strconv.Atoi(text); err == nil && laneNum >= 1 && laneNum <= 6 {
+							// Check for duplicate OOF values in other rows
+							isDuplicate := false
+							for j := 0; j < len(a.lapTimes); j++ {
+								if j != row && a.lapTimes[j].oof == text {
+									isDuplicate = true
+									break
+								}
+							}
+
+							if !isDuplicate {
+								// Store previous OOF value before updating
+								prevOOF := a.lapTimes[row].oof
+								// Update the lap time's OOF value
+								a.lapTimes[row].oof = text
+								// Update Place, Split, and Time rows in resultsTable
+								a.resultsTable[3][laneNum] = a.tableRows[row].placeLabel.Text // Update Place
+								a.resultsTable[4][laneNum] = a.tableRows[row].splitEntry.Text // Update Split
+								a.resultsTable[5][laneNum] = a.tableRows[row].timeLabel.Text  // Update Time
+								// Clear previous lane if it was different
+								if prevOOF != emptyString && prevOOF != text {
+									if prevLaneNum, err := strconv.Atoi(prevOOF); err == nil && prevLaneNum >= 1 && prevLaneNum <= 6 {
+										a.resultsTable[3][prevLaneNum] = emptyString // Clear Place
+										a.resultsTable[4][prevLaneNum] = emptyString // Clear Split
+										a.resultsTable[5][prevLaneNum] = emptyString // Clear Time
+									}
+								}
+								a.window.Content().Refresh()
+							} else {
+								// If duplicate, clear the input
+								a.tableRows[row].oofEntry.SetText(emptyString)
+								// Clear the previous lane if it exists
+								if prevOOF := a.lapTimes[row].oof; prevOOF != emptyString {
+									if prevLaneNum, err := strconv.Atoi(prevOOF); err == nil && prevLaneNum >= 1 && prevLaneNum <= 6 {
+										a.resultsTable[3][prevLaneNum] = emptyString // Clear Place
+										a.resultsTable[4][prevLaneNum] = emptyString // Clear Split
+										a.resultsTable[5][prevLaneNum] = emptyString // Clear Time
+										a.window.Content().Refresh()
+									}
+								}
+								a.lapTimes[row].oof = emptyString
+							}
+						} else {
+							// If OOF is cleared or invalid, clear the previous lane
+							prevOOF := a.lapTimes[row].oof
+							// Update the lap time's OOF value
+							a.lapTimes[row].oof = text
+							if prevOOF != emptyString {
+								if prevLaneNum, err := strconv.Atoi(prevOOF); err == nil && prevLaneNum >= 1 && prevLaneNum <= 6 {
+									a.resultsTable[3][prevLaneNum] = emptyString // Clear Place
+									a.resultsTable[4][prevLaneNum] = emptyString // Clear Split
+									a.resultsTable[5][prevLaneNum] = emptyString // Clear Time
+									a.window.Content().Refresh()
+								}
+							}
+						}
 					}
 				}
-				// Add return key handling to move to next row
-				a.tableRows[i].oofEntry.OnSubmitted = func(text string) {
-					if !a.isRunning && row < len(a.lapTimes) {
-						// Update the current entry's text
-						a.tableRows[row].oofEntry.SetText(text)
-						a.lapTimes[row].oof = text
 
-						// Move focus to next row's OOF entry if it exists
-						if row+1 < len(a.tableRows) && row+1 < len(a.lapTimes) {
-							// Clear any existing text in the next entry
-							a.tableRows[row+1].oofEntry.SetText(emptyString)
-							// Move focus to the next entry
-							a.window.Canvas().Focus(a.tableRows[row+1].oofEntry)
+				// Set up the OnSubmitted handler for OOF editing (Tab or Enter)
+				if !a.isRunning {
+					row := i // Capture the row index
+					a.tableRows[i].oofEntry.OnSubmitted = func(text string) {
+						if !a.isRunning && row < len(a.tableRows) && row < len(a.lapTimes) {
+							// Move focus to next row's OOF entry if it exists
+							if row+1 < len(a.tableRows) && row+1 < len(a.lapTimes) {
+								// Clear any existing text in the next entry
+								a.tableRows[row+1].oofEntry.SetText(emptyString)
+								// Move focus to the next entry
+								a.window.Canvas().Focus(a.tableRows[row+1].oofEntry)
+							}
 						}
 					}
 				}
@@ -249,6 +306,17 @@ func (a *App) refreshContent() {
 									a.tableRows[row].timeLabel.SetText(formatTime(adjustedTime))
 								} else {
 									a.tableRows[row].timeLabel.SetText(formatTime(lapTime))
+								}
+							}
+
+							// Update resultsTable if OOF matches a lane number
+							if oof := a.lapTimes[row].oof; oof != emptyString {
+								if laneNum, err := strconv.Atoi(oof); err == nil && laneNum >= 1 && laneNum <= 6 {
+									// Update Place, Split, and Time rows in resultsTable
+									a.resultsTable[3][laneNum] = a.tableRows[row].placeLabel.Text // Update Place
+									a.resultsTable[4][laneNum] = text                             // Update Split
+									a.resultsTable[5][laneNum] = a.tableRows[row].timeLabel.Text  // Update Time
+									a.window.Content().Refresh()
 								}
 							}
 						}

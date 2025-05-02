@@ -22,20 +22,40 @@ type LapTableRow struct {
 	dqCheck    *widget.Check
 }
 
-var data = [][]string{[]string{"top left", "top right"},
-	[]string{"bottom left", "bottom right"}}
+func (a *App) raceResults() *fyne.Container {
+	// Initialize table data if not already done
+	if a.resultsTable == nil {
+		a.resultsTable = [][]string{
+			{"", "Lane 1", "Lane 2", "Lane 3", "Lane 4", "Lane 5", "Lane 6"},
+			{"", "", "", "", "", "", ""},
+			{"Place", "", "", "", "", "", ""},
+			{"Split", "", "", "", "", "", ""},
+			{"Time", "", "", "", "", "", ""},
+			{"", "", "", "", "", "", ""}, // Add fifth data row
+		}
+	}
 
-func (a *App) newTable() *fyne.Container {
+	// Ensure we have enough rows for the data
+	if len(a.resultsTable) < 6 {
+		// Add any missing rows
+		for i := len(a.resultsTable); i < 6; i++ {
+			a.resultsTable = append(a.resultsTable, make([]string, 7))
+		}
+	}
+
 	list := widget.NewTable(
 		func() (int, int) {
-			return len(data), len(data[0])
+			return len(a.resultsTable), len(a.resultsTable[0])
 		},
 		func() fyne.CanvasObject {
-			return widget.NewLabel("wide content")
+			label := widget.NewLabel("wide wide wide content")
+			label.Alignment = fyne.TextAlignCenter
+			return label
 		},
 		func(i widget.TableCellID, o fyne.CanvasObject) {
-			o.(*widget.Label).SetText(data[i.Row][i.Col])
+			o.(*widget.Label).SetText(a.resultsTable[i.Row][i.Col])
 		})
+
 	return container.NewStack(list)
 }
 
