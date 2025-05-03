@@ -23,6 +23,8 @@ type RaceData struct {
 	RaceNumber int
 	Lanes      map[int]RaceEntry // Lane number (1-6) to RaceEntry
 	RawData    [][]string        // Raw cell data from columns C through I for each row
+	Saved      bool              // Whether the race data has been saved
+	Approved   bool              // Whether the race data has been approved
 }
 
 // RegattaData represents the structure of the regatta data we'll read from Excel

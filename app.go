@@ -745,10 +745,10 @@ func (a *App) openRaceClock(race RaceData) {
 		titleText = fmt.Sprintf("%s - %s", titleText, flightInfo)
 	}
 
-	raceTitle := canvas.NewText(titleText, color.White)
-	raceTitle.TextStyle = fyne.TextStyle{Bold: true}
-	raceTitle.Alignment = fyne.TextAlignCenter
-	raceTitle.TextSize = 24
+	title := canvas.NewText(titleText, color.White)
+	title.TextStyle = fyne.TextStyle{Bold: true}
+	title.Alignment = fyne.TextAlignCenter
+	title.TextSize = 48
 
 	// Initialize the results table with the race data
 	raceApp.resultsTable = make([][]string, 6)
@@ -791,12 +791,37 @@ func (a *App) openRaceClock(race RaceData) {
 	raceApp.raceNumber.Disable()
 	raceApp.setupWinningTime()
 
-	// Set up the window content with the race title above the clock
+	// Create the main content
 	content := raceApp.setupContent()
-	raceWindow.SetContent(container.NewVBox(
-		container.NewCenter(raceTitle),
+
+	// Create the action buttons
+	refereeButton := widget.NewButton("Referee Approval", func() {
+		raceApp.showRefereeApproval(race)
+	})
+	refereeButton.Disable() // Initially disabled until winning time is set
+
+	saveButton := widget.NewButton("Save", func() {
+		// Save logic will be implemented later
+	})
+	saveButton.Disable() // Initially disabled until approved
+
+	// Create a container for the buttons
+	buttonContainer := container.NewHBox(
+		layout.NewSpacer(),
+		refereeButton,
+		layout.NewSpacer(),
+		saveButton,
+		layout.NewSpacer(),
+	)
+
+	// Create the final content with all elements
+	finalContent := container.NewVBox(
+		container.NewCenter(title),
 		content,
-	))
+		buttonContainer,
+	)
+
+	raceWindow.SetContent(finalContent)
 	raceWindow.Resize(fyne.NewSize(1240, 800))
 
 	// Set up keyboard handler for this window
@@ -811,4 +836,227 @@ func (a *App) openRaceClock(race RaceData) {
 	})
 
 	raceWindow.Show()
+}
+
+// showRefereeApproval creates and shows the referee approval window
+func (a *App) showRefereeApproval(race RaceData) {
+	// Create a new window for referee approval
+	approvalWindow := a.app.NewWindow(fmt.Sprintf("Referee Approval - Race %d", race.RaceNumber))
+
+	// Create the title
+	boatCount := 0
+	for _, entry := range race.Lanes {
+		if entry.SchoolName != "" {
+			boatCount++
+		}
+	}
+
+	// Get boat class and flight/heat/final information from RawData
+	boatClass := ""
+	flightInfo := ""
+	if len(race.RawData) > 0 {
+		if len(race.RawData[0]) > 0 {
+			boatClass = race.RawData[0][0]
+		}
+		if len(race.RawData) > 1 && len(race.RawData[1]) > 0 {
+			flightInfo = race.RawData[1][0]
+		}
+	}
+
+	// Create the race title text
+	titleText := fmt.Sprintf("Race %d (%d Boats)", race.RaceNumber, boatCount)
+	if boatClass != "" {
+		titleText = fmt.Sprintf("%s - %s", titleText, boatClass)
+	}
+	if flightInfo != "" {
+		titleText = fmt.Sprintf("%s - %s", titleText, flightInfo)
+	}
+
+	title := canvas.NewText(titleText, color.White)
+	title.TextStyle = fyne.TextStyle{Bold: true}
+	title.Alignment = fyne.TextAlignCenter
+	title.TextSize = 48
+
+	// Create the table data
+	tableData := make([][]string, 0)
+	headers := []string{"OOF", "Place", "Split", "Time", "School"}
+	tableData = append(tableData, headers)
+
+	// First add numerical places in order
+	for i := 1; i <= 6; i++ {
+		for lane := 1; lane <= 6; lane++ {
+			if a.resultsTable[3][lane] == fmt.Sprintf("%d", i) {
+				row := []string{
+					fmt.Sprintf("%d", lane),
+					a.resultsTable[3][lane],
+					a.resultsTable[4][lane],
+					a.resultsTable[5][lane],
+					a.resultsTable[1][lane],
+				}
+				tableData = append(tableData, row)
+			}
+		}
+	}
+
+	// Then add DQ/DNS/DNF entries
+	for lane := 1; lane <= 6; lane++ {
+		place := a.resultsTable[3][lane]
+		if place == "DQ" || place == "DNS" || place == "DNF" {
+			row := []string{
+				fmt.Sprintf("Lane %d", lane),
+				place,
+				a.resultsTable[4][lane],
+				a.resultsTable[5][lane],
+				a.resultsTable[1][lane],
+			}
+			tableData = append(tableData, row)
+		}
+	}
+
+	// Create the table using a grid layout
+	table := container.NewGridWithColumns(5)
+
+	// Add all cells to the grid
+	for i, row := range tableData {
+		for col, cell := range row {
+			text := canvas.NewText(cell, color.Black)
+			if i == 0 { // Header row
+				text.TextStyle = fyne.TextStyle{Bold: true}
+			} else {
+				text.TextStyle = fyne.TextStyle{Monospace: true}
+			}
+			// Left align the school column (index 4), center all others
+			if col == 4 { // School column
+				text.Alignment = fyne.TextAlignLeading
+			} else {
+				text.Alignment = fyne.TextAlignCenter
+			}
+			text.TextSize = 48
+
+			// Create a container with alternating background colors
+			var bgColor color.Color
+			if col%2 == 0 {
+				bgColor = color.White
+			} else {
+				bgColor = color.RGBA{R: 217, G: 217, B: 217, A: 255} // Light gray
+			}
+
+			// Create a rectangle for the background
+			rect := canvas.NewRectangle(bgColor)
+			rect.Resize(fyne.NewSize(200, 100)) // Set a specific size for the rectangle
+
+			// Create a container with the background and text
+			cellContainer := container.NewStack(
+				rect,
+				container.NewPadded(text),
+			)
+			table.Add(cellContainer)
+		}
+	}
+
+	// Create the action buttons
+	approveButton := widget.NewButton("Approve", func() {
+		// Find the race in regattaData and set its Approved flag
+		for i := range a.regattaData.Races {
+			if a.regattaData.Races[i].RaceNumber == race.RaceNumber {
+				a.regattaData.Races[i].Approved = true
+				// Find and enable the Save button in the main window
+				for _, content := range a.window.Content().(*fyne.Container).Objects {
+					if buttonContainer, ok := content.(*fyne.Container); ok {
+						for _, button := range buttonContainer.Objects {
+							if saveButton, ok := button.(*widget.Button); ok && saveButton.Text == "Save" {
+								saveButton.Enable()
+								break
+							}
+						}
+					}
+				}
+				break
+			}
+		}
+		approvalWindow.Close()
+	})
+
+	cancelButton := widget.NewButton("Cancel", func() {
+		approvalWindow.Close()
+	})
+
+	// Create a container for the buttons
+	buttonContainer := container.NewHBox(
+		layout.NewSpacer(),
+		approveButton,
+		layout.NewSpacer(),
+		cancelButton,
+		layout.NewSpacer(),
+	)
+
+	// Create the final content
+	content := container.NewVBox(
+		container.NewCenter(title),
+		table,
+		buttonContainer,
+	)
+
+	approvalWindow.SetContent(content)
+	approvalWindow.Resize(fyne.NewSize(1000, 800))
+	approvalWindow.Show()
+}
+
+func (a *App) setupWinningTime() {
+	a.winningTime = widget.NewEntry()
+	a.winningTime.SetPlaceHolder("00:00.0")
+	a.winningTime.OnChanged = func(text string) {
+		// Validate the winning time format
+		if text == "" {
+			// If winning time is cleared, reset lap times and disable referee button
+			a.lapTimes = make([]lapTime, 0)
+			// Find and disable the referee button
+			for _, content := range a.window.Content().(*fyne.Container).Objects {
+				if buttonContainer, ok := content.(*fyne.Container); ok {
+					for _, button := range buttonContainer.Objects {
+						if refereeButton, ok := button.(*widget.Button); ok && refereeButton.Text == "Referee Approval" {
+							refereeButton.Disable()
+							break
+						}
+					}
+				}
+			}
+			return
+		}
+
+		// Try to parse the winning time
+		_, err := parseTime(text)
+		if err != nil {
+			// Invalid time format, disable referee button
+			for _, content := range a.window.Content().(*fyne.Container).Objects {
+				if buttonContainer, ok := content.(*fyne.Container); ok {
+					for _, button := range buttonContainer.Objects {
+						if refereeButton, ok := button.(*widget.Button); ok && refereeButton.Text == "Referee Approval" {
+							refereeButton.Disable()
+							break
+						}
+					}
+				}
+			}
+			return
+		}
+
+		// If we have a valid winning time and at least one lap time, enable the referee button
+		if len(a.lapTimes) > 0 {
+			firstLapTime := a.lapTimes[0].time
+			if firstLapTime != "" {
+				// Find and enable the referee button
+				for _, content := range a.window.Content().(*fyne.Container).Objects {
+					if buttonContainer, ok := content.(*fyne.Container); ok {
+						for _, button := range buttonContainer.Objects {
+							if refereeButton, ok := button.(*widget.Button); ok && refereeButton.Text == "Referee Approval" {
+								refereeButton.Enable()
+								break
+							}
+						}
+					}
+				}
+			}
+		}
+	}
 }
