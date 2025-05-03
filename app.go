@@ -31,6 +31,7 @@ type App struct {
 	winningTime    *widget.Entry
 	regattaData    *RegattaData
 	clockState     *clockState
+	originalPlaces map[int]string // Add map to store original place values
 }
 
 type clockState struct {
@@ -50,6 +51,7 @@ func NewApp(app fyne.App) *App {
 			isCleared: true,
 			stopChan:  make(chan struct{}),
 		},
+		originalPlaces: make(map[int]string), // Initialize the map
 	}
 
 	regattaApp.initAppData()
@@ -106,6 +108,31 @@ func (a *App) initAppData() {
 	a.setScheduledRaces()
 	a.setRaceDate()
 	a.setupWinningTime()
+
+	// Initialize the originalPlaces map if it's nil
+	if a.originalPlaces == nil {
+		a.originalPlaces = make(map[int]string)
+	}
+
+	if a.resultsTable == nil {
+		a.resultsTable = [][]string{
+			{"", "Lane 1", "Lane 2", "Lane 3", "Lane 4", "Lane 5", "Lane 6"},
+			{"", "", "", "", "", "", ""},
+			{"Place", "", "", "", "", "", ""},
+			{"Split", "", "", "", "", "", ""},
+			{"Time", "", "", "", "", "", ""},
+			{"", "", "", "", "", "", ""}, // Add fifth data row
+			{"", "", "", "", "", "", ""}, // Add sixth row for storing original place values
+		}
+	}
+
+	// Ensure we have enough rows for the data
+	if len(a.resultsTable) < 7 {
+		// Add any missing rows
+		for i := len(a.resultsTable); i < 7; i++ {
+			a.resultsTable = append(a.resultsTable, make([]string, 7))
+		}
+	}
 }
 
 func (a *App) setClock() {
@@ -181,14 +208,8 @@ func (a *App) setupStartupDialog() {
 func (a *App) refreshContent() {
 	// First pass: calculate adjusted place numbers
 	adjustedPlaces := make([]int, len(a.lapTimes))
-	placeAdjustment := 0
 	for i := 0; i < len(a.lapTimes); i++ {
-		if a.lapTimes[i].dq {
-			adjustedPlaces[i] = -1 // Mark DQ'd entries
-			placeAdjustment++
-		} else {
-			adjustedPlaces[i] = a.lapTimes[i].number - placeAdjustment
-		}
+		adjustedPlaces[i] = a.lapTimes[i].number
 	}
 
 	// Calculate time adjustments if winning time is set
@@ -232,9 +253,9 @@ func (a *App) refreshContent() {
 								// Update the lap time's OOF value
 								a.lapTimes[row].oof = text
 								// Update Place, Split, and Time rows in resultsTable
-								a.resultsTable[3][laneNum] = a.tableRows[row].placeLabel.Text // Update Place
-								a.resultsTable[4][laneNum] = a.tableRows[row].splitEntry.Text // Update Split
-								a.resultsTable[5][laneNum] = a.tableRows[row].timeLabel.Text  // Update Time
+								a.resultsTable[3][laneNum] = a.tableRows[row].placeButton.Text // Update Place
+								a.resultsTable[4][laneNum] = a.tableRows[row].splitEntry.Text  // Update Split
+								a.resultsTable[5][laneNum] = a.tableRows[row].timeLabel.Text   // Update Time
 								// Clear previous lane if it was different
 								if prevOOF != emptyString && prevOOF != text {
 									if prevLaneNum, err := strconv.Atoi(prevOOF); err == nil && prevLaneNum >= 1 && prevLaneNum <= 6 {
@@ -294,85 +315,206 @@ func (a *App) refreshContent() {
 				a.tableRows[i].oofEntry.Disable()
 			}
 
-			// Set Place label
-			if a.lapTimes[i].dq {
-				a.tableRows[i].placeLabel.SetText("DQ")
-				a.tableRows[i].splitEntry.SetText(emptyString)
-				a.tableRows[i].timeLabel.SetText(emptyString)
-			} else {
-				a.tableRows[i].placeLabel.SetText(fmt.Sprintf("%d", adjustedPlaces[i]))
-				a.tableRows[i].splitEntry.SetText(a.lapTimes[i].time)
+			// Set Place button
+			placeText := fmt.Sprintf("%d", adjustedPlaces[i])
+			a.tableRows[i].placeButton.SetText(placeText)
+			a.tableRows[i].splitEntry.SetText(a.lapTimes[i].time)
 
-				// Set up the OnChanged handler for split time editing
-				if !a.clockState.isRunning {
-					row := i // Capture the row index
-					a.tableRows[i].splitEntry.OnChanged = func(text string) {
-						if !a.clockState.isRunning && row < len(a.lapTimes) {
-							// Update the lap time
-							a.lapTimes[row].time = text
+			// Set up the OnChanged handler for split time editing
+			if !a.clockState.isRunning {
+				row := i // Capture the row index
+				a.tableRows[i].splitEntry.OnChanged = func(text string) {
+					if !a.clockState.isRunning && row < len(a.lapTimes) {
+						// Update the lap time
+						a.lapTimes[row].time = text
 
-							// Calculate and update the time label
-							lapTime, err := parseTime(text)
-							if err == nil {
-								if timeAdjustment != 0 {
-									adjustedTime := lapTime + timeAdjustment
-									a.tableRows[row].timeLabel.SetText(formatTime(adjustedTime))
-								} else {
-									a.tableRows[row].timeLabel.SetText(formatTime(lapTime))
-								}
+						// Calculate and update the time label
+						lapTime, err := parseTime(text)
+						if err == nil {
+							if timeAdjustment != 0 {
+								adjustedTime := lapTime + timeAdjustment
+								a.tableRows[row].timeLabel.SetText(formatTime(adjustedTime))
+							} else {
+								a.tableRows[row].timeLabel.SetText(formatTime(lapTime))
 							}
+						}
 
-							// Update resultsTable if OOF matches a lane number
-							if oof := a.lapTimes[row].oof; oof != emptyString {
-								if laneNum, err := strconv.Atoi(oof); err == nil && laneNum >= 1 && laneNum <= 6 {
-									// Update Place, Split, and Time rows in resultsTable
-									a.resultsTable[3][laneNum] = a.tableRows[row].placeLabel.Text // Update Place
-									a.resultsTable[4][laneNum] = text                             // Update Split
-									a.resultsTable[5][laneNum] = a.tableRows[row].timeLabel.Text  // Update Time
-									a.window.Content().Refresh()
-								}
+						// Update resultsTable if OOF matches a lane number
+						if oof := a.lapTimes[row].oof; oof != emptyString {
+							if laneNum, err := strconv.Atoi(oof); err == nil && laneNum >= 1 && laneNum <= 6 {
+								// Update Place, Split, and Time rows in resultsTable
+								a.resultsTable[3][laneNum] = a.tableRows[row].placeButton.Text // Update Place
+								a.resultsTable[4][laneNum] = text                              // Update Split
+								a.resultsTable[5][laneNum] = a.tableRows[row].timeLabel.Text   // Update Time
+								a.window.Content().Refresh()
 							}
 						}
 					}
 				}
+			}
 
-				// Calculate and set the adjusted time
-				if timeAdjustment != 0 {
-					lapTime, err := parseTime(a.lapTimes[i].time)
-					if err == nil {
-						adjustedTime := lapTime + timeAdjustment
-						a.tableRows[i].timeLabel.SetText(formatTime(adjustedTime))
-					} else {
-						a.tableRows[i].timeLabel.SetText(a.lapTimes[i].calculatedTime)
-					}
+			// Calculate and set the adjusted time
+			if timeAdjustment != 0 {
+				lapTime, err := parseTime(a.lapTimes[i].time)
+				if err == nil {
+					adjustedTime := lapTime + timeAdjustment
+					a.tableRows[i].timeLabel.SetText(formatTime(adjustedTime))
 				} else {
 					a.tableRows[i].timeLabel.SetText(a.lapTimes[i].calculatedTime)
 				}
+			} else {
+				a.tableRows[i].timeLabel.SetText(a.lapTimes[i].calculatedTime)
 			}
 
-			// Set DQ checkbox state and enable/disable based on running state
-			a.tableRows[i].dqCheck.Checked = a.lapTimes[i].dq
-			a.tableRows[i].dqCheck.Disable()
+			// Set up the place button click handler
 			if !a.clockState.isRunning {
-				a.tableRows[i].dqCheck.Enable()
-				// Add handler for DQ checkbox changes
 				row := i // Capture the row index
-				a.tableRows[i].dqCheck.OnChanged = func(checked bool) {
-					if !a.clockState.isRunning && row < len(a.lapTimes) {
-						a.lapTimes[row].dq = checked
-						a.refreshContent() // Refresh the entire table to update all place numbers
+				a.tableRows[i].placeButton.OnTapped = func() {
+					// Get the lane number from OOF
+					oof := a.lapTimes[row].oof
+					if oof == emptyString {
+						return // Don't allow editing if no lane is assigned
 					}
+
+					laneNum, err := strconv.Atoi(oof)
+					if err != nil || laneNum < 1 || laneNum > 6 {
+						return // Invalid lane number
+					}
+
+					// Create a dialog to edit the place value
+					currentPlace := a.resultsTable[3][laneNum]
+					options := []string{"DNS", "DNF", "DQ", "Next Place"}
+
+					selectWidget := widget.NewSelect(options, func(value string) {
+						// Store the old place value
+						oldPlace := a.resultsTable[3][laneNum]
+
+						// Handle DQ/DNF/DNS status
+						if value == "DQ" || value == "DNF" || value == "DNS" {
+							// Update the place value in the results table
+							a.resultsTable[3][laneNum] = value
+
+							// Clear Split and Time values in results table
+							a.resultsTable[4][laneNum] = emptyString
+							a.resultsTable[5][laneNum] = emptyString
+
+							// If the new place is DQ, adjust other place values
+							if value == "DQ" {
+								// Convert old place to number if possible
+								if oldPlaceNum, err := strconv.Atoi(oldPlace); err == nil {
+									// Decrease place values greater than the DQ'd place
+									for l := 1; l <= 6; l++ {
+										if l != laneNum {
+											if placeStr := a.resultsTable[3][l]; placeStr != emptyString {
+												if placeNum, err := strconv.Atoi(placeStr); err == nil && placeNum > oldPlaceNum {
+													a.resultsTable[3][l] = fmt.Sprintf("%d", placeNum-1)
+													// Update the corresponding place button
+													for i := 0; i < len(a.lapTimes); i++ {
+														if a.lapTimes[i].oof == fmt.Sprintf("%d", l) {
+															a.tableRows[i].placeButton.SetText(a.resultsTable[3][l])
+															break
+														}
+													}
+												}
+											}
+										}
+									}
+								}
+							}
+						} else if value == "Next Place" {
+							// Find the current row's position in the sequence
+							rowPosition := 0
+							for i := 0; i < len(a.lapTimes); i++ {
+								if a.lapTimes[i].oof == fmt.Sprintf("%d", laneNum) {
+									rowPosition = i + 1 // 1-based position
+									break
+								}
+							}
+
+							// Count how many numerical places exist above this row
+							placesAbove := 0
+							for l := 1; l <= 6; l++ {
+								if l == laneNum {
+									continue
+								}
+								if placeStr := a.resultsTable[3][l]; placeStr != emptyString {
+									if placeNum, err := strconv.Atoi(placeStr); err == nil {
+										if placeNum < rowPosition {
+											placesAbove++
+										}
+									}
+								}
+							}
+
+							// The next place is one greater than the number of places above
+							nextPlace := placesAbove + 1
+
+							// Update the place value in the results table
+							a.resultsTable[3][laneNum] = fmt.Sprintf("%d", nextPlace)
+
+							// Restore Split and Time values from the lap table
+							for i := 0; i < len(a.lapTimes); i++ {
+								if a.lapTimes[i].oof == fmt.Sprintf("%d", laneNum) {
+									a.resultsTable[4][laneNum] = a.tableRows[i].splitEntry.Text
+									a.resultsTable[5][laneNum] = a.tableRows[i].timeLabel.Text
+									break
+								}
+							}
+
+							// If changing from DQ/DNS/DNF to a number, adjust other place values
+							if oldPlace == "DQ" || oldPlace == "DNS" || oldPlace == "DNF" {
+								// Adjust other place values
+								for l := 1; l <= 6; l++ {
+									if l != laneNum {
+										if placeStr := a.resultsTable[3][l]; placeStr != emptyString {
+											if placeNum, err := strconv.Atoi(placeStr); err == nil {
+												if placeNum >= nextPlace {
+													a.resultsTable[3][l] = fmt.Sprintf("%d", placeNum+1)
+													// Update the corresponding place button
+													for i := 0; i < len(a.lapTimes); i++ {
+														if a.lapTimes[i].oof == fmt.Sprintf("%d", l) {
+															a.tableRows[i].placeButton.SetText(a.resultsTable[3][l])
+															break
+														}
+													}
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+
+						// Update the place button text
+						a.tableRows[row].placeButton.SetText(a.resultsTable[3][laneNum])
+
+						// Refresh the window content to show the updated place values
+						a.window.Content().Refresh()
+					})
+
+					// Set the current value if it exists in options
+					for _, option := range options {
+						if option == currentPlace {
+							selectWidget.SetSelected(option)
+							break
+						}
+					}
+
+					dialog.ShowCustom(
+						"Edit Place",
+						"Close",
+						selectWidget,
+						a.window,
+					)
 				}
 			}
 		} else {
 			// Clear row
 			a.tableRows[i].oofEntry.SetText(emptyString)
 			a.tableRows[i].oofEntry.Disable()
-			a.tableRows[i].placeLabel.SetText(emptyString)
+			a.tableRows[i].placeButton.SetText(emptyString)
 			a.tableRows[i].splitEntry.SetText(emptyString)
 			a.tableRows[i].timeLabel.SetText(emptyString)
-			a.tableRows[i].dqCheck.Checked = false
-			a.tableRows[i].dqCheck.Disable()
 		}
 	}
 }

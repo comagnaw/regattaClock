@@ -61,19 +61,13 @@ func (a *App) setupWinningTime() {
 			return
 		}
 
-		// Find the first non-DQ lap time
+		// Get the first lap time
 		var firstLapTime time.Duration
-		for i := 0; i < len(a.lapTimes); i++ {
-			if !a.lapTimes[i].dq {
-				firstLapTime, err = parseTime(a.lapTimes[i].time)
-				if err == nil {
-					break
-				}
+		if len(a.lapTimes) > 0 {
+			firstLapTime, err = parseTime(a.lapTimes[0].time)
+			if err != nil {
+				return
 			}
-		}
-
-		if err != nil {
-			return
 		}
 
 		// Calculate the time adjustment
@@ -81,19 +75,17 @@ func (a *App) setupWinningTime() {
 
 		// Update all lap times and results table
 		for i := 0; i < len(a.lapTimes); i++ {
-			if !a.lapTimes[i].dq {
-				lapTime, err := parseTime(a.lapTimes[i].time)
-				if err == nil {
-					adjustedTime := lapTime + timeAdjustment
-					a.lapTimes[i].calculatedTime = formatTime(adjustedTime)
-					a.tableRows[i].timeLabel.SetText(formatTime(adjustedTime))
+			lapTime, err := parseTime(a.lapTimes[i].time)
+			if err == nil {
+				adjustedTime := lapTime + timeAdjustment
+				a.lapTimes[i].calculatedTime = formatTime(adjustedTime)
+				a.tableRows[i].timeLabel.SetText(formatTime(adjustedTime))
 
-					// Update results table if OOF is set
-					if a.lapTimes[i].oof != emptyString {
-						if laneNum, err := strconv.Atoi(a.lapTimes[i].oof); err == nil && laneNum >= 1 && laneNum <= 6 {
-							a.resultsTable[4][laneNum] = a.lapTimes[i].time       // Update Split
-							a.resultsTable[5][laneNum] = formatTime(adjustedTime) // Update Time
-						}
+				// Update results table if OOF is set
+				if a.lapTimes[i].oof != emptyString {
+					if laneNum, err := strconv.Atoi(a.lapTimes[i].oof); err == nil && laneNum >= 1 && laneNum <= 6 {
+						a.resultsTable[4][laneNum] = a.lapTimes[i].time       // Update Split
+						a.resultsTable[5][laneNum] = formatTime(adjustedTime) // Update Time
 					}
 				}
 			}

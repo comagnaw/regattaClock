@@ -11,15 +11,13 @@ type lapTime struct {
 	time           string
 	calculatedTime string
 	oof            string
-	dq             bool
 }
 
 type LapTableRow struct {
-	oofEntry   *widget.Entry
-	placeLabel *widget.Label
-	splitEntry *widget.Entry
-	timeLabel  *widget.Label
-	dqCheck    *widget.Check
+	oofEntry    *widget.Entry
+	placeButton *widget.Button
+	splitEntry  *widget.Entry
+	timeLabel   *widget.Label
 }
 
 type RaceTreeNode struct {
@@ -67,13 +65,10 @@ func (a *App) raceResults() *fyne.Container {
 }
 
 func (a *App) lapHeader() *fyne.Container {
-	header := container.NewGridWithColumns(5)
+	header := container.NewGridWithColumns(4)
 
 	oofHeader := widget.NewLabel("OOF")
 	oofHeader.TextStyle = fyne.TextStyle{Bold: true}
-
-	dqHeader := widget.NewLabel("DQ")
-	dqHeader.TextStyle = fyne.TextStyle{Bold: true}
 
 	placeHeader := widget.NewLabel("Place")
 	placeHeader.TextStyle = fyne.TextStyle{Bold: true}
@@ -85,7 +80,6 @@ func (a *App) lapHeader() *fyne.Container {
 	timeHeader.TextStyle = fyne.TextStyle{Bold: true}
 
 	header.Add(oofHeader)
-	header.Add(dqHeader)
 	header.Add(placeHeader)
 	header.Add(splitHeader)
 	header.Add(timeHeader)
@@ -94,36 +88,33 @@ func (a *App) lapHeader() *fyne.Container {
 }
 
 func (a *App) lapTable() *fyne.Container {
-
 	tablesContainer := container.NewVBox()
 	tablesContainer.Add(a.lapHeader())
 
 	a.tableRows = make([]LapTableRow, 6)
 	for i := 0; i < 6; i++ {
-
-		row := container.NewGridWithColumns(5)
+		row := container.NewGridWithColumns(4)
 
 		// Create widgets for each column
 		oofEntry := widget.NewEntry()
-		dqCheck := widget.NewCheck(emptyString, nil)
-		placeLabel := widget.NewLabel(emptyString)
+		placeButton := widget.NewButton(emptyString, nil)
+		placeButton.Importance = widget.MediumImportance
+		placeButton.Resize(fyne.NewSize(100, 30)) // Set minimum size
 		splitEntry := widget.NewEntry()
 		timeLabel := widget.NewLabel(emptyString)
 
 		// Add widgets to row
 		row.Add(oofEntry)
-		row.Add(dqCheck)
-		row.Add(placeLabel)
+		row.Add(placeButton)
 		row.Add(splitEntry)
 		row.Add(timeLabel)
 
 		// Store the widgets
 		a.tableRows[i] = LapTableRow{
-			oofEntry:   oofEntry,
-			placeLabel: placeLabel,
-			splitEntry: splitEntry,
-			timeLabel:  timeLabel,
-			dqCheck:    dqCheck,
+			oofEntry:    oofEntry,
+			placeButton: placeButton,
+			splitEntry:  splitEntry,
+			timeLabel:   timeLabel,
 		}
 
 		// Add row to container

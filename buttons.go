@@ -42,7 +42,6 @@ func (a *App) startFunc() func() {
 				time:           zeroTime,
 				calculatedTime: zeroTime,
 				oof:            emptyString,
-				dq:             false,
 			})
 			a.refreshContent()
 			a.raceNumber.Disable()
@@ -72,7 +71,6 @@ func (a *App) lapFunc() func() {
 				time:           formatted,
 				calculatedTime: formatted,
 				oof:            emptyString,
-				dq:             false,
 			})
 			a.refreshContent()
 		}
