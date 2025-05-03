@@ -22,6 +22,9 @@ type RaceEntry struct {
 type RaceData struct {
 	RaceNumber int
 	Lanes      map[int]RaceEntry // Lane number (1-6) to RaceEntry
+	RawData    [][]string        // Raw cell data from columns C through I for each row
+	Saved      bool              // Whether the race data has been saved
+	Approved   bool              // Whether the race data has been approved
 }
 
 // RegattaData represents the structure of the regatta data we'll read from Excel
@@ -42,7 +45,7 @@ func ReadExcelFile(filePath string) (*RegattaData, error) {
 
 	// Get the first sheet name
 	sheetName := f.GetSheetName(0)
-	if sheetName == "" {
+	if sheetName == emptyString {
 		return nil, fmt.Errorf("no sheets found in Excel file")
 	}
 
@@ -95,6 +98,14 @@ func ReadExcelFile(filePath string) (*RegattaData, error) {
 						Lanes:      make(map[int]RaceEntry),
 					}
 
+					// Initialize RawData for this race if not already done
+					if race.RawData == nil {
+						race.RawData = make([][]string, endRow-startRow+1)
+						for i := range race.RawData {
+							race.RawData[i] = make([]string, 7) // Columns C through I
+						}
+					}
+
 					// Process each lane (columns D through I)
 					for lane := 1; lane <= 6; lane++ {
 						col := rune('A' + lane + 2) // D=1, E=2, F=3, G=4, H=5, I=6
@@ -104,6 +115,12 @@ func ReadExcelFile(filePath string) (*RegattaData, error) {
 						for row := startRow; row <= endRow; row++ {
 							// Get the cell value
 							cellValue, _ := f.GetCellValue(sheetName, fmt.Sprintf("%c%d", col, row))
+
+							// Store raw data (columns C through I)
+							for rawCol := 0; rawCol < 7; rawCol++ {
+								rawCellValue, _ := f.GetCellValue(sheetName, fmt.Sprintf("%c%d", rune('C'+rawCol), row))
+								race.RawData[row-startRow][rawCol] = rawCellValue
+							}
 
 							// Assign data based on row position
 							switch row - startRow {
@@ -121,7 +138,7 @@ func ReadExcelFile(filePath string) (*RegattaData, error) {
 						}
 
 						// Only add the lane if it has a school name or additional info
-						if entry.SchoolName != "" || entry.AdditionalInfo != "" {
+						if entry.SchoolName != emptyString || entry.AdditionalInfo != emptyString {
 							race.Lanes[lane] = entry
 						}
 					}
@@ -152,6 +169,16 @@ func ReadExcelFile(filePath string) (*RegattaData, error) {
 				fmt.Printf("    Split: %s\n", entry.Split)
 				fmt.Printf("    Time: %s\n", entry.Time)
 			}
+		}
+
+		// Print RawData
+		fmt.Println("\n  Raw Data (Columns C through I):")
+		for row := 0; row < len(race.RawData); row++ {
+			fmt.Printf("    Row %d: ", row+1)
+			for col := 0; col < len(race.RawData[row]); col++ {
+				fmt.Printf("[%s] ", race.RawData[row][col])
+			}
+			fmt.Println()
 		}
 	}
 

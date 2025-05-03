@@ -6,7 +6,7 @@ import (
 )
 
 func main() {
-	fyneApp := app.New()
+	fyneApp := app.NewWithID("com.github.comagnaw.regattaClock")
 	regattaApp := regattaClock.NewApp(fyneApp)
 	regattaApp.Run()
 }
