@@ -31,7 +31,6 @@ type App struct {
 	winningTime        *widget.Entry
 	regattaData        *RegattaData
 	clockState         *clockState
-	originalPlaces     map[int]string // Add map to store original place values
 	resultsTableWidget *widget.Table
 }
 
@@ -52,7 +51,6 @@ func NewApp(app fyne.App) *App {
 			isCleared: true,
 			stopChan:  make(chan struct{}),
 		},
-		originalPlaces: make(map[int]string), // Initialize the map
 	}
 
 	regattaApp.initAppData()
@@ -109,11 +107,6 @@ func (a *App) initAppData() {
 	a.setScheduledRaces()
 	a.setRaceDate()
 	a.setupWinningTime()
-
-	// Initialize the originalPlaces map if it's nil
-	if a.originalPlaces == nil {
-		a.originalPlaces = make(map[int]string)
-	}
 
 	if a.resultsTable == nil {
 		a.resultsTable = [][]string{
