@@ -1026,10 +1026,8 @@ func (a *App) setupWinningTime() {
 	a.winningTime = widget.NewEntry()
 	a.winningTime.SetPlaceHolder("00:00.0")
 	a.winningTime.OnChanged = func(text string) {
-		// Validate the winning time format
+		// If winning time is empty, just disable referee button
 		if text == "" {
-			// If winning time is cleared, reset lap times and disable referee button
-			a.lapTimes = make([]lapTime, 0)
 			// Find and disable the referee button
 			for _, content := range a.window.Content().(*fyne.Container).Objects {
 				if buttonContainer, ok := content.(*fyne.Container); ok {
@@ -1045,7 +1043,6 @@ func (a *App) setupWinningTime() {
 			for i := 1; i <= 6; i++ {
 				a.resultsTable[5][i] = emptyString
 			}
-			a.refreshContent()           // Refresh content when winning time is cleared
 			a.window.Content().Refresh() // Refresh the window
 			return
 		}
