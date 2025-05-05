@@ -18,20 +18,21 @@ import (
 
 // App represents the main application
 type App struct {
-	window         fyne.Window
-	app            fyne.App
-	clock          *canvas.Text
-	regattaTitle   *canvas.Text
-	regattaDate    *canvas.Text
-	scheduledRaces *canvas.Text
-	tableRows      []LapTableRow
-	resultsTable   [][]string
-	lapTimes       []lapTime
-	raceNumber     *widget.Entry
-	winningTime    *widget.Entry
-	regattaData    *RegattaData
-	clockState     *clockState
-	originalPlaces map[int]string // Add map to store original place values
+	window             fyne.Window
+	app                fyne.App
+	clock              *canvas.Text
+	regattaTitle       *canvas.Text
+	regattaDate        *canvas.Text
+	scheduledRaces     *canvas.Text
+	tableRows          []LapTableRow
+	resultsTable       [][]string
+	lapTimes           []lapTime
+	raceNumber         *widget.Entry
+	winningTime        *widget.Entry
+	regattaData        *RegattaData
+	clockState         *clockState
+	originalPlaces     map[int]string // Add map to store original place values
+	resultsTableWidget *widget.Table
 }
 
 type clockState struct {
@@ -221,11 +222,39 @@ func (a *App) refreshContent() {
 			firstLapTime, err := parseTime(a.lapTimes[0].time)
 			if err == nil {
 				timeAdjustment = winningTime - firstLapTime
+				// Store the calculated time in the lapTime struct
+				a.lapTimes[0].calculatedTime = formatTime(winningTime)
 			}
 		}
 	}
 
-	// Update all rows
+	// First pass: update all time labels and calculated times
+	for i := 0; i < len(a.lapTimes); i++ {
+		if timeAdjustment != 0 {
+			lapTime, err := parseTime(a.lapTimes[i].time)
+			if err == nil {
+				adjustedTime := lapTime + timeAdjustment
+				adjustedTimeStr := formatTime(adjustedTime)
+				a.lapTimes[i].calculatedTime = adjustedTimeStr
+				// Update results table if OOF is set
+				if oof := a.lapTimes[i].oof; oof != emptyString {
+					if laneNum, err := strconv.Atoi(oof); err == nil && laneNum >= 1 && laneNum <= 6 {
+						a.resultsTable[5][laneNum] = adjustedTimeStr
+					}
+				}
+			}
+		} else {
+			a.lapTimes[i].calculatedTime = a.lapTimes[i].time
+			// Update results table if OOF is set
+			if oof := a.lapTimes[i].oof; oof != emptyString {
+				if laneNum, err := strconv.Atoi(oof); err == nil && laneNum >= 1 && laneNum <= 6 {
+					a.resultsTable[5][laneNum] = a.lapTimes[i].time
+				}
+			}
+		}
+	}
+
+	// Second pass: update all rows and resultsTable
 	for i := 0; i < 6; i++ {
 		if i < len(a.lapTimes) {
 			// Set OOF entry
@@ -255,7 +284,7 @@ func (a *App) refreshContent() {
 								// Update Place, Split, and Time rows in resultsTable
 								a.resultsTable[3][laneNum] = a.tableRows[row].placeButton.Text // Update Place
 								a.resultsTable[4][laneNum] = a.tableRows[row].splitEntry.Text  // Update Split
-								a.resultsTable[5][laneNum] = a.tableRows[row].timeLabel.Text   // Update Time
+								a.resultsTable[5][laneNum] = a.lapTimes[row].calculatedTime    // Update Time with calculated time
 								// Clear previous lane if it was different
 								if prevOOF != emptyString && prevOOF != text {
 									if prevLaneNum, err := strconv.Atoi(prevOOF); err == nil && prevLaneNum >= 1 && prevLaneNum <= 6 {
@@ -297,17 +326,14 @@ func (a *App) refreshContent() {
 				}
 
 				// Set up the OnSubmitted handler for OOF editing (Tab or Enter)
-				if !a.clockState.isRunning {
-					row := i // Capture the row index
-					a.tableRows[i].oofEntry.OnSubmitted = func(text string) {
-						if !a.clockState.isRunning && row < len(a.tableRows) && row < len(a.lapTimes) {
-							// Move focus to next row's OOF entry if it exists
-							if row+1 < len(a.tableRows) && row+1 < len(a.lapTimes) {
-								// Clear any existing text in the next entry
-								a.tableRows[row+1].oofEntry.SetText(emptyString)
-								// Move focus to the next entry
-								a.window.Canvas().Focus(a.tableRows[row+1].oofEntry)
-							}
+				a.tableRows[i].oofEntry.OnSubmitted = func(text string) {
+					if !a.clockState.isRunning && row < len(a.tableRows) && row < len(a.lapTimes) {
+						// Move focus to next row's OOF entry if it exists
+						if row+1 < len(a.tableRows) && row+1 < len(a.lapTimes) {
+							// Clear any existing text in the next entry
+							a.tableRows[row+1].oofEntry.SetText(emptyString)
+							// Move focus to the next entry
+							a.window.Canvas().Focus(a.tableRows[row+1].oofEntry)
 						}
 					}
 				}
@@ -319,6 +345,16 @@ func (a *App) refreshContent() {
 			placeText := fmt.Sprintf("%d", adjustedPlaces[i])
 			a.tableRows[i].placeButton.SetText(placeText)
 			a.tableRows[i].splitEntry.SetText(a.lapTimes[i].time)
+			a.tableRows[i].timeLabel.SetText(a.lapTimes[i].calculatedTime)
+
+			// Update resultsTable if OOF is set
+			if oof := a.lapTimes[i].oof; oof != emptyString {
+				if laneNum, err := strconv.Atoi(oof); err == nil && laneNum >= 1 && laneNum <= 6 {
+					a.resultsTable[3][laneNum] = placeText                    // Update Place
+					a.resultsTable[4][laneNum] = a.lapTimes[i].time           // Update Split
+					a.resultsTable[5][laneNum] = a.lapTimes[i].calculatedTime // Update Time
+				}
+			}
 
 			// Set up the OnChanged handler for split time editing
 			if !a.clockState.isRunning {
@@ -333,9 +369,12 @@ func (a *App) refreshContent() {
 						if err == nil {
 							if timeAdjustment != 0 {
 								adjustedTime := lapTime + timeAdjustment
-								a.tableRows[row].timeLabel.SetText(formatTime(adjustedTime))
+								adjustedTimeStr := formatTime(adjustedTime)
+								a.tableRows[row].timeLabel.SetText(adjustedTimeStr)
+								a.lapTimes[row].calculatedTime = adjustedTimeStr
 							} else {
 								a.tableRows[row].timeLabel.SetText(formatTime(lapTime))
+								a.lapTimes[row].calculatedTime = formatTime(lapTime)
 							}
 						}
 
@@ -345,167 +384,11 @@ func (a *App) refreshContent() {
 								// Update Place, Split, and Time rows in resultsTable
 								a.resultsTable[3][laneNum] = a.tableRows[row].placeButton.Text // Update Place
 								a.resultsTable[4][laneNum] = text                              // Update Split
-								a.resultsTable[5][laneNum] = a.tableRows[row].timeLabel.Text   // Update Time
+								a.resultsTable[5][laneNum] = a.lapTimes[row].calculatedTime    // Update Time
 								a.window.Content().Refresh()
 							}
 						}
 					}
-				}
-			}
-
-			// Calculate and set the adjusted time
-			if timeAdjustment != 0 {
-				lapTime, err := parseTime(a.lapTimes[i].time)
-				if err == nil {
-					adjustedTime := lapTime + timeAdjustment
-					a.tableRows[i].timeLabel.SetText(formatTime(adjustedTime))
-				} else {
-					a.tableRows[i].timeLabel.SetText(a.lapTimes[i].calculatedTime)
-				}
-			} else {
-				a.tableRows[i].timeLabel.SetText(a.lapTimes[i].calculatedTime)
-			}
-
-			// Set up the place button click handler
-			if !a.clockState.isRunning {
-				row := i // Capture the row index
-				a.tableRows[i].placeButton.OnTapped = func() {
-					// Get the lane number from OOF
-					oof := a.lapTimes[row].oof
-					if oof == emptyString {
-						return // Don't allow editing if no lane is assigned
-					}
-
-					laneNum, err := strconv.Atoi(oof)
-					if err != nil || laneNum < 1 || laneNum > 6 {
-						return // Invalid lane number
-					}
-
-					// Create a dialog to edit the place value
-					currentPlace := a.resultsTable[3][laneNum]
-					options := []string{"DNS", "DNF", "DQ", "Next Place"}
-
-					selectWidget := widget.NewSelect(options, func(value string) {
-						// Store the old place value
-						oldPlace := a.resultsTable[3][laneNum]
-
-						// Handle DQ/DNF/DNS status
-						if value == "DQ" || value == "DNF" || value == "DNS" {
-							// Update the place value in the results table
-							a.resultsTable[3][laneNum] = value
-
-							// Clear Split and Time values in results table
-							a.resultsTable[4][laneNum] = emptyString
-							a.resultsTable[5][laneNum] = emptyString
-
-							// If the new place is DQ, adjust other place values
-							if value == "DQ" {
-								// Convert old place to number if possible
-								if oldPlaceNum, err := strconv.Atoi(oldPlace); err == nil {
-									// Decrease place values greater than the DQ'd place
-									for l := 1; l <= 6; l++ {
-										if l != laneNum {
-											if placeStr := a.resultsTable[3][l]; placeStr != emptyString {
-												if placeNum, err := strconv.Atoi(placeStr); err == nil && placeNum > oldPlaceNum {
-													a.resultsTable[3][l] = fmt.Sprintf("%d", placeNum-1)
-													// Update the corresponding place button
-													for i := 0; i < len(a.lapTimes); i++ {
-														if a.lapTimes[i].oof == fmt.Sprintf("%d", l) {
-															a.tableRows[i].placeButton.SetText(a.resultsTable[3][l])
-															break
-														}
-													}
-												}
-											}
-										}
-									}
-								}
-							}
-						} else if value == "Next Place" {
-							// Find the current row's position in the sequence
-							rowPosition := 0
-							for i := 0; i < len(a.lapTimes); i++ {
-								if a.lapTimes[i].oof == fmt.Sprintf("%d", laneNum) {
-									rowPosition = i + 1 // 1-based position
-									break
-								}
-							}
-
-							// Count how many numerical places exist above this row
-							placesAbove := 0
-							for l := 1; l <= 6; l++ {
-								if l == laneNum {
-									continue
-								}
-								if placeStr := a.resultsTable[3][l]; placeStr != emptyString {
-									if placeNum, err := strconv.Atoi(placeStr); err == nil {
-										if placeNum < rowPosition {
-											placesAbove++
-										}
-									}
-								}
-							}
-
-							// The next place is one greater than the number of places above
-							nextPlace := placesAbove + 1
-
-							// Update the place value in the results table
-							a.resultsTable[3][laneNum] = fmt.Sprintf("%d", nextPlace)
-
-							// Restore Split and Time values from the lap table
-							for i := 0; i < len(a.lapTimes); i++ {
-								if a.lapTimes[i].oof == fmt.Sprintf("%d", laneNum) {
-									a.resultsTable[4][laneNum] = a.tableRows[i].splitEntry.Text
-									a.resultsTable[5][laneNum] = a.tableRows[i].timeLabel.Text
-									break
-								}
-							}
-
-							// If changing from DQ/DNS/DNF to a number, adjust other place values
-							if oldPlace == "DQ" || oldPlace == "DNS" || oldPlace == "DNF" {
-								// Adjust other place values
-								for l := 1; l <= 6; l++ {
-									if l != laneNum {
-										if placeStr := a.resultsTable[3][l]; placeStr != emptyString {
-											if placeNum, err := strconv.Atoi(placeStr); err == nil {
-												if placeNum >= nextPlace {
-													a.resultsTable[3][l] = fmt.Sprintf("%d", placeNum+1)
-													// Update the corresponding place button
-													for i := 0; i < len(a.lapTimes); i++ {
-														if a.lapTimes[i].oof == fmt.Sprintf("%d", l) {
-															a.tableRows[i].placeButton.SetText(a.resultsTable[3][l])
-															break
-														}
-													}
-												}
-											}
-										}
-									}
-								}
-							}
-						}
-
-						// Update the place button text
-						a.tableRows[row].placeButton.SetText(a.resultsTable[3][laneNum])
-
-						// Refresh the window content to show the updated place values
-						a.window.Content().Refresh()
-					})
-
-					// Set the current value if it exists in options
-					for _, option := range options {
-						if option == currentPlace {
-							selectWidget.SetSelected(option)
-							break
-						}
-					}
-
-					dialog.ShowCustom(
-						"Edit Place",
-						"Close",
-						selectWidget,
-						a.window,
-					)
 				}
 			}
 		} else {
@@ -1021,11 +904,17 @@ func (a *App) setupWinningTime() {
 					}
 				}
 			}
+			// Clear all results table times
+			for i := 1; i <= 6; i++ {
+				a.resultsTable[5][i] = emptyString
+			}
+			a.refreshContent()           // Refresh content when winning time is cleared
+			a.window.Content().Refresh() // Refresh the window
 			return
 		}
 
 		// Try to parse the winning time
-		_, err := parseTime(text)
+		winningTime, err := parseTime(text)
 		if err != nil {
 			// Invalid time format, disable referee button
 			for _, content := range a.window.Content().(*fyne.Container).Objects {
@@ -1043,8 +932,28 @@ func (a *App) setupWinningTime() {
 
 		// If we have a valid winning time and at least one lap time, enable the referee button
 		if len(a.lapTimes) > 0 {
-			firstLapTime := a.lapTimes[0].time
-			if firstLapTime != "" {
+			firstLapTime, err := parseTime(a.lapTimes[0].time)
+			if err == nil {
+				// Calculate the time adjustment
+				timeAdjustment := winningTime - firstLapTime
+
+				// Update all lap times and results table
+				for i := 0; i < len(a.lapTimes); i++ {
+					lapTime, err := parseTime(a.lapTimes[i].time)
+					if err == nil {
+						adjustedTime := lapTime + timeAdjustment
+						adjustedTimeStr := formatTime(adjustedTime)
+						a.lapTimes[i].calculatedTime = adjustedTimeStr
+
+						// Update results table if OOF is set
+						if oof := a.lapTimes[i].oof; oof != emptyString {
+							if laneNum, err := strconv.Atoi(oof); err == nil && laneNum >= 1 && laneNum <= 6 {
+								a.resultsTable[5][laneNum] = adjustedTimeStr
+							}
+						}
+					}
+				}
+
 				// Find and enable the referee button
 				for _, content := range a.window.Content().(*fyne.Container).Objects {
 					if buttonContainer, ok := content.(*fyne.Container); ok {
@@ -1056,7 +965,36 @@ func (a *App) setupWinningTime() {
 						}
 					}
 				}
+				a.refreshContent()           // Refresh content when winning time is set
+				a.window.Content().Refresh() // Refresh the window
 			}
 		}
 	}
+}
+
+func (a *App) setupResultsTable() *widget.Table {
+	// Create the results table widget
+	resultsTable := widget.NewTable(
+		func() (int, int) {
+			return len(a.resultsTable), len(a.resultsTable[0])
+		},
+		func() fyne.CanvasObject {
+			return widget.NewLabel("")
+		},
+		func(id widget.TableCellID, cell fyne.CanvasObject) {
+			label := cell.(*widget.Label)
+			label.SetText(a.resultsTable[id.Row][id.Col])
+		},
+	)
+
+	// Set column widths
+	resultsTable.SetColumnWidth(0, 100) // Lane
+	for i := 1; i <= 6; i++ {
+		resultsTable.SetColumnWidth(i, 150) // Lane times
+	}
+
+	// Store the widget reference
+	a.resultsTableWidget = resultsTable
+
+	return resultsTable
 }
