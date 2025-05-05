@@ -1,4 +1,4 @@
-package regattaClock
+package clock
 
 import (
 	"fyne.io/fyne/v2"
@@ -9,19 +9,19 @@ type keyboardHandler struct {
 	lapFunc   func()
 }
 
-func (h *keyboardHandler) TypedKey(event *fyne.KeyEvent) {
+func (k *keyboardHandler) TypedKey(event *fyne.KeyEvent) {
 	switch event.Name {
 	case fyne.KeyF2:
-		h.startFunc()
+		k.startFunc()
 	case fyne.KeyF4:
-		h.lapFunc()
+		k.lapFunc()
 	}
 }
 
-func (a *App) setupKeyboardHandler() func(*fyne.KeyEvent) {
+func (c *Clock) setupKeyboardHandler() func(*fyne.KeyEvent) {
 	handler := &keyboardHandler{
-		startFunc: a.startFunc(),
-		lapFunc:   a.lapFunc(),
+		startFunc: c.startFunc(),
+		lapFunc:   c.lapFunc(),
 	}
 	return handler.TypedKey
 }

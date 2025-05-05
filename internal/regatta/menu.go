@@ -1,0 +1,42 @@
+package regatta
+
+import (
+	"fyne.io/fyne/v2"
+	"github.com/comagnaw/regattaClock/internal/common"
+)
+
+// makeMenu - generate app menu
+func (r *Regatta) makeMenu() *fyne.MainMenu {
+
+	return fyne.NewMainMenu(
+		fyne.NewMenu(
+			common.AppTitle,
+			r.importItem(),
+			r.showWindowItem(),
+			fyne.NewMenuItemSeparator(),
+			r.exitItem(),
+		),
+	)
+
+}
+
+// importItems - menu item to load RegattaData
+func (r *Regatta) importItem() *fyne.MenuItem {
+	return fyne.NewMenuItem("Import Regatta Table", func() {
+		r.loader(false)
+	})
+}
+
+// showWindowItem - menu to bring main app back into focus
+func (r *Regatta) showWindowItem() *fyne.MenuItem {
+	return fyne.NewMenuItem("Show Window", func() {
+		r.window.Show()
+	})
+}
+
+// exitItem - menu to exit the main app
+func (r *Regatta) exitItem() *fyne.MenuItem {
+	return fyne.NewMenuItem("Exit", func() {
+		r.App.Quit()
+	})
+}
