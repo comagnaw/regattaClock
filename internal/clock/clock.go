@@ -136,12 +136,7 @@ func (c *Clock) startClockUpdate() {
 		select {
 		case <-ticker.C:
 			if c.clockState.isRunning {
-				elapsed := time.Since(c.clockState.startTime)
-				minutes := int(elapsed.Minutes()) % 60
-				seconds := int(elapsed.Seconds()) % 60
-				tenths := int(elapsed.Milliseconds()/100) % 10
-				formatted := fmt.Sprintf(common.ClockFormatter, minutes, seconds, tenths)
-
+				formatted := c.getElapsedTime()
 				// Use fyne.Do to update UI on the main thread
 				fyne.Do(func() {
 					if c.clock != nil { // Add nil check for safety
@@ -154,6 +149,14 @@ func (c *Clock) startClockUpdate() {
 			return
 		}
 	}
+}
+
+func (c *Clock) getElapsedTime() string {
+	elapsed := time.Since(c.clockState.startTime)
+	minutes := int(elapsed.Minutes()) % 60
+	seconds := int(elapsed.Seconds()) % 60
+	tenths := int(elapsed.Milliseconds()/100) % 10
+	return fmt.Sprintf(common.ClockFormatter, minutes, seconds, tenths)
 }
 
 func (c *Clock) isNotRunning() bool {

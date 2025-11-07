@@ -1,7 +1,6 @@
 package clock
 
 import (
-	"fmt"
 	"time"
 
 	"fyne.io/fyne/v2/widget"
@@ -66,12 +65,7 @@ func (c *Clock) initLap() *widget.Button {
 func (c *Clock) lapFunc() func() {
 	return func() {
 		if c.clockState.isRunning {
-			elapsed := time.Since(c.clockState.startTime)
-			minutes := int(elapsed.Minutes()) % 60
-			seconds := int(elapsed.Seconds()) % 60
-			tenths := int(elapsed.Milliseconds()/100) % 10
-			formatted := fmt.Sprintf(common.ClockFormatter, minutes, seconds, tenths)
-
+			formatted := c.getElapsedTime()
 			c.lapTimes = append(c.lapTimes, lapTime{
 				place:          len(c.lapTimes) + 1,
 				time:           formatted,
