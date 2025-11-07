@@ -54,7 +54,7 @@ func (r resultsTable) resultsContainer() *fyne.Container {
 		})
 
 	return container.NewGridWrap(
-		fyne.Size{Width: 1240, Height: 240},
+		fyne.Size{Width: clockWidth, Height: resultsHeight},
 		container.NewStack(list),
 	)
 }

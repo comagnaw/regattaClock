@@ -98,7 +98,7 @@ func NewClock(parent fyne.App, regattaData *reader.RegattaData, race reader.Race
 func (c *Clock) OpenRaceClock() {
 
 	c.window.SetContent(c.content())
-	c.window.Resize(fyne.NewSize(1240, 800))
+	c.window.Resize(fyne.NewSize(clockWidth, clockHeight))
 
 	// Set up keyboard handler for this window
 	c.window.Canvas().SetOnTypedKey(c.setupKeyboardHandler())

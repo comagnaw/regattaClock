@@ -46,7 +46,7 @@ func NewRegatta(app fyne.App) *Regatta {
 	regattaApp.initRegattaDetails()
 	regattaApp.window.SetMaster()
 	regattaApp.window.SetMainMenu(regattaApp.makeMenu())
-	regattaApp.window.Resize(fyne.NewSize(500, 600))
+	regattaApp.window.Resize(fyne.NewSize(regattaWidth, regattaHeight))
 	regattaApp.setupStartupDialog()
 
 	return regattaApp

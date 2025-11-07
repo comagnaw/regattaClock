@@ -25,7 +25,7 @@ func (r *Regatta) showRaceTree() {
 
 	// Set the window content
 	r.window.SetContent(mainContainer)
-	r.window.Resize(fyne.NewSize(500, 600))
+	r.window.Resize(fyne.NewSize(regattaWidth, regattaHeight))
 }
 
 func (r *Regatta) treeTitle() *fyne.Container {
@@ -61,7 +61,7 @@ func (r *Regatta) raceList() *container.Scroll {
 
 	// Create a scroll container for the race list
 	scroll := container.NewScroll(raceList)
-	scroll.SetMinSize(fyne.NewSize(500, 600))
+	scroll.SetMinSize(fyne.NewSize(regattaWidth, regattaHeight))
 	return scroll
 }
 
