@@ -44,7 +44,6 @@ type lapRow struct {
 	timeLabel   *widget.Label
 }
 
-
 func (c *Clock) oofEntryOnSubmittedFunc(row int) func(text string) {
 	return func(text string) {
 		if c.isNotRunning() && row < len(c.lapRows) && row < len(c.lapTimes) {

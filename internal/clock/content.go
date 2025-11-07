@@ -1,7 +1,6 @@
 package clock
 
 import (
-
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/layout"
@@ -83,7 +82,7 @@ func (c *Clock) lapTable() *fyne.Container {
 	return tablesContainer
 }
 
-func (c *Clock) winningTimeInput() *widget.Form { 
+func (c *Clock) winningTimeInput() *widget.Form {
 	return widget.NewForm(
 		widget.NewFormItem(
 			"Winning Time:",

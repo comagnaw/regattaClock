@@ -27,7 +27,7 @@ func initResultsTable(rd reader.RaceData) resultsTable {
 	schools = append(schools, rd.SchoolNames()...)
 	additionalInfo := []string{""}
 	additionalInfo = append(additionalInfo, rd.AdditionalInfos()...)
-	
+
 	return [][]string{
 		{"", "Lane 1", "Lane 2", "Lane 3", "Lane 4", "Lane 5", "Lane 6"},
 		schools,

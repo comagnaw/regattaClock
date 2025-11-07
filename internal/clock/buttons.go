@@ -22,7 +22,6 @@ type buttons struct {
 	save *widget.Button
 }
 
-
 func (c *Clock) initButtons() {
 	c.buttons.referee = c.initReferee()
 	c.buttons.save = c.initSave()

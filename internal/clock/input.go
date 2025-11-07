@@ -6,7 +6,6 @@ import (
 	"github.com/comagnaw/regattaClock/internal/common"
 )
 
-
 func (c *Clock) initWinningTime() {
 	c.winningTime = widget.NewEntry()
 	c.winningTime.SetPlaceHolder(common.ZeroTime)
