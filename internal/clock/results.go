@@ -5,10 +5,23 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 
+	"github.com/comagnaw/regattaClock/internal/common"
 	"github.com/comagnaw/regattaClock/internal/reader"
 )
 
 type resultsTable [][]string
+
+func (r resultsTable) updateFromLapRows(laneNum, row int, l lapRows) {
+	r.updatePlace(laneNum, l.getPlace(row))
+	r.updateSplit(laneNum, l.getSplit(row))
+	r.updateTime(laneNum, l.getTime(row))
+}
+
+func (r resultsTable) clear(laneNum int) {
+	r.updatePlace(laneNum, common.EmptyString)
+	r.updateSplit(laneNum, common.EmptyString)
+	r.updateTime(laneNum, common.EmptyString)
+}
 
 func (r resultsTable) updatePlace(lane int, place string) {
 	r[3][lane] = place

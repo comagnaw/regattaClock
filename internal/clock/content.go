@@ -82,22 +82,13 @@ func (c *Clock) lapTable() *fyne.Container {
 	return tablesContainer
 }
 
-func (c *Clock) winningTimeInput() *widget.Form {
-	return widget.NewForm(
-		widget.NewFormItem(
-			"Winning Time:",
-			c.winningTime,
-		),
-	)
-}
-
 func (c *Clock) lapHeader() *fyne.Container {
 	header := container.NewGridWithColumns(4)
 
 	oofHeader := widget.NewLabel("OOF")
 	oofHeader.TextStyle = fyne.TextStyle{Bold: true}
 
-	placeHeader := widget.NewLabel("Place")
+	placeHeader := widget.NewLabel("Place / DQ / DNS / DNF")
 	placeHeader.TextStyle = fyne.TextStyle{Bold: true}
 
 	splitHeader := widget.NewLabel("Split")
@@ -112,6 +103,15 @@ func (c *Clock) lapHeader() *fyne.Container {
 	header.Add(timeHeader)
 
 	return header
+}
+
+func (c *Clock) winningTimeInput() *widget.Form {
+	return widget.NewForm(
+		widget.NewFormItem(
+			"Winning Time:",
+			c.winningTime,
+		),
+	)
 }
 
 func (c *Clock) approvalPanel() *fyne.Container {

@@ -64,7 +64,7 @@ func (c *Clock) initLap() *widget.Button {
 
 func (c *Clock) lapFunc() func() {
 	return func() {
-		if c.clockState.isRunning {
+		if c.clockState.isRunning && len(c.lapTimes) < 6 {
 			formatted := c.getElapsedTime()
 			c.lapTimes = append(c.lapTimes, lapTime{
 				place:          len(c.lapTimes) + 1,

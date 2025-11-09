@@ -10,6 +10,13 @@ import (
 	"github.com/comagnaw/regattaClock/internal/common"
 )
 
+type lapTime struct {
+	place          int
+	time           string
+	calculatedTime string
+	oofLaneNum     string
+}
+
 type lapTimes []lapTime
 
 func (l lapTimes) hasOOF(row int) bool {
@@ -28,20 +35,35 @@ func (l lapTimes) getLaneNum(row int) int {
 	return 0
 }
 
-type lapTime struct {
-	place          int
-	time           string
-	calculatedTime string
-	oofLaneNum     string
+// alreadyAssigned - check if submitted text is already assigned and is not the row
+func (l lapTimes) alreadyAssigned(row int, text string) bool {
+	for j := 0; j < len(l); j++ {
+		if j != row && l[j].oofLaneNum == text {
+			return true
+		}
+	}
+	return false
 }
-
-type lapRows []lapRow
 
 type lapRow struct {
 	oofEntry    *widget.Entry
 	placeButton *widget.Button
 	splitEntry  *widget.Entry
 	timeLabel   *widget.Label
+}
+
+type lapRows []lapRow
+
+func (l lapRows) getPlace(row int) string {
+	return l[row].placeButton.Text
+}
+
+func (l lapRows) getSplit(row int) string {
+	return l[row].splitEntry.Text
+}
+
+func (l lapRows) getTime(row int) string {
+	return l[row].timeLabel.Text
 }
 
 func (c *Clock) oofEntryOnSubmittedFunc(row int) func(text string) {
@@ -58,64 +80,44 @@ func (c *Clock) oofEntryOnSubmittedFunc(row int) func(text string) {
 	}
 }
 
+func getGoodLaneNum(inputLane string) int {
+	if laneNum, err := strconv.Atoi(inputLane); err == nil && laneNum >= 1 && laneNum <= 6 {
+		return laneNum
+	}
+	return badLaneNum
+}
+
 func (c *Clock) oofEntryOnChangedFunc(row int) func(text string) {
-	return func(text string) {
+	return func(newOOF string) {
 		if c.isNotRunning() && row < len(c.lapTimes) {
 			// Update resultsTable if OOF matches a lane number
-			if laneNum, err := strconv.Atoi(text); err == nil && laneNum >= 1 && laneNum <= 6 {
-				// Check for duplicate OOF values in other rows
-				isDuplicate := false
-				for j := 0; j < len(c.lapTimes); j++ {
-					if j != row && c.lapTimes[j].oofLaneNum == text {
-						isDuplicate = true
-						break
-					}
-				}
+			if laneNum := getGoodLaneNum(newOOF); laneNum != badLaneNum {
 
-				if !isDuplicate {
-					// Store previous OOF value before updating
-					prevOOF := c.lapTimes[row].oofLaneNum
+				if !c.lapTimes.alreadyAssigned(row, newOOF) {
+
 					// Update the lap time's OOF value
-					c.lapTimes[row].oofLaneNum = text
+					c.lapTimes[row].oofLaneNum = newOOF
+
 					// Update Place, Split, and Time rows in resultsTable
-					c.resultsTable[3][laneNum] = c.lapRows[row].placeButton.Text // Update Place
-					c.resultsTable[4][laneNum] = c.lapRows[row].splitEntry.Text  // Update Split
-					c.resultsTable[5][laneNum] = c.lapTimes[row].calculatedTime  // Update Time with calculated time
-					// Clear previous lane if it was different
-					if prevOOF != common.EmptyString && prevOOF != text {
-						if prevLaneNum, err := strconv.Atoi(prevOOF); err == nil && prevLaneNum >= 1 && prevLaneNum <= 6 {
-							c.resultsTable[3][prevLaneNum] = common.EmptyString // Clear Place
-							c.resultsTable[4][prevLaneNum] = common.EmptyString // Clear Split
-							c.resultsTable[5][prevLaneNum] = common.EmptyString // Clear Time
-						}
-					}
+					c.resultsTable.updateFromLapRows(laneNum, row, c.lapRows)
 					c.window.Content().Refresh()
+
 				} else {
-					// If duplicate, clear the input
+					// If already assigned, clear the input
 					c.lapRows[row].oofEntry.SetText(common.EmptyString)
-					// Clear the previous lane if it exists
-					if prevOOF := c.lapTimes[row].oofLaneNum; prevOOF != common.EmptyString {
-						if prevLaneNum, err := strconv.Atoi(prevOOF); err == nil && prevLaneNum >= 1 && prevLaneNum <= 6 {
-							c.resultsTable[3][prevLaneNum] = common.EmptyString // Clear Place
-							c.resultsTable[4][prevLaneNum] = common.EmptyString // Clear Split
-							c.resultsTable[5][prevLaneNum] = common.EmptyString // Clear Time
-							c.window.Content().Refresh()
-						}
-					}
 					c.lapTimes[row].oofLaneNum = common.EmptyString
+					c.window.Content().Refresh()
 				}
 			} else {
 				// If OOF is cleared or invalid, clear the previous lane
-				prevOOF := c.lapTimes[row].oofLaneNum
-				// Update the lap time's OOF value
-				c.lapTimes[row].oofLaneNum = text
-				if prevOOF != common.EmptyString {
-					if prevLaneNum, err := strconv.Atoi(prevOOF); err == nil && prevLaneNum >= 1 && prevLaneNum <= 6 {
-						c.resultsTable[3][prevLaneNum] = common.EmptyString // Clear Place
-						c.resultsTable[4][prevLaneNum] = common.EmptyString // Clear Split
-						c.resultsTable[5][prevLaneNum] = common.EmptyString // Clear Time
-						c.window.Content().Refresh()
-					}
+				previousLaneNum := getGoodLaneNum(c.lapTimes[row].oofLaneNum)
+
+				c.lapRows[row].oofEntry.SetText(common.EmptyString)
+				c.lapTimes[row].oofLaneNum = common.EmptyString
+
+				if previousLaneNum != badLaneNum {
+					c.resultsTable.clear(previousLaneNum)
+					c.window.Content().Refresh()
 				}
 			}
 		}
