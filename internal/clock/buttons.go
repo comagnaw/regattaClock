@@ -1,6 +1,7 @@
 package clock
 
 import (
+	"strconv"
 	"time"
 
 	"fyne.io/fyne/v2/widget"
@@ -43,12 +44,13 @@ func (c *Clock) startFunc() func() {
 			c.clockState.startTime = time.Now()
 			c.clockState.isRunning = true
 			c.clockState.isCleared = false
-			c.lapTimes = append(c.lapTimes, lapTime{
-				place:          1,
-				time:           common.ZeroTime,
-				calculatedTime: common.ZeroTime,
-				oofLaneNum:     common.EmptyString,
-			})
+			c.lapRows.firstLap()
+			// c.lapTimes = append(c.lapTimes, lapTime{
+			// 	place:          1,
+			// 	time:           common.ZeroTime,
+			// 	calculatedTime: common.ZeroTime,
+			// 	oofLaneNum:     common.EmptyString,
+			// })
 			c.refreshContent()
 			c.winningTime.Disable()
 		}
@@ -64,14 +66,23 @@ func (c *Clock) initLap() *widget.Button {
 
 func (c *Clock) lapFunc() func() {
 	return func() {
-		if c.clockState.isRunning && len(c.lapTimes) < 6 {
+		if c.clockState.isRunning && c.laps < 6 {
+			c.laps++
 			formatted := c.getElapsedTime()
-			c.lapTimes = append(c.lapTimes, lapTime{
-				place:          len(c.lapTimes) + 1,
-				time:           formatted,
-				calculatedTime: formatted,
-				oofLaneNum:     common.EmptyString,
-			})
+			place := strconv.Itoa(c.laps)
+			c.lapRows.updateLap(
+				c.laps-1,
+				place,
+				formatted,
+				formatted,
+				common.EmptyString,
+			)
+			// c.lapTimes = append(c.lapTimes, lapTime{
+			// 	place:          len(c.lapTimes) + 1,
+			// 	time:           formatted,
+			// 	calculatedTime: formatted,
+			// 	oofLaneNum:     common.EmptyString,
+			// })
 			c.refreshContent()
 		}
 	}
@@ -93,7 +104,8 @@ func (c *Clock) initClear() *widget.Button {
 
 			c.clock.Text = common.ZeroTime
 
-			c.lapTimes = make([]lapTime, 0)
+			c.laps = 1
+			// c.lapTimes = make([]lapTime, 0)
 			c.resultsTable = initResultsTable(c.raceData)
 
 			c.initWinningTime()

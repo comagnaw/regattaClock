@@ -70,10 +70,10 @@ func (c *Clock) lapTable() *fyne.Container {
 
 		// Store the widgets
 		c.lapRows[lap] = lapRow{
-			oofEntry:    oofEntry,
-			placeButton: placeButton,
-			splitEntry:  splitEntry,
-			timeLabel:   timeLabel,
+			oofLaneNum:     oofEntry,
+			place:          placeButton,
+			split:          splitEntry,
+			calculatedTime: timeLabel,
 		}
 
 		// Add row to container

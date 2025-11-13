@@ -1,6 +1,8 @@
 package clock
 
 import (
+	"strconv"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
@@ -9,18 +11,32 @@ import (
 	"github.com/comagnaw/regattaClock/internal/reader"
 )
 
+// resultsTable - two dimensional slice
+
 type resultsTable [][]string
 
 func (r resultsTable) updateFromLapRows(laneNum, row int, l lapRows) {
-	r.updatePlace(laneNum, l.getPlace(row))
-	r.updateSplit(laneNum, l.getSplit(row))
-	r.updateTime(laneNum, l.getTime(row))
+	r.updatePlace(laneNum, l.place(row))
+	r.updateSplit(laneNum, l.split(row))
+	r.updateTime(laneNum, l.calculatedTime(row))
 }
 
 func (r resultsTable) clear(laneNum int) {
 	r.updatePlace(laneNum, common.EmptyString)
 	r.updateSplit(laneNum, common.EmptyString)
 	r.updateTime(laneNum, common.EmptyString)
+}
+
+func (r resultsTable) place(lane int) string {
+	return r[3][lane]
+}
+
+func (r resultsTable) split(lane int) string {
+	return r[4][lane]
+}
+
+func (r resultsTable) time(lane int) string {
+	return r[5][lane]
 }
 
 func (r resultsTable) updatePlace(lane int, place string) {
@@ -33,6 +49,14 @@ func (r resultsTable) updateSplit(lane int, split string) {
 
 func (r resultsTable) updateTime(lane int, time string) {
 	r[5][lane] = time
+}
+
+func (r resultsTable) isPlace(lane int) bool {
+	place, err := strconv.Atoi(r.place(lane))
+	if err != nil {
+		return false
+	}
+	return place >= 1 && place <= 6
 }
 
 func initResultsTable(rd reader.RaceData) resultsTable {
