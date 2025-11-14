@@ -46,38 +46,24 @@ func (c *Clock) lapTable() *fyne.Container {
 
 	c.lapRows = make([]lapRow, 6)
 
-	for lap := range 6 {
-		row := container.NewGridWithColumns(4)
+	for rowNum := range 6 {
+		// gridRow := container.NewGridWithColumns(4)
 
 		// Create widgets for each column
-		oofEntry := widget.NewEntry()
-		oofEntry.OnChanged = c.oofEntryOnChangedFunc(lap)
-		oofEntry.OnSubmitted = c.oofEntryOnSubmittedFunc(lap)
-
-		placeButton := widget.NewButton(common.EmptyString, nil)
-		placeButton.Importance = widget.MediumImportance
-		placeButton.Resize(fyne.NewSize(100, 30)) // Set minimum size
-		placeButton.OnTapped = c.placeButtonOnTappedFunc(lap)
-
-		splitEntry := widget.NewEntry()
-		timeLabel := widget.NewLabel(common.EmptyString)
-
-		// Add widgets to row
-		row.Add(oofEntry)
-		row.Add(placeButton)
-		row.Add(splitEntry)
-		row.Add(timeLabel)
+		// oofEntry := widget.NewEntry()
+		// oofEntry.OnChanged = c.oofEntryOnChangedFunc(rowNum)
+		// oofEntry.OnSubmitted = c.oofEntryOnSubmittedFunc(rowNum)
 
 		// Store the widgets
-		c.lapRows[lap] = lapRow{
-			oofLaneNum:     oofEntry,
-			place:          placeButton,
-			split:          splitEntry,
-			calculatedTime: timeLabel,
+		c.lapRows[rowNum] = lapRow{
+			oofLaneNum:     c.oofEntry(rowNum),
+			place:          c.initPlace(rowNum),
+			split:          widget.NewEntry(),
+			calculatedTime: widget.NewLabel(common.EmptyString),
 		}
 
 		// Add row to container
-		tablesContainer.Add(row)
+		tablesContainer.Add(c.lapRows[rowNum].asGridRow())
 	}
 	return tablesContainer
 }

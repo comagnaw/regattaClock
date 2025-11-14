@@ -4,6 +4,8 @@ import (
 	"strconv"
 	"time"
 
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/comagnaw/regattaClock/internal/common"
@@ -45,12 +47,6 @@ func (c *Clock) startFunc() func() {
 			c.clockState.isRunning = true
 			c.clockState.isCleared = false
 			c.lapRows.firstLap()
-			// c.lapTimes = append(c.lapTimes, lapTime{
-			// 	place:          1,
-			// 	time:           common.ZeroTime,
-			// 	calculatedTime: common.ZeroTime,
-			// 	oofLaneNum:     common.EmptyString,
-			// })
 			c.refreshContent()
 			c.winningTime.Disable()
 		}
@@ -77,12 +73,6 @@ func (c *Clock) lapFunc() func() {
 				formatted,
 				common.EmptyString,
 			)
-			// c.lapTimes = append(c.lapTimes, lapTime{
-			// 	place:          len(c.lapTimes) + 1,
-			// 	time:           formatted,
-			// 	calculatedTime: formatted,
-			// 	oofLaneNum:     common.EmptyString,
-			// })
 			c.refreshContent()
 		}
 	}
@@ -105,7 +95,7 @@ func (c *Clock) initClear() *widget.Button {
 			c.clock.Text = common.ZeroTime
 
 			c.laps = 1
-			// c.lapTimes = make([]lapTime, 0)
+
 			c.resultsTable = initResultsTable(c.raceData)
 
 			c.initWinningTime()
@@ -139,4 +129,27 @@ func (c *Clock) initSave() *widget.Button {
 	})
 	button.Disable() // Initially disabled until approved
 	return button
+}
+
+func (c Clock) initPlace(rowNum int) *widget.Button {
+	button := widget.NewButton(common.EmptyString, nil)
+	button.Importance = widget.MediumImportance
+	button.Resize(fyne.NewSize(100, 30)) // Set minimum size
+	button.OnTapped = c.placeButtonOnTappedFunc(rowNum)
+	return button
+}
+
+func (c *Clock) placeButtonOnTappedFunc(row int) func() {
+	return func() {
+		if c.isNotRunning() {
+			if laneNum := c.lapRows.getLaneNum(row); laneNum != badLaneNum {
+				dialog.ShowCustom(
+					"Edit Place",
+					"Close",
+					c.placeSelection(row, laneNum),
+					c.window,
+				)
+			}
+		}
+	}
 }

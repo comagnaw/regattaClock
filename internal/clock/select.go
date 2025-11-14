@@ -8,7 +8,6 @@ import (
 	"github.com/comagnaw/regattaClock/internal/common"
 )
 
-
 func (c Clock) placeSelection(row, laneNum int) *widget.Select {
 	options := []string{"DNS", "DNF", "DQ", "Next Place"}
 	selection := widget.NewSelect(

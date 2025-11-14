@@ -195,6 +195,18 @@ func (c *Clock) refreshContent() {
 
 }
 
+func (c *Clock) splitEntryOnChangedFunc(row int, timeAdjustment time.Duration) func(newSplit string) {
+	return func(newSplit string) {
+		if c.isNotRunning() {
+			if laneNum := c.lapRows.getLaneNum(row); laneNum != badLaneNum && c.resultsTable.isPlace(laneNum) {
+				c.adjustTime(row, timeAdjustment)
+				c.resultsTable.updateSplit(laneNum, newSplit)
+				c.window.Content().Refresh()
+			}
+		}
+	}
+}
+
 func (c *Clock) adjustTime(row int, timeAdjustment time.Duration) {
 	if lapTime, err := parseTime(c.lapRows.split(row)); err == nil {
 

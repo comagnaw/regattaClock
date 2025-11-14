@@ -2,9 +2,9 @@ package clock
 
 import (
 	"strconv"
-	"time"
 
-	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 	"github.com/comagnaw/regattaClock/internal/common"
 )
@@ -15,6 +15,16 @@ type lapRow struct {
 	place              *widget.Button
 	split              *widget.Entry
 	calculatedTime     *widget.Label
+}
+
+func (l lapRow) asGridRow() *fyne.Container {
+	return container.NewGridWithColumns(
+		4,
+		l.oofLaneNum,
+		l.place,
+		l.split,
+		l.calculatedTime,
+	)
 }
 
 type lapRows []lapRow
@@ -42,9 +52,17 @@ func (l lapRows) hasOOF(row int) bool {
 
 func (l lapRows) getLaneNum(row int) int {
 	if l.hasOOF(row) {
-		if laneNum, err := strconv.Atoi(l.oofLaneNum(row)); err == nil && laneNum >= 1 && laneNum <= 6 {
-			return laneNum
-		}
+		return getGoodLaneNum(l.oofLaneNum(row))
+		// if laneNum, err := strconv.Atoi(l.oofLaneNum(row)); err == nil && laneNum >= 1 && laneNum <= 6 {
+		// 	return laneNum
+		// }
+	}
+	return badLaneNum
+}
+
+func getGoodLaneNum(inputLane string) int {
+	if laneNum, err := strconv.Atoi(inputLane); err == nil && laneNum >= 1 && laneNum <= 6 {
+		return laneNum
 	}
 	return badLaneNum
 }
@@ -97,89 +115,4 @@ func (l lapRows) setSplit(row int, split string) {
 
 func (l lapRows) setCalculatedTime(row int, calculatedTime string) {
 	l[row].calculatedTime.SetText(calculatedTime)
-}
-
-func getGoodLaneNum(inputLane string) int {
-	if laneNum, err := strconv.Atoi(inputLane); err == nil && laneNum >= 1 && laneNum <= 6 {
-		return laneNum
-	}
-	return badLaneNum
-}
-
-func (c *Clock) oofEntryOnSubmittedFunc(row int) func(text string) {
-	return func(text string) {
-		if c.isNotRunning() {
-			nextRow := row + 1
-			// Move focus to next row's OOF entry if it exists
-			if nextRow < len(c.lapRows) {
-				// Clear any existing text in the next entry
-				c.lapRows.setOOFLaneNum(nextRow, common.EmptyString)
-				// Move focus to the next entry
-				c.window.Canvas().Focus(c.lapRows[nextRow].oofLaneNum)
-			}
-		}
-	}
-}
-
-func (c *Clock) oofEntryOnChangedFunc(row int) func(text string) {
-	return func(newOOF string) {
-		if c.isNotRunning() {
-			// Update resultsTable if OOF matches a lane number
-			if laneNum := getGoodLaneNum(newOOF); laneNum != badLaneNum {
-
-				if !c.lapRows.alreadyAssigned(row, newOOF) {
-
-					// Update the lap time's OOF value
-					c.lapRows.setOOFLaneNum(row, newOOF)
-					c.lapRows.setPreviousOOFLaneNum(row, newOOF)
-
-					// Update Place, Split, and Time rows in resultsTable
-					c.resultsTable.updateFromLapRows(laneNum, row, c.lapRows)
-					c.window.Content().Refresh()
-
-				} else {
-					// If already assigned, clear the input
-					c.lapRows.setOOFLaneNum(row, common.EmptyString)
-					c.window.Content().Refresh()
-				}
-			} else {
-				// If OOF is cleared or invalid, clear the previous lane
-				previousLaneNum := getGoodLaneNum(c.lapRows[row].previousOOFLaneNum)
-				c.lapRows.setOOFLaneNum(row, common.EmptyString)
-				c.lapRows.setPreviousOOFLaneNum(row, common.EmptyString)
-
-				if previousLaneNum != badLaneNum {
-					c.resultsTable.clear(previousLaneNum)
-					c.window.Content().Refresh()
-				}
-			}
-		}
-	}
-}
-
-func (c *Clock) placeButtonOnTappedFunc(row int) func() {
-	return func() {
-		if c.isNotRunning() {
-			if laneNum := c.lapRows.getLaneNum(row); laneNum != badLaneNum {
-				dialog.ShowCustom(
-					"Edit Place",
-					"Close",
-					c.placeSelection(row, laneNum),
-					c.window,
-				)
-			}
-		}
-	}
-}
-
-func (c *Clock) splitEntryOnChangedFunc(row int, timeAdjustment time.Duration) func(newSplit string) {
-	return func(newSplit string) {
-		if c.isNotRunning() {
-			if laneNum := c.lapRows.getLaneNum(row); laneNum != badLaneNum && c.resultsTable.isPlace(laneNum) {
-				c.adjustTime(row, timeAdjustment)
-				c.resultsTable.updateSplit(laneNum, newSplit)
-				c.window.Content().Refresh()
-			}
-		}
-	}
 }
