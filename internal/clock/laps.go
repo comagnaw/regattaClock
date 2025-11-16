@@ -53,9 +53,6 @@ func (l lapRows) hasOOF(row int) bool {
 func (l lapRows) getLaneNum(row int) int {
 	if l.hasOOF(row) {
 		return getGoodLaneNum(l.oofLaneNum(row))
-		// if laneNum, err := strconv.Atoi(l.oofLaneNum(row)); err == nil && laneNum >= 1 && laneNum <= 6 {
-		// 	return laneNum
-		// }
 	}
 	return badLaneNum
 }
@@ -115,4 +112,17 @@ func (l lapRows) setSplit(row int, split string) {
 
 func (l lapRows) setCalculatedTime(row int, calculatedTime string) {
 	l[row].calculatedTime.SetText(calculatedTime)
+}
+
+func (l lapRows) getOOFLanes() []int {
+	oofLanes := []int{}
+	for row := range l {
+		lane, err := strconv.Atoi(l.oofLaneNum(row))
+		if err != nil {
+			oofLanes = append(oofLanes, badLaneNum)
+			continue
+		}
+		oofLanes = append(oofLanes, lane)
+	}
+	return oofLanes
 }

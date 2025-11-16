@@ -44,16 +44,7 @@ func (c *Clock) lapTable() *fyne.Container {
 	tablesContainer := container.NewVBox()
 	tablesContainer.Add(c.lapHeader())
 
-	c.lapRows = make([]lapRow, 6)
-
-	for rowNum := range 6 {
-		// gridRow := container.NewGridWithColumns(4)
-
-		// Create widgets for each column
-		// oofEntry := widget.NewEntry()
-		// oofEntry.OnChanged = c.oofEntryOnChangedFunc(rowNum)
-		// oofEntry.OnSubmitted = c.oofEntryOnSubmittedFunc(rowNum)
-
+	for rowNum := range c.lapRows {
 		// Store the widgets
 		c.lapRows[rowNum] = lapRow{
 			oofLaneNum:     c.oofEntry(rowNum),

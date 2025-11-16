@@ -1,10 +1,14 @@
 package clock
 
 import (
+	"fmt"
+	"image/color"
 	"strconv"
 	"time"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 
@@ -121,6 +125,43 @@ func (c *Clock) refereeFunc() func() {
 	return func() {
 		c.showRefereeeApproval(c.raceData.RaceNumber)
 	}
+}
+
+func (c *Clock) showRefereeeApproval(raceNumber int) {
+	dialog.ShowCustomConfirm(
+		fmt.Sprintf("Referee Approval - Race %d", raceNumber),
+		"Approve",
+		"Cancel",
+		c.refereeApprovalContent(),
+		c.refereeApprovalFunc(raceNumber),
+		c.window,
+	)
+}
+
+func (c *Clock) refereeApprovalFunc(raceNumber int) func(approve bool) {
+	return func(approve bool) {
+		if approve {
+			c.RegattaData.ApproveRace(raceNumber)
+			c.buttons.save.Enable()
+		}
+	}
+}
+
+func (c *Clock) refereeApprovalContent() *fyne.Container {
+
+	title := canvas.NewText(c.raceData.RaceTitle(), color.White)
+	title.TextStyle = fyne.TextStyle{Bold: true}
+	title.Alignment = fyne.TextAlignCenter
+	title.TextSize = 48
+
+	approvals := c.resultsTable.asApprovals(c.lapRows.getOOFLanes())
+
+	// Create the final content
+	return container.NewVBox(
+		container.NewCenter(title),
+		approvals.Container,
+	)
+
 }
 
 func (c *Clock) initSave() *widget.Button {

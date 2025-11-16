@@ -73,9 +73,10 @@ type clockState struct {
 func NewClock(parent fyne.App, regattaData *reader.RegattaData, race reader.RaceData) *Clock {
 
 	raceClock := &Clock{
-		window: parent.NewWindow(fmt.Sprintf("Race %d Clock", race.RaceNumber)),
-		App:    parent,
-		laps:   1,
+		window:  parent.NewWindow(fmt.Sprintf("Race %d Clock", race.RaceNumber)),
+		App:     parent,
+		laps:    1,
+		lapRows: make([]lapRow, 6),
 		clockState: &clockState{
 			isRunning: false,
 			isCleared: true,

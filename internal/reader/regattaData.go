@@ -41,6 +41,15 @@ func NewRegattaData() *RegattaData {
 	}
 }
 
+func (r *RegattaData) ApproveRace(raceNumber int) {
+	for i := range r.Races {
+		if r.Races[i].RaceNumber == raceNumber {
+			r.Races[i].Approved = true
+			break
+		}
+	}
+}
+
 // ScheduleRaces - count number of Races with more 1 or more Lanes with boats return integer
 func (r *RegattaData) ScheduledRaces() int {
 	scheduledRaces := 0
