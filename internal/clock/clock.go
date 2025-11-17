@@ -18,38 +18,40 @@ import (
 // App represents the main application
 type Clock struct {
 
-	// raceTitle - top title which
+	// raceTitle - title for clock which reflects race info
 	raceTitle *canvas.Text
 
-	// clock the visual digital clock used to time the race
+	// clock - the visual digital clock used to time the race
 	clock *canvas.Text
 
-	// lapRows slice of OOF, Place, Split, Time is captured as input
-	lapRows
+	// laps - slice of OOF, Place, Split, Time as fyne widgets
+	laps
 
-	laps int
+	// lapCount - used to track progression of race as lap button is pushed 
+	lapCount int
 
-	// resultsTable - bottom table which reflects lane info from raceData and finishing times from lapTimes
+	// resultsTable - bottom table which reflects lane info from raceData and finishing times from laps
 	resultsTable
 
 	// winningTime - entry field used to collect the final time of the first boat that crosses the finish line
 	winningTime *widget.Entry
 
+	// buttons - object which holds various buttons used for clock
 	buttons
 
-	// clockState object used to track progress of clock usage for timing the race
+	// clockState - object used to track progress of clock usage for timing the race
 	clockState *clockState
 
-	// RegattaData data for all races in the scheduled regatta
+	// RegattaData - data for all races in the scheduled regatta
 	RegattaData reader.RegattaData
 
-	// raceData data that reflects information about one particular race
+	// raceData - data that reflects information about one particular race
 	raceData reader.RaceData
 
-	// window reference to the fyne.Window object that makes up the race clock
+	// window - reference to the fyne.Window object that makes up the race clock
 	window fyne.Window
 
-	// App reference to the fyne.App object that is running
+	// App - reference to the fyne.App object that is running
 	App fyne.App
 }
 
@@ -73,10 +75,10 @@ type clockState struct {
 func NewClock(parent fyne.App, regattaData *reader.RegattaData, race reader.RaceData) *Clock {
 
 	raceClock := &Clock{
-		window:  parent.NewWindow(fmt.Sprintf("Race %d Clock", race.RaceNumber)),
-		App:     parent,
-		laps:    1,
-		lapRows: make([]lapRow, 6),
+		window:   parent.NewWindow(fmt.Sprintf("Race %d Clock", race.RaceNumber)),
+		App:      parent,
+		lapCount: 1,
+		laps:     make([]lapRow, 6),
 		clockState: &clockState{
 			isRunning: false,
 			isCleared: true,
@@ -175,21 +177,21 @@ func (c *Clock) refreshContent() {
 		timeAdjustment, _ = parseTime(c.winningTime.Text)
 	}
 
-	for row := range c.lapRows {
+	for row := range c.laps {
 
-		if !c.lapRows.emptySplit(row) {
+		if !c.laps.emptySplit(row) {
 			c.adjustTime(row, timeAdjustment)
 		}
 
 		if c.isNotRunning() {
-			c.lapRows[row].oofLaneNum.Enable()
-			c.lapRows[row].split.OnChanged = c.splitEntryOnChangedFunc(row, timeAdjustment)
+			c.laps[row].oofLaneNum.Enable()
+			c.laps[row].split.OnChanged = c.splitEntryOnChangedFunc(row, timeAdjustment)
 		} else {
-			c.lapRows[row].oofLaneNum.Disable()
+			c.laps[row].oofLaneNum.Disable()
 		}
 
-		if laneNum := c.lapRows.getLaneNum(row); laneNum != badLaneNum {
-			c.resultsTable.updateFromLapRows(laneNum, row, c.lapRows)
+		if laneNum := c.laps.getLaneNum(row); laneNum != badLaneNum {
+			c.resultsTable.updateFromLapRows(laneNum, row, c.laps)
 		}
 
 	}
@@ -199,7 +201,7 @@ func (c *Clock) refreshContent() {
 func (c *Clock) splitEntryOnChangedFunc(row int, timeAdjustment time.Duration) func(newSplit string) {
 	return func(newSplit string) {
 		if c.isNotRunning() {
-			if laneNum := c.lapRows.getLaneNum(row); laneNum != badLaneNum && c.resultsTable.isPlace(laneNum) {
+			if laneNum := c.laps.getLaneNum(row); laneNum != badLaneNum && c.resultsTable.isPlace(laneNum) {
 				c.adjustTime(row, timeAdjustment)
 				c.resultsTable.updateSplit(laneNum, newSplit)
 				c.window.Content().Refresh()
@@ -208,14 +210,41 @@ func (c *Clock) splitEntryOnChangedFunc(row int, timeAdjustment time.Duration) f
 	}
 }
 
+func (c *Clock) adjustPlaceForNextPlace() {
+	nextPlace := 1
+	for _, lRow := range c.laps {
+		if laneNum := getGoodLaneNum(lRow.oofLaneNum.Text); laneNum != badLaneNum {
+			if c.resultsTable.place(laneNum) == nextPlaceStr || c.resultsTable.isPlace(laneNum) {
+				c.resultsTable.updatePlace(laneNum, strconv.Itoa(nextPlace))
+				lRow.place.Text = strconv.Itoa(nextPlace)
+				nextPlace++
+			}
+		}
+	}
+}
+
+func (c *Clock) adjustPlaceForDQ(oldPlaceNum int) {
+	// Decrease place values greater than the DQ'd place
+	for l := 1; l <= 6; l++ {	
+		if placeNum := getGoodPlaceNum(c.resultsTable.place(l)); placeNum != badLaneNum {
+			if placeNum > oldPlaceNum {
+				c.resultsTable.updatePlace(l, fmt.Sprintf("%d", placeNum-1))
+				if lRow := c.laps.getLapRowByLaneNum(strconv.Itoa(l)); lRow != (lapRow{}) {
+					lRow.place.Text = c.resultsTable.place(l)
+				}
+			}
+		}
+	}
+}
+
 func (c *Clock) adjustTime(row int, timeAdjustment time.Duration) {
-	if lapTime, err := parseTime(c.lapRows.split(row)); err == nil {
+	if lapTime, err := parseTime(c.laps.split(row)); err == nil {
 
 		adjustedTime := formatTime(lapTime + timeAdjustment)
 
-		c.lapRows.setCalculatedTime(row, adjustedTime)
+		c.laps.setCalculatedTime(row, adjustedTime)
 
-		if laneNum := c.lapRows.getLaneNum(row); laneNum != badLaneNum {
+		if laneNum := c.laps.getLaneNum(row); laneNum != badLaneNum {
 			c.resultsTable.updateTime(laneNum, adjustedTime)
 		}
 	}

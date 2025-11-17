@@ -16,18 +16,27 @@ import (
 )
 
 type buttons struct {
+	// start - a button that starts the clock, which indicates the first boat of a race has reached the finish line.
 	start *widget.Button
+
+	// lap - a button that captures the difference in time from the previous lap time.
+	// This captures a split time between two boats crossing the finish line.
 	lap   *widget.Button
+
+	// stop - a button that stops the clock from running.  This should only be pushed when all boats have crossed the finish line.
 	stop  *widget.Button
+
+	// clear - a button that clears all of the content captured for a race.  This button is only active when the clock has been stopped. 
 	clear *widget.Button
 
 	// referee - a button that is activated on capture of winningTime and is used to gain refereee approval of OOF and finish times
 	referee *widget.Button
 
-	// save - a button that is activated on approval of referee and used to save the race results to a Excel spreadsheet
+	// save - a button that is activated on approval of referee and used to save the race results.
 	save *widget.Button
 }
 
+// initButtons - initialize buttons object
 func (c *Clock) initButtons() {
 	c.buttons.referee = c.initReferee()
 	c.buttons.save = c.initSave()
@@ -37,6 +46,7 @@ func (c *Clock) initButtons() {
 	c.buttons.clear = c.initClear()
 }
 
+// initStart - initialize start button
 func (c *Clock) initStart() *widget.Button {
 	return widget.NewButton(
 		"Start (F2)",
@@ -44,19 +54,21 @@ func (c *Clock) initStart() *widget.Button {
 	)
 }
 
+// startFunc - function used when start button is pushed
 func (c *Clock) startFunc() func() {
 	return func() {
 		if c.isNotRunning() && c.clockState.isCleared {
 			c.clockState.startTime = time.Now()
 			c.clockState.isRunning = true
 			c.clockState.isCleared = false
-			c.lapRows.firstLap()
+			c.laps.firstLap()
 			c.refreshContent()
 			c.winningTime.Disable()
 		}
 	}
 }
 
+// initLap - initialize lap button
 func (c *Clock) initLap() *widget.Button {
 	return widget.NewButton(
 		"Lap (F4)",
@@ -64,14 +76,15 @@ func (c *Clock) initLap() *widget.Button {
 	)
 }
 
+// lapFunc - function used when lap button is pushed
 func (c *Clock) lapFunc() func() {
 	return func() {
-		if c.clockState.isRunning && c.laps < 6 {
-			c.laps++
+		if c.clockState.isRunning && c.lapCount < 6 {
+			c.lapCount++
 			formatted := c.getElapsedTime()
-			place := strconv.Itoa(c.laps)
-			c.lapRows.updateLap(
-				c.laps-1,
+			place := strconv.Itoa(c.lapCount)
+			c.laps.updateLap(
+				c.lapCount-1,
 				place,
 				formatted,
 				formatted,
@@ -82,6 +95,7 @@ func (c *Clock) lapFunc() func() {
 	}
 }
 
+// initStop - initialize stop button
 func (c *Clock) initStop() *widget.Button {
 	return widget.NewButton("Stop", func() {
 		c.clockState.isRunning = false
@@ -90,15 +104,17 @@ func (c *Clock) initStop() *widget.Button {
 	})
 }
 
+// initClear - initialize clear button
 func (c *Clock) initClear() *widget.Button {
 	return widget.NewButton("Clear", func() {
 		if c.isNotRunning() {
+
 			c.clockState.isRunning = false
 			c.clockState.isCleared = true
 
 			c.clock.Text = common.ZeroTime
 
-			c.laps = 1
+			c.lapCount = 1
 
 			c.resultsTable = initResultsTable(c.raceData)
 
@@ -112,6 +128,7 @@ func (c *Clock) initClear() *widget.Button {
 	})
 }
 
+// initStart - initialize referee button
 func (c *Clock) initReferee() *widget.Button {
 	button := widget.NewButton(
 		common.RefereeButtonText,
@@ -121,12 +138,14 @@ func (c *Clock) initReferee() *widget.Button {
 	return button
 }
 
+// refereeFunc - function used when referee button is pushed
 func (c *Clock) refereeFunc() func() {
 	return func() {
 		c.showRefereeeApproval(c.raceData.RaceNumber)
 	}
 }
 
+// showRefereeApproval - present race results for refereee approval
 func (c *Clock) showRefereeeApproval(raceNumber int) {
 	dialog.ShowCustomConfirm(
 		fmt.Sprintf("Referee Approval - Race %d", raceNumber),
@@ -138,6 +157,7 @@ func (c *Clock) showRefereeeApproval(raceNumber int) {
 	)
 }
 
+// refereeApprovalFunc - when referee approves race results, update RegattaData and enable save button
 func (c *Clock) refereeApprovalFunc(raceNumber int) func(approve bool) {
 	return func(approve bool) {
 		if approve {
@@ -147,6 +167,7 @@ func (c *Clock) refereeApprovalFunc(raceNumber int) func(approve bool) {
 	}
 }
 
+// refereeApprovalContent - content used to present race results for referee approval
 func (c *Clock) refereeApprovalContent() *fyne.Container {
 
 	title := canvas.NewText(c.raceData.RaceTitle(), color.White)
@@ -154,16 +175,13 @@ func (c *Clock) refereeApprovalContent() *fyne.Container {
 	title.Alignment = fyne.TextAlignCenter
 	title.TextSize = 48
 
-	approvals := c.resultsTable.asApprovals(c.lapRows.getOOFLanes())
-
-	// Create the final content
 	return container.NewVBox(
 		container.NewCenter(title),
-		approvals.Container,
+		c.resultsTable.asApprovals(c.laps.getOOFLanes()).Container,
 	)
 
 }
-
+// initSave - initialize the save button
 func (c *Clock) initSave() *widget.Button {
 	button := widget.NewButton("Save", func() {
 		// Save logic will be implemented later
@@ -172,6 +190,7 @@ func (c *Clock) initSave() *widget.Button {
 	return button
 }
 
+// initPlace - initialize the place button
 func (c Clock) initPlace(rowNum int) *widget.Button {
 	button := widget.NewButton(common.EmptyString, nil)
 	button.Importance = widget.MediumImportance
@@ -180,10 +199,11 @@ func (c Clock) initPlace(rowNum int) *widget.Button {
 	return button
 }
 
+// placeButtonOnTappedFunc - function used when the place button is pushed
 func (c *Clock) placeButtonOnTappedFunc(row int) func() {
 	return func() {
 		if c.isNotRunning() {
-			if laneNum := c.lapRows.getLaneNum(row); laneNum != badLaneNum {
+			if laneNum := c.laps.getLaneNum(row); laneNum != badLaneNum {
 				dialog.ShowCustom(
 					"Edit Place",
 					"Close",

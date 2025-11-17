@@ -49,26 +49,26 @@ func (c *Clock) oofEntryOnChangedFunc(row int) func(newOOF string) {
 			// Update resultsTable if OOF matches a lane number
 			if laneNum := getGoodLaneNum(newOOF); laneNum != badLaneNum {
 
-				if !c.lapRows.alreadyAssigned(row, newOOF) {
+				if !c.laps.alreadyAssigned(row, newOOF) {
 
 					// Update the lap time's OOF value
-					c.lapRows.setOOFLaneNum(row, newOOF)
-					c.lapRows.setPreviousOOFLaneNum(row, newOOF)
+					c.laps.setOOFLaneNum(row, newOOF)
+					c.laps.setPreviousOOFLaneNum(row, newOOF)
 
 					// Update Place, Split, and Time rows in resultsTable
-					c.resultsTable.updateFromLapRows(laneNum, row, c.lapRows)
+					c.resultsTable.updateFromLapRows(laneNum, row, c.laps)
 					c.window.Content().Refresh()
 
 				} else {
 					// If already assigned, clear the input
-					c.lapRows.setOOFLaneNum(row, common.EmptyString)
+					c.laps.setOOFLaneNum(row, common.EmptyString)
 					c.window.Content().Refresh()
 				}
 			} else {
 				// If OOF is cleared or invalid, clear the previous lane
-				previousLaneNum := getGoodLaneNum(c.lapRows[row].previousOOFLaneNum)
-				c.lapRows.setOOFLaneNum(row, common.EmptyString)
-				c.lapRows.setPreviousOOFLaneNum(row, common.EmptyString)
+				previousLaneNum := getGoodLaneNum(c.laps[row].previousOOFLaneNum)
+				c.laps.setOOFLaneNum(row, common.EmptyString)
+				c.laps.setPreviousOOFLaneNum(row, common.EmptyString)
 
 				if previousLaneNum != badLaneNum {
 					c.resultsTable.clear(previousLaneNum)
@@ -84,11 +84,11 @@ func (c *Clock) oofEntryOnSubmittedFunc(row int) func(text string) {
 		if c.isNotRunning() {
 			nextRow := row + 1
 			// Move focus to next row's OOF entry if it exists
-			if nextRow < len(c.lapRows) {
+			if nextRow < len(c.laps) {
 				// Clear any existing text in the next entry
-				c.lapRows.setOOFLaneNum(nextRow, common.EmptyString)
+				c.laps.setOOFLaneNum(nextRow, common.EmptyString)
 				// Move focus to the next entry
-				c.window.Canvas().Focus(c.lapRows[nextRow].oofLaneNum)
+				c.window.Canvas().Focus(c.laps[nextRow].oofLaneNum)
 			}
 		}
 	}

@@ -6,4 +6,7 @@ const (
 	resultsHeight = float32(240)
 
 	badLaneNum = -1
+	badPlaceNum = -1
+
+	nextPlaceStr = "Next Place"
 )

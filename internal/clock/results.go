@@ -31,7 +31,7 @@ func initResultsTable(rd reader.RaceData) resultsTable {
 	}
 }
 
-func (r resultsTable) updateFromLapRows(laneNum, row int, l lapRows) {
+func (r resultsTable) updateFromLapRows(laneNum, row int, l laps) {
 	r.updatePlace(laneNum, l.place(row))
 	r.updateSplit(laneNum, l.split(row))
 	r.updateTime(laneNum, l.calculatedTime(row))
