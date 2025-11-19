@@ -2,17 +2,16 @@ package clock
 
 import (
 	"fmt"
-	"image/color"
 	"strconv"
 	"time"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/comagnaw/regattaClock/internal/common"
+	"github.com/comagnaw/regattaClock/internal/text"
 )
 
 type buttons struct {
@@ -21,12 +20,12 @@ type buttons struct {
 
 	// lap - a button that captures the difference in time from the previous lap time.
 	// This captures a split time between two boats crossing the finish line.
-	lap   *widget.Button
+	lap *widget.Button
 
 	// stop - a button that stops the clock from running.  This should only be pushed when all boats have crossed the finish line.
-	stop  *widget.Button
+	stop *widget.Button
 
-	// clear - a button that clears all of the content captured for a race.  This button is only active when the clock has been stopped. 
+	// clear - a button that clears all of the content captured for a race.  This button is only active when the clock has been stopped.
 	clear *widget.Button
 
 	// referee - a button that is activated on capture of winningTime and is used to gain refereee approval of OOF and finish times
@@ -49,7 +48,7 @@ func (c *Clock) initButtons() {
 // initStart - initialize start button
 func (c *Clock) initStart() *widget.Button {
 	return widget.NewButton(
-		"Start (F2)",
+		common.StartButtonText,
 		c.startFunc(),
 	)
 }
@@ -71,7 +70,7 @@ func (c *Clock) startFunc() func() {
 // initLap - initialize lap button
 func (c *Clock) initLap() *widget.Button {
 	return widget.NewButton(
-		"Lap (F4)",
+		common.LapButtonText,
 		c.lapFunc(),
 	)
 }
@@ -97,7 +96,7 @@ func (c *Clock) lapFunc() func() {
 
 // initStop - initialize stop button
 func (c *Clock) initStop() *widget.Button {
-	return widget.NewButton("Stop", func() {
+	return widget.NewButton(common.StopButtonText, func() {
 		c.clockState.isRunning = false
 		c.refreshContent()
 		c.winningTime.Enable()
@@ -116,9 +115,11 @@ func (c *Clock) initClear() *widget.Button {
 
 			c.lapCount = 1
 
-			c.resultsTable = initResultsTable(c.raceData)
+			c.results = initResults(c.raceData)
 
 			c.initWinningTime()
+
+			c.initButtons()
 
 			c.window.SetContent(c.content())
 
@@ -128,7 +129,9 @@ func (c *Clock) initClear() *widget.Button {
 	})
 }
 
-// initStart - initialize referee button
+// initStart - initialize referee button.
+// Default is that the button is disabled until a winnning time has
+// been input by user.
 func (c *Clock) initReferee() *widget.Button {
 	button := widget.NewButton(
 		common.RefereeButtonText,
@@ -148,9 +151,9 @@ func (c *Clock) refereeFunc() func() {
 // showRefereeApproval - present race results for refereee approval
 func (c *Clock) showRefereeeApproval(raceNumber int) {
 	dialog.ShowCustomConfirm(
-		fmt.Sprintf("Referee Approval - Race %d", raceNumber),
-		"Approve",
-		"Cancel",
+		fmt.Sprintf(common.RefereeApproveTitle, raceNumber),
+		common.ApproveButtonText,
+		common.CancelButtonText,
 		c.refereeApprovalContent(),
 		c.refereeApprovalFunc(raceNumber),
 		c.window,
@@ -169,24 +172,19 @@ func (c *Clock) refereeApprovalFunc(raceNumber int) func(approve bool) {
 
 // refereeApprovalContent - content used to present race results for referee approval
 func (c *Clock) refereeApprovalContent() *fyne.Container {
-
-	title := canvas.NewText(c.raceData.RaceTitle(), color.White)
-	title.TextStyle = fyne.TextStyle{Bold: true}
-	title.Alignment = fyne.TextAlignCenter
-	title.TextSize = 48
-
 	return container.NewVBox(
-		container.NewCenter(title),
-		c.resultsTable.asApprovals(c.laps.getOOFLanes()).Container,
+		container.NewCenter(text.Title(c.raceData.RaceTitle())),
+		c.results.asApprovals(c.laps.getOOFLanes()).Container,
 	)
-
 }
-// initSave - initialize the save button
+
+// initSave - initialize the save button.
+// Default is for button to be disabled until the race results are approved.
 func (c *Clock) initSave() *widget.Button {
-	button := widget.NewButton("Save", func() {
+	button := widget.NewButton(common.SaveButtonText, func() {
 		// Save logic will be implemented later
 	})
-	button.Disable() // Initially disabled until approved
+	button.Disable()
 	return button
 }
 
@@ -205,8 +203,8 @@ func (c *Clock) placeButtonOnTappedFunc(row int) func() {
 		if c.isNotRunning() {
 			if laneNum := c.laps.getLaneNum(row); laneNum != badLaneNum {
 				dialog.ShowCustom(
-					"Edit Place",
-					"Close",
+					fmt.Sprintf(common.EditPlaceTitle, row),
+					common.CloseButtonText,
 					c.placeSelection(row, laneNum),
 					c.window,
 				)

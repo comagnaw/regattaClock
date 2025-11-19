@@ -1,18 +1,21 @@
 package clock
 
 import (
+	"fmt"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/comagnaw/regattaClock/internal/common"
+	"github.com/comagnaw/regattaClock/internal/text"
 )
 
+// content - primary fyne objects presented as clock and race input
 func (c *Clock) content() *fyne.Container {
-	c.initButtons()
 	return container.NewVBox(
-		container.NewCenter(c.raceTitle),
+		container.NewCenter(text.Title(c.raceData.RaceTitle())),
 		container.NewVBox(
 			container.NewCenter(c.clock),
 			c.controlPanel(),
@@ -22,9 +25,9 @@ func (c *Clock) content() *fyne.Container {
 			c.approvalPanel(),
 		),
 	)
-
 }
 
+// controlPanel - container with buttons that control clock and clear results
 func (c *Clock) controlPanel() *fyne.Container {
 	return container.NewHBox(
 		layout.NewSpacer(),
@@ -39,11 +42,16 @@ func (c *Clock) controlPanel() *fyne.Container {
 	)
 }
 
+// lapContainer - container that updates as clock is started and lap button pushed.
+// Also collectes order-of-finish (OOF) and adjustement of place and split time.
 func (c *Clock) lapsContainer() *fyne.Container {
 	laps := container.NewVBox()
 
+	racePlace := fmt.Sprintf("%s / %s / %s / %s", common.RacePlace, common.RaceDisqualification, common.RaceDidNotStart, common.RaceDidNotFinish)
+	headers := []string{common.RaceOrderOfFinish, racePlace, common.RaceSplit, common.RaceTime}
+
 	header := container.NewGridWithColumns(4)
-	for _, h := range []string{"OOF", "Place / DQ / DNS / DNF", "Split", "Time"} {
+	for _, h := range headers {
 		text := widget.NewLabel(h)
 		text.TextStyle = fyne.TextStyle{Bold: true}
 		header.Add(text)
@@ -62,15 +70,18 @@ func (c *Clock) lapsContainer() *fyne.Container {
 	return laps
 }
 
+// winningTimeInput - container to collect official winning time for first boat that
+// crosses finish line.  This reflects the total time from when the race began and finished.
 func (c *Clock) winningTimeInput() *widget.Form {
 	return widget.NewForm(
 		widget.NewFormItem(
-			"Winning Time:",
+			common.WinningTimeInputText,
 			c.winningTime,
 		),
 	)
 }
 
+// approvalPanel - container with buttons to make the results official.
 func (c *Clock) approvalPanel() *fyne.Container {
 	return container.NewHBox(
 		layout.NewSpacer(),

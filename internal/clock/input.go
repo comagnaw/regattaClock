@@ -6,6 +6,9 @@ import (
 	"github.com/comagnaw/regattaClock/internal/common"
 )
 
+// initWinningTime - returns entry used to collect a winning time.
+// The default state is for the entry field to be disabled until the
+// clockState reflects a stopped state
 func (c *Clock) initWinningTime() {
 	c.winningTime = widget.NewEntry()
 	c.winningTime.SetPlaceHolder(common.ZeroTime)
@@ -13,6 +16,9 @@ func (c *Clock) initWinningTime() {
 	c.winningTime.Disable()
 }
 
+// onChangedWinningTimeFunc - function used to process user input of
+// winning time.  The input is parsed to ensure it matches a valid time
+// format and when that occurs, the referee approval button is enabled.
 func (c *Clock) onChangedWinningTimeFunc() func(text string) {
 	return func(text string) {
 
@@ -36,6 +42,9 @@ func (c *Clock) onChangedWinningTimeFunc() func(text string) {
 	}
 }
 
+// oofEntry - entry field for order of finish (OOF) that the user populates
+// with numbers 1 thru 6 for what lane finished for this row based on the row
+// place value.
 func (c *Clock) oofEntry(rowNum int) *widget.Entry {
 	oofEntry := widget.NewEntry()
 	oofEntry.OnChanged = c.oofEntryOnChangedFunc(rowNum)
@@ -43,6 +52,11 @@ func (c *Clock) oofEntry(rowNum int) *widget.Entry {
 	return oofEntry
 }
 
+// oofEntryChangeFunc - function used to process changes to oofEntry input.
+// a non lane number is processed differently from a valid lane number.  A
+// valid lane number will update laps and results, but must not be a lane that
+// has already been populated in another row of the laps table.  A non valid
+// lane number will empty out eh laps and results entries.
 func (c *Clock) oofEntryOnChangedFunc(row int) func(newOOF string) {
 	return func(newOOF string) {
 		if c.isNotRunning() {
@@ -56,7 +70,7 @@ func (c *Clock) oofEntryOnChangedFunc(row int) func(newOOF string) {
 					c.laps.setPreviousOOFLaneNum(row, newOOF)
 
 					// Update Place, Split, and Time rows in resultsTable
-					c.resultsTable.updateFromLapRows(laneNum, row, c.laps)
+					c.results.updateFromLapRows(laneNum, row, c.laps)
 					c.window.Content().Refresh()
 
 				} else {
@@ -71,7 +85,7 @@ func (c *Clock) oofEntryOnChangedFunc(row int) func(newOOF string) {
 				c.laps.setPreviousOOFLaneNum(row, common.EmptyString)
 
 				if previousLaneNum != badLaneNum {
-					c.resultsTable.clear(previousLaneNum)
+					c.results.clear(previousLaneNum)
 					c.window.Content().Refresh()
 				}
 			}
@@ -79,6 +93,8 @@ func (c *Clock) oofEntryOnChangedFunc(row int) func(newOOF string) {
 	}
 }
 
+// oofEntryOnSubmittedFunc - once the oofEntry has been submitted move
+// the focus to the next row.
 func (c *Clock) oofEntryOnSubmittedFunc(row int) func(text string) {
 	return func(text string) {
 		if c.isNotRunning() {
