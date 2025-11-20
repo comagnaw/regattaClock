@@ -1,0 +1,30 @@
+name: Go Coverage with Cobertura
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Generate Go test coverage
+        run: go test ./... -coverprofile=coverage.out -covermode=atomic
+
+      - name: Convert to Cobertura XML
+        run: |
+          go install github.com/tebeka/go2xunit@latest
+          go2xunit -input=coverage.out -output=coverage.xml -format=cobertura
+
+      - name: Post Coverage Summary to PR
+        uses: 5monkeys/cobertura-action@v1
+        with:
+          path: coverage.xml
+          minimum_coverage: 75
