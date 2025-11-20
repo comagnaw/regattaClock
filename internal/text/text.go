@@ -7,9 +7,19 @@ import (
 	"fyne.io/fyne/v2/canvas"
 )
 
-// Title - returns title format of fyne Text
-func Title(t string) *canvas.Text {
+// Header1 - returns title format of fyne Text
+func Header1(t string) *canvas.Text {
 	return newText(t, color.White, false, true, fyne.TextAlignCenter, 48)
+}
+
+// Header2 - returns title format of fyne Text
+func Header2(t string) *canvas.Text {
+	return newText(t, color.White, false, true, fyne.TextAlignCenter, 24)
+}
+
+// Header3 - returns title format of fyne Text
+func Header3(t string) *canvas.Text {
+	return newText(t, color.White, false, true, fyne.TextAlignCenter, 20)
 }
 
 // Cell - returns cell format of fyne Text

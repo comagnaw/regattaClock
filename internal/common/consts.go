@@ -22,14 +22,22 @@ const (
 	RefereeButtonText   = "Referee Approval"
 	RefereeApproveTitle = "Referee Approval - Race %d"
 
-	EditPlaceTitle = "Edit Place - Race %d"
+	EditPlaceTitle = "Edit Place %d"
+
+	NumScheduledRacesTitle = "Scheduled Races: %d"
+	ScheduledRacesTile     = "Scheduled Races"
+	LoadDataTitle          = "Load Regatta Data"
 
 	ApproveButtonText    = "Approve"
 	CancelButtonText     = "Cancel"
 	CloseButtonText      = "Close"
+	ExitButtonText       = "Exit"
 	LapButtonText        = "Lap (F4)"
+	LoadButtonText       = "Load"
 	SaveButtonText       = "Save"
+	ShowWindowText       = "Show Window"
 	StartButtonText      = "Start (F2)"
 	StopButtonText       = "Stop"
+	TimeRaceButtonText   = "Time Race"
 	WinningTimeInputText = "Winning Time:"
 )

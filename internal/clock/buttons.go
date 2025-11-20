@@ -173,7 +173,7 @@ func (c *Clock) refereeApprovalFunc(raceNumber int) func(approve bool) {
 // refereeApprovalContent - content used to present race results for referee approval
 func (c *Clock) refereeApprovalContent() *fyne.Container {
 	return container.NewVBox(
-		container.NewCenter(text.Title(c.raceData.RaceTitle())),
+		container.NewCenter(text.Header1(c.raceData.RaceTitle())),
 		c.results.asApprovals(c.laps.getOOFLanes()).Container,
 	)
 }
@@ -203,7 +203,7 @@ func (c *Clock) placeButtonOnTappedFunc(row int) func() {
 		if c.isNotRunning() {
 			if laneNum := c.laps.getLaneNum(row); laneNum != badLaneNum {
 				dialog.ShowCustom(
-					fmt.Sprintf(common.EditPlaceTitle, row),
+					fmt.Sprintf(common.EditPlaceTitle, row+1),
 					common.CloseButtonText,
 					c.placeSelection(row, laneNum),
 					c.window,

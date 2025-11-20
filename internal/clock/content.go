@@ -15,7 +15,7 @@ import (
 // content - primary fyne objects presented as clock and race input
 func (c *Clock) content() *fyne.Container {
 	return container.NewVBox(
-		container.NewCenter(text.Title(c.raceData.RaceTitle())),
+		container.NewCenter(text.Header1(c.raceData.RaceTitle())),
 		container.NewVBox(
 			container.NewCenter(c.clock),
 			c.controlPanel(),

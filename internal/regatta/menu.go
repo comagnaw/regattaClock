@@ -22,21 +22,21 @@ func (r *Regatta) makeMenu() *fyne.MainMenu {
 
 // importItems - menu item to load RegattaData
 func (r *Regatta) importItem() *fyne.MenuItem {
-	return fyne.NewMenuItem("Import Regatta Table", func() {
+	return fyne.NewMenuItem(common.LoadDataTitle, func() {
 		r.loader(false)
 	})
 }
 
 // showWindowItem - menu to bring main app back into focus
 func (r *Regatta) showWindowItem() *fyne.MenuItem {
-	return fyne.NewMenuItem("Show Window", func() {
+	return fyne.NewMenuItem(common.ShowWindowText, func() {
 		r.window.Show()
 	})
 }
 
 // exitItem - menu to exit the main app
 func (r *Regatta) exitItem() *fyne.MenuItem {
-	return fyne.NewMenuItem("Exit", func() {
+	return fyne.NewMenuItem(common.ExitButtonText, func() {
 		r.App.Quit()
 	})
 }

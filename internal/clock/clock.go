@@ -72,7 +72,7 @@ type clockState struct {
 func NewClock(parent fyne.App, regattaData *reader.RegattaData, race reader.RaceData) *Clock {
 
 	raceClock := &Clock{
-		clock:    text.Title(common.ZeroTime),
+		clock:    text.Header1(common.ZeroTime),
 		laps:     make([]lapRow, 6),
 		lapCount: 1,
 		results:  initResults(race),

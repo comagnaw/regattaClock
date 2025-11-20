@@ -2,7 +2,6 @@ package regatta
 
 import (
 	"fmt"
-	"image/color"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/comagnaw/regattaClock/internal/common"
 	"github.com/comagnaw/regattaClock/internal/reader"
+	"github.com/comagnaw/regattaClock/internal/text"
 )
 
 // Regatta represents the main application
@@ -39,11 +39,13 @@ type Regatta struct {
 // NewRegatta - loads Regata object
 func NewRegatta(app fyne.App) *Regatta {
 	regattaApp := &Regatta{
-		window: app.NewWindow(common.AppTitle),
-		App:    app,
+		window:   app.NewWindow(common.AppTitle),
+		App:      app,
+		title:    text.Header2(common.EmptyString),
+		subtitle: text.Header3(common.EmptyString),
+		date:     text.Header3(common.EmptyString),
 	}
 
-	regattaApp.initRegattaDetails()
 	regattaApp.window.SetMaster()
 	regattaApp.window.SetMainMenu(regattaApp.makeMenu())
 	regattaApp.window.Resize(fyne.NewSize(regattaWidth, regattaHeight))
@@ -57,68 +59,20 @@ func (r *Regatta) Run() {
 	r.window.ShowAndRun()
 }
 
-// initRegattaDetails - load the textual fields that summarize the Regatta
-func (r *Regatta) initRegattaDetails() {
-	r.initTitle()
-	r.initSubtitle()
-	r.initDate()
-}
-
-func (r *Regatta) updateRegattaDetails() {
-	r.updateTitle()
-	r.updateSubTitle()
-	r.updateDate()
-}
-
-// initTitle - initialize title of regatta
-func (r *Regatta) initTitle() {
-	r.title = canvas.NewText(common.EmptyString, color.White)
-	r.title.TextStyle = fyne.TextStyle{Bold: true}
-	r.title.Alignment = fyne.TextAlignCenter
-	r.title.TextSize = 24
-}
-
-// updateTitle - use RegattaData.RegattaName to update title
-func (r *Regatta) updateTitle() {
+func (r *Regatta) refreshContent() {
 	r.title.Text = r.RegattaData.Name
-	r.title.Refresh()
-}
-
-// initSubtitle - initialize subtitle of regatta
-func (r *Regatta) initSubtitle() {
-	r.subtitle = canvas.NewText(common.EmptyString, color.White)
-	r.subtitle.TextStyle = fyne.TextStyle{Bold: true}
-	r.subtitle.Alignment = fyne.TextAlignCenter
-	r.subtitle.TextSize = 20
-}
-
-// updateTitle - use RegattaData.ScheduledRaces to update subtitle
-func (r *Regatta) updateSubTitle() {
-	r.subtitle.Text = fmt.Sprintf("Scheduled Races: %d", r.RegattaData.ScheduledRaces())
-	r.subtitle.Refresh()
-}
-
-// initDate - initialize date of regatta
-func (r *Regatta) initDate() {
-	r.date = canvas.NewText(common.EmptyString, color.White)
-	r.date.TextStyle = fyne.TextStyle{Bold: true}
-	r.date.Alignment = fyne.TextAlignCenter
-	r.date.TextSize = 20
-}
-
-// updateTitle - use RegattaData.Date to update date
-func (r *Regatta) updateDate() {
+	r.subtitle.Text = fmt.Sprintf(common.NumScheduledRacesTitle, r.RegattaData.ScheduledRaces())
 	r.date.Text = r.RegattaData.Date
-	r.date.Refresh()
+	r.window.Content().Refresh()
 }
 
 // setupStartupDialog - present dialog asking to load RegattaData
 func (r *Regatta) setupStartupDialog() {
 	// Create a custom dialog
 	dialog.ShowCustomConfirm(
-		"Load Regatta Data",
-		"Load",
-		"Cancel",
+		common.LoadDataTitle,
+		common.LoadButtonText,
+		common.CancelButtonText,
 		container.NewVBox(
 			widget.NewLabel("Welcome to Regatta Clock!"),
 			widget.NewLabel("Please load your regatta Excel file to begin."),

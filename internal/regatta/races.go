@@ -7,6 +7,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/comagnaw/regattaClock/internal/clock"
+	"github.com/comagnaw/regattaClock/internal/common"
 	"github.com/comagnaw/regattaClock/internal/reader"
 )
 
@@ -39,7 +40,7 @@ func (r *Regatta) treeTitle() *fyne.Container {
 
 func (r *Regatta) listTitle() *widget.Label {
 	// Add a title for the race list
-	title := widget.NewLabel("Scheduled Races")
+	title := widget.NewLabel(common.ScheduledRacesTile)
 	title.TextStyle = fyne.TextStyle{Bold: true}
 	return title
 }
@@ -67,7 +68,7 @@ func (r *Regatta) raceList() *container.Scroll {
 
 func (r *Regatta) timeButton(race reader.RaceData) *widget.Button {
 	// Create a button to time this race
-	return widget.NewButton("Time Race", func(raceData reader.RaceData) func() {
+	return widget.NewButton(common.TimeRaceButtonText, func(raceData reader.RaceData) func() {
 		return func() {
 			clockApp := clock.NewClock(r.App, r.RegattaData, raceData)
 			clockApp.OpenRaceClock()

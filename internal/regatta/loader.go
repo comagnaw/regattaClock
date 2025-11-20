@@ -48,7 +48,7 @@ func (r *Regatta) callback(fromStartup bool) func(fyne.URIReadCloser, error) {
 		}
 
 		r.debugLoader()
-		r.updateRegattaDetails()
+		r.refreshContent()
 
 		dialog.ShowInformation("Import", "Successfully read Excel file", r.window)
 
