@@ -25,8 +25,8 @@ jobs:
 
       - name: Convert to Cobertura XML
         run: |
-          go install github.com/tebeka/go2xunit@latest
-          go2xunit -input=coverage.out -output=coverage.xml
+          go install github.com/boumenot/gocover-cobertura@latest
+          gocover-cobertura < coverage.out > coverage.xml
 
       - name: Post Coverage Summary to PR
         uses: 5monkeys/cobertura-action@v1
