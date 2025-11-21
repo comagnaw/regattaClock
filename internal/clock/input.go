@@ -1,0 +1,111 @@
+package clock
+
+import (
+	"fyne.io/fyne/v2/widget"
+
+	"github.com/comagnaw/regattaClock/internal/common"
+)
+
+// initWinningTime - returns entry used to collect a winning time.
+// The default state is for the entry field to be disabled until the
+// clockState reflects a stopped state
+func (c *Clock) initWinningTime() {
+	c.winningTime = widget.NewEntry()
+	c.winningTime.SetPlaceHolder(common.ZeroTime)
+	c.winningTime.OnChanged = c.onChangedWinningTimeFunc()
+	c.winningTime.Disable()
+}
+
+// onChangedWinningTimeFunc - function used to process user input of
+// winning time.  The input is parsed to ensure it matches a valid time
+// format and when that occurs, the referee approval button is enabled.
+func (c *Clock) onChangedWinningTimeFunc() func(text string) {
+	return func(text string) {
+
+		// If winning time is empty, just disable referee button
+		if text == common.EmptyString {
+			c.buttons.referee.Disable()
+			return
+		}
+
+		// Try to parse the winning time
+		_, err := parseTime(text)
+		if err != nil {
+			c.buttons.referee.Disable()
+			return
+		}
+
+		c.buttons.referee.Enable()
+		c.refreshContent()
+		c.window.Content().Refresh()
+
+	}
+}
+
+// oofEntry - entry field for order of finish (OOF) that the user populates
+// with numbers 1 thru 6 for what lane finished for this row based on the row
+// place value.
+func (c *Clock) oofEntry(rowNum int) *widget.Entry {
+	oofEntry := widget.NewEntry()
+	oofEntry.OnChanged = c.oofEntryOnChangedFunc(rowNum)
+	oofEntry.OnSubmitted = c.oofEntryOnSubmittedFunc(rowNum)
+	return oofEntry
+}
+
+// oofEntryChangeFunc - function used to process changes to oofEntry input.
+// a non lane number is processed differently from a valid lane number.  A
+// valid lane number will update laps and results, but must not be a lane that
+// has already been populated in another row of the laps table.  A non valid
+// lane number will empty out eh laps and results entries.
+func (c *Clock) oofEntryOnChangedFunc(row int) func(newOOF string) {
+	return func(newOOF string) {
+		if c.isNotRunning() {
+			// Update resultsTable if OOF matches a lane number
+			if laneNum := getGoodLaneNum(newOOF); laneNum != badLaneNum {
+
+				if !c.laps.alreadyAssigned(row, newOOF) {
+
+					// Update the lap time's OOF value
+					c.laps.setOOFLaneNum(row, newOOF)
+					c.laps.setPreviousOOFLaneNum(row, newOOF)
+
+					// Update Place, Split, and Time rows in resultsTable
+					c.results.updateFromLapRows(laneNum, row, c.laps)
+					c.window.Content().Refresh()
+
+				} else {
+					// If already assigned, clear the input
+					c.laps.setOOFLaneNum(row, common.EmptyString)
+					c.window.Content().Refresh()
+				}
+			} else {
+				// If OOF is cleared or invalid, clear the previous lane
+				previousLaneNum := getGoodLaneNum(c.laps[row].previousOOFLaneNum)
+				c.laps.setOOFLaneNum(row, common.EmptyString)
+				c.laps.setPreviousOOFLaneNum(row, common.EmptyString)
+
+				if previousLaneNum != badLaneNum {
+					c.results.clear(previousLaneNum)
+					c.window.Content().Refresh()
+				}
+			}
+		}
+	}
+}
+
+// oofEntryOnSubmittedFunc - once the oofEntry has been submitted move
+// the focus to the next row.
+func (c *Clock) oofEntryOnSubmittedFunc(row int) func(text string) {
+	return func(text string) {
+		if c.isNotRunning() {
+			nextRow := row + 1
+			// Move focus to next row's OOF entry if it exists
+			if nextRow < len(c.laps) {
+				// Clear any existing text in the next entry
+				c.laps.setOOFLaneNum(nextRow, common.EmptyString)
+				// Move focus to the next entry
+				c.window.Canvas().Focus(c.laps[nextRow].oofLaneNum)
+			}
+		}
+	}
+}

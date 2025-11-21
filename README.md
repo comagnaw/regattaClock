@@ -48,6 +48,6 @@ When the Excel spreadsheet successfully loads, the operator will be presented wi
 
 ## Start Timing
 
-One the `Time Race` button is selected, a window similar to the one below will be presented to the operator.  The operator will select the `Start` button (or F2) when the first boat crosses the finish-line.  Then the operator will select the `Lap` button (or F4) as each remaining boat crosses the finish-line.  Once all boats have crossed the finish line, the operator will select the `Stop` button to stop the running clock.  Next, the operator will capture the Referee race time in the `Winning Time` box and then the OOF.
+Once the `Time Race` button is selected, a window similar to the one below will be presented to the operator.  The operator will select the `Start` button (or F2) when the first boat crosses the finish-line.  Then the operator will select the `Lap` button (or F4) as each remaining boat crosses the finish-line.  Once all boats have crossed the finish line, the operator will select the `Stop` button to stop the running clock.  Next, the operator will capture the Referee race time in the `Winning Time` box and then the OOF.
 
 ![Start Timing](docs/img/4-Start%20Timing.gif)
