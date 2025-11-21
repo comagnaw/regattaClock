@@ -20,13 +20,6 @@ jobs:
       run: |
         go install fyne.io/tools/cmd/fyne@latest
 
-    - name: Initialize Go module
-      run: |
-        cd cmd/regattaClock
-        go mod tidy
-        go get fyne.io/fyne/v2
-        go get github.com/comagnaw/regattaClock
-
     - name: Build
       run: |
         mkdir -p build
