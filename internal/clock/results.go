@@ -35,11 +35,14 @@ func initResults(rd reader.RaceData) results {
 	}
 }
 
-// updateFromLapRows - using provide lane, row, and laps update the lane colum
+// updateFromLapRows - using provide lane, row, and laps update the lane column
+// - only if the lap place is non-place (DQ, DNF, DNS)
 func (r results) updateFromLapRows(lane, row int, l laps) {
-	r.updatePlace(lane, l.place(row))
-	r.updateSplit(lane, l.split(row))
-	r.updateTime(lane, l.calculatedTime(row))
+	if !l.isNonPlace(row) {
+		r.updatePlace(lane, l.place(row))
+		r.updateSplit(lane, l.split(row))
+		r.updateTime(lane, l.calculatedTime(row))
+	}
 }
 
 // clear - with provided lane, update lane column with empty strings

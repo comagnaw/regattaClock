@@ -461,4 +461,3 @@ func TestReadExcelFile_SortedRaces(t *testing.T) {
 		}
 	}
 }
-

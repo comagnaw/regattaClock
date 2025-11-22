@@ -8,7 +8,7 @@ The underlying source code is written in Golang and uses the [fyne.io](https://f
 
 ## Overview of time collection using regattaClock
 
-> Due to limited resources, some rowing organizations may be limited in their capability for collecting start and finish times in a cohesive system.  The **regattaClock** application is designed to be run in this environments.  What follows is a high-level overview of how **regattaClock** is meant to be run.
+> Due to limited resources, some rowing organizations may be limited in their capability for collecting start and finish times in a cohesive system.  The **regattaClock** application is designed to be run in this type of environment.  What follows is a high-level overview of how **regattaClock** is meant to be run.
 
 **regattaClock** is run at the finish-line of the race course.  **regattaClock** starts collecting time when the operator selects the `Start` button when the first boat crosses the finish-line and selects the `Lap` button each time another boat crosses the finish-line.  When the race course is clear of boats, the operator selects the `Stop` button.  The operator has collected split times for each boat.  
 

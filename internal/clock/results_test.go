@@ -458,4 +458,3 @@ func TestResults_WithEmptyLanes(t *testing.T) {
 		t.Errorf("Expected School C in lane 3, got %q", results.school(3))
 	}
 }
-
