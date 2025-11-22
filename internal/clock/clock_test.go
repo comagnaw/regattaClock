@@ -590,4 +590,3 @@ func TestClock_RefreshContent_WithWinningTime(t *testing.T) {
 	// Clean up
 	close(clock.clockState.stopChan)
 }
-

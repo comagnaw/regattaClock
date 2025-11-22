@@ -532,4 +532,3 @@ func TestRegatta_InitialWindowSize(t *testing.T) {
 			regattaWidth, regattaHeight, size.Width, size.Height)
 	}
 }
-

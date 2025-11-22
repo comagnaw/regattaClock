@@ -279,8 +279,8 @@ func TestRegatta_Callback_InvalidExtension(t *testing.T) {
 	// Pre-set RegattaData and window content to prevent panic in callback flow
 	// The callback has a bug where it calls debugLoader/refreshContent even on error
 	regatta.RegattaData = &reader.RegattaData{
-		Name: "Initial Data",
-		Date: "2024-01-01",
+		Name:  "Initial Data",
+		Date:  "2024-01-01",
 		Races: []reader.RaceData{},
 	}
 	regatta.showRaceTree()
@@ -446,4 +446,3 @@ func TestRegatta_Loader_Integration(t *testing.T) {
 		t.Fatal("Window should exist before calling loader")
 	}
 }
-

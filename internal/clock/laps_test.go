@@ -370,4 +370,3 @@ func TestLaps_Integration(t *testing.T) {
 		t.Error("Third lap should have split 00:05.0")
 	}
 }
-

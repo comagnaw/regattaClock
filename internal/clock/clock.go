@@ -179,11 +179,6 @@ func (c *Clock) refreshContent() {
 		} else {
 			c.laps[row].oofLaneNum.Disable()
 		}
-
-		if laneNum := c.laps.getLaneNum(row); laneNum != badLaneNum {
-			c.results.updateFromLapRows(laneNum, row, c.laps)
-		}
-
 	}
 
 }
@@ -193,9 +188,8 @@ func (c *Clock) refreshContent() {
 func (c *Clock) splitEntryOnChangedFunc(row int, timeAdjustment time.Duration) func(newSplit string) {
 	return func(newSplit string) {
 		if c.isNotRunning() {
-			if laneNum := c.laps.getLaneNum(row); laneNum != badLaneNum && c.results.isPlace(laneNum) {
+			if laneNum := c.laps.getLaneNum(row); laneNum != badLaneNum {
 				c.adjustTime(row, timeAdjustment)
-				c.results.updateSplit(laneNum, newSplit)
 				c.window.Content().Refresh()
 			}
 		}
@@ -242,7 +236,7 @@ func (c *Clock) adjustTime(row int, timeAdjustment time.Duration) {
 		c.laps.setCalculatedTime(row, adjustedTime)
 
 		if laneNum := c.laps.getLaneNum(row); laneNum != badLaneNum {
-			c.results.updateTime(laneNum, adjustedTime)
+			c.results.updateFromLapRows(laneNum, row, c.laps)
 		}
 	}
 }

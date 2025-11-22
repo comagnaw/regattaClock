@@ -127,6 +127,15 @@ func (l laps) place(row int) string {
 	return l[row].place.Text
 }
 
+// isNonPlace - returns true if DQ, DNS, DNF are in place field
+func (l laps) isNonPlace(row int) bool {
+	switch l.place(row) {
+	case common.RaceDisqualification, common.RaceDidNotStart, common.RaceDidNotFinish:
+		return true
+	}
+	return false
+}
+
 // split - with provided row as lapRow index, return split as string
 func (l laps) split(row int) string {
 	return l[row].split.Text
