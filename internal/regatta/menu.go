@@ -15,10 +15,18 @@ func (r *Regatta) makeMenu() *fyne.MainMenu {
 			r.createLaneImages(),
 			r.showWindowItem(),
 			fyne.NewMenuItemSeparator(),
+			r.settingsItem(),
 			r.exitItem(),
 		),
 	)
 
+}
+
+// configItems - menu item to modify user config
+func (r *Regatta) settingsItem() *fyne.MenuItem {
+	return fyne.NewMenuItem(common.ConfigTitle, func() {
+		r.config.Show()
+	})
 }
 
 // importItems - menu item to load RegattaData

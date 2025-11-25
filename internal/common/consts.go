@@ -1,13 +1,21 @@
 package common
 
 const (
-	AppTitle = "Regatta Clock"
+	AppTitle    = "Regatta Clock"
+	AppBundleID = "com.github.comagnaw.regattaClock"
+
+	PrefRegattaDir = "RegattaDir"
+	PrefDebug = "Debug"
+	PrefLogging = "Logging"
+
+	UserConfigFile = "config.json"
 
 	EmptyString = ""
 
 	ZeroTime = "00:00.0"
 
-	ClockFormatter = "%02d:%02d.%d"
+	HiddenFileFormatter = ".%s"
+	ClockFormatter      = "%02d:%02d.%d"
 
 	RaceDisqualification = "DQ"
 	RaceDidNotFinish     = "DNF"
@@ -26,6 +34,7 @@ const (
 
 	NumScheduledRacesTitle = "Scheduled Races: %d"
 	ScheduledRacesTile     = "Scheduled Races"
+	ConfigTitle            = "Configuration"
 	LoadDataTitle          = "Load Regatta Data"
 	CreateLaneImagesTitle  = "Create Lane Images"
 

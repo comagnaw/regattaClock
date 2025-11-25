@@ -23,6 +23,11 @@ type Regatta struct {
 	// App - app passed by main into NewRegatta
 	App fyne.App
 
+	// Config - user configuration
+	// *Config
+
+	config fyne.Window
+
 	// title - text field that represents imported title from RegattaData
 	title *canvas.Text
 
@@ -46,6 +51,10 @@ func NewRegatta(app fyne.App) *Regatta {
 		date:     text.Header3(common.EmptyString),
 	}
 
+	regattaApp.config = regattaApp.configContainer()
+	if regattaApp.App.Preferences().String(common.PrefRegattaDir) == common.EmptyString {
+		regattaApp.config.Show()
+	}
 	regattaApp.window.SetMaster()
 	regattaApp.window.SetMainMenu(regattaApp.makeMenu())
 	regattaApp.window.Resize(fyne.NewSize(regattaWidth, regattaHeight))
