@@ -1,7 +1,6 @@
 package text
 
 import (
-	"image/color"
 	"testing"
 
 	"fyne.io/fyne/v2"
@@ -18,10 +17,6 @@ func TestHeader1(t *testing.T) {
 
 	if result.Text != testText {
 		t.Errorf("Expected text %q, got %q", testText, result.Text)
-	}
-
-	if result.Color != color.White {
-		t.Errorf("Expected color to be White, got %v", result.Color)
 	}
 
 	if !result.TextStyle.Bold {
@@ -53,10 +48,6 @@ func TestHeader2(t *testing.T) {
 		t.Errorf("Expected text %q, got %q", testText, result.Text)
 	}
 
-	if result.Color != color.White {
-		t.Errorf("Expected color to be White, got %v", result.Color)
-	}
-
 	if !result.TextStyle.Bold {
 		t.Error("Expected text to be bold")
 	}
@@ -84,10 +75,6 @@ func TestHeader3(t *testing.T) {
 
 	if result.Text != testText {
 		t.Errorf("Expected text %q, got %q", testText, result.Text)
-	}
-
-	if result.Color != color.White {
-		t.Errorf("Expected color to be White, got %v", result.Color)
 	}
 
 	if !result.TextStyle.Bold {
@@ -119,10 +106,6 @@ func TestCell(t *testing.T) {
 		t.Errorf("Expected text %q, got %q", testText, result.Text)
 	}
 
-	if result.Color != color.Black {
-		t.Errorf("Expected color to be Black, got %v", result.Color)
-	}
-
 	if !result.TextStyle.Bold {
 		t.Error("Expected text to be bold")
 	}
@@ -144,7 +127,6 @@ func TestNewText(t *testing.T) {
 	tests := []struct {
 		name  string
 		text  string
-		color color.Color
 		mono  bool
 		bold  bool
 		align fyne.TextAlign
@@ -153,7 +135,6 @@ func TestNewText(t *testing.T) {
 		{
 			name:  "standard text",
 			text:  "Hello World",
-			color: color.White,
 			mono:  false,
 			bold:  true,
 			align: fyne.TextAlignCenter,
@@ -162,7 +143,6 @@ func TestNewText(t *testing.T) {
 		{
 			name:  "monospace text",
 			text:  "Code Sample",
-			color: color.Black,
 			mono:  true,
 			bold:  false,
 			align: fyne.TextAlignLeading,
@@ -171,7 +151,6 @@ func TestNewText(t *testing.T) {
 		{
 			name:  "trailing aligned text",
 			text:  "Right Aligned",
-			color: color.RGBA{R: 255, G: 0, B: 0, A: 255},
 			mono:  false,
 			bold:  false,
 			align: fyne.TextAlignTrailing,
@@ -180,7 +159,6 @@ func TestNewText(t *testing.T) {
 		{
 			name:  "empty string",
 			text:  "",
-			color: color.White,
 			mono:  false,
 			bold:  false,
 			align: fyne.TextAlignCenter,
@@ -190,7 +168,7 @@ func TestNewText(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := newText(tt.text, tt.color, tt.mono, tt.bold, tt.align, tt.size)
+			result := newText(tt.text, tt.mono, tt.bold, tt.align, tt.size)
 
 			if result == nil {
 				t.Fatal("newText returned nil")
@@ -200,9 +178,9 @@ func TestNewText(t *testing.T) {
 				t.Errorf("Expected text %q, got %q", tt.text, result.Text)
 			}
 
-			if result.Color != tt.color {
-				t.Errorf("Expected color %v, got %v", tt.color, result.Color)
-			}
+			// if result.Color != tt.color {
+			// 	t.Errorf("Expected color %v, got %v", tt.color, result.Color)
+			// }
 
 			if result.TextStyle.Monospace != tt.mono {
 				t.Errorf("Expected monospace to be %v, got %v", tt.mono, result.TextStyle.Monospace)
@@ -237,23 +215,6 @@ func TestHeadersHaveDifferentSizes(t *testing.T) {
 	}
 }
 
-func TestCellVsHeaderColor(t *testing.T) {
-	cell := Cell("Test")
-	header := Header1("Test")
-
-	if cell.Color == header.Color {
-		t.Error("Cell color should be different from Header color (Cell is Black, Header is White)")
-	}
-
-	if cell.Color != color.Black {
-		t.Errorf("Cell color should be Black, got %v", cell.Color)
-	}
-
-	if header.Color != color.White {
-		t.Errorf("Header color should be White, got %v", header.Color)
-	}
-}
-
 func TestAllFunctionsReturnValidCanvasText(t *testing.T) {
 	testText := "Test"
 
@@ -275,10 +236,6 @@ func TestAllFunctionsReturnValidCanvasText(t *testing.T) {
 			// Verify it's a valid canvas.Text object with expected properties
 			if result.Text == "" && testText != "" {
 				t.Errorf("%s did not set text properly", name)
-			}
-
-			if result.Color == nil {
-				t.Errorf("%s did not set color", name)
 			}
 
 			if result.TextSize <= 0 {

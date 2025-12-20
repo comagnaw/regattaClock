@@ -47,6 +47,8 @@ func (r *Regatta) callback(fromStartup bool) func(fyne.URIReadCloser, error) {
 			dialog.ShowError(err, r.window)
 		}
 
+		r.saveRegattaData()
+
 		r.debugLoader()
 		r.refreshContent()
 
@@ -81,4 +83,5 @@ func (r *Regatta) debugLoader() {
 		len(r.RegattaData.Races), r.RegattaData.ScheduledRaces())
 	fmt.Printf("Debug: Regatta Name: %s\n", r.RegattaData.Name)
 	fmt.Printf("Debug: Regatta Date: %s\n", r.RegattaData.Date)
+	fmt.Printf("Debug: Regatta Source Info: %v\n", r.RegattaData.SourceInfo)
 }

@@ -9,7 +9,6 @@ import (
 	"github.com/comagnaw/regattaClock/internal/common"
 )
 
-
 func CreateDirs(dirPath string) error {
 	if dirPath == common.EmptyString {
 		return fmt.Errorf("filepath provided to create directory is empty and cannot be created")
@@ -37,7 +36,7 @@ func ReadDir(dirPath string) ([]fs.DirEntry, error) {
 }
 
 func GetFilteredFilesInDir(dirPath, subStr string) ([]fs.DirEntry, error) {
-	
+
 	result := []fs.DirEntry{}
 	listing, err := ReadDir(dirPath)
 	if err != nil {
@@ -49,7 +48,7 @@ func GetFilteredFilesInDir(dirPath, subStr string) ([]fs.DirEntry, error) {
 			result = append(result, f)
 		}
 	}
-	
+
 	return result, nil
 
 }

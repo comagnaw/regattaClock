@@ -7,11 +7,13 @@ import (
 	"strings"
 
 	"github.com/comagnaw/regattaClock/internal/common"
+	"github.com/comagnaw/regattaClock/internal/filesystem"
 	"github.com/xuri/excelize/v2"
 )
 
 // ReadExcelFile reads an Excel file and returns the regatta data
 func ReadExcelFile(filePath string) (*RegattaData, error) {
+
 	// Open the Excel file
 	f, err := excelize.OpenFile(filePath)
 	if err != nil {
@@ -24,6 +26,14 @@ func ReadExcelFile(filePath string) (*RegattaData, error) {
 		return nil, err
 	}
 
+	hash, err := filesystem.FileHash(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	excel.fileHash = hash
+	excel.filePath = filePath
+
 	load(excel)
 
 	debugReadExcelFile(*excel.RegattaData)
@@ -33,6 +43,8 @@ func ReadExcelFile(filePath string) (*RegattaData, error) {
 
 // excel - implments methods that satisfy sourceData interface
 type excel struct {
+	filePath    string
+	fileHash    string
 	file        *excelize.File
 	sheetName   string
 	mergedCells []excelize.MergeCell
@@ -79,6 +91,12 @@ func (e excel) setNameAndDate() {
 			break
 		}
 	}
+}
+
+func (e excel) setSourceInfo() {
+	e.RegattaData.SourceInfo.Type = "excel"
+	e.RegattaData.SourceInfo.Hash = e.fileHash
+	e.RegattaData.SourceInfo.URI = e.filePath
 }
 
 func (e excel) loadRaces() {

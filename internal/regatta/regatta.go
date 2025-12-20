@@ -2,6 +2,7 @@ package regatta
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -10,6 +11,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/comagnaw/regattaClock/internal/common"
+	"github.com/comagnaw/regattaClock/internal/filesystem"
 	"github.com/comagnaw/regattaClock/internal/reader"
 	"github.com/comagnaw/regattaClock/internal/text"
 )
@@ -23,10 +25,11 @@ type Regatta struct {
 	// App - app passed by main into NewRegatta
 	App fyne.App
 
-	// Config - user configuration
-	// *Config
+	loadState *loadState
 
-	config fyne.Window
+	lastView fyne.CanvasObject
+
+	config *fyne.Container
 
 	// title - text field that represents imported title from RegattaData
 	title *canvas.Text
@@ -41,6 +44,20 @@ type Regatta struct {
 	RegattaData *reader.RegattaData
 }
 
+type loadState struct {
+	loadButton *widget.Button
+}
+
+func (r *Regatta) newLoadState() {
+	button := widget.NewButton(common.NextButtonText, func() { r.loader(false) })
+	button.Disable()
+
+	r.loadState = &loadState{
+		loadButton: button,
+	}
+
+}
+
 // NewRegatta - loads Regata object
 func NewRegatta(app fyne.App) *Regatta {
 	regattaApp := &Regatta{
@@ -49,16 +66,17 @@ func NewRegatta(app fyne.App) *Regatta {
 		title:    text.Header2(common.EmptyString),
 		subtitle: text.Header3(common.EmptyString),
 		date:     text.Header3(common.EmptyString),
+		RegattaData: reader.NewRegattaData(),
 	}
-
-	regattaApp.config = regattaApp.configContainer()
-	if regattaApp.App.Preferences().String(common.PrefRegattaDir) == common.EmptyString {
-		regattaApp.config.Show()
-	}
+	regattaApp.setTheme(regattaApp.App.Preferences().String(common.PrefTheme))
 	regattaApp.window.SetMaster()
 	regattaApp.window.SetMainMenu(regattaApp.makeMenu())
 	regattaApp.window.Resize(fyne.NewSize(regattaWidth, regattaHeight))
-	regattaApp.setupStartupDialog()
+	regattaApp.newLoadState()
+	regattaApp.config = regattaApp.configContent()
+
+	regattaApp.initRegatta()
+	
 
 	return regattaApp
 }
@@ -100,4 +118,46 @@ func (r *Regatta) setupStartupDialog() {
 		},
 		r.window,
 	)
+}
+
+func (r *Regatta) initRegatta() {
+
+	if r.App.Preferences().String(common.PrefRegattaDir) == common.EmptyString {
+
+		initFirstRegatta := container.NewVBox(
+			container.NewCenter(text.Bold("Welcome to Regatta Clock!")),
+			container.NewCenter(text.Bold("Please set the directory for loading and saving regatta data.")),
+			r.regattaDir(),
+			container.NewCenter(
+				r.loadState.loadButton,
+			),
+		)
+
+		r.window.SetContent(initFirstRegatta)
+	} else {
+		r.loadRegattaData()
+		r.refreshContent()
+		r.showRaceTree()
+	}
+
+}
+
+
+func (r *Regatta) regattaFile() string {
+	return filepath.Join(r.App.Preferences().String(common.PrefRegattaDir), "regattaData", "data.json")
+}
+
+
+func (r *Regatta) saveRegattaData() {
+	err := filesystem.SaveJSONFile(r.RegattaData, r.regattaFile())
+	if err != nil {
+		dialog.ShowError(err, r.window)
+	}
+}
+
+func (r *Regatta) loadRegattaData() {
+	err := filesystem.ReadJSONFile(r.RegattaData, r.regattaFile())
+	if err != nil {
+		dialog.ShowError(err, r.window)
+	}
 }

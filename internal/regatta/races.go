@@ -26,7 +26,6 @@ func (r *Regatta) showRaceTree() {
 
 	// Set the window content
 	r.window.SetContent(mainContainer)
-	r.window.Resize(fyne.NewSize(regattaWidth, regattaHeight))
 }
 
 func (r *Regatta) treeTitle() *fyne.Container {

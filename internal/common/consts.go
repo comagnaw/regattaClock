@@ -5,8 +5,11 @@ const (
 	AppBundleID = "com.github.comagnaw.regattaClock"
 
 	PrefRegattaDir = "RegattaDir"
-	PrefDebug = "Debug"
-	PrefLogging = "Logging"
+	PrefTheme      = "Theme"
+	PrefLight      = "Light"
+	PrefDark       = "Dark"
+	PrefDebug      = "Debug"
+	PrefLogging    = "Logging"
 
 	UserConfigFile = "config.json"
 
@@ -14,6 +17,7 @@ const (
 
 	ZeroTime = "00:00.0"
 
+	Padding             = "                                              "
 	HiddenFileFormatter = ".%s"
 	ClockFormatter      = "%02d:%02d.%d"
 
@@ -44,6 +48,7 @@ const (
 	ExitButtonText       = "Exit"
 	LapButtonText        = "Lap (F4)"
 	LoadButtonText       = "Load"
+	NextButtonText       = "Next"
 	SaveButtonText       = "Save"
 	ShowWindowText       = "Show Window"
 	StartButtonText      = "Start (F2)"
