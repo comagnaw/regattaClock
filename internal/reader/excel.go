@@ -64,23 +64,21 @@ func initExcel(file *excelize.File) (excel, error) {
 }
 
 func (e excel) setNameAndDate() {
-	// Find the title merged cell (A1:I2)
 	for _, mc := range e.mergedCells {
-		if mc.GetStartAxis() == "A1" && mc.GetEndAxis() == "I2" {
-			// Found our title cell
-			value := mc.GetCellValue()
-			// Split the value into title and date
-			parts := strings.Split(value, "                                                                                                                                                                                                                                                                   ")
-			if len(parts) >= 2 {
-				e.Name = strings.TrimSpace(parts[0])
-				e.Date = strings.TrimSpace(parts[1])
-			} else {
-				e.Name = strings.TrimSpace(value)
-			}
+		if mc.GetStartAxis() == "A1" && mc.GetEndAxis() == "I1" {
+			// Found our title
+			e.Name = strings.TrimSpace(mc.GetCellValue())
+			continue
+		}
+		if mc.GetStartAxis() == "A2" && mc.GetEndAxis() == "I2" {
+			// Found our date
+			e.Date = strings.TrimSpace(mc.GetCellValue())
+			continue
+		}
+		if e.Name != common.EmptyString && e.Date != common.EmptyString {
 			break
 		}
 	}
-
 }
 
 func (e excel) loadRaces() {
