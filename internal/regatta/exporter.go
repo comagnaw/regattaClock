@@ -1,6 +1,8 @@
 package regatta
 
 import (
+	"fmt"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/dialog"
 
@@ -25,8 +27,16 @@ func (r *Regatta) exportCallback() func(fyne.ListableURI, error) {
 		}
 
 		outputDir := dir.Path()
-		exporter.Export(*r.RegattaData, outputDir)
+		result := exporter.Export(*r.RegattaData, outputDir)
 
-		dialog.ShowInformation("Export", "Successfully exported race images", r.window)
+		if result.HasErrors() {
+			msg := fmt.Sprintf("Export completed with errors.\nSucceeded: %d\nFailed: %d",
+				result.Succeeded, result.Failed)
+			dialog.ShowError(fmt.Errorf("%s", msg), r.window)
+			return
+		}
+
+		msg := fmt.Sprintf("Successfully exported %d race images", result.Succeeded)
+		dialog.ShowInformation("Export", msg, r.window)
 	}
 }
