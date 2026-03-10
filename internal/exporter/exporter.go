@@ -7,6 +7,7 @@ import (
 	"image/png"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/comagnaw/regattaClock/internal/assets"
@@ -24,7 +25,7 @@ const (
 	dpi      = 72
 )
 
-func Export(regattaData reader.RegattaData) {
+func Export(regattaData reader.RegattaData, outputDir string) {
 	
 	for _, raceData := range regattaData.Races {
 
@@ -32,7 +33,7 @@ func Export(regattaData reader.RegattaData) {
 			continue
 		}
 
-		fileName := fmt.Sprintf("race_%d_%s.png", raceData.RaceNumber, regattaData.Name)
+		fileName := filepath.Join(outputDir, fmt.Sprintf("race_%d_%s.png", raceData.RaceNumber, regattaData.Name))
 
 		text := fmt.Sprintf("%s\n\n", raceData.RaceTitle())
 		for laneNum, lane := range raceData.OrderedLanes() {
