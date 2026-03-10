@@ -19,21 +19,22 @@ import (
 )
 
 const (
-	width    = 1340
-	height   = 927
+	width    = 1740
+	height   = 780
 	fontSize = 80
 	dpi      = 72
 )
 
 func Export(regattaData reader.RegattaData, outputDir string) {
-	
+	regattaName := strings.ReplaceAll(regattaData.Name, " ", "_")
+
 	for _, raceData := range regattaData.Races {
 
 		if !raceData.HasBoats() {
 			continue
 		}
 
-		fileName := filepath.Join(outputDir, fmt.Sprintf("race_%d_%s.png", raceData.RaceNumber, regattaData.Name))
+		fileName := filepath.Join(outputDir, fmt.Sprintf("race_%02d_%s.png", raceData.RaceNumber, regattaName))
 
 		text := fmt.Sprintf("%s\n\n", raceData.RaceTitle())
 		for laneNum, lane := range raceData.OrderedLanes() {
