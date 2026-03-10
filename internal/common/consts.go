@@ -28,7 +28,7 @@ const (
 	ScheduledRacesTile     = "Scheduled Races"
 	LoadDataTitle          = "Load Regatta Data"
 	CreateLaneImagesTitle  = "Create Lane Images"
-	
+
 	ApproveButtonText    = "Approve"
 	CancelButtonText     = "Cancel"
 	CloseButtonText      = "Close"

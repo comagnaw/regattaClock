@@ -42,8 +42,7 @@ func Export(regattaData reader.RegattaData, outputDir string) {
 				continue
 			}
 			text += fmt.Sprintf("\nLane %d - %s\n", laneNum, lane.SchoolName)
-		}	
-
+		}
 
 		img := image.NewRGBA(image.Rect(0, 0, width, height))
 
@@ -51,7 +50,7 @@ func Export(regattaData reader.RegattaData, outputDir string) {
 		if err != nil {
 			log.Fatalf("Error parsing font data: %v", err)
 		}
-	
+
 		// 3. Configure the freetype context for TrueType drawing
 		c := freetype.NewContext()
 		c.SetDPI(dpi)
@@ -60,7 +59,7 @@ func Export(regattaData reader.RegattaData, outputDir string) {
 		c.SetClip(img.Bounds())
 		c.SetDst(img)
 		c.SetSrc(image.NewUniform(color.RGBA{R: 255, G: 255, B: 255, A: 255}))
-	
+
 		// 4. Draw the text using freetype, handling multiple lines.
 		lines := strings.Split(text, "\n")
 		// baseline starting pixel Y (10px margin from top of text)
@@ -87,27 +86,20 @@ func Export(regattaData reader.RegattaData, outputDir string) {
 			}
 			lineNum++
 		}
-	
+
 		// 5. Save the image to a PNG file
 		outputFile, err := os.Create(fileName)
 		if err != nil {
 			log.Fatalf("Error creating output file: %v", err)
 		}
 		defer outputFile.Close()
-	
+
 		if err = png.Encode(outputFile, img); err != nil {
 			log.Fatalf("Error encoding PNG: %v", err)
 		}
-	
+
 		fmt.Printf("Image generated successfully as %s\n", fileName)
 
-
-
-
-
-
-
 	}
-	
-	
+
 }
