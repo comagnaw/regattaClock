@@ -4,7 +4,9 @@ go 1.24.0
 
 require (
 	fyne.io/fyne/v2 v2.7.1
+	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/xuri/excelize/v2 v2.10.0
+	golang.org/x/image v0.33.0
 )
 
 require (
@@ -41,7 +43,6 @@ require (
 	github.com/xuri/nfp v0.0.2-0.20250530014748-2ddeb826f9a9 // indirect
 	github.com/yuin/goldmark v1.7.13 // indirect
 	golang.org/x/crypto v0.45.0 // indirect
-	golang.org/x/image v0.33.0 // indirect
 	golang.org/x/net v0.47.0 // indirect
 	golang.org/x/sys v0.38.0 // indirect
 	golang.org/x/text v0.31.0 // indirect

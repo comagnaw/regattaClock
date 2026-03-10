@@ -67,7 +67,7 @@ func (e excel) setNameAndDate() {
 	for _, mc := range e.mergedCells {
 		if mc.GetStartAxis() == "A1" && mc.GetEndAxis() == "I1" {
 			// Found our title
-			e.Name = strings.TrimSpace(mc.GetCellValue())
+			e.Name = strings.TrimSuffix(strings.TrimSpace(mc.GetCellValue()), " Regatta Results")
 			continue
 		}
 		if mc.GetStartAxis() == "A2" && mc.GetEndAxis() == "I2" {

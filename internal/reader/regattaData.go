@@ -2,6 +2,7 @@ package reader
 
 import (
 	"fmt"
+	"iter"
 	"sort"
 
 	"github.com/comagnaw/regattaClock/internal/common"
@@ -154,6 +155,22 @@ func (r *RaceData) RaceTitle() string {
 // HasBoats - returns true if row from RaceData has boats
 func (r *RaceData) HasBoats() bool {
 	return r.BoatCount > 0
+}
+
+// OrderedLanes returns an iterator that yields lane numbers and entries in ascending order by lane number
+func (r *RaceData) OrderedLanes() iter.Seq2[int, RaceEntry] {
+	return func(yield func(int, RaceEntry) bool) {
+		keys := make([]int, 0, len(r.Lanes))
+		for k := range r.Lanes {
+			keys = append(keys, k)
+		}
+		sort.Ints(keys)
+		for _, k := range keys {
+			if !yield(k, r.Lanes[k]) {
+				return
+			}
+		}
+	}
 }
 
 func (r *RaceData) SchoolNames() []string {

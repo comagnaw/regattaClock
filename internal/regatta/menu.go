@@ -12,6 +12,7 @@ func (r *Regatta) makeMenu() *fyne.MainMenu {
 		fyne.NewMenu(
 			common.AppTitle,
 			r.importItem(),
+			r.createLaneImages(),
 			r.showWindowItem(),
 			fyne.NewMenuItemSeparator(),
 			r.exitItem(),
@@ -24,6 +25,13 @@ func (r *Regatta) makeMenu() *fyne.MainMenu {
 func (r *Regatta) importItem() *fyne.MenuItem {
 	return fyne.NewMenuItem(common.LoadDataTitle, func() {
 		r.loader(false)
+	})
+}
+
+// createLaneImages - menu item to load RegattaData
+func (r *Regatta) createLaneImages() *fyne.MenuItem {
+	return fyne.NewMenuItem(common.CreateLaneImagesTitle, func() {
+		r.exporter()
 	})
 }
 
