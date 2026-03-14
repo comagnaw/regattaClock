@@ -162,7 +162,7 @@ func newRaceData(raceNum int) RaceData {
 
 // RaceTitle create the race title text
 func (r *RaceData) RaceTitle() string {
-	titleText := fmt.Sprintf("Race %d - (%d Boats)", r.RaceNumber, r.BoatCount)
+	titleText := fmt.Sprintf("Race %d", r.RaceNumber)
 	if r.BoatClass != common.EmptyString {
 		titleText = fmt.Sprintf("%s - %s", titleText, r.BoatClass)
 	}
