@@ -58,10 +58,10 @@ func initExcel(file *excelize.File) (excel, error) {
 	e := excel{}
 	e.file = file
 
-	// Get the first sheet name
-	e.sheetName = file.GetSheetName(0)
-	if e.sheetName == common.EmptyString {
-		return e, fmt.Errorf("no sheets found in Excel file")
+	// Find the sheet holding the race data
+	e.sheetName, err = findRaceSheet(file)
+	if err != nil {
+		return e, err
 	}
 
 	// Get merged cells
@@ -73,6 +73,25 @@ func initExcel(file *excelize.File) (excel, error) {
 	e.RegattaData = NewRegattaData()
 
 	return e, nil
+}
+
+// findRaceSheet - locate the "Results" worksheet wherever it sits in the workbook,
+// falling back to the first worksheet for workbooks that do not name one. The
+// "Heat Sheet" tab of a regatta workbook holds 3-row lineup blocks rather than the
+// 5-row blocks loadRaces expects, so it is not a valid source of race data.
+func findRaceSheet(file *excelize.File) (string, error) {
+	sheets := file.GetSheetList()
+	if len(sheets) == 0 {
+		return common.EmptyString, fmt.Errorf("no sheets found in Excel file")
+	}
+
+	for _, sheet := range sheets {
+		if strings.EqualFold(strings.TrimSpace(sheet), common.ResultsSheetName) {
+			return sheet, nil
+		}
+	}
+
+	return sheets[0], nil
 }
 
 func (e excel) setNameAndDate() {

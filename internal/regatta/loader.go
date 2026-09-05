@@ -60,7 +60,7 @@ func (r *Regatta) callback(fromStartup bool) func(fyne.URIReadCloser, error) {
 
 func getFilePath(fileReader fyne.URIReadCloser) (string, error) {
 	uri := fileReader.URI()
-	if uri.Extension() != ".xlsx" {
+	if uri.Extension() != ".xlsx" && uri.Extension() != ".xlsm"{
 		return common.EmptyString, fmt.Errorf("only .xlsx files are supported")
 	}
 

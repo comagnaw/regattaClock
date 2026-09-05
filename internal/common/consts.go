@@ -13,6 +13,8 @@ const (
 
 	UserConfigFile = "config.json"
 
+	ResultsSheetName = "Results"
+
 	EmptyString = ""
 
 	ZeroTime = "00:00.0"
