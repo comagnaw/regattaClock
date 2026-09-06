@@ -90,8 +90,9 @@ func (r *Regatta) pickPersonaDirectory(def persona.Definition) {
 }
 
 // personaDirCallback validates the chosen folder, reads the schedule, and asks
-// the operator to confirm the regatta before the session starts. Any failure
-// re-opens the folder dialog.
+// the operator to confirm the regatta before the session starts. On a failure
+// the error dialog is shown first and the folder dialog re-opens only once it
+// is dismissed, so the two never stack.
 func (r *Regatta) personaDirCallback(def persona.Definition) func(fyne.ListableURI, error) {
 	return func(dirReader fyne.ListableURI, err error) {
 		if err != nil {
@@ -102,21 +103,17 @@ func (r *Regatta) personaDirCallback(def persona.Definition) func(fyne.ListableU
 			return // cancelled - stay on the picker
 		}
 
-		session := persona.Session{
-			Definition: def,
-			Root:       filepath.FromSlash(dirReader.Path()),
-		}
-
-		if !validPersonaRoot(session) {
-			dialog.ShowError(errors.New(common.NotRegattaDataDirMessage), r.window)
-			r.pickPersonaDirectory(def)
+		root := resolvePersonaRoot(filepath.FromSlash(dirReader.Path()))
+		if root == common.EmptyString {
+			r.rechooseDirectory(def, errors.New(common.NotRegattaDataDirMessage))
 			return
 		}
 
+		session := persona.Session{Definition: def, Root: root}
+
 		schedule, err := store.LoadSchedule(session)
 		if err != nil {
-			dialog.ShowError(fmt.Errorf("%s: %w", common.ScheduleUnreadableMessage, err), r.window)
-			r.pickPersonaDirectory(def)
+			r.rechooseDirectory(def, fmt.Errorf("%s: %w", common.ScheduleUnreadableMessage, err))
 			return
 		}
 
@@ -135,16 +132,42 @@ func (r *Regatta) personaDirCallback(def persona.Definition) func(fyne.ListableU
 	}
 }
 
-// validPersonaRoot accepts a folder whose basename is regattaData, or any
-// folder that already contains a readable director/regattaSchedule.json -
-// cloud clients rename shared-folder shortcuts, and an SMB share can be browsed
-// under any leaf name. The confirmation dialog is the real safeguard against
-// the wrong regatta.
-func validPersonaRoot(s persona.Session) bool {
-	if filepath.Base(s.Root) == common.RegattaDataDir {
+// rechooseDirectory shows why the folder was rejected and re-opens the folder
+// dialog only after the operator dismisses the message.
+func (r *Regatta) rechooseDirectory(def persona.Definition, cause error) {
+	d := dialog.NewError(cause, r.window)
+	d.SetOnClosed(func() { r.pickPersonaDirectory(def) })
+	d.Show()
+}
+
+// resolvePersonaRoot maps the folder the operator chose to the regattaData
+// root. It accepts the regattaData directory itself, a folder renamed from it
+// (a readable schedule sits directly inside), or - the case operators reach for
+// - the parent directory that contains regattaData, since the subdirectory
+// name means nothing to them. Returns "" if none of those hold.
+func resolvePersonaRoot(chosen string) string {
+	if isRegattaRoot(chosen) {
+		return chosen
+	}
+	if child := filepath.Join(chosen, common.RegattaDataDir); isRegattaRoot(child) {
+		return child
+	}
+	return common.EmptyString
+}
+
+// isRegattaRoot reports whether dir is an existing directory that looks like a
+// regattaData root: named regattaData, or holding a readable
+// director/regattaSchedule.json. The confirmation dialog is the real safeguard
+// against the wrong regatta.
+func isRegattaRoot(dir string) bool {
+	info, err := os.Stat(dir)
+	if err != nil || !info.IsDir() {
+		return false
+	}
+	if filepath.Base(dir) == common.RegattaDataDir {
 		return true
 	}
-	return filesystem.FileExists(s.SchedulePath())
+	return filesystem.FileExists(persona.SchedulePathIn(dir))
 }
 
 func scheduledRaceCount(sch *store.Schedule) int {

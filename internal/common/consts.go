@@ -77,7 +77,7 @@ const (
 	ContinueButtonText        = "Continue"
 	NoPersonaSelectedMessage  = "Select a persona before continuing."
 	ChallengeMismatchMessage  = "That challenge code does not match the selected persona."
-	NotRegattaDataDirMessage  = "Choose the shared regattaData directory, or a folder that contains director/regattaSchedule.json."
+	NotRegattaDataDirMessage  = "Choose the shared regatta folder - the one that contains a regattaData folder (or regattaData itself)."
 	ScheduleUnreadableMessage = "Could not read the regatta schedule in that directory"
 	ConfirmRegattaTitle       = "Confirm regatta"
 	ConfirmRegattaMessage     = "%s\n%s\nScheduled races: %d\n\nTime this regatta?"

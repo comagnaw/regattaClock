@@ -107,10 +107,17 @@ type Session struct {
 	Root string // absolute path to the chosen regattaData directory
 }
 
+// SchedulePathIn is <root>/director/regattaSchedule.json. Exposed so callers
+// that only have a candidate root - directory validation before a Session
+// exists - can locate the schedule without reconstructing the layout.
+func SchedulePathIn(root string) string {
+	return filepath.Join(root, dirDirector, fileSchedule)
+}
+
 // SchedulePath is regattaData/director/regattaSchedule.json - the schedule
 // every persona reads and only the director writes.
 func (s Session) SchedulePath() string {
-	return filepath.Join(s.Root, dirDirector, fileSchedule)
+	return SchedulePathIn(s.Root)
 }
 
 // StartPath is this session's team's start.json. The start timer owns it; the

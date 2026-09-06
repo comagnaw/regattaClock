@@ -111,36 +111,43 @@ func TestPersonaByLabel(t *testing.T) {
 	}
 }
 
-func TestValidPersonaRoot(t *testing.T) {
-	pst, _ := persona.ByID("pst")
-
-	named := persona.Session{Definition: pst, Root: filepath.Join(t.TempDir(), common.RegattaDataDir)}
-	if !validPersonaRoot(named) {
-		t.Error("a folder named regattaData should be accepted")
-	}
-
-	renamed := persona.Session{Definition: pst, Root: t.TempDir()}
-	if validPersonaRoot(renamed) {
-		t.Error("a folder with another name and no schedule should be rejected")
-	}
-
-	withSchedule := persona.Session{Definition: pst, Root: seedRegatta(t, testSchedule())}
-	// Move it under a differently named parent-less dir by pointing Root at a
-	// renamed copy holding the schedule.
-	renamedWithSchedule := filepath.Join(t.TempDir(), "Shared Regatta")
-	if err := os.MkdirAll(filepath.Join(renamedWithSchedule, "director"), 0755); err != nil {
+func TestResolvePersonaRoot(t *testing.T) {
+	// Picking regattaData itself.
+	named := filepath.Join(t.TempDir(), common.RegattaDataDir)
+	if err := os.MkdirAll(named, 0755); err != nil {
 		t.Fatal(err)
 	}
-	src := withSchedule.SchedulePath()
-	data, err := os.ReadFile(src)
+	if got := resolvePersonaRoot(named); got != named {
+		t.Errorf("regattaData itself: got %q, want %q", got, named)
+	}
+
+	// Picking the parent folder that contains a populated regattaData - the
+	// case operators reach for.
+	root := seedRegatta(t, testSchedule()) // <tmp>/regattaData with a schedule
+	parent := filepath.Dir(root)
+	if got := resolvePersonaRoot(parent); got != root {
+		t.Errorf("parent of regattaData: got %q, want %q", got, root)
+	}
+
+	// Picking a renamed shortcut that holds the schedule directly.
+	renamed := filepath.Join(t.TempDir(), "Shared Regatta")
+	if err := os.MkdirAll(filepath.Join(renamed, "director"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(persona.SchedulePathIn(root))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(renamedWithSchedule, "director", "regattaSchedule.json"), data, 0644); err != nil {
+	if err := os.WriteFile(persona.SchedulePathIn(renamed), data, 0644); err != nil {
 		t.Fatal(err)
 	}
-	if !validPersonaRoot(persona.Session{Definition: pst, Root: renamedWithSchedule}) {
-		t.Error("a renamed folder containing a readable schedule should be accepted")
+	if got := resolvePersonaRoot(renamed); got != renamed {
+		t.Errorf("renamed folder with a schedule: got %q, want %q", got, renamed)
+	}
+
+	// An unrelated folder with no regattaData child.
+	if got := resolvePersonaRoot(t.TempDir()); got != "" {
+		t.Errorf("unrelated folder: got %q, want \"\"", got)
 	}
 }
 
