@@ -4,7 +4,9 @@ An evaluation of running a local NAS as the shared `regattaData` location, with 
 
 ## Short answer
 
-Yes, a NAS can serve SMB to the local personas and act as a OneDrive client at the same time — every major vendor supports it, and so does a cheap Windows mini-PC. And yes, it genuinely fixes the problem you are worried about, because it removes the internet from the live path entirely.
+Yes, a NAS or spare Windows PC can serve SMB to the local personas and act as a OneDrive client at the same time — every major vendor supports it, and so does a cheap Windows mini-PC. And yes, it genuinely fixes the problem you are worried about, because it removes the internet from the live path entirely.
+
+**Status relative to the persona plan:** [persona-plan.md](persona-plan.md) now treats OneDrive vs local SMB as a first-class `PrefStorageMode` configuration (`onedrive` | `smb`), with LAN NTP preferred under SMB. This document remains the deeper rationale and ops guide; the plan is what the app will implement.
 
 The catch is not the NAS. It is that a rowing course puts the Start Timer and the Finish Timer 1500-2000m apart, and "all persona laptops are on the same network" is the assumption doing the heavy lifting. See section 6.
 
