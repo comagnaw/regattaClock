@@ -53,10 +53,18 @@ func TestCreateDirs_PathBlockedByFile(t *testing.T) {
 
 	dirPath := filepath.Join(filename, "child")
 
-	// Stat fails with ENOTDIR rather than ENOENT here, so DirExists reports
-	// true and CreateDirs reports success without creating anything.
-	if err := CreateDirs(dirPath); err != nil {
-		t.Fatalf("CreateDirs returned error: %v", err)
+	err := CreateDirs(dirPath)
+	if runtime.GOOS == "windows" {
+		// Windows surfaces the blocked component as a missing path, so MkdirAll fails.
+		if err == nil {
+			t.Fatal("Expected error when a path component is a file, got nil")
+		}
+	} else {
+		// Stat fails with ENOTDIR rather than ENOENT here, so DirExists reports
+		// true and CreateDirs reports success without creating anything.
+		if err != nil {
+			t.Fatalf("CreateDirs returned error: %v", err)
+		}
 	}
 
 	if _, err := os.Stat(dirPath); err == nil {
