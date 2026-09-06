@@ -35,7 +35,7 @@ Primary and secondary are independent ST/FT pairings for the same regatta. Timin
 
 ### Regatta Director (RD)
 
-- **Does:** Load / refresh schedule from an **origin** (Excel today; future web API) into `regattaSchedule.json`; establish `regattaData`; notice when the origin fingerprint changes and **Apply** updates on confirmation; view live progress (restarts, start time, winning time, approval); export (e.g. lane images); read all timing data.
+- **Does:** Load / refresh schedule from an **origin** (Excel today; future web API) into `regattaSchedule.json` **only when normalized schedule content actually changes**; establish `regattaData`; notice origin fingerprint changes, ignore no-op workbook saves; Apply meaningful updates on confirmation; view live progress; export; read all timing data.
 - **Does not:** Time races; write start times or finish results; silently overwrite the schedule without confirmation while racing is underway.
 - **Entry:** Separate director entry point (not the timer picker).
 - **Constraint:** Timers consume only `regattaSchedule.json`, never the origin. That keeps a future Excel → API pivot inside the RD/reader layer.

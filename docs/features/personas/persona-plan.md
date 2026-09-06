@@ -105,12 +105,19 @@ Yes — the RD should notice when the **origin** of the schedule changes (lane r
 - Excel is a hostile watch target while open: lock files (`~$…`), temp saves, and cloud sync of `.xlsx` produce noisy or partial reads.
 - Timing data lives in separate files; blindly replacing the schedule does not update those, so the UI can show a new lane map against old start times unless merge rules are explicit.
 
-### Recommended behaviour: detect → prompt → apply
+### Recommended behaviour: detect → load → compare → prompt only if schedule content changed
 
-1. **Watch the origin for change, not for content.** For Excel today that means polling the source file’s identity (`SourceInfo.Hash`, already computed via `filesystem.FileHash`) on a modest interval (e.g. 30–60s), not parsing the workbook on every tick. When the hash differs from `regattaSchedule.json`’s stored `SourceInfo.Hash`, surface a persistent RD banner: “Schedule origin has changed.”
-2. **RD chooses Apply (or Dismiss).** Apply re-reads the origin through `internal/reader`, writes a new `regattaSchedule.json`, and refreshes the RD tree. Timers pick up the new schedule via the existing `regattaSchedule.json` watcher (they already load schedule from that file).
-3. **Always keep a manual “Reload schedule”** menu/button that does the same Apply path without waiting for detection — covers the case where the RD knows IT just published a new sheet.
-4. **On Apply, show a short summary** (races added/removed, lanes changed, scratches) and warn if any changed race already has start or finish data in the timing files. Do not wipe `start.json` / `finish.json`. Leave conflict resolution to the RD (and later reconciliation); the schedule update is authoritative for *entries*, not for *times*.
+An Excel (or API) fingerprint change is a **hint that the origin was touched**, not proof that lane assignments or scratches changed. Workbooks are saved constantly for unrelated edits; rewriting `regattaSchedule.json` in those cases only bumps mtime/sequence and needlessly pokes every timer watcher.
+
+1. **Watch the origin fingerprint cheaply.** For Excel: poll `filesystem.FileHash` (or size+mtime as a weak pre-check, then hash) on a modest interval (e.g. 30–60s). Compare to the last **accepted origin fingerprint** (from `SourceInfo.Hash` on the current schedule, plus an in-memory value updated when a touch was inspected and found to be a no-op).
+2. **On fingerprint change: load and normalize, do not write yet.** Re-read the origin through `internal/reader` into a candidate schedule (slim fields only — see [schedule-data-model.md](schedule-data-model.md)).
+3. **Compare semantic schedule content** to the in-memory / on-disk `regattaSchedule.json` **excluding** volatile origin metadata if needed. Practical approach: canonical hash (or deep equality) over `Name`, `Date`, and the ordered race/lane school map — not over Excel file bytes and not over `SourceInfo.Hash` alone.
+4. **If content is unchanged:** update the RD’s “last inspected origin fingerprint” so the same Excel save does not retrigger forever. **Do not write `regattaSchedule.json`.** No timer disruption. Optionally DEBUG-log “origin touched, schedule unchanged.”
+5. **If content changed:** persistent RD banner — “Schedule origin has meaningful changes” — with summary (races/lanes/scratches). RD chooses **Apply** or **Dismiss**.
+6. **Apply** writes `regattaSchedule.json` (new content + new `SourceInfo`), refreshes the RD tree; timers then see a real content change via the watcher.
+7. **Always keep manual “Reload schedule”** that runs the same load → compare → write-only-if-changed path (or force-write if the RD insists on refreshing `SourceInfo`).
+
+RD Apply already warns when changing races that have timing data. Timers still follow section 3c only when the schedule file’s **payload** actually changes.
 
 ### Keep Excel out of the long-term core: origin adapter
 
@@ -129,15 +136,15 @@ type ScheduleOrigin interface {
 }
 ```
 
-- **Today:** Excel path + hash (what `ReadExcelFile` / `SourceInfo` already approximate).
-- **Later:** API origin with URI + API key (prefs or director-only config). Same RD UX: detect fingerprint change → prompt → Apply → `regattaSchedule.json`.
+- **Today:** Excel path + file hash as origin fingerprint (what `ReadExcelFile` / `SourceInfo` already approximate). File hash ≠ schedule content hash.
+- **Later:** API origin with URI + API key (prefs or director-only config). Same RD UX: origin fingerprint change → load → **semantic compare** → prompt/Apply only if schedule content differs → `regattaSchedule.json`.
 - **`regattaSchedule.json` remains the shared contract** for all personas. Timers never talk to Excel or the API; only the RD’s origin adapter does. That is what keeps a future API pivot from rewriting ST/FT.
 
 Do **not** build the API client in the first persona ship. Do **preserve** `SourceInfo.Type` / `URI` / `Hash` (or generalize Hash → Fingerprint) so the detector works for any origin.
 
 ### Scope for phase planning
 
-- Persona ship: RD fingerprint poll + banner + Apply / Reload schedule → rewrite `regattaSchedule.json`.
+- Persona ship: RD origin fingerprint poll → load → **semantic schedule compare** → banner/Apply only when content differs; no-op Excel saves must not rewrite `regattaSchedule.json`.
 - Later: `ScheduleOrigin` implementation for HTTP API; RD config for endpoint + API key.
 - Optional later: “safe merge” that auto-applies only races with no timing data — not required for v1 if Apply is one click.
 
@@ -735,6 +742,7 @@ The existing suites in `internal/regatta` and `internal/clock` already construct
 - **Registry** — every persona has a unique challenge and a unique write path; challenge matching is case- and whitespace-insensitive.
 - **Atomic write** — concurrent reader never observes partial content; rename replaces an existing file on the host platform; and, in a Windows-only test, a rename whose target is held open by another handle succeeds once that handle closes rather than failing on the first attempt.
 - **Full-map write-through** — after hydrate with races {1,2}, saving race 3 leaves {1,2,3} on disk; a save must never replace the file with a single-race payload. In-memory log is the session working set; own file is not re-read before each save.
+- **Schedule origin no-op** — Excel file hash changes but normalized Name/Date/races/lanes are equal → `regattaSchedule.json` is not rewritten and timer watchers are not notified.
 - **Filename sanitization** — regatta names containing Windows-reserved characters and reserved device names produce writable paths.
 - **Clear and restore** — a record, clear, record, clear sequence leaves the history in capture order; `Restore` returns the most recently cleared value *and* its original `ClockRef` rather than the current one; the history caps at ten entries by dropping the oldest; and restoring onto a race that already has a start time requires confirmation.
 - **Director progress tree** — restarts reflect `len(Cleared)`; a race present only in the secondary team's data falls back and is marked as secondary-sourced; and fallback is per value, so a primary start time and a secondary winning time can appear on the same row.
