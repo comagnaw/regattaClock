@@ -71,6 +71,20 @@ const (
 	LoadDataTitle          = "Load Regatta Data"
 	CreateLaneImagesTitle  = "Create Lane Images"
 
+	// Timer persona startup flow (internal/regatta persona_startup.go).
+	PersonaPickerPrompt       = "Choose your persona and enter its challenge code."
+	ChallengeFieldLabel       = "Challenge code:"
+	ChallengePlaceholder      = "rc-xxx"
+	ContinueButtonText        = "Continue"
+	NoPersonaSelectedMessage  = "Select a persona before continuing."
+	ChallengeMismatchMessage  = "That challenge code does not match the selected persona."
+	NotRegattaDataDirMessage  = "Choose the shared regattaData directory, or a folder that contains director/regattaSchedule.json."
+	ScheduleUnreadableMessage = "Could not read the regatta schedule in that directory"
+	ConfirmRegattaTitle       = "Confirm regatta"
+	ConfirmRegattaMessage     = "%s\n%s\nScheduled races: %d\n\nTime this regatta?"
+	CorruptTimingFileTitle    = "Timing file could not be read"
+	CorruptTimingFileMessage  = "%s could not be parsed and has been copied aside as %s. Recording is blocked until this is resolved so a day's data is not overwritten.\n\n%s"
+
 	ApproveButtonText       = "Approve"
 	CancelButtonText        = "Cancel"
 	CloseButtonText         = "Close"

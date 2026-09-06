@@ -11,5 +11,5 @@ func main() {
 	fyneApp := app.NewWithID(common.AppBundleID)
 	defer regatta.Bootstrap(fyneApp)()
 
-	regatta.NewTimer(fyneApp).Run()
+	regatta.NewDirector(fyneApp).Run()
 }

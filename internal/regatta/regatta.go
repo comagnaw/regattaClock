@@ -1,6 +1,7 @@
 package regatta
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -24,14 +25,28 @@ import (
 	"github.com/comagnaw/regattaClock/internal/text"
 )
 
+// mode selects which persona this window serves. The Regatta Director
+// establishes regattaData and owns the schedule (Excel import lives here); a
+// timer picks one of the four timing personas at startup and cannot reach the
+// loader at all.
+type mode int
+
+const (
+	modeDirector mode = iota
+	modeTimer
+)
+
 // Regatta represents the main application
 type Regatta struct {
 
 	// window - main app window
 	window fyne.Window
 
-	// App - app passed by main into NewRegatta
+	// App - app passed by main into NewDirector / NewTimer
 	App fyne.App
+
+	// mode - director or timer
+	mode mode
 
 	loadState *loadState
 
@@ -50,6 +65,24 @@ type Regatta struct {
 
 	// RegattaData - reference to loaded RegattaData
 	RegattaData *reader.RegattaData
+
+	// session - the chosen persona and regattaData root (timer mode). Zero
+	// value until the picker completes.
+	session persona.Session
+
+	// startLog / finishLog - in-memory mirrors held for the whole app run.
+	// startLog is this team's start.json (own for a start timer, peer for a
+	// finish timer); finishLog is the finish timer's own finish.json.
+	startLog  *store.StartLog
+	finishLog *store.FinishLog
+
+	// writesBlocked - set when a persona's own timing file existed but failed to
+	// parse. Phases 6-7 must refuse to write while this is true rather than
+	// replacing a corrupt history with an empty one.
+	writesBlocked bool
+
+	// stopWatcher - cancels the shared-file watcher at window close.
+	stopWatcher context.CancelFunc
 }
 
 type loadState struct {
@@ -66,11 +99,19 @@ func (r *Regatta) newLoadState() {
 
 }
 
-// NewRegatta - loads Regata object
-func NewRegatta(app fyne.App) *Regatta {
+// NewDirector - the Regatta Director window: welcome flow, Excel import, and
+// ownership of director/regattaSchedule.json.
+func NewDirector(app fyne.App) *Regatta { return newRegatta(app, modeDirector) }
+
+// NewTimer - a timing window: persona picker, challenge, directory confirm, and
+// hydration of this persona's saved data. No path to the Excel loader.
+func NewTimer(app fyne.App) *Regatta { return newRegatta(app, modeTimer) }
+
+func newRegatta(app fyne.App, m mode) *Regatta {
 	regattaApp := &Regatta{
 		window:      app.NewWindow(common.AppTitle),
 		App:         app,
+		mode:        m,
 		title:       text.Header2(common.EmptyString),
 		subtitle:    text.Header3(common.EmptyString),
 		date:        text.Header3(common.EmptyString),
@@ -104,34 +145,11 @@ func (r *Regatta) refreshContent() {
 	}
 }
 
-// setupStartupDialog - present dialog asking to load RegattaData
-func (r *Regatta) setupStartupDialog() {
-	// Create a custom dialog
-	dialog.ShowCustomConfirm(
-		common.LoadDataTitle,
-		common.LoadButtonText,
-		common.CancelButtonText,
-		container.NewVBox(
-			widget.NewLabel("Welcome to Regatta Clock!"),
-			widget.NewLabel("Please load your regatta Excel file to begin."),
-			widget.NewLabel("You can also load it later from the menu."),
-		),
-		func(load bool) {
-			if load {
-				r.loader(true)
-			} else {
-				dialog.ShowInformation(
-					"Load Later",
-					"You can load the Excel file later by selecting 'Import Regatta Table' from the menu.",
-					r.window,
-				)
-			}
-		},
-		r.window,
-	)
-}
-
 func (r *Regatta) initRegatta() {
+	if r.mode == modeTimer {
+		r.showPersonaPicker()
+		return
+	}
 
 	if r.App.Preferences().String(common.PrefRegattaDir) == common.EmptyString {
 		r.showWelcome()
@@ -156,24 +174,36 @@ func (r *Regatta) initRegatta() {
 	r.showRaceTree()
 }
 
-// startLogging points applog at a file in the regatta directory once one is
-// known. The path is provisional: the persona phases replace it with
-// logs/<team>/<role>-<hostname>.log. A failure here is not fatal - timing and
-// export continue without a log.
+// startLogging points applog at this persona's file,
+// regattaData/logs/<team>/<role>-<hostname>.log, and stamps every line with the
+// persona identity. A failure here is not fatal - timing and export continue
+// without a log.
 func (r *Regatta) startLogging() {
-	dir := r.App.Preferences().String(common.PrefRegattaDir)
-	if dir == common.EmptyString {
+	session, ok := r.loggingSession()
+	if !ok {
 		return
 	}
 
 	host, _ := os.Hostname()
-	applog.SetIdentity(common.EmptyString, common.EmptyString, common.EmptyString, host)
+	applog.SetIdentity(session.ID, string(session.Team), string(session.Role), host)
 
-	name := "regattaClock-" + filesystem.SanitizeForFilename(host) + ".log"
-	logPath := filepath.Join(dir, common.RegattaDataDir, common.LogsDir, name)
+	name := string(session.Role) + "-" + filesystem.SanitizeForFilename(host) + ".log"
+	logPath := filepath.Join(session.Root, common.LogsDir, string(session.Team), name)
 	if err := applog.SetOutput(logPath); err != nil {
 		applog.Warn("log file unavailable", "component", "startup", "err", err)
 	}
+}
+
+// loggingSession - the session startLogging writes under: the chosen persona in
+// timer mode, or the implicit director session otherwise.
+func (r *Regatta) loggingSession() (persona.Session, bool) {
+	if r.mode == modeTimer {
+		if r.session.Root == common.EmptyString {
+			return persona.Session{}, false
+		}
+		return r.session, true
+	}
+	return r.directorSession()
 }
 
 // showWelcome - view presented until a regatta has been imported. The two steps

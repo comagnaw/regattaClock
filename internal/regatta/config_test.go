@@ -11,7 +11,7 @@ import (
 
 func TestStorageModeRadioDefaultsToCloud(t *testing.T) {
 	app := test.NewTempApp(t)
-	r := NewRegatta(app)
+	r := NewDirector(app)
 
 	rg := r.storageModeRadio()
 	if !slices.Equal(rg.Options, []string{common.StorageModeCloud, common.StorageModeSMB}) {
@@ -25,7 +25,7 @@ func TestStorageModeRadioDefaultsToCloud(t *testing.T) {
 func TestStorageModeRadioReflectsPreference(t *testing.T) {
 	app := test.NewTempApp(t)
 	app.Preferences().SetString(common.PrefStorageMode, common.StorageModeSMB)
-	r := NewRegatta(app)
+	r := NewDirector(app)
 
 	if got := r.storageModeRadio().Selected; got != common.StorageModeSMB {
 		t.Errorf("selected = %q, want %q", got, common.StorageModeSMB)
@@ -34,7 +34,7 @@ func TestStorageModeRadioReflectsPreference(t *testing.T) {
 
 func TestStorageModeRadioWritesPreference(t *testing.T) {
 	app := test.NewTempApp(t)
-	r := NewRegatta(app)
+	r := NewDirector(app)
 
 	r.storageModeRadio().OnChanged(common.StorageModeSMB)
 
@@ -46,7 +46,7 @@ func TestStorageModeRadioWritesPreference(t *testing.T) {
 func TestStorageModeRadioNormalisesUnknownPreference(t *testing.T) {
 	app := test.NewTempApp(t)
 	app.Preferences().SetString(common.PrefStorageMode, "onedrive")
-	r := NewRegatta(app)
+	r := NewDirector(app)
 
 	if got := r.storageModeRadio().Selected; got != common.StorageModeCloud {
 		t.Errorf("selected = %q, want cloud for an unrecognised stored value", got)

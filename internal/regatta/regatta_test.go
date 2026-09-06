@@ -11,11 +11,11 @@ import (
 	"github.com/comagnaw/regattaClock/internal/reader"
 )
 
-func TestNewRegatta(t *testing.T) {
+func TestNewDirector(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 
 	if regatta == nil {
 		t.Fatal("NewRegatta returned nil")
@@ -73,7 +73,7 @@ func TestRegatta_RefreshContent(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 
 	// Create mock regatta data
 	regatta.RegattaData = &reader.RegattaData{
@@ -117,7 +117,7 @@ func TestRegatta_RefreshContent_NoRaces(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 
 	regatta.RegattaData = &reader.RegattaData{
 		Name:  "Empty Regatta",
@@ -142,7 +142,7 @@ func TestRegatta_RefreshContent_SomeEmptyRaces(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 
 	regatta.RegattaData = &reader.RegattaData{
 		Name: "Partial Regatta",
@@ -180,7 +180,7 @@ func TestRegatta_ShowRaceTree_NilRegattaData(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 	regatta.RegattaData = nil
 
 	// Should not panic with nil RegattaData
@@ -197,7 +197,7 @@ func TestRegatta_ShowRaceTree_WithData(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 
 	regatta.RegattaData = &reader.RegattaData{
 		Name: "Test Regatta",
@@ -236,7 +236,7 @@ func TestRegatta_TreeTitle(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 	regatta.title.Text = "Test Title"
 	regatta.subtitle.Text = "Test Subtitle"
 	regatta.date.Text = "Test Date"
@@ -281,7 +281,7 @@ func TestRegatta_ListTitle(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 
 	label := regatta.listTitle()
 
@@ -302,7 +302,7 @@ func TestRegatta_RaceList_Empty(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 	regatta.RegattaData = &reader.RegattaData{
 		Name:  "Empty Regatta",
 		Date:  "2024-01-01",
@@ -333,7 +333,7 @@ func TestRegatta_RaceList_WithRaces(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 	regatta.RegattaData = &reader.RegattaData{
 		Name: "Test Regatta",
 		Date: "2024-01-15",
@@ -362,7 +362,7 @@ func TestRegatta_RaceList_SkipsEmptyRaces(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 	regatta.RegattaData = &reader.RegattaData{
 		Name: "Mixed Regatta",
 		Date: "2024-01-15",
@@ -399,7 +399,7 @@ func TestRegatta_TimeButton(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 	regatta.RegattaData = &reader.RegattaData{
 		Name:  "Test Regatta",
 		Date:  "2024-01-15",
@@ -433,7 +433,7 @@ func TestRegatta_RaceEntry(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 	regatta.RegattaData = &reader.RegattaData{
 		Name:  "Test Regatta",
 		Date:  "2024-01-15",
@@ -463,7 +463,7 @@ func TestRegatta_MakeMenu(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 
 	menu := regatta.makeMenu()
 
@@ -490,7 +490,7 @@ func TestRegatta_ImportItem(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 
 	item := regatta.importItem()
 
@@ -511,7 +511,7 @@ func TestRegatta_ShowWindowItem(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 
 	item := regatta.showWindowItem()
 
@@ -532,7 +532,7 @@ func TestRegatta_ExitItem(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 
 	item := regatta.exitItem()
 
@@ -553,7 +553,7 @@ func TestRegatta_InitialWindowSize(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 
 	size := regatta.window.Canvas().Size()
 	if size.Width != regattaWidth || size.Height != regattaHeight {

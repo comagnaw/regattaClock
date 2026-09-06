@@ -5,21 +5,23 @@ import (
 	"github.com/comagnaw/regattaClock/internal/common"
 )
 
-// makeMenu - generate app menu
+// makeMenu - generate app menu. Excel import and lane-image export belong to the
+// Regatta Director; a timer's menu carries neither, so the loader is
+// unreachable from a timing window.
 func (r *Regatta) makeMenu() *fyne.MainMenu {
+	var items []*fyne.MenuItem
 
-	return fyne.NewMainMenu(
-		fyne.NewMenu(
-			common.AppTitle,
-			r.importItem(),
-			r.createLaneImages(),
-			r.showWindowItem(),
-			fyne.NewMenuItemSeparator(),
-			r.configItem(),
-			r.exitItem(),
-		),
+	if r.mode == modeDirector {
+		items = append(items, r.importItem(), r.createLaneImages())
+	}
+	items = append(items,
+		r.showWindowItem(),
+		fyne.NewMenuItemSeparator(),
+		r.configItem(),
+		r.exitItem(),
 	)
 
+	return fyne.NewMainMenu(fyne.NewMenu(common.AppTitle, items...))
 }
 
 // configItem - menu item to modify user config
