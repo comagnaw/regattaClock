@@ -9,6 +9,7 @@ import (
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 
+	"github.com/comagnaw/regattaClock/internal/applog"
 	"github.com/comagnaw/regattaClock/internal/common"
 	"github.com/comagnaw/regattaClock/internal/filesystem"
 )
@@ -23,6 +24,13 @@ func (r *Regatta) configContent() *fyne.Container {
 		),
 		container.NewCenter(
 			widget.NewButton(common.CloseButtonText, func() {
+				// The Logging / Debug checkboxes write straight to preferences;
+				// re-apply them so a mid-session toggle takes effect without a
+				// restart, and open the log file if Logging was just enabled.
+				prefs := r.App.Preferences()
+				applog.SetLevel(prefs.Bool(common.PrefLogging), prefs.Bool(common.PrefDebug))
+				r.startLogging()
+
 				r.config.Hide()
 				r.window.SetContent(r.lastView)
 			}),
@@ -71,6 +79,9 @@ func (r *Regatta) changeCallBack() func(fyne.ListableURI, error) {
 
 		r.App.Preferences().SetString(common.PrefRegattaDir, regattaDir)
 		r.loadState.loadButton.Enable()
+
+		r.startLogging()
+		applog.Info("regatta directory set", "component", "config", "path", regattaDir)
 
 		// Someone reading from a shared regatta directory may not be allowed to
 		// create the results tree. They can still load and time races, so warn

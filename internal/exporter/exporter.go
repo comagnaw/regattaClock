@@ -5,11 +5,11 @@ import (
 	"image"
 	"image/color"
 	"image/png"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/comagnaw/regattaClock/internal/applog"
 	"github.com/comagnaw/regattaClock/internal/assets"
 	"github.com/comagnaw/regattaClock/internal/common"
 	"github.com/comagnaw/regattaClock/internal/filesystem"
@@ -59,21 +59,21 @@ func Export(regattaData reader.RegattaData, outputDir string) ExportResult {
 		text := buildRaceText(raceData)
 		img, err := renderImage(text)
 		if err != nil {
-			log.Printf("Error rendering race %d: %v", raceData.RaceNumber, err)
+			applog.Error("race image render failed", "component", "exporter", "race", raceData.RaceNumber, "err", err)
 			result.Failed++
 			result.Errors = append(result.Errors, fmt.Errorf("race %d: %w", raceData.RaceNumber, err))
 			continue
 		}
 
 		if err := saveImage(img, fileName); err != nil {
-			log.Printf("Error saving race %d to %s: %v", raceData.RaceNumber, fileName, err)
+			applog.Error("race image save failed", "component", "exporter", "race", raceData.RaceNumber, "file", fileName, "err", err)
 			result.Failed++
 			result.Errors = append(result.Errors, fmt.Errorf("race %d: %w", raceData.RaceNumber, err))
 			continue
 		}
 
 		result.Succeeded++
-		fmt.Printf("Image generated successfully as %s\n", fileName)
+		applog.Info("race image exported", "component", "exporter", "race", raceData.RaceNumber, "file", fileName)
 	}
 
 	return result
