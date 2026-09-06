@@ -106,7 +106,9 @@ func (r *Regatta) refreshStartRow(row *raceRow) {
 		row.startTime.SetText(common.NoStartTimeText)
 	}
 
-	setEnabled(row.startBtn, !r.writesBlocked)
+	// Once a start time exists the button is done: changing it goes through
+	// Clear (non-destructive) then Start Time again, not a second click.
+	setEnabled(row.startBtn, rec.StartedAt == nil && !r.writesBlocked)
 	setEnabled(row.clearBtn, rec.StartedAt != nil && !r.writesBlocked)
 
 	if len(rec.Cleared) > 0 && !r.writesBlocked {

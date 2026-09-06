@@ -14,12 +14,16 @@ import (
 )
 
 // recordStart captures the current corrected time as race n's start time and
-// writes the whole start.json. Overwrites an existing value; the previous one is
-// only kept by Clear, not by re-recording.
+// writes the whole start.json. It is a one-shot: once a race has a start time
+// the button disables, and recording a different one means Clear then Start
+// Time again.
 func (r *Regatta) recordStart(n int) {
 	if r.writesBlocked {
 		r.warnWritesBlocked()
 		return
+	}
+	if r.startLog.Races[n].StartedAt != nil {
+		return // already recorded; Clear first to record a different time
 	}
 
 	now, ref := timesync.Now()

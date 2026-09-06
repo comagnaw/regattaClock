@@ -70,6 +70,9 @@ func TestRecordStartWritesAndRefreshes(t *testing.T) {
 	if r.rows[1].clearBtn.Disabled() {
 		t.Error("Clear should enable once a time exists")
 	}
+	if !r.rows[1].startBtn.Disabled() {
+		t.Error("Start Time should disable once a time is recorded")
+	}
 
 	reloaded, err := store.LoadStart(sess)
 	if err != nil {
@@ -77,6 +80,24 @@ func TestRecordStartWritesAndRefreshes(t *testing.T) {
 	}
 	if reloaded.Races[1].Display != rec.Display {
 		t.Errorf("disk display = %q, want %q", reloaded.Races[1].Display, rec.Display)
+	}
+}
+
+func TestRecordStartIsOneShot(t *testing.T) {
+	r, _, _ := startedTimer(t, "pst")
+
+	r.recordStart(1)
+	first := r.startLog.Races[1].Display
+
+	r.recordStart(1) // a second click must not re-capture
+	if got := r.startLog.Races[1].Display; got != first {
+		t.Errorf("second recordStart changed the time: %q -> %q", first, got)
+	}
+
+	// Clearing re-opens recording.
+	r.clearStartConfirmed(1)
+	if r.rows[1].startBtn.Disabled() {
+		t.Error("Start Time should re-enable after Clear")
 	}
 }
 
