@@ -7,11 +7,13 @@ import (
 	"strings"
 
 	"github.com/comagnaw/regattaClock/internal/common"
+	"github.com/comagnaw/regattaClock/internal/filesystem"
 	"github.com/xuri/excelize/v2"
 )
 
 // ReadExcelFile reads an Excel file and returns the regatta data
 func ReadExcelFile(filePath string) (*RegattaData, error) {
+
 	// Open the Excel file
 	f, err := excelize.OpenFile(filePath)
 	if err != nil {
@@ -24,6 +26,14 @@ func ReadExcelFile(filePath string) (*RegattaData, error) {
 		return nil, err
 	}
 
+	hash, err := filesystem.FileHash(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	excel.fileHash = hash
+	excel.filePath = filePath
+
 	load(excel)
 
 	debugReadExcelFile(*excel.RegattaData)
@@ -33,6 +43,8 @@ func ReadExcelFile(filePath string) (*RegattaData, error) {
 
 // excel - implments methods that satisfy sourceData interface
 type excel struct {
+	filePath    string
+	fileHash    string
 	file        *excelize.File
 	sheetName   string
 	mergedCells []excelize.MergeCell
@@ -46,10 +58,10 @@ func initExcel(file *excelize.File) (excel, error) {
 	e := excel{}
 	e.file = file
 
-	// Get the first sheet name
-	e.sheetName = file.GetSheetName(0)
-	if e.sheetName == common.EmptyString {
-		return e, fmt.Errorf("no sheets found in Excel file")
+	// Find the sheet holding the race data
+	e.sheetName, err = findRaceSheet(file)
+	if err != nil {
+		return e, err
 	}
 
 	// Get merged cells
@@ -61,6 +73,25 @@ func initExcel(file *excelize.File) (excel, error) {
 	e.RegattaData = NewRegattaData()
 
 	return e, nil
+}
+
+// findRaceSheet - locate the "Results" worksheet wherever it sits in the workbook,
+// falling back to the first worksheet for workbooks that do not name one. The
+// "Heat Sheet" tab of a regatta workbook holds 3-row lineup blocks rather than the
+// 5-row blocks loadRaces expects, so it is not a valid source of race data.
+func findRaceSheet(file *excelize.File) (string, error) {
+	sheets := file.GetSheetList()
+	if len(sheets) == 0 {
+		return common.EmptyString, fmt.Errorf("no sheets found in Excel file")
+	}
+
+	for _, sheet := range sheets {
+		if strings.EqualFold(strings.TrimSpace(sheet), common.ResultsSheetName) {
+			return sheet, nil
+		}
+	}
+
+	return sheets[0], nil
 }
 
 func (e excel) setNameAndDate() {
@@ -79,6 +110,12 @@ func (e excel) setNameAndDate() {
 			break
 		}
 	}
+}
+
+func (e excel) setSourceInfo() {
+	e.RegattaData.SourceInfo.Type = "excel"
+	e.RegattaData.SourceInfo.Hash = e.fileHash
+	e.RegattaData.SourceInfo.URI = e.filePath
 }
 
 func (e excel) loadRaces() {

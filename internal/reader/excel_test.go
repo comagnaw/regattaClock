@@ -3,7 +3,69 @@ package reader
 import (
 	"os"
 	"testing"
+
+	"github.com/xuri/excelize/v2"
 )
+
+func TestFindRaceSheet(t *testing.T) {
+	tests := []struct {
+		name   string
+		sheets []string
+		want   string
+	}{
+		{
+			name:   "results is the only sheet",
+			sheets: []string{"Results"},
+			want:   "Results",
+		},
+		{
+			name:   "results sits at the regatta workbook position",
+			sheets: []string{"Change Log", "Regatta Attributes", "Heat Sheet", "Results", "Referee Heat Sheet"},
+			want:   "Results",
+		},
+		{
+			name:   "heat sheet is not mistaken for the results sheet",
+			sheets: []string{"Heat Sheet", "Referee Heat Sheet", "Results"},
+			want:   "Results",
+		},
+		{
+			name:   "results name differs in case and padding",
+			sheets: []string{"Heat Sheet", " results "},
+			want:   " results ",
+		},
+		{
+			name:   "no results sheet falls back to the first sheet",
+			sheets: []string{"Entries", "Lineups"},
+			want:   "Entries",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := excelize.NewFile()
+			defer f.Close()
+
+			for _, sheet := range tt.sheets {
+				if _, err := f.NewSheet(sheet); err != nil {
+					t.Fatalf("Failed to create sheet %q: %v", sheet, err)
+				}
+			}
+			// NewFile() seeds a default "Sheet1" that is not part of the fixture
+			if err := f.DeleteSheet("Sheet1"); err != nil {
+				t.Fatalf("Failed to delete default sheet: %v", err)
+			}
+
+			got, err := findRaceSheet(f)
+			if err != nil {
+				t.Fatalf("findRaceSheet returned error: %v", err)
+			}
+
+			if got != tt.want {
+				t.Errorf("findRaceSheet() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
 
 func TestReadExcelFile(t *testing.T) {
 	testFile := "testdata/Example Regatta Input Table.xlsx"

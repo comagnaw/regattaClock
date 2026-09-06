@@ -17,6 +17,8 @@ func (r *Regatta) exporter() {
 // exportCallback - function used as callback for directory selection
 func (r *Regatta) exportCallback() func(fyne.ListableURI, error) {
 	return func(dir fyne.ListableURI, err error) {
+		defer r.window.RequestFocus()
+
 		if err != nil {
 			dialog.ShowError(err, r.window)
 			return

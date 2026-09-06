@@ -13,6 +13,9 @@ type sourceData interface {
 	// setNameAndDate - from source data, load the regatta Name and Date into RegattaData
 	setNameAndDate()
 
+	// setSourceInfo - from source data, collect meta-data that descrbes the source data
+	setSourceInfo()
+
 	// loadRaces - from source data, load RaceData into RegattaData
 	loadRaces()
 }
@@ -20,6 +23,7 @@ type sourceData interface {
 // load - used to load RegattaData from implmented sourceData
 func load(b sourceData) {
 	b.setNameAndDate()
+	b.setSourceInfo()
 	b.loadRaces()
 }
 
@@ -31,14 +35,30 @@ type RegattaData struct {
 	// Date - date of Regatta
 	Date string
 
+	// SourceInfo - meta-data for the source data
+	SourceInfo
+
 	// Races - slice of RaceData
 	Races []RaceData
+}
+
+type SourceInfo struct {
+
+	// Type - describes the source type for the race data
+	Type string
+
+	// URI - uniform resource identifier for the source race data
+	URI string
+
+	// Hash - sha256 hash for the last read of the source data
+	Hash string
 }
 
 // NewRegattaData - return pointer to initilized RegattaData
 func NewRegattaData() *RegattaData {
 	return &RegattaData{
-		Races: make([]RaceData, 0),
+		SourceInfo: SourceInfo{},
+		Races:      make([]RaceData, 0),
 	}
 }
 
@@ -142,7 +162,7 @@ func newRaceData(raceNum int) RaceData {
 
 // RaceTitle create the race title text
 func (r *RaceData) RaceTitle() string {
-	titleText := fmt.Sprintf("Race %d - (%d Boats)", r.RaceNumber, r.BoatCount)
+	titleText := fmt.Sprintf("Race %d", r.RaceNumber)
 	if r.BoatClass != common.EmptyString {
 		titleText = fmt.Sprintf("%s - %s", titleText, r.BoatClass)
 	}

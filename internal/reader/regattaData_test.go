@@ -197,7 +197,7 @@ func TestRaceData_RaceTitle(t *testing.T) {
 				BoatClass:  common.EmptyString,
 				FlightInfo: common.EmptyString,
 			},
-			expected: "Race 1 - (4 Boats)",
+			expected: "Race 1",
 		},
 		{
 			name: "race with boat class",
@@ -207,7 +207,7 @@ func TestRaceData_RaceTitle(t *testing.T) {
 				BoatClass:  "Varsity 8",
 				FlightInfo: common.EmptyString,
 			},
-			expected: "Race 2 - (6 Boats) - Varsity 8",
+			expected: "Race 2 - Varsity 8",
 		},
 		{
 			name: "race with flight info",
@@ -217,7 +217,7 @@ func TestRaceData_RaceTitle(t *testing.T) {
 				BoatClass:  common.EmptyString,
 				FlightInfo: "Heat 1",
 			},
-			expected: "Race 3 - (5 Boats) - Heat 1",
+			expected: "Race 3 - Heat 1",
 		},
 		{
 			name: "race with both class and flight",
@@ -227,7 +227,7 @@ func TestRaceData_RaceTitle(t *testing.T) {
 				BoatClass:  "JV 4",
 				FlightInfo: "Final",
 			},
-			expected: "Race 4 - (4 Boats) - JV 4 - Final",
+			expected: "Race 4 - JV 4 - Final",
 		},
 		{
 			name: "race with zero boats",
@@ -237,7 +237,7 @@ func TestRaceData_RaceTitle(t *testing.T) {
 				BoatClass:  "Novice 8",
 				FlightInfo: "Semi-Final",
 			},
-			expected: "Race 5 - (0 Boats) - Novice 8 - Semi-Final",
+			expected: "Race 5 - Novice 8 - Semi-Final",
 		},
 	}
 
