@@ -80,20 +80,25 @@ Two changes to what exists today:
 
 ## 4. Data model
 
-New package `internal/personadata` (or `internal/store`) holding the on-disk types. Keeping them out of `internal/reader` matters — `reader` is about Excel ingestion, and these types are about multi-writer state.
+New package `internal/persona/store` holding the on-disk types and their read/write functions. Keeping them out of `internal/reader` matters — `reader` is about Excel ingestion, and these types are about multi-writer state.
+
+Two notes on the package layout, since `store` sits under `persona`:
+
+- **`persona` must never import `store`.** Nesting in Go is namespacing only and confers no special access, so these are two ordinary packages and the dependency has to run one way: `store` imports `persona` for the `Role` and `Team` types, and `persona` stays a leaf whose path helpers return plain strings. The easy way to break this later is a convenience method like `func (s Session) LoadStart() (*store.StartLog, error)` hung off `Session`; that one line creates an import cycle and Go will reject the build. Loading and saving belong in `store`, taking a `persona.Session` as an argument.
+- **Not `internal/persona/internal/store`.** `internal/clock` needs `FinishLog` and `RaceResult` for saving and rehydration, and `internal/regatta` needs `StartLog` for the race tree. A second `internal` would restrict imports to packages rooted at `persona/` and lock both of them out. The outer `internal/` already caps visibility at this module.
 
 ```go
 // Envelope wraps every persona-owned file. The header fields exist so a reader
 // can reject a file written for a different regatta and can estimate the
 // writer's clock offset.
 type Envelope struct {
-	Version    int       // schema version, for forward compatibility
-	Role       string    // "start" | "finish"
-	Team       string    // "primary" | "secondary"
-	RegattaKey string    // hash of regatta Name+Date from director/data.json
-	Machine    string    // hostname, for skew and conflict messages
-	WrittenAt  time.Time // writer's wall clock, UTC RFC3339Nano
-	Sequence   int       // monotonic per writer; guards against stale reads
+	Version    int          // schema version, for forward compatibility
+	Role       persona.Role // "start" | "finish"
+	Team       persona.Team // "primary" | "secondary"
+	RegattaKey string       // hash of regatta Name+Date from director/data.json
+	Machine    string       // hostname, for skew and conflict messages
+	WrittenAt  time.Time    // writer's wall clock, UTC RFC3339Nano
+	Sequence   int          // monotonic per writer; guards against stale reads
 
 	// Clock - the writer's measured offset from NTP at the time of writing.
 	// Stored rather than applied so a bad measurement can be corrected later.
@@ -114,10 +119,21 @@ type StartLog struct {
 
 type StartRecord struct {
 	RaceNumber int
-	StartedAt  time.Time  // wall clock at the moment "Start Time" was clicked
+	StartedAt  *time.Time // nil when never recorded, or currently cleared
 	Display    string     // "HH:MM:SS.m" as shown in the ST race tree
-	Restarts   int        // incremented each time the ST clears and re-records
-	ClearedAt  *time.Time // non-nil when cleared and not yet re-recorded
+	Clock      ClockRef   // offset in force when StartedAt was captured
+
+	// Cleared - every start time the ST has discarded for this race, oldest
+	// first. This makes clearing non-destructive: a mistaken clear is restored
+	// from the last entry, and the list doubles as an audit trail of restarts.
+	Cleared []ClearedStart
+}
+
+type ClearedStart struct {
+	StartedAt time.Time
+	Display   string
+	Clock     ClockRef  // the offset in force when this value was captured
+	ClearedAt time.Time // writer's local clock when the ST cleared it
 }
 
 type FinishLog struct {
@@ -128,11 +144,20 @@ type FinishLog struct {
 // RaceResult carries everything needed to rehydrate the clock window exactly as
 // the FT left it, which is the requirement in persona.md line 63.
 type RaceResult struct {
-	RaceNumber  int
-	StartedAt   *time.Time // copy of the ST record actually used
-	ClockStart  *time.Time // FT's Start click
-	WinningTime string     // referee time; auto-filled but user-editable
-	Rows        []LapRow   // finish-order rows, mirrors clock.laps
+	RaceNumber int
+
+	// StartedAt - copy of the ST record actually used, with the ST's offset, so
+	// the derived winning time can be recomputed or audited later.
+	StartedAt      *time.Time
+	StartedAtClock ClockRef
+
+	// FirstFinishAt - the FT's Start click, which in this app marks the first
+	// boat crossing the finish line rather than the beginning of the race.
+	FirstFinishAt      *time.Time
+	FirstFinishClock   ClockRef
+
+	WinningTime string   // referee time; auto-filled but user-editable
+	Rows        []LapRow // finish-order rows, mirrors clock.laps
 	Approved    bool
 	ApprovedAt  *time.Time
 	UpdatedAt   time.Time
@@ -147,6 +172,18 @@ type LapRow struct {
 ```
 
 `LapRow` is deliberately a one-to-one mirror of the existing in-memory `lapRow` in [internal/clock/laps.go](internal/clock/laps.go), so save and restore are straight field copies rather than a translation layer.
+
+### Why the cleared-start history is a slice and not a map
+
+Keyed by the moment of capture, a map would work — `time.Time` implements `TextMarshaler` and `TextUnmarshaler`, so `map[time.Time]T` does round-trip through JSON. The problem is that the feature is inherently ordered. "Restore the time I just cleared by mistake" means *the most recent* entry, and a Go map has no order, so every restore would have to sort the keys first. A slice appended oldest-first gives you `Cleared[len(Cleared)-1]` directly and makes the restart sequence (record, clear, record, clear) readable in the file exactly as it happened.
+
+The key and the value would also be near-duplicates: for a start time, the moment of capture *is* the value. `ClearedAt` is the genuinely new piece of information, so it belongs as a field rather than a key.
+
+Cap the slice at ten entries per race. A race restarting more than a handful of times is not a scenario worth unbounded file growth.
+
+### A correction this exposed: `ClockRef` belongs on the record, not only the envelope
+
+Adding a per-entry `Clock` to `ClearedStart` surfaced a bug in the earlier design. `Envelope.Clock` describes the offset measured at *write* time, but `internal/timesync` re-queries every fifteen minutes and the file is rewritten on every change, so by the time a start time is read back the envelope's offset may no longer be the one that was in force when the value was captured. Each captured timestamp therefore carries its own `ClockRef`. The envelope keeps its copy for diagnostics — it is what the skew banner compares against — but correctness comes from the per-record value.
 
 ### On the "as performant as possible" requirement
 
@@ -293,8 +330,28 @@ flowchart TD
     load -->|no| loadErr[Error dialog] --> dir
     load -->|yes| confirm[Confirm title, date, scheduled races]
     confirm -->|not this one| dir
-    confirm -->|yes| tree[Role-specific race tree, watcher started]
+    confirm -->|yes| hydrate[Hydrate from this persona's saved data]
+    hydrate --> tree[Role-specific race tree, watcher started]
 ```
+
+### Restoring a persona's view on restart
+
+**Every timer persona hydrates its race tree from what is already saved in `regattaData` before the tree is first shown.** A Start Timer who has to restart the app mid-regatta comes back to every start time they had already collected; a Finish Timer comes back to the start times the ST has recorded *and* to their own saved results. Nothing collected before the restart is lost from view, and nothing has to be re-entered.
+
+What each persona reads at this point:
+
+- **Start Timer** reads its own `timing/<team>/start.json`. Every race with a `StartedAt` shows its time; every race with a non-empty `Cleared` history shows the `Restore` button.
+- **Finish Timer** reads both `timing/<team>/start.json`, for the start-time value on each row, and its own `timing/<team>/finish.json`, for the races it has already timed. Combined with the per-race clock rehydration in section 9, reopening any race returns the FT to exactly the state they left it.
+- **Director** reads `director/data.json` plus all four timing files, as described in section 9.
+
+**Hydration and the watcher share one code path.** The initial load is nothing more than "apply the current contents of these files through the same row-update function the watcher calls." Writing a separate startup render would give two code paths that have to agree about how a race row looks, and they would eventually drift.
+
+Four things this load has to get right:
+
+- **Reject data from a different regatta.** A timer who used the app at last weekend's regatta still has a `start.json` on disk. The `Envelope.RegattaKey` is compared against the regatta in `director/data.json`, and on a mismatch the file is not hydrated and not overwritten — it is renamed aside with a timestamp and the persona starts clean, with an explanation. Silently showing last week's times against this week's races is the kind of error nobody catches until results are published.
+- **Resume the sequence counter.** `Envelope.Sequence` continues from the value in the file rather than restarting at zero, or the stale-read guard stops working for the rest of the day.
+- **A missing file is normal, not an error.** First launch at a given regatta has nothing to restore. This matches how `initRegatta` already treats `fs.ErrNotExist` today.
+- **Never overwrite a file that failed to parse.** This is the one that can lose a day's work. If the persona's own file exists but does not unmarshal, the app must not fall back to an empty in-memory state and then write it out on the next Start Time click. Treat a parse failure as fatal for that persona: report it, copy the file aside for recovery, and require the user to acknowledge before any write is permitted.
 
 Three notes on fidelity to the requirements:
 
@@ -364,9 +421,25 @@ func (r *Regatta) raceEntry(race reader.RaceData) *fyne.Container {
 
 It becomes role-driven:
 
-- **Start Timer**: title, start-time label, `Start Time` button, `Clear` button. No `Time Race` button. `Clear` prompts for confirmation before wiping ([persona.md](persona.md) line 50), and both recording and clearing write `start.json` immediately.
-- **Finish Timer**: title, start-time label (read-only, watcher-updated), `Time Race` button. No `Start Time` button.
-- **Director**: unchanged.
+- **Start Timer**: title, start-time label, `Start Time` button, `Clear` button, and a `Restore` button. No `Time Race` button. `Clear` still prompts for confirmation ([persona.md](persona.md) line 50), and recording, clearing, and restoring each write `start.json` immediately.
+
+  **Clearing is non-destructive.** Rather than wiping the value, `Clear` appends it to that race's `Cleared` history and sets `StartedAt` to nil. `Restore` pops the most recent entry back into `StartedAt`, along with the `ClockRef` that was in force when it was originally captured — restoring the value without its original offset would reintroduce exactly the skew error section 2.1 exists to prevent.
+
+  `Restore` is visible only when the race has a non-empty `Cleared` history. In the common case — the ST clears by mistake and the row goes blank — it simply appears next to `Start Time`, needing no menu. If a new time has since been recorded, restoring would overwrite good data, so that case prompts for confirmation the way `Clear` does.
+
+  This changes nothing for the Finish Timer, which reads only `StartedAt` and recomputes reactively when the watcher reports the change. A clear followed by a restore looks to the FT like any other update.
+- **Finish Timer**: title, start-time label (read-only, watcher-updated), an indicator of the FT's own saved progress for that race, and the `Time Race` button. No `Start Time` button.
+
+  The progress indicator exists so the restart case in section 8 actually restores something visible: an FT returning after a crash needs to see at a glance which races they have already timed and approved, not just which ones have start times. It reads `WinningTime` and `Approved` from their own `finish.json`.
+- **Director**: read-only. No buttons on any row. Each row carries the race title plus four values that together show how far the regatta has progressed: **Restarts**, **Start Time**, **Winning Time**, and an **approval indicator**.
+
+  Sources are `len(StartRecord.Cleared)` for restarts, `StartRecord.Display` for the start time, and `RaceResult.WinningTime` and `RaceResult.Approved` from the finish log.
+
+  **Primary team first, falling back to secondary per value.** The fallback is per value rather than per row, because the failure modes are independent: the primary ST can be recording while the primary FT's machine is offline, which should show a primary start time next to a secondary winning time rather than dropping the whole row to secondary. Any value sourced from the secondary team is marked as such — an RD who reads a secondary time as though it were primary has been given worse information than a blank cell.
+
+  This makes the Director the one person who can see the regatta stalling, so it is where the staleness indicator and the clock-skew banner from section 2.1 matter most.
+
+  Two consequences worth noting. The RD no longer times races at all — dropping the row buttons removes the `Time Race` path from the Director, leaving Excel import and lane-image export in the menus as its only actions. And **the Director now needs the watcher**, which the earlier draft scoped to timers only; it watches all four timing files, since per-value fallback requires the secondary team's data even when the primary is healthy.
 
 `showRaceTree` currently rebuilds the entire window content. Rebuilding on every watcher tick would throw away the user's scroll position mid-regatta, so the tree keeps a `map[int]*raceRow` of per-race widget handles and updates the affected labels in place inside `fyne.Do`.
 
@@ -398,12 +471,12 @@ Each phase compiles, passes tests, and leaves the app usable.
 1. **Foundations** — `SaveJSONFileAtomic` with its retry loop, hash helper, `sanitizeForFilename`. No UI change.
 1b. **`internal/timesync`** — SNTP offset measurement via `github.com/beevik/ntp` (the first new direct dependency this feature adds), median of several servers, background re-query, and a `Now()` returning the corrected time plus its `ClockRef`. Self-contained and testable against a stub server, so it can land early and independently.
 2. **Persona registry** — `internal/persona` with the registry, challenge check, and path helpers. Pure logic, fully unit-testable.
-3. **Layout and store types** — `internal/personadata` types, read/write functions, `director/data.json` migration.
+3. **Layout and store types** — `internal/persona/store` types, read/write functions, `director/data.json` migration.
 4. **Watcher** — `internal/watcher`, polling loop, conflict-copy detection.
 5. **Timer startup flow** — picker, challenge, directory validation, confirmation. Delete `setupStartupDialog`.
 6. **Role-aware race tree** — Start Time / Clear buttons, start-time column, in-place watcher refresh.
 7. **Clock integration** — derived winning time, save on approve/save, rehydration, skew warnings.
-8. **Director binary** — `cmd/regattaDirector`, release packaging, and primary-vs-secondary reconciliation for export.
+8. **Director binary** — `cmd/regattaDirector`, its read-only progress tree wired to the watcher over all four timing files, release packaging, and primary-vs-secondary reconciliation for export.
 
 ## 11. Testing
 
@@ -413,10 +486,13 @@ The existing suites in `internal/regatta` and `internal/clock` already construct
 - **Atomic write** — concurrent reader never observes partial content; rename replaces an existing file on the host platform; and, in a Windows-only test, a rename whose target is held open by another handle succeeds once that handle closes rather than failing on the first attempt.
 - **Watcher** — a file rewritten with identical content emits nothing; changed content emits once; mtime granularity does not cause missed updates (write same-size different-content within one second and confirm the hash check catches it); and a replacement file stamped with an *older* mtime than the file it replaces is still detected, which is the OneDrive clock-skew case from section 6.
 - **Filename sanitization** — regatta names containing Windows-reserved characters and reserved device names produce writable paths.
+- **Clear and restore** — a record, clear, record, clear sequence leaves the history in capture order; `Restore` returns the most recently cleared value *and* its original `ClockRef` rather than the current one; the history caps at ten entries by dropping the oldest; and restoring onto a race that already has a start time requires confirmation.
+- **Director progress tree** — restarts reflect `len(Cleared)`; a race present only in the secondary team's data falls back and is marked as secondary-sourced; and fallback is per value, so a primary start time and a secondary winning time can appear on the same row.
 - **Skew and winning time** — derived winning time is correct for aligned clocks, and suppressed with a warning for negative or implausible values.
 - **Time sync** — two synthetic personas with system clocks offset in opposite directions produce the correct winning time once their recorded offsets are applied, which is the whole justification for measuring rather than setting. Also: an unreachable NTP server yields `Source: "none"` and a warning rather than an error, and a single wildly wrong responder is discarded by the median.
 - **Round trip** — a fully timed race saved to `finish.json` and rehydrated into a fresh clock reproduces every lap row, place override, and OOF assignment.
 - **Startup flow** — wrong challenge returns to the picker; a directory not named `regattaData` is rejected; declining the confirmation returns to the folder dialog.
+- **Restart restores the view** — an ST with saved start times and cleared history sees both after a restart; an FT sees the ST's times plus its own approvals; a `start.json` whose `RegattaKey` belongs to another regatta is set aside rather than displayed; `Sequence` resumes from the file rather than resetting; and a persona file that fails to unmarshal blocks writes instead of being silently replaced with an empty one.
 
 ## 12. Windows and OneDrive specifics
 
