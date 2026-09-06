@@ -86,7 +86,7 @@ const (
 	RaceApprovedText         = "approved"
 	StartTimeDisplayLayout   = "15:04:05.0" // wall clock with tenths, as StartRecord.Display
 	ClearStartTitle          = "Clear start time"
-	ClearStartMessage        = "Clear the recorded start time for race %d? It is kept in this race's history and can be restored."
+	ClearStartMessage        = "Clear the recorded start for race %d?"
 	RestoreStartTitle        = "Restore start time"
 	RestoreStartPlainMessage = "Restore the previously collected start time %s for race %d?"
 	RestoreStartMessage      = "Replace the current start time %s with the previously collected %s for race %d?"
