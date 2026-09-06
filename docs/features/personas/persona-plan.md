@@ -65,7 +65,7 @@ The shared root is either a cloud-synced local folder on each laptop (OneDrive, 
 ```
 regattaData/
 ├── director/
-│   └── data.json              # regatta schedule from Excel   [RD writes]
+│   └── regattaSchedule.json   # race program from Excel       [RD writes]
 ├── timing/
 │   ├── primary/
 │   │   ├── start.json         # start times                   [Primary ST writes]
@@ -84,15 +84,15 @@ regattaData/
 
 Ownership, stated as a rule the code enforces rather than a convention:
 
-- **Regatta Director** writes `director/data.json` and nothing else. Reads everything.
-- **Primary/Secondary Start Timer** writes only `timing/<team>/start.json`. Reads `director/data.json`.
-- **Primary/Secondary Finish Timer** writes only `timing/<team>/finish.json`, which *is* the race results file. Reads `director/data.json` and `timing/<team>/start.json`.
+- **Regatta Director** writes `director/regattaSchedule.json` and nothing else. Reads everything.
+- **Primary/Secondary Start Timer** writes only `timing/<team>/start.json`. Reads `director/regattaSchedule.json`.
+- **Primary/Secondary Finish Timer** writes only `timing/<team>/finish.json`, which *is* the race results file. Reads `director/regattaSchedule.json` and `timing/<team>/start.json`.
 
 The Director never writes results. Results are produced by the Finish Timer and written when the FT clicks **Referee Approval** or **Save** — both perform the identical write ([README.md](README.md) Finish Timer privileges). The RD is a consumer of results, not a producer: it reads both teams' `finish.json` to reconcile and export.
 
 Two changes to what exists today:
 
-- `data.json` moves from `regattaData/data.json` to `regattaData/director/data.json` (RD-owned schedule path). The RD startup path performs a one-time migration: if the old path exists and the new one does not, move it.
+- Today's `regattaData/data.json` becomes `regattaData/director/regattaSchedule.json`. The name is intentional: this file is the race **schedule** (title, date, lanes, flights), not timing results. Rename the constant `common.RegattaDataFile` → `common.RegattaScheduleFile` (`"regattaSchedule.json"`). The RD startup path migrates once: if `regattaData/data.json` or an interim `director/data.json` exists and `director/regattaSchedule.json` does not, move/rename into the new path.
 - **The `results/` directory goes away.** `changeCallBack` in [internal/regatta/config.go](internal/regatta/config.go) currently creates `regattaData/results/` and nothing ever writes to it — lane-image export targets a separately chosen folder. With results living in `timing/<team>/finish.json`, that `CreateDirs` call and the `common.ResultsDir` constant should be removed rather than left as a misleading empty directory in everyone's synced folder. The directory creation that replaces it is the RD creating `director/`, and each timer creating its own `timing/<team>/` on first write.
 
 ## 4. Data model
@@ -112,7 +112,7 @@ type Envelope struct {
 	Version    int          // schema version, for forward compatibility
 	Role       persona.Role // "start" | "finish" | "director"
 	Team       persona.Team // "primary" | "secondary" | "executive"
-	RegattaKey string       // hash of regatta Name+Date from director/data.json
+	RegattaKey string       // hash of regatta Name+Date from director/regattaSchedule.json
 	Machine    string       // hostname, for skew and conflict messages
 	WrittenAt  time.Time    // writer's wall clock, UTC RFC3339Nano
 	Sequence   int          // monotonic per writer; guards against stale reads
@@ -410,7 +410,7 @@ type Session struct {
 
 func (s Session) WritePath() string  // regattaData/timing/<team>/<file>
 func (s Session) StartPath() string  // regattaData/timing/<team>/start.json
-func (s Session) DataPath() string   // regattaData/director/data.json
+func (s Session) SchedulePath() string // regattaData/director/regattaSchedule.json
 ```
 
 ## 8. Startup flow
@@ -423,7 +423,7 @@ flowchart TD
     check -->|yes| dir[Folder dialog]
     dir --> valid{Folder basename is regattaData?}
     valid -->|no| dirErr[Error dialog] --> dir
-    valid -->|yes| load{director/data.json readable?}
+    valid -->|yes| load{director/regattaSchedule.json readable?}
     load -->|no| loadErr[Error dialog] --> dir
     load -->|yes| confirm[Confirm title, date, scheduled races]
     confirm -->|not this one| dir
@@ -439,13 +439,13 @@ What each persona reads at this point:
 
 - **Start Timer** reads its own `timing/<team>/start.json`. Every race with a `StartedAt` shows its time; every race with a non-empty `Cleared` history shows the `Restore` button.
 - **Finish Timer** reads both `timing/<team>/start.json`, for the start-time value on each row, and its own `timing/<team>/finish.json`, for the races it has already timed. Combined with the per-race clock rehydration in section 9, reopening any race returns the FT to exactly the state they left it.
-- **Director** reads `director/data.json` plus all four timing files, as described in section 9.
+- **Director** reads `director/regattaSchedule.json` plus all four timing files, as described in section 9.
 
 **Hydration and the watcher share one code path.** The initial load is nothing more than "apply the current contents of these files through the same row-update function the watcher calls." Writing a separate startup render would give two code paths that have to agree about how a race row looks, and they would eventually drift.
 
 Four things this load has to get right:
 
-- **Reject data from a different regatta.** A timer who used the app at last weekend's regatta still has a `start.json` on disk. The `Envelope.RegattaKey` is compared against the regatta in `director/data.json`, and on a mismatch the file is not hydrated and not overwritten — it is renamed aside with a timestamp and the persona starts clean, with an explanation. Silently showing last week's times against this week's races is the kind of error nobody catches until results are published.
+- **Reject data from a different regatta.** A timer who used the app at last weekend's regatta still has a `start.json` on disk. The `Envelope.RegattaKey` is compared against the regatta in `director/regattaSchedule.json`, and on a mismatch the file is not hydrated and not overwritten — it is renamed aside with a timestamp and the persona starts clean, with an explanation. Silently showing last week's times against this week's races is the kind of error nobody catches until results are published.
 - **Resume the sequence counter.** `Envelope.Sequence` continues from the value in the file rather than restarting at zero, or the stale-read guard stops working for the rest of the day.
 - **A missing file is normal, not an error.** First launch at a given regatta has nothing to restore. This matches how `initRegatta` already treats `fs.ErrNotExist` today.
 - **Never overwrite a file that failed to parse.** This is the one that can lose a day's work. If the persona's own file exists but does not unmarshal, the app must not fall back to an empty in-memory state and then write it out on the next Start Time click. Treat a parse failure as fatal for that persona: report it, copy the file aside for recovery, and require the user to acknowledge before any write is permitted.
@@ -453,7 +453,7 @@ Four things this load has to get right:
 Three notes on fidelity to the requirements:
 
 - **Directory named `regattaData`.** [README.md](README.md) asks that timers only open a matching directory. Fyne's `ShowFolderOpen` has no filter hook and no way to conditionally disable its Open button, so this is implemented as validate-in-callback plus immediate re-prompt with an explanatory error. Behaviourally equivalent, one extra click in the failure case. Flagging it because it is a deliberate deviation from the literal wording.
-- **The folder name alone is not a reliable check.** Under cloud clients, shared folders are often added as shortcuts and renamed (OneDrive "Add shortcut to My files", Google Drive shared-drive shortcuts, etc.). Under SMB, the share may be mounted or browsed under any leaf name. Validate on *either* a basename of `regattaData` or the presence of a readable `director/data.json` inside the selected folder, and accept the folder if either holds. Accept UNC paths. The confirmation dialog in the next step is the real safeguard against picking the wrong regatta.
+- **The folder name alone is not a reliable check.** Under cloud clients, shared folders are often added as shortcuts and renamed (OneDrive "Add shortcut to My files", Google Drive shared-drive shortcuts, etc.). Under SMB, the share may be mounted or browsed under any leaf name. Validate on *either* a basename of `regattaData` or the presence of a readable `director/regattaSchedule.json` inside the selected folder, and accept the folder if either holds. Accept UNC paths. The confirmation dialog in the next step is the real safeguard against picking the wrong regatta.
 - **Preferences no longer drive startup.** `initRegatta` currently restores the last session from `PrefRegattaDir`:
 
 ```130:150:internal/regatta/regatta.go
@@ -569,7 +569,7 @@ Each phase compiles, passes tests, and leaves the app usable.
 1a. **`internal/applog` (foundational)** — wire `PrefLogging` / `PrefDebug` to `slog.JSONHandler` + async file writer; identity attrs API; no-op when Logging off. Lands *before* timesync/watcher/UI so those phases log as they are built rather than in a retrofit pass. Detail in section 6c and [logging-options.md](logging-options.md).
 1b. **`internal/timesync`** — SNTP offset measurement via `github.com/beevik/ntp`, configurable server list (LAN NTP first under `smb` mode), median of several servers, background re-query, and a `Now()` returning the corrected time plus its `ClockRef`. Emit INFO/WARN/ERROR via `applog`.
 2. **Persona registry** — `internal/persona` with the registry (`TeamExecutive` for RD), challenge check, and path helpers. Pure logic, fully unit-testable.
-3. **Layout and store types** — `internal/persona/store` types, read/write functions, `director/data.json` migration. Log hydrate/write success and ERROR on failure.
+3. **Layout and store types** — `internal/persona/store` types, read/write functions, `director/regattaSchedule.json` migration. Log hydrate/write success and ERROR on failure.
 4. **Watcher** — `internal/watcher` with mode-selected backends (`cloud` poll vs `smb` notify-with-poll-fallback), vendor-agnostic conflict-copy detection only in cloud mode; ignore `logs/`; log content changes at INFO.
 4b. **Storage mode preferences** — `PrefStorageMode` (`cloud` \| `smb`) and `PrefNTPServers` on the config screen; wire them into watcher construction and timesync.
 5. **Timer startup flow** — picker, challenge, directory validation, confirmation, hydration; `applog.SetOutput` + `SetIdentity` once session root is known. Delete `setupStartupDialog`.

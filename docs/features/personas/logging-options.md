@@ -60,7 +60,7 @@ Your gut — under `regattaData` — is right for **troubleshooting a shared reg
 ```
 regattaData/
 ├── director/                  # schedule owned by RoleDirector (TeamExecutive)
-│   └── data.json
+│   └── regattaSchedule.json
 ├── timing/
 │   ├── primary/
 │   │   ├── start.json

@@ -69,7 +69,7 @@ Primary and secondary are independent ST/FT pairings for the same regatta. Timin
 
 | Action | RD | ST | FT |
 |--------|----|----|----|
-| Write schedule (`director` data) | yes | no | no |
+| Write schedule (`director/regattaSchedule.json`) | yes | no | no |
 | Write start times (own team) | no | yes | no |
 | Write finish results (own team) | no | no | yes |
 | Read schedule | yes | yes | yes |
