@@ -12,6 +12,7 @@ import (
 
 	"github.com/comagnaw/regattaClock/internal/assets"
 	"github.com/comagnaw/regattaClock/internal/common"
+	"github.com/comagnaw/regattaClock/internal/filesystem"
 	"github.com/comagnaw/regattaClock/internal/reader"
 
 	"github.com/golang/freetype"
@@ -46,7 +47,7 @@ func (r ExportResult) HasErrors() bool {
 // with no boats (BoatCount == 0) are skipped. Returns an ExportResult summarizing
 // how many files succeeded and failed, along with any errors encountered.
 func Export(regattaData reader.RegattaData, outputDir string) ExportResult {
-	regattaName := strings.ReplaceAll(regattaData.Name, " ", "_")
+	regattaName := filesystem.SanitizeForFilename(strings.ReplaceAll(regattaData.Name, " ", "_"))
 	result := ExportResult{}
 
 	for _, raceData := range regattaData.Races {
