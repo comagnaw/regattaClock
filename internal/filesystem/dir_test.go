@@ -3,6 +3,7 @@ package filesystem
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/comagnaw/regattaClock/internal/common"
@@ -64,6 +65,9 @@ func TestCreateDirs_PathBlockedByFile(t *testing.T) {
 }
 
 func TestCreateDirs_UnwritableParent(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod directory permissions are not enforced on Windows")
+	}
 	if os.Geteuid() == 0 {
 		t.Skip("root bypasses directory permissions")
 	}

@@ -50,3 +50,23 @@ jobs:
         with:
           recreate: true
           path: code-coverage-results.md
+
+  # Persona phase 0: verify on the race-day host OS before later phases land.
+  test-windows:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.1'
+
+      # Fyne links GLFW via CGO; Windows runners need a gcc toolchain.
+      - name: Install MinGW
+        uses: egor-tensin/setup-mingw@v2
+        with:
+          platform: x64
+
+      - name: Run tests
+        run: go test ./internal/...
