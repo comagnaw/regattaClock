@@ -25,8 +25,15 @@ func (r *Regatta) showRaceTree() {
 		r.listTitle(),
 	)
 
+	var body fyne.CanvasObject
+	if r.mode == modeTimer {
+		body = r.timerRaceList()
+	} else {
+		body = r.raceList()
+	}
+
 	// Set the window content
-	r.window.SetContent(container.NewBorder(header, nil, nil, nil, r.raceList()))
+	r.window.SetContent(container.NewBorder(header, nil, nil, nil, body))
 }
 
 // treeTitle - loaded regatta details, with the branding logo tucked into the top

@@ -80,6 +80,19 @@ type Regatta struct {
 	startLog  *store.StartLog
 	finishLog *store.FinishLog
 
+	// regattaKey - the schedule's RegattaKey captured when the session started,
+	// used to reject watched peer data that belongs to another regatta.
+	regattaKey string
+
+	// rows - per-race widget handles for the timer race tree, so watcher
+	// updates and button actions refresh a row in place instead of rebuilding.
+	rows map[int]*raceRow
+
+	// watchedHashes - last-applied content hash per watched file, seeded at
+	// startup so the watcher's initial "current content" event for a file that
+	// has not changed since hydrate is skipped rather than rebuilding the tree.
+	watchedHashes map[string]string
+
 	// writesBlocked - set when a persona's own timing file existed but failed to
 	// parse. Phases 6-7 must refuse to write while this is true rather than
 	// replacing a corrupt history with an empty one.

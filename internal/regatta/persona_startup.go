@@ -2,6 +2,7 @@ package regatta
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -195,12 +196,19 @@ func (r *Regatta) startSession(session persona.Session, schedule *store.Schedule
 	r.RegattaData = regattaDataFromSchedule(schedule)
 
 	key := store.RegattaKey(schedule.Name, schedule.Date)
+	r.regattaKey = key
+	host, _ := os.Hostname()
+
 	switch session.Role {
 	case persona.RoleStart:
 		r.startLog = r.hydrateOwnStart(session, key)
+		r.startLog.RegattaKey = key
+		r.startLog.Machine = host
 	case persona.RoleFinish:
 		r.startLog = r.hydratePeerStart(session, key)
 		r.finishLog = r.hydrateOwnFinish(session, key)
+		r.finishLog.RegattaKey = key
+		r.finishLog.Machine = host
 	}
 
 	r.refreshContent()
@@ -317,20 +325,30 @@ func (r *Regatta) blockWritesForCorruptFile(path string, cause error) {
 }
 
 // startWatcher watches the schedule (and, for a finish timer, the peer
-// start.json) for the life of the window. Phase 6 turns the events into
-// in-place race-row updates; for now they are logged.
+// start.json) for the life of the window, refreshing race rows in place as
+// files change.
 func (r *Regatta) startWatcher(s persona.Session) {
 	mode := watcher.ParseMode(r.App.Preferences().String(common.PrefStorageMode))
 	w := watcher.New(mode, 0)
-	w.Add(s.SchedulePath())
+
+	paths := []string{s.SchedulePath()}
 	if s.Role == persona.RoleFinish {
-		w.Add(s.StartPath())
+		paths = append(paths, s.StartPath())
+	}
+	// Seed the last-applied hash from what hydrate already read, so the
+	// watcher's unconditional first event for an unchanged file is a no-op.
+	r.watchedHashes = make(map[string]string, len(paths))
+	for _, p := range paths {
+		w.Add(p)
+		if data, err := os.ReadFile(p); err == nil {
+			r.watchedHashes[p] = filesystem.HashBytes(data)
+		}
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	r.stopWatcher = cancel
 	events := w.Start(ctx)
-	go consumeWatcher(events)
+	go r.consumeWatcher(events)
 
 	r.window.SetOnClosed(func() {
 		cancel()
@@ -339,9 +357,90 @@ func (r *Regatta) startWatcher(s persona.Session) {
 	applog.Info("watcher started", "component", "startup", "mode", string(mode))
 }
 
-func consumeWatcher(events <-chan watcher.Event) {
+func (r *Regatta) consumeWatcher(events <-chan watcher.Event) {
 	for ev := range events {
-		applog.Debug("watched file changed", "component", "startup",
-			"path", ev.Path, "bytes", len(ev.Data))
+		r.applyWatchEvent(ev)
 	}
+}
+
+// applyWatchEvent routes a changed file to the right in-memory mirror and
+// refreshes the affected race rows on the UI thread.
+func (r *Regatta) applyWatchEvent(ev watcher.Event) {
+	if !r.watchedContentChanged(ev) {
+		return
+	}
+	switch ev.Path {
+	case r.session.SchedulePath():
+		var sch store.Schedule
+		if err := json.Unmarshal(ev.Data, &sch); err != nil {
+			applog.Warn("watched schedule did not parse", "component", "race_tree", "err", err)
+			return
+		}
+		applog.Info("schedule updated", "component", "race_tree", "races", len(sch.Races))
+		fyne.Do(func() { r.onScheduleChanged(&sch) })
+
+	case r.session.StartPath():
+		if r.session.Role != persona.RoleFinish {
+			return
+		}
+		var log store.StartLog
+		if err := json.Unmarshal(ev.Data, &log); err != nil {
+			applog.Warn("watched start.json did not parse", "component", "race_tree", "err", err)
+			return
+		}
+		if log.RegattaKey != common.EmptyString && log.RegattaKey != r.regattaKey {
+			applog.Warn("watched peer start.json is a different regatta; ignored", "component", "race_tree")
+			return
+		}
+		if log.Races == nil {
+			log.Races = map[int]store.StartRecord{}
+		}
+		applog.Info("peer start times updated", "component", "race_tree", "races", len(log.Races))
+		fyne.Do(func() { r.onPeerStartChanged(&log) })
+	}
+}
+
+// watchedContentChanged reports whether ev carries content this window has not
+// applied yet, updating the per-path hash. Runs only on the watcher goroutine.
+func (r *Regatta) watchedContentChanged(ev watcher.Event) bool {
+	h := filesystem.HashBytes(ev.Data)
+	if r.watchedHashes[ev.Path] == h {
+		return false
+	}
+	r.watchedHashes[ev.Path] = h
+	return true
+}
+
+// onScheduleChanged re-renders labels from a new schedule in place, rebuilding
+// the tree only when races were added or removed.
+func (r *Regatta) onScheduleChanged(sch *store.Schedule) {
+	r.RegattaData = regattaDataFromSchedule(sch)
+	if r.raceSetChanged() {
+		r.showRaceTree()
+		return
+	}
+	r.refreshAllRows()
+}
+
+func (r *Regatta) onPeerStartChanged(log *store.StartLog) {
+	r.startLog = log
+	r.refreshAllRows()
+}
+
+func (r *Regatta) raceSetChanged() bool {
+	live := map[int]bool{}
+	for _, race := range r.RegattaData.Races {
+		if race.HasBoats() {
+			live[race.RaceNumber] = true
+		}
+	}
+	if len(live) != len(r.rows) {
+		return true
+	}
+	for n := range live {
+		if _, ok := r.rows[n]; !ok {
+			return true
+		}
+	}
+	return false
 }
