@@ -1,6 +1,7 @@
 package filesystem
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -142,9 +143,32 @@ func TestSaveJSONFileAtomic_RenameFailureRemovesTempAndKeepsOldFile(t *testing.T
 	}
 }
 
+// readFileEventually reads filename, retrying transient open failures. On
+// Windows os.Rename (MoveFileEx replace) briefly makes the target name
+// inaccessible, so a concurrent open can bounce with a sharing violation or a
+// momentary "not found". That is not a torn read — the bytes, once the open
+// succeeds, are always a whole document — so the caller retries rather than
+// treating it as a failure. This mirrors how the watcher tolerates a failed
+// read as "no change, try again".
+func readFileEventually(filename string) ([]byte, error) {
+	var lastErr error
+	for attempt := 0; attempt < 100; attempt++ {
+		b, err := os.ReadFile(filename)
+		if err == nil {
+			return b, nil
+		}
+		lastErr = err
+		time.Sleep(2 * time.Millisecond)
+	}
+	return nil, lastErr
+}
+
 // TestSaveJSONFileAtomic_ConcurrentReaderSeesWholeFile hammers a file with
-// atomic writes while another goroutine reads it, asserting every successful
-// read parses cleanly and yields one of the values that was actually written.
+// atomic writes while another goroutine reads it. The guarantee under test is
+// that a reader never observes partial content: every successful read unmarshals
+// cleanly and yields one of the values that was actually written. (A transient
+// failure to *open* the file mid-rename on Windows is expected and retried; only
+// non-parseable bytes are a bug.)
 func TestSaveJSONFileAtomic_ConcurrentReaderSeesWholeFile(t *testing.T) {
 	filename := filepath.Join(t.TempDir(), "record.json")
 	if err := SaveJSONFileAtomic(testRecord{Name: "concurrent", Count: 0}, filename); err != nil {
@@ -168,13 +192,19 @@ func TestSaveJSONFileAtomic_ConcurrentReaderSeesWholeFile(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for i := 0; i < writes*4; i++ {
+			b, err := readFileEventually(filename)
+			if err != nil {
+				t.Errorf("file never became readable: %v", err)
+				return
+			}
+
 			var result testRecord
-			if err := ReadJSONFile(&result, filename); err != nil {
-				t.Errorf("concurrent read observed a non-parseable file: %v", err)
+			if err := json.Unmarshal(b, &result); err != nil {
+				t.Errorf("atomicity violated - reader saw torn content %q: %v", b, err)
 				return
 			}
 			if result.Name != "concurrent" || result.Count < 0 || result.Count > writes {
-				t.Errorf("concurrent read observed an impossible value: %+v", result)
+				t.Errorf("reader saw an impossible value: %+v", result)
 				return
 			}
 		}
