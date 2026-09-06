@@ -35,7 +35,7 @@ func (r *Regatta) showPersonaPicker() {
 
 	challenge := widget.NewEntry()
 
-	cont := widget.NewButton(common.ContinueButtonText, func() {
+	cont := widget.NewButton(common.SelectRegattaFolderButtonText, func() {
 		r.onPersonaChosen(picker.Selected, challenge.Text)
 	})
 
@@ -86,7 +86,10 @@ func (r *Regatta) onPersonaChosen(label, challengeInput string) {
 }
 
 func (r *Regatta) pickPersonaDirectory(def persona.Definition) {
-	dialog.ShowFolderOpen(r.personaDirCallback(def), r.window)
+	fd := dialog.NewFolderOpen(r.personaDirCallback(def), r.window)
+	fd.SetTitleText(common.SelectRegattaFolderTitle)
+	fd.SetConfirmText(common.UseThisFolderText)
+	fd.Show()
 }
 
 // personaDirCallback validates the chosen folder, reads the schedule, and asks
