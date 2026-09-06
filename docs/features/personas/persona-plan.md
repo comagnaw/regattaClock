@@ -272,7 +272,47 @@ Sequence: marshal, write `<dir>/<name>.tmp`, `Sync()`, `Close()`, `os.Rename` ov
 
 **Conflict copies are a cloud-sync phenomenon.** Sync clients resolve simultaneous writes by creating a sibling file rather than merging (OneDrive: `start-DESKTOP-A1B2C3.json`; Google Drive often uses names like `start (1).json` or conflict copies with the machine/user in the name). SMB produces a sharing violation instead. Conflict-copy *detection* therefore runs only in `cloud` mode, using a **vendor-agnostic heuristic**: any file in the timing directory whose stem matches an expected name (`start`, `finish`) but is not exactly `start.json` / `finish.json`. Do not hard-code OneDrive naming alone. The single-writer-per-file model still applies in both modes.
 
-## 6. The watcher
+## 5b. Timer session state: memory is the working set, file is the durable full map
+
+This was under-specified earlier. Clarify it as a hard rule for ST and FT.
+
+### What “save race N” must mean
+
+Each persona owns **one** timing file (`start.json` or `finish.json`) whose payload is the **entire** `Races map[int]…` for the regatta — not one file per race, and not a write that contains only the race just updated.
+
+When the ST records (or clears/restores) race 12:
+
+1. Update **only** `log.Races[12]` in the in-memory `StartLog`.
+2. Atomically write the **whole** `StartLog` (every race already collected, plus 12) via `SaveJSONFileAtomic`.
+3. Bump `Envelope.Sequence` / `WrittenAt` on that full write.
+
+Same pattern for FT Save / Referee Approval on `FinishLog`.
+
+**Forbidden:** constructing a new `StartLog`/`FinishLog` that contains solely `{12: …}` and replacing the file with that. That would erase every other race’s times. Tests must cover “save race 5 then save race 6 → file still contains both.”
+
+The file *is* fully rewritten on each save (atomic replace of the whole JSON document). That is intentional and cheap at regatta scale. What must not happen is a rewrite whose **payload** is a partial map.
+
+### In-memory vs on-disk: which is primary?
+
+| Role of data | Primary during a live session | Role of the file |
+|--------------|-------------------------------|------------------|
+| **Own** timing log (ST→`start.json`, FT→`finish.json`) | **In-memory** `StartLog` / `FinishLog` held on the session for the whole app run | Durable snapshot; write-through after each mutation; hydrate **once** at startup |
+| **Others’** files (e.g. FT reading ST `start.json`; RD reading all four) | In-memory mirror updated by the **watcher** (and by the initial hydrate) | Source of truth for peers; this persona never writes them |
+
+So:
+
+- The timer does **not** re-read its own file before each save to learn prior races — that would race the watcher and invite empty-map bugs. Memory already has the full map from hydrate + prior clicks.
+- The timer does **not** treat the file as the only place times live while the UI is up — the race tree binds to the in-memory log (and to schedule + watched peer data).
+- On restart, the file **is** the source of truth again: hydrate into memory, then continue write-through.
+
+```text
+startup:  read own file → memory (full map)
+          read schedule + peer files → memory mirrors
+click:    memory[RaceNumber] = …  →  atomic write(full memory map)
+peer:     watcher → update peer mirror in memory → refresh UI rows
+```
+
+Parse failure of the own file still blocks writes (section 8): never replace a corrupt full history with a fresh one-race map.
 
 New package `internal/watcher`. The directory layout and event shape are the same for both storage modes; the **detection strategy** is selected by configuration.
 
@@ -631,6 +671,7 @@ The existing suites in `internal/regatta` and `internal/clock` already construct
 
 - **Registry** — every persona has a unique challenge and a unique write path; challenge matching is case- and whitespace-insensitive.
 - **Atomic write** — concurrent reader never observes partial content; rename replaces an existing file on the host platform; and, in a Windows-only test, a rename whose target is held open by another handle succeeds once that handle closes rather than failing on the first attempt.
+- **Full-map write-through** — after hydrate with races {1,2}, saving race 3 leaves {1,2,3} on disk; a save must never replace the file with a single-race payload. In-memory log is the session working set; own file is not re-read before each save.
 - **Filename sanitization** — regatta names containing Windows-reserved characters and reserved device names produce writable paths.
 - **Clear and restore** — a record, clear, record, clear sequence leaves the history in capture order; `Restore` returns the most recently cleared value *and* its original `ClockRef` rather than the current one; the history caps at ten entries by dropping the oldest; and restoring onto a race that already has a start time requires confirmation.
 - **Director progress tree** — restarts reflect `len(Cleared)`; a race present only in the secondary team's data falls back and is marked as secondary-sourced; and fallback is per value, so a primary start time and a secondary winning time can appear on the same row.
