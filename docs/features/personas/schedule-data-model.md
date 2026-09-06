@@ -133,6 +133,8 @@ UI composition examples:
 - **RD row:** schedule + primary (fallback secondary) start/finish fields by `RaceNumber`
 - **Clock open:** schedule lane/school seed + `finish.Races[n]` rehydration if present
 
+When `regattaSchedule.json` changes under a race that already has timing data, **do not rewrite start/finish**. Refresh labels from the schedule; alert FT (OOF/lane map) more strongly than ST. See [persona-plan.md §3c](persona-plan.md).
+
 ## Impact on `internal/reader`
 
 | Today | Under personas |

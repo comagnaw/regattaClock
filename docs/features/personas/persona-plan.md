@@ -141,7 +141,70 @@ Do **not** build the API client in the first persona ship. Do **preserve** `Sour
 - Later: `ScheduleOrigin` implementation for HTTP API; RD config for endpoint + API key.
 - Optional later: “safe merge” that auto-applies only races with no timing data — not required for v1 if Apply is one click.
 
-## 4. Data model
+## 3c. When timers see an updated `regattaSchedule.json`
+
+After the RD Applies, timers receive the new schedule through the existing watcher (they never write the schedule). The hard case is a change to a `RaceNumber` that already has start and/or finish data — typically **SCRATCHED (SCR)** entries or **school ↔ lane** reassignments. Policy: **non-disruptive to collection, impossible to miss when it matters.**
+
+### Hard rules
+
+1. **Never auto-rewrite `start.json` or `finish.json` because the schedule changed.** Timing files stay the SoT for times; schedule stays the SoT for who is in which lane. A silent rewrite would invent or destroy FT OOF/results.
+2. **Always refresh the in-memory schedule mirror** and re-render race titles / lane labels from the new schedule (ST and FT).
+3. **Diff old schedule vs new by `RaceNumber` (+ lane).** Classify each touched race:
+   - *Untimed* — no entry in own start/finish (and for FT, optionally no ST start yet): apply schedule UI silently.
+   - *Timed / in progress* — own start exists, or finish exists, or FT clock is open for that race: **attention required**.
+
+### Start Timer (low disruption)
+
+- Race tree labels (school names, scratched lanes, class/flight) update from the new schedule.
+- Recorded start times stay keyed by `RaceNumber`; no change to `start.json` unless the ST later clears/restores.
+- If a race with a recorded start gains a material lane/school/scratch change: short dismissible notice on that row or a one-line banner (“Schedule updated for race 12 — lane assignments changed”). No modal that blocks the next Start Time click.
+- ST does not need to “fix” start times for scratches; a scratched boat does not invalidate the race start clock.
+
+### Finish Timer (higher disruption — OOF / schools)
+
+FT joins schedule lanes to OOF/results by **lane number**. If school in lane 3 changes after results were entered, the times are still for lane 3 but the **label** the official thinks they assigned may be wrong.
+
+When a schedule update touches a race that has finish data, or while that race’s clock window is open:
+
+1. **Banner (not a blocking modal):** “Schedule changed for race N (scratch / lane reassignment). Review results.”
+2. **Race tree:** mark the row (e.g. warning affordance) until acknowledged.
+3. **Open clock window:** refresh school/additional labels from the new schedule **without clearing** lap rows, OOF, splits, or winning time. Highlight lanes whose `SchoolName` / scratch state changed vs the schedule snapshot used when the clock was opened (or vs last acknowledged schedule).
+4. **Persisted `finish.json`:** leave results as-is. Optionally store a `ScheduleFingerprint` or per-race `ScheduleHash` on `RaceResult` at save time so the UI can detect “results were approved against an older lane map” after the fact — nice-to-have, not required for v1 if the in-session diff is enough.
+5. **Do not auto-clear OOF** when a lane is scratched in the schedule; prompt the FT to review. Auto-clearing mid-review is more dangerous than a stale label with a warning.
+
+If the FT has **not** yet opened/saved that race, only the tree labels change — same as untimed.
+
+### What timers are *not* asked to do
+
+- Manually edit JSON.
+- Re-enter all times because one boat scratched.
+- Merge RD schedule into timing files as a background job.
+
+RD Apply already warns when changing races that have timing data (section 3b). Timers add the second line of defense: see the new entries, keep their times, review OOF/labels where FT is exposed.
+
+### Implementation sketch
+
+```text
+onScheduleWatcherEvent:
+  newSched := unmarshal(regattaSchedule.json)
+  changed := diffSchedule(oldSched, newSched)  // by RaceNumber, lane school/additional/scratch
+  oldSched = newSched
+  refreshAllRaceTreeLabels(newSched)
+
+  for each race in changed:
+    if !hasTiming(race) && !clockOpen(race):
+      continue  // silent
+    notifyScheduleConflict(race, changeKinds)  // banner + row mark; FT stronger copy
+```
+
+`hasTiming` = presence in in-memory own start/finish map (and FT may also treat “ST has start” as elevated awareness even before FT save).
+
+### Tests to require
+
+- Untimed race lane change → tree updates, no banner.
+- ST has start for race N, school in lane 2 changes → ST row notice, `start.json` unchanged on disk until ST acts.
+- FT has saved/approved race N, lane 2 school changes → FT banner + row mark; reopen clock shows new labels, prior OOF/times intact; `finish.json` unchanged until FT Save.
+- FT clock open for race N when schedule arrives → labels refresh, times preserved, conflict highlight; no forced close.
 
 **Schedule vs timing ownership is assessed in [schedule-data-model.md](schedule-data-model.md).** In short: `regattaSchedule.json` keeps only regatta meta + `RaceNumber` + class/flight + lane school assignments. `Place` / `Split` / `Time` / `Saved` / `Approved` leave the schedule file; FT owns them in `finish.json`. Join key across files: regatta identity + `RaceNumber`.
 
@@ -613,7 +676,7 @@ It becomes role-driven:
   `Restore` is visible only when the race has a non-empty `Cleared` history. In the common case — the ST clears by mistake and the row goes blank — it simply appears next to `Start Time`, needing no menu. If a new time has since been recorded, restoring would overwrite good data, so that case prompts for confirmation the way `Clear` does.
 
   This changes nothing for the Finish Timer, which reads only `StartedAt` and recomputes reactively when the watcher reports the change. A clear followed by a restore looks to the FT like any other update.
-- **Finish Timer**: title, start-time label (read-only, watcher-updated), an indicator of the FT's own saved progress for that race, and the `Time Race` button. No `Start Time` button.
+- **Finish Timer**: title, start-time label (read-only, watcher-updated), an indicator of the FT's own saved progress for that race, and the `Time Race` button. No `Start Time` button. As schedule updates arrive, refresh labels; if the race already has finish data or an open clock, show a non-blocking conflict banner (section 3c) — never auto-edit `finish.json` for scratches/lane moves.
 
   The progress indicator exists so the restart case in section 8 actually restores something visible: an FT returning after a crash needs to see at a glance which races they have already timed and approved, not just which ones have start times. It reads `WinningTime` and `Approved` from their own `finish.json`.
 - **Director**: read-only. No buttons on any row. Each row carries the race title plus four values that together show how far the regatta has progressed: **Restarts**, **Start Time**, **Winning Time**, and an **approval indicator**.
@@ -662,8 +725,8 @@ Each phase compiles, passes tests, and leaves the app usable.
 4b. **Storage mode preferences** — `PrefStorageMode` (`cloud` \| `smb`) and `PrefNTPServers` on the config screen; wire them into watcher construction and timesync.
 5. **Timer startup flow** — picker, challenge, directory validation, confirmation, hydration; `applog.SetOutput` + `SetIdentity` once session root is known. Delete `setupStartupDialog`.
 6. **Role-aware race tree** — Start Time / Clear / Restore for ST, progress indicators for FT and RD, in-place watcher refresh; log button actions at INFO.
-7. **Clock integration** — derived winning time, save on approve/save, rehydration, skew warnings; log clock actions and ERROR on save failure.
-8. **Director binary** — `cmd/regattaDirector`, read-only progress tree, **schedule origin fingerprint poll + Apply/Reload** (section 3b), release packaging, and primary-vs-secondary reconciliation for export; executive-team log path.
+7. **Clock integration** — derived winning time, save on approve/save, rehydration, skew warnings; log clock actions and ERROR on save failure; schedule-conflict label refresh while clock open (section 3c).
+8. **Director binary** — `cmd/regattaDirector`, read-only progress tree, **schedule origin fingerprint poll + Apply/Reload** (section 3b), release packaging, and primary-vs-secondary reconciliation for export; executive-team log path. Timer-side schedule-diff notices (section 3c) ship with race tree / clock phases 6–7.
 
 ## 11. Testing
 

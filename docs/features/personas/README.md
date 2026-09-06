@@ -48,9 +48,9 @@ Primary and secondary are independent ST/FT pairings for the same regatta. Timin
 
 ### Finish Timer (FT)
 
-- **Does:** Load race tree from RD schedule; see ST start times (live updates); open **Time Race**; collect laps / OOF / winning time; save on Referee Approval or Save; reopen a race with prior results restored.
-- **Does not:** Record or clear start times; see **Start Time**.
-- **Sees:** Race list, ST start times, own progress (saved / approved), **Time Race**.
+- **Does:** Load race tree from RD schedule; see ST start times (live updates); open **Time Race**; collect laps / OOF / winning time; save on Referee Approval or Save; reopen a race with prior results restored; when schedule changes under a timed race, review lane/school labels without losing results.
+- **Does not:** Record or clear start times; see **Start Time**; auto-rewrite `finish.json` when the RD publishes scratches or lane moves (attention + label refresh only).
+- **Sees:** Race list, ST start times, own progress (saved / approved), **Time Race**; conflict affordance when schedule diverges from a race already timed.
 
 ## Shared data constraints
 
