@@ -200,7 +200,7 @@ When `loggingEnabled` is false, use `slog.DiscardHandler` (or a no-op) regardles
 | `role` | `start`, `finish`, `director` | `persona.Role` |
 | `machine` | `DESKTOP-A1B2C3` | `os.Hostname()` |
 
-Also useful as session defaults (same mechanism): `regatta_key` (short), `storage_mode` (`onedrive` \| `smb`).
+Also useful as session defaults (same mechanism): `regatta_key` (short), `storage_mode` (`cloud` \| `smb`).
 
 Call sites stay thin and only add event-specific keys:
 

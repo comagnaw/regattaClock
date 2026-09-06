@@ -1,12 +1,12 @@
 # Persona Implementation Plan
 
-Implementation plan for the persona feature described in [persona.md](persona.md).
+Implementation plan for the persona feature described in [README.md](README.md).
 
 ## 1. Decisions made up front
 
 These answers shape everything below.
 
-- **Sharing model: configurable between OneDrive and local SMB.** The preferred race-day path is a spare Windows PC on the venue LAN that shares `regattaData` over SMB and also runs a local NTP service. OneDrive remains a supported fallback when course-wide networking is unavailable. The app treats this as a **storage mode** preference (`onedrive` | `smb`), not as two different products — the directory layout and ownership rules are identical; only watcher strategy, conflict detection, and NTP server defaults change. Background on the SMB option lives in [shared-storage-options.md](shared-storage-options.md); the consequences for the implementation are in sections 6 and 12.
+- **Sharing model: configurable between cloud-synced folder and local SMB.** The preferred race-day path is a spare Windows PC on the venue LAN that shares `regattaData` over SMB and also runs a local NTP service. When course-wide networking is unavailable, fall back to a **cloud-synced local folder**. The app never calls a cloud vendor API — it only reads and writes ordinary paths. `PrefStorageMode` is therefore `cloud` | `smb`, not `onedrive` | `google` | …. OneDrive and Google Drive for Desktop are both consumers of `cloud` mode; switching vendors is an ops change, not a code change. Background on the SMB option lives in [shared-storage-options.md](shared-storage-options.md); storage modes are in sections 6 and 12.
 - **File granularity: one file per team + persona.** Every file has exactly one writer. Everyone else opens it read-only. There is no lock contention to manage because there is no shared write target.
 - **Regatta Director: a separate entry point.** Timers get a binary that cannot reach RD functions at all.
 - **Event logging is foundational.** Wire `PrefLogging` / `PrefDebug` early via `internal/applog` so every later phase can emit structured JSON logs as it lands, rather than retrofitting call sites at the end. Full design in section 6c; deeper rationale in [logging-options.md](logging-options.md).
@@ -17,7 +17,7 @@ Both are load-bearing and should be settled before coding starts.
 
 ### 2.1 Clock skew between machines is a correctness bug, not an edge case
 
-The requirement in [persona.md](persona.md) is that the winning time becomes `FT Start click - ST Start Time`. Those two timestamps come from two different laptops. If the ST machine's clock is 3 seconds ahead of the FT machine's, **every race time in the regatta is wrong by 3 seconds**, silently, with no visible symptom. Consumer laptops routinely drift by seconds when they have been asleep or off Wi-Fi.
+The requirement in [README.md](README.md) is that the winning time becomes `FT Start click - ST Start Time`. Those two timestamps come from two different laptops. If the ST machine's clock is 3 seconds ahead of the FT machine's, **every race time in the regatta is wrong by 3 seconds**, silently, with no visible symptom. Consumer laptops routinely drift by seconds when they have been asleep or off Wi-Fi.
 
 **Only the cross-machine math is exposed.** Within one machine, lap splits are safe: `getElapsedTime` computes `time.Since(c.clockState.startTime)` where `startTime` came from `time.Now()`, and Go embeds a monotonic reading in both, so `time.Since` is immune to wall-clock jumps. That monotonic reading is stripped the moment a `time.Time` is marshalled to JSON, which is precisely why the ST-to-FT calculation — the only one that crosses a process boundary — is the vulnerable one.
 
@@ -50,7 +50,7 @@ The remaining mitigations stay as they were:
 
 ### 2.2 Start-time arrival may lag the finish of the race
 
-Under **OneDrive**, the FT will frequently press `Start` before the ST's start time has synced down. Under **SMB**, latency is typically milliseconds and this becomes uncommon — but it still happens if the ST has not yet clicked, or if the LAN briefly drops.
+Under **cloud** mode (OneDrive, Google Drive, or similar), the FT will frequently press `Start` before the ST's start time has synced down. Under **SMB**, latency is typically milliseconds and this becomes uncommon — but it still happens if the ST has not yet clicked, or if the LAN briefly drops.
 
 The clock cannot block on a missing start time either way. Design consequence: the winning time is computed **reactively**. The FT clock shows `waiting for start time...`, and when the watcher delivers the ST record, the winning time and every dependent boat time recompute in place. This also means the FT clock must tolerate a start time arriving for a race that is already stopped, and for a race that is already saved but not yet approved.
 
@@ -60,7 +60,7 @@ The clock cannot block on a missing start time either way. Design consequence: t
 <shared root>/regattaData/
 ```
 
-The shared root is either a OneDrive-synced folder on each laptop or a UNC path such as `\\timing-pc\regatta\regattaData` served by the spare Windows PC. The tree under `regattaData/` is identical in both modes:
+The shared root is either a cloud-synced local folder on each laptop (OneDrive, Google Drive for Desktop, etc.) or a UNC path such as `\\timing-pc\regatta\regattaData` served by the spare Windows PC. The tree under `regattaData/` is identical in both modes:
 
 ```
 regattaData/
@@ -88,12 +88,12 @@ Ownership, stated as a rule the code enforces rather than a convention:
 - **Primary/Secondary Start Timer** writes only `timing/<team>/start.json`. Reads `director/data.json`.
 - **Primary/Secondary Finish Timer** writes only `timing/<team>/finish.json`, which *is* the race results file. Reads `director/data.json` and `timing/<team>/start.json`.
 
-The Director never writes results. Results are produced by the Finish Timer and written when the FT clicks **Referee Approval** or **Save** — both perform the identical write, per [persona.md](persona.md) lines 60-62. The RD is a consumer of results, not a producer: it reads both teams' `finish.json` to reconcile and export.
+The Director never writes results. Results are produced by the Finish Timer and written when the FT clicks **Referee Approval** or **Save** — both perform the identical write ([README.md](README.md) Finish Timer privileges). The RD is a consumer of results, not a producer: it reads both teams' `finish.json` to reconcile and export.
 
 Two changes to what exists today:
 
-- `data.json` moves from `regattaData/data.json` to `regattaData/director/data.json`, per the suggestion in [persona.md](persona.md) line 41. The RD startup path performs a one-time migration: if the old path exists and the new one does not, move it.
-- **The `results/` directory goes away.** `changeCallBack` in [internal/regatta/config.go](internal/regatta/config.go) currently creates `regattaData/results/` and nothing ever writes to it — lane-image export targets a separately chosen folder. With results living in `timing/<team>/finish.json`, that `CreateDirs` call and the `common.ResultsDir` constant should be removed rather than left as a misleading empty directory in everyone's OneDrive. The directory creation that replaces it is the RD creating `director/`, and each timer creating its own `timing/<team>/` on first write.
+- `data.json` moves from `regattaData/data.json` to `regattaData/director/data.json` (RD-owned schedule path). The RD startup path performs a one-time migration: if the old path exists and the new one does not, move it.
+- **The `results/` directory goes away.** `changeCallBack` in [internal/regatta/config.go](internal/regatta/config.go) currently creates `regattaData/results/` and nothing ever writes to it — lane-image export targets a separately chosen folder. With results living in `timing/<team>/finish.json`, that `CreateDirs` call and the `common.ResultsDir` constant should be removed rather than left as a misleading empty directory in everyone's synced folder. The directory creation that replaces it is the RD creating `director/`, and each timer creating its own `timing/<team>/` on first write.
 
 ## 4. Data model
 
@@ -159,7 +159,7 @@ type FinishLog struct {
 }
 
 // RaceResult carries everything needed to rehydrate the clock window exactly as
-// the FT left it, which is the requirement in persona.md line 63.
+// the FT left it, which is required so a restart restores the FT clock.
 type RaceResult struct {
 	RaceNumber int
 
@@ -204,7 +204,7 @@ Adding a per-entry `Clock` to `ClearedStart` surfaced a bug in the earlier desig
 
 ### On the "as performant as possible" requirement
 
-Keep JSON. At regatta scale — on the order of 100 races — a `finish.json` is tens of kilobytes and marshals in microseconds. Under OneDrive the cost that actually matters is sync propagation measured in seconds; under SMB it is network RTT. Either way, switching to gob or protobuf would optimize the wrong end while giving up the ability to inspect and hand-repair a file mid-regatta. What *does* matter for the watching goroutine is not re-parsing unnecessarily, which section 6 handles with a content-hash short circuit.
+Keep JSON. At regatta scale — on the order of 100 races — a `finish.json` is tens of kilobytes and marshals in microseconds. Under cloud sync the cost that actually matters is sync propagation measured in seconds; under SMB it is network RTT. Either way, switching to gob or protobuf would optimize the wrong end while giving up the ability to inspect and hand-repair a file mid-regatta. What *does* matter for the watching goroutine is not re-parsing unnecessarily, which section 6 handles with a content-hash short circuit.
 
 ## 5. Safe writing
 
@@ -213,16 +213,16 @@ Add to [internal/filesystem/file.go](internal/filesystem/file.go):
 ```go
 // SaveJSONFileAtomic writes to a sibling temp file, fsyncs, then renames over
 // the target. A reader mid-update sees either the old file or the new one, never
-// a half-written one. The rename is retried: on Windows, OneDrive, Defender, and
-// SMB clients all take transient handles on files they have just noticed change.
+// a half-written one. The rename is retried: on Windows, cloud sync clients,
+// Defender, and SMB all take transient handles on files they have just noticed change.
 func SaveJSONFileAtomic(data any, filename string) error
 ```
 
 Sequence: marshal, write `<dir>/<name>.tmp`, `Sync()`, `Close()`, `os.Rename` over the target. The temp file is a sibling because rename is only atomic within one filesystem; it is short-lived, and the watcher ignores any filename that is not an exact expected match. Prefer UNC paths (`\\host\share\...`) over mapped drive letters for SMB — drive letters are per-user and often fail to reconnect after sleep.
 
-**The rename needs a retry loop in both storage modes.** `os.Rename` on Windows is `MoveFileEx` with `MOVEFILE_REPLACE_EXISTING`. Under OneDrive it fails when the sync engine is mid-upload; under SMB it fails when another client or Defender holds a handle. Both surface as `ERROR_SHARING_VIOLATION` (32) or `ERROR_ACCESS_DENIED` (5). Treat both as retryable — roughly five attempts with backoff from 50ms — and only surface an error after they are exhausted.
+**The rename needs a retry loop in both storage modes.** `os.Rename` on Windows is `MoveFileEx` with `MOVEFILE_REPLACE_EXISTING`. Under cloud sync it fails when the client is mid-upload; under SMB it fails when another client or Defender holds a handle. Both surface as `ERROR_SHARING_VIOLATION` (32) or `ERROR_ACCESS_DENIED` (5). Treat both as retryable — roughly five attempts with backoff from 50ms — and only surface an error after they are exhausted.
 
-**Conflict copies are OneDrive-specific.** OneDrive resolves simultaneous writes by appending the computer name, producing `start-DESKTOP-A1B2C3.json` alongside `start.json`. SMB produces a sharing violation instead of a duplicate file. Conflict-copy *detection* therefore runs only in `onedrive` mode. The single-writer-per-file model still applies in both modes — it is what makes simultaneous writes an operational error rather than a merge problem.
+**Conflict copies are a cloud-sync phenomenon.** Sync clients resolve simultaneous writes by creating a sibling file rather than merging (OneDrive: `start-DESKTOP-A1B2C3.json`; Google Drive often uses names like `start (1).json` or conflict copies with the machine/user in the name). SMB produces a sharing violation instead. Conflict-copy *detection* therefore runs only in `cloud` mode, using a **vendor-agnostic heuristic**: any file in the timing directory whose stem matches an expected name (`start`, `finish`) but is not exactly `start.json` / `finish.json`. Do not hard-code OneDrive naming alone. The single-writer-per-file model still applies in both modes.
 
 ## 6. The watcher
 
@@ -232,8 +232,8 @@ New package `internal/watcher`. The directory layout and event shape are the sam
 type Mode string
 
 const (
-	ModeOneDrive Mode = "onedrive" // poll with stat-then-hash
-	ModeSMB      Mode = "smb"      // prefer notify; fall back to poll
+	ModeCloud Mode = "cloud" // poll with stat-then-hash (vendor-synced local folder)
+	ModeSMB   Mode = "smb"   // prefer notify; fall back to poll
 )
 
 type Event struct {
@@ -251,18 +251,18 @@ func (w *Watcher) Stop()
 
 | Mode | Default strategy | Why |
 |------|------------------|-----|
-| `onedrive` | Poll (~2s), stat-then-hash | OneDrive applies remote changes through staging and Files On-Demand; fsnotify either misses content changes or fires on hydration noise. |
+| `cloud` | Poll (~2s), stat-then-hash | Cloud clients (OneDrive, Google Drive for Desktop, etc.) apply remote changes through staging / placeholder hydration; fsnotify either misses content changes or fires on hydration noise. |
 | `smb` | Prefer `fsnotify` (`ReadDirectoryChangesW` over SMB2), fall back to poll | SMB2 can push change notifications and bypasses the Windows SMB client metadata cache that would otherwise make a fast poll see stale `ModTime` for ~10s. |
 
-The watcher interface is one package; mode selects the backend. Poll remains the universal fallback if notify fails to start or the path is not a real SMB share.
+The watcher interface is one package; mode selects the backend. Poll remains the universal fallback if notify fails to start or the path is not a real SMB share. **There is no per-vendor cloud backend** — Google Drive and OneDrive both use `ModeCloud`.
 
-### Polling details (required for OneDrive, fallback for SMB)
+### Polling details (required for cloud, fallback for SMB)
 
 Per watched file: `os.Stat`, compare `ModTime` and `Size` against the last observation; only if those differ, read the file and compare a SHA-256 of the contents; only if the hash differs, unmarshal and emit.
 
-- **Compare `ModTime` for inequality, not for ordering.** OneDrive preserves the writing machine's modification timestamp, so an update can arrive with an *older* mtime. Under SMB this is less common but the same rule is safe.
-- **`os.Stat` is safe on a OneDrive Files On-Demand placeholder; `os.ReadFile` is not.** Reading a dehydrated placeholder triggers hydration. Guard against overlapping ticks; treat read failure as "no change" plus a warning.
-- Ignore anything that is not an exact expected filename — our `.tmp` files, OneDrive conflict copies, `desktop.ini`, and everything under `logs/` (section 6c).
+- **Compare `ModTime` for inequality, not for ordering.** Cloud sync often preserves the writing machine's modification timestamp, so an update can arrive with an *older* mtime. Under SMB this is less common but the same rule is safe.
+- **`os.Stat` is often safe on a Files On-Demand / streaming placeholder; `os.ReadFile` may trigger hydration.** Reading a dehydrated placeholder can block or fail offline. Guard against overlapping ticks; treat read failure as "no change" plus a warning.
+- Ignore anything that is not an exact expected filename — our `.tmp` files, conflict-copy near-misses, `desktop.ini`, and everything under `logs/` (section 6c).
 
 ### SMB-specific detail
 
@@ -307,17 +307,25 @@ Add a Fyne preference (and a control on the Director/timer config screen) for th
 
 | Preference | Values | Effect |
 |------------|--------|--------|
-| `PrefStorageMode` | `onedrive` (default) / `smb` | Selects watcher backend and whether conflict-copy scanning runs |
+| `PrefStorageMode` | `cloud` (default) / `smb` | Selects watcher backend and whether conflict-copy scanning runs |
 | `PrefNTPServers` | comma-separated hosts | Overrides the default NTP list; under `smb`, seed with the share host so LAN NTP is tried first |
 
-The folder dialog and path validation stay mode-agnostic: the user still picks (or pastes) the `regattaData` root, whether that is a OneDrive path or a UNC path. Mode is about *how the app watches and syncs time*, not about where the files live on disk.
+### Vendor scope (intentional limit)
+
+The store layer is **filesystem-only**. It does not integrate with Microsoft Graph, Google Drive API, Dropbox API, or any other cloud SDK.
+
+- **In scope for `cloud` mode:** any client that mirrors a folder onto the local disk as a normal path (explicitly including **OneDrive** and **Google Drive for Desktop**). Moving the organization from OneDrive to Google Drive means pointing at the new local folder and keeping `PrefStorageMode=cloud`.
+- **In scope for `smb` mode:** a LAN share (spare PC / NAS).
+- **Out of scope:** first-class support for every sync product under the sun, vendor-specific APIs, or a plugin interface per cloud provider. A generic `cloud` vs `smb` strategy interface inside `internal/watcher` is enough; do not invent a third mode per vendor.
+
+The folder dialog and path validation stay mode-agnostic: the user still picks (or pastes) the `regattaData` root, whether that is a synced cloud path or a UNC path. Mode is about *how the app watches and syncs time*, not about which logo is on the sync client.
 
 Recommended race-day setup for the spare PC (documented in README, not enforced by code):
 
 1. Share a folder over SMB (prefer UNC: `\\timing-pc\regatta\regattaData`).
 2. Pin/keep the share host awake; do not rely on a mapped drive letter on timer laptops.
 3. Enable NTP on that PC and put its address in `PrefNTPServers`.
-4. Optionally one-way backup the share to OneDrive from the host PC for off-site recovery — never bidirectional into the live tree mid-regatta.
+4. Optionally one-way backup the share to cloud storage from the host PC for off-site recovery — never bidirectional into the live tree mid-regatta.
 
 ## 6c. Event logging (foundational)
 
@@ -349,7 +357,7 @@ Later phases do not re-open the logging design — they only add `applog.Info` /
 
 ## 7. The persona registry
 
-New package `internal/persona`. The registry is a single slice so that "future personas can easily be added later" ([persona.md](persona.md) line 7) means appending one struct literal.
+New package `internal/persona`. The registry is a single slice so that future personas can be added later ([README.md](README.md)) by appending one struct literal.
 
 ```go
 type Role string
@@ -390,7 +398,7 @@ var DirectorDefinition = Definition{
 
 There is no empty/`TeamNone` team. The RD belongs to **`TeamExecutive`**, which is reserved for non-timing official personas (today only the Director; easy to extend later without inventing a second "no team" sentinel).
 
-Challenge codes are constants in source, which [persona.md](persona.md) line 26 explicitly permits for now. Comparison is trimmed and case-insensitive.
+Challenge codes are constants in source for now ([README.md](README.md)). Comparison is trimmed and case-insensitive.
 
 A `Session` value is created once at startup and threaded through `Regatta` and `Clock` instead of being consulted from globals:
 
@@ -444,8 +452,8 @@ Four things this load has to get right:
 
 Three notes on fidelity to the requirements:
 
-- **"They should only be able to select a directory that matches regattaData before they can click Open"** ([persona.md](persona.md) line 30). Fyne's `ShowFolderOpen` has no filter hook and no way to conditionally disable its Open button, so this is implemented as validate-in-callback plus immediate re-prompt with an explanatory error. Behaviourally equivalent, one extra click in the failure case. Flagging it because it is a deliberate deviation from the literal wording.
-- **The folder name alone is not a reliable check.** Under OneDrive for Business, timers add the shared folder with "Add shortcut to My files" and can rename it. Under SMB, the share may be mounted or browsed under any leaf name. Validate on *either* a basename of `regattaData` or the presence of a readable `director/data.json` inside the selected folder, and accept the folder if either holds. Accept UNC paths. The confirmation dialog in the next step is the real safeguard against picking the wrong regatta.
+- **Directory named `regattaData`.** [README.md](README.md) asks that timers only open a matching directory. Fyne's `ShowFolderOpen` has no filter hook and no way to conditionally disable its Open button, so this is implemented as validate-in-callback plus immediate re-prompt with an explanatory error. Behaviourally equivalent, one extra click in the failure case. Flagging it because it is a deliberate deviation from the literal wording.
+- **The folder name alone is not a reliable check.** Under cloud clients, shared folders are often added as shortcuts and renamed (OneDrive "Add shortcut to My files", Google Drive shared-drive shortcuts, etc.). Under SMB, the share may be mounted or browsed under any leaf name. Validate on *either* a basename of `regattaData` or the presence of a readable `director/data.json` inside the selected folder, and accept the folder if either holds. Accept UNC paths. The confirmation dialog in the next step is the real safeguard against picking the wrong regatta.
 - **Preferences no longer drive startup.** `initRegatta` currently restores the last session from `PrefRegattaDir`:
 
 ```130:150:internal/regatta/regatta.go
@@ -510,7 +518,7 @@ func (r *Regatta) raceEntry(race reader.RaceData) *fyne.Container {
 
 It becomes role-driven:
 
-- **Start Timer**: title, start-time label, `Start Time` button, `Clear` button, and a `Restore` button. No `Time Race` button. `Clear` still prompts for confirmation ([persona.md](persona.md) line 50), and recording, clearing, and restoring each write `start.json` immediately.
+- **Start Timer**: title, start-time label, `Start Time` button, `Clear` button, and a `Restore` button. No `Time Race` button. `Clear` still prompts for confirmation ([README.md](README.md)), and recording, clearing, and restoring each write `start.json` immediately.
 
   **Clearing is non-destructive.** Rather than wiping the value, `Clear` appends it to that race's `Cleared` history and sets `StartedAt` to nil. `Restore` pops the most recent entry back into `StartedAt`, along with the `ClockRef` that was in force when it was originally captured — restoring the value without its original offset would reintroduce exactly the skew error section 2.1 exists to prevent.
 
@@ -549,8 +557,8 @@ func (c *Clock) initSave() *widget.Button {
 }
 ```
 
-   Both now serialize the lap rows into a `RaceResult` and atomically rewrite `finish.json`, per [persona.md](persona.md) lines 60-62.
-3. **Rehydration.** `NewClock` checks `finish.json` for an existing `RaceResult` for this race number and, if found, restores lap rows, OOF assignments, place overrides, winning time, and button enablement before showing the window ([persona.md](persona.md) line 63).
+   Both now serialize the lap rows into a `RaceResult` and atomically rewrite `finish.json` ([README.md](README.md) FT privileges).
+3. **Rehydration.** `NewClock` checks `finish.json` for an existing `RaceResult` for this race number and, if found, restores lap rows, OOF assignments, place overrides, winning time, and button enablement before showing the window ([README.md](README.md)).
 
 ## 10. Suggested phasing
 
@@ -562,8 +570,8 @@ Each phase compiles, passes tests, and leaves the app usable.
 1b. **`internal/timesync`** — SNTP offset measurement via `github.com/beevik/ntp`, configurable server list (LAN NTP first under `smb` mode), median of several servers, background re-query, and a `Now()` returning the corrected time plus its `ClockRef`. Emit INFO/WARN/ERROR via `applog`.
 2. **Persona registry** — `internal/persona` with the registry (`TeamExecutive` for RD), challenge check, and path helpers. Pure logic, fully unit-testable.
 3. **Layout and store types** — `internal/persona/store` types, read/write functions, `director/data.json` migration. Log hydrate/write success and ERROR on failure.
-4. **Watcher** — `internal/watcher` with mode-selected backends (`onedrive` poll vs `smb` notify-with-poll-fallback), conflict-copy detection only in OneDrive mode; ignore `logs/`; log content changes at INFO.
-4b. **Storage mode preferences** — `PrefStorageMode` and `PrefNTPServers` on the config screen; wire them into watcher construction and timesync.
+4. **Watcher** — `internal/watcher` with mode-selected backends (`cloud` poll vs `smb` notify-with-poll-fallback), vendor-agnostic conflict-copy detection only in cloud mode; ignore `logs/`; log content changes at INFO.
+4b. **Storage mode preferences** — `PrefStorageMode` (`cloud` \| `smb`) and `PrefNTPServers` on the config screen; wire them into watcher construction and timesync.
 5. **Timer startup flow** — picker, challenge, directory validation, confirmation, hydration; `applog.SetOutput` + `SetIdentity` once session root is known. Delete `setupStartupDialog`.
 6. **Role-aware race tree** — Start Time / Clear / Restore for ST, progress indicators for FT and RD, in-place watcher refresh; log button actions at INFO.
 7. **Clock integration** — derived winning time, save on approve/save, rehydration, skew warnings; log clock actions and ERROR on save failure.
@@ -579,33 +587,41 @@ The existing suites in `internal/regatta` and `internal/clock` already construct
 - **Clear and restore** — a record, clear, record, clear sequence leaves the history in capture order; `Restore` returns the most recently cleared value *and* its original `ClockRef` rather than the current one; the history caps at ten entries by dropping the oldest; and restoring onto a race that already has a start time requires confirmation.
 - **Director progress tree** — restarts reflect `len(Cleared)`; a race present only in the secondary team's data falls back and is marked as secondary-sourced; and fallback is per value, so a primary start time and a secondary winning time can appear on the same row.
 - **Skew and winning time** — derived winning time is correct for aligned clocks, and suppressed with a warning for negative or implausible values.
-- **Watcher** — a file rewritten with identical content emits nothing; changed content emits once; mtime granularity does not cause missed updates; a replacement file stamped with an *older* mtime is still detected (OneDrive case); and under `smb` mode the notify backend delivers an update that a short-interval poll alone would miss behind a warm SMB metadata cache.
-- **Storage mode** — switching `PrefStorageMode` selects the watcher backend; conflict-copy scanning runs only for `onedrive`; `PrefNTPServers` seeds timesync with the LAN host under `smb`.
+- **Watcher** — a file rewritten with identical content emits nothing; changed content emits once; mtime granularity does not cause missed updates; a replacement file stamped with an *older* mtime is still detected (cloud sync case); and under `smb` mode the notify backend delivers an update that a short-interval poll alone would miss behind a warm SMB metadata cache.
+- **Storage mode** — switching `PrefStorageMode` selects the watcher backend; conflict-copy scanning runs only for `cloud` (heuristic, not OneDrive-named-only); `PrefNTPServers` seeds timesync with the LAN host under `smb`.
 - **Time sync** — two synthetic personas with system clocks offset in opposite directions produce the correct winning time once their recorded offsets are applied. An unreachable NTP server yields `Source: "none"` and a warning. A configured LAN NTP server is preferred over public servers when present.
 - **Round trip** — a fully timed race saved to `finish.json` and rehydrated into a fresh clock reproduces every lap row, place override, and OOF assignment.
 - **Startup flow** — wrong challenge returns to the picker; a directory not named `regattaData` is rejected; declining the confirmation returns to the folder dialog.
 - **Restart restores the view** — an ST with saved start times and cleared history sees both after a restart; an FT sees the ST's times plus its own approvals; a `start.json` whose `RegattaKey` belongs to another regatta is set aside rather than displayed; `Sequence` resumes from the file rather than resetting; and a persona file that fails to unmarshal blocks writes instead of being silently replaced with an empty one.
 - **Logging** — Logging off writes nothing; Logging on writes INFO/WARN/ERROR JSON lines; Logging+Debug also writes DEBUG; identity fields and hostname appear on every line and in the filename; a full queue does not block a button handler; watcher ignores `logs/`; a `dialog.ShowError` path also emits `applog.Error` with the same `err`.
 
-## 12. Windows storage modes: OneDrive and local SMB
+## 12. Windows storage modes: cloud-synced folder and local SMB
 
-The app supports both. Prefer the spare Windows PC (SMB + LAN NTP) when the venue network reaches start and finish; keep OneDrive as the fallback. Detailed trade-offs are in [shared-storage-options.md](shared-storage-options.md).
+The app supports two **transport** modes, not two cloud vendors. Prefer the spare Windows PC (SMB + LAN NTP) when the venue network reaches start and finish; keep a cloud-synced folder as the fallback. Detailed SMB trade-offs are in [shared-storage-options.md](shared-storage-options.md).
 
 ### Mode-specific behaviour (already covered above)
 
-| Concern | OneDrive (`onedrive`) | Local SMB (`smb`) |
-|---------|----------------------|-------------------|
+| Concern | Cloud (`cloud`) | Local SMB (`smb`) |
+|---------|-----------------|-------------------|
 | Watcher | Poll, stat-then-hash | Prefer fsnotify; poll as fallback |
-| Conflict copies | Detect `start-DESKTOP-….json` | Not applicable; sharing violations instead |
+| Conflict copies | Detect near-miss filenames | Not applicable; sharing violations instead |
 | NTP default | Public servers | Share host first, then public |
-| Path form | Local OneDrive path | Prefer UNC `\\host\share\…` |
+| Path form | Local synced folder path | Prefer UNC `\\host\share\…` |
 | Failure mode if link drops | Isolated but writable (local mirror) | Shared path unreachable until LAN returns |
+| Vendors | OneDrive, Google Drive for Desktop, … (any local mirror) | N/A |
+
+### Vendor agnosticism without unbounded support
+
+- **No cloud SDKs.** Store and watcher code see only `os` / filesystem paths.
+- **Two strategies only:** `cloud` and `smb`. Renaming the preference from a vendor name to `cloud` is deliberate so a move from OneDrive to Google Drive does not imply a new mode or release.
+- **Documented / expected clients for race-day ops:** OneDrive and Google Drive for Desktop. Both need "keep offline / available offline" (or equivalent) so placeholders do not surprise the first read.
+- **Not committing to:** Dropbox, iCloud, Box, etc. as tested platforms. They may work under `cloud` if they expose a normal folder; they are not a support promise.
 
 ### New code work (both modes)
 
 - **Add a Windows CI job.** [.github/workflows/test.yml](.github/workflows/test.yml) is Ubuntu-only today. Add `windows-latest` running `go test ./internal/...`.
 - **Sanitize filenames.** Route exporter and persona-derived paths through `sanitizeForFilename` for Windows-reserved characters and device names.
-- **Staleness indicator in the race tree.** Surface "start times last updated Ns ago" from the watcher's last-change time. Under OneDrive this catches paused sync; under SMB it catches a dead share or a sleeping host PC.
+- **Staleness indicator in the race tree.** Surface "start times last updated Ns ago" from the watcher's last-change time. Under cloud sync this catches paused sync; under SMB it catches a dead share or a sleeping host PC.
 - **`PrefStorageMode` / `PrefNTPServers`** on the config UI (section 6b).
 - **`PrefLogging` / `PrefDebug`** actually drive `internal/applog` (section 6c) — today the checkboxes are unbound to behaviour.
 
@@ -616,12 +632,12 @@ The app supports both. Prefer the spare Windows PC (SMB + LAN NTP) when the venu
 - Host PC stays awake and shares the folder; timers use the UNC path, not a flaky mapped drive.
 - Enable NTP on the host and configure it in the app.
 - Confirm start-line and finish-line laptops can both reach the share before first race (course geometry is the hard part — see [shared-storage-options.md](shared-storage-options.md)).
-- Optional: one-way backup from the host to OneDrive for off-site recovery; never bidirectional into the live tree during racing.
+- Optional: one-way backup from the host to cloud storage for off-site recovery; never bidirectional into the live tree during racing.
 
-**OneDrive (fallback):**
+**Cloud (fallback — OneDrive or Google Drive):**
 
-- Pin `regattaData` ("Always keep on this device").
-- Turn off pause-on-metered-connection.
+- Keep `regattaData` fully available offline (OneDrive: "Always keep on this device"; Google Drive: "Available offline").
+- Avoid metered-connection pause / battery restrictions that stop sync.
 - Assume sync will stall at some point; the manual `Winning Time` entry and secondary team remain the safety net.
 
 ## 13. Open items

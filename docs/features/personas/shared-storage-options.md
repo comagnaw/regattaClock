@@ -1,12 +1,12 @@
 # Shared Storage Options for regattaClock
 
-An evaluation of running a local NAS as the shared `regattaData` location, with OneDrive relegated to off-site backup. This is exploratory and deliberately separate from [persona-plan.md](persona-plan.md), which assumes OneDrive; nothing here is committed to.
+An evaluation of running a local NAS / spare PC as the shared `regattaData` location, with cloud sync relegated to off-site backup. Exploratory background for [persona-plan.md](persona-plan.md); the plan is authoritative for what the app implements.
 
 ## Short answer
 
 Yes, a NAS or spare Windows PC can serve SMB to the local personas and act as a OneDrive client at the same time — every major vendor supports it, and so does a cheap Windows mini-PC. And yes, it genuinely fixes the problem you are worried about, because it removes the internet from the live path entirely.
 
-**Status relative to the persona plan:** [persona-plan.md](persona-plan.md) now treats OneDrive vs local SMB as a first-class `PrefStorageMode` configuration (`onedrive` | `smb`), with LAN NTP preferred under SMB. This document remains the deeper rationale and ops guide; the plan is what the app will implement.
+**Status relative to the persona plan:** [persona-plan.md](persona-plan.md) uses `PrefStorageMode` = `cloud` | `smb`. `cloud` is vendor-agnostic (local folder synced by OneDrive, Google Drive for Desktop, etc. — no cloud SDKs). LAN NTP is preferred under SMB. This document remains the deeper rationale and ops guide for the spare-PC / NAS path.
 
 The catch is not the NAS. It is that a rowing course puts the Start Timer and the Finish Timer 1500-2000m apart, and "all persona laptops are on the same network" is the assumption doing the heavy lifting. See section 6.
 
@@ -100,4 +100,4 @@ Ordered by what I would actually do:
 
 ## 9. Worth knowing for later
 
-If this system outgrows files-on-a-share, the natural next step is not a better filesystem — it is a small HTTP or WebSocket service that the personas talk to, with the shared directory as its persistence layer. That gets you real push updates, proper conflict semantics, and no dependence on the sync behaviour of whatever storage is underneath. It is a significantly larger change and the file-based design in [persona.md](persona.md) is a deliberate, reasonable choice for the current scale, so this is a note for the future rather than a suggestion for now.
+If this system outgrows files-on-a-share, the natural next step is not a better filesystem — it is a small HTTP or WebSocket service that the personas talk to, with the shared directory as its persistence layer. That gets you real push updates, proper conflict semantics, and no dependence on the sync behaviour of whatever storage is underneath. It is a significantly larger change and the file-based design in [README.md](README.md) is a deliberate, reasonable choice for the current scale, so this is a note for the future rather than a suggestion for now.
