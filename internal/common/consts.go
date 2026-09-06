@@ -74,7 +74,6 @@ const (
 	// Timer persona startup flow (internal/regatta persona_startup.go).
 	PersonaPickerPrompt       = "Choose your persona and enter its challenge code."
 	ChallengeFieldLabel       = "Challenge code:"
-	ChallengePlaceholder      = "rc-xxx"
 	ContinueButtonText        = "Continue"
 	NoPersonaSelectedMessage  = "Select a persona before continuing."
 	ChallengeMismatchMessage  = "That challenge code does not match the selected persona."

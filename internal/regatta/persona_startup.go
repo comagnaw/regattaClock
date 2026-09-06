@@ -34,7 +34,6 @@ func (r *Regatta) showPersonaPicker() {
 	picker := widget.NewRadioGroup(labels, nil)
 
 	challenge := widget.NewEntry()
-	challenge.SetPlaceHolder(common.ChallengePlaceholder)
 
 	cont := widget.NewButton(common.ContinueButtonText, func() {
 		r.onPersonaChosen(picker.Selected, challenge.Text)
