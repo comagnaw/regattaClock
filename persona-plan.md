@@ -9,6 +9,7 @@ These answers shape everything below.
 - **Sharing model: configurable between OneDrive and local SMB.** The preferred race-day path is a spare Windows PC on the venue LAN that shares `regattaData` over SMB and also runs a local NTP service. OneDrive remains a supported fallback when course-wide networking is unavailable. The app treats this as a **storage mode** preference (`onedrive` | `smb`), not as two different products — the directory layout and ownership rules are identical; only watcher strategy, conflict detection, and NTP server defaults change. Background on the SMB option lives in [shared-storage-options.md](shared-storage-options.md); the consequences for the implementation are in sections 6 and 12.
 - **File granularity: one file per team + persona.** Every file has exactly one writer. Everyone else opens it read-only. There is no lock contention to manage because there is no shared write target.
 - **Regatta Director: a separate entry point.** Timers get a binary that cannot reach RD functions at all.
+- **Event logging is foundational.** Wire `PrefLogging` / `PrefDebug` early via `internal/applog` so every later phase can emit structured JSON logs as it lands, rather than retrofitting call sites at the end. Full design in section 6c; deeper rationale in [logging-options.md](logging-options.md).
 
 ## 2. Two problems the requirements do not mention
 
@@ -65,13 +66,20 @@ The shared root is either a OneDrive-synced folder on each laptop or a UNC path 
 regattaData/
 ├── director/
 │   └── data.json              # regatta schedule from Excel   [RD writes]
-└── timing/
+├── timing/
+│   ├── primary/
+│   │   ├── start.json         # start times                   [Primary ST writes]
+│   │   └── finish.json        # race results                  [Primary FT writes]
+│   └── secondary/
+│       ├── start.json         # start times                   [Secondary ST writes]
+│       └── finish.json        # race results                  [Secondary FT writes]
+└── logs/
     ├── primary/
-    │   ├── start.json         # start times                   [Primary ST writes]
-    │   └── finish.json        # race results                  [Primary FT writes]
-    └── secondary/
-        ├── start.json         # start times                   [Secondary ST writes]
-        └── finish.json        # race results                  [Secondary FT writes]
+    │   └── <role>-<hostname>.log
+    ├── secondary/
+    │   └── <role>-<hostname>.log
+    └── executive/
+        └── director-<hostname>.log   # TeamExecutive / RD
 ```
 
 Ownership, stated as a rule the code enforces rather than a convention:
@@ -254,7 +262,7 @@ Per watched file: `os.Stat`, compare `ModTime` and `Size` against the last obser
 
 - **Compare `ModTime` for inequality, not for ordering.** OneDrive preserves the writing machine's modification timestamp, so an update can arrive with an *older* mtime. Under SMB this is less common but the same rule is safe.
 - **`os.Stat` is safe on a OneDrive Files On-Demand placeholder; `os.ReadFile` is not.** Reading a dehydrated placeholder triggers hydration. Guard against overlapping ticks; treat read failure as "no change" plus a warning.
-- **Ignore anything that is not an exact expected filename** — our `.tmp` files, OneDrive conflict copies, and `desktop.ini`.
+- Ignore anything that is not an exact expected filename — our `.tmp` files, OneDrive conflict copies, `desktop.ini`, and everything under `logs/` (section 6c).
 
 ### SMB-specific detail
 
@@ -310,6 +318,34 @@ Recommended race-day setup for the spare PC (documented in README, not enforced 
 2. Pin/keep the share host awake; do not rely on a mapped drive letter on timer laptops.
 3. Enable NTP on that PC and put its address in `PrefNTPServers`.
 4. Optionally one-way backup the share to OneDrive from the host PC for off-site recovery — never bidirectional into the live tree mid-regatta.
+
+## 6c. Event logging (foundational)
+
+Adopted from [logging-options.md](logging-options.md). Logging is **not** a late polish item: if it lands after the race tree and clock, every call site has to be revisited. Put `internal/applog` in immediately after filesystem foundations so timesync, watcher, startup, race tree, and clock can log as they are written.
+
+### Preferences → severity
+
+Reuse the existing config checkboxes in [internal/regatta/config.go](internal/regatta/config.go). Nothing reads them yet.
+
+| Preferences | Handler level | Written |
+|-------------|---------------|---------|
+| Logging off | discard | nothing (Debug alone does not open a file) |
+| Logging on, Debug off | `INFO` | INFO, WARN, ERROR |
+| Logging on, Debug on | `DEBUG` | DEBUG + above |
+
+### Implementation
+
+- Package **`internal/applog`**: `slog.JSONHandler`, async append writer (never block Start/Lap on disk), best-effort on write failure.
+- Path: **`regattaData/logs/<team>/<role>-<hostname>.log`** (RD: `logs/executive/director-<hostname>.log`). Hostname in the filename *and* as JSON field `machine`.
+- Fixed attrs on every line via `logger.With`: `persona`, `team`, `role`, `machine` (plus `regatta_key`, `storage_mode` when known).
+- **INFO** — button clicks, NTP measure success, watcher content changes, hydrate/save success, challenge/directory confirm.
+- **WARN** — large NTP offset, NTP `none`, conflict copy, non-fatal read issues.
+- **ERROR** — any failure already shown in UI or returned as `error` (same `err` in the log line).
+- **DEBUG** — poll heartbeats / verbose internals only when both prefs allow.
+- Watcher **must ignore `logs/`** (exact-filename allowlist for timing files already required).
+- Before `regattaData` is known: ring-buffer early events in memory; flush after `SetOutput`.
+
+Later phases do not re-open the logging design — they only add `applog.Info` / `Error` / etc. at the relevant call sites.
 
 ## 7. The persona registry
 
@@ -522,15 +558,16 @@ Each phase compiles, passes tests, and leaves the app usable.
 
 0. **Windows CI first.** Add the `windows-latest` job to [.github/workflows/test.yml](.github/workflows/test.yml) before anything else, so that every phase after it is verified on the platform it will actually run on.
 1. **Foundations** — `SaveJSONFileAtomic` with its retry loop, hash helper, `sanitizeForFilename`. No UI change.
-1b. **`internal/timesync`** — SNTP offset measurement via `github.com/beevik/ntp`, configurable server list (LAN NTP first under `smb` mode), median of several servers, background re-query, and a `Now()` returning the corrected time plus its `ClockRef`.
-2. **Persona registry** — `internal/persona` with the registry, challenge check, and path helpers. Pure logic, fully unit-testable.
-3. **Layout and store types** — `internal/persona/store` types, read/write functions, `director/data.json` migration.
-4. **Watcher** — `internal/watcher` with mode-selected backends (`onedrive` poll vs `smb` notify-with-poll-fallback), conflict-copy detection only in OneDrive mode.
+1a. **`internal/applog` (foundational)** — wire `PrefLogging` / `PrefDebug` to `slog.JSONHandler` + async file writer; identity attrs API; no-op when Logging off. Lands *before* timesync/watcher/UI so those phases log as they are built rather than in a retrofit pass. Detail in section 6c and [logging-options.md](logging-options.md).
+1b. **`internal/timesync`** — SNTP offset measurement via `github.com/beevik/ntp`, configurable server list (LAN NTP first under `smb` mode), median of several servers, background re-query, and a `Now()` returning the corrected time plus its `ClockRef`. Emit INFO/WARN/ERROR via `applog`.
+2. **Persona registry** — `internal/persona` with the registry (`TeamExecutive` for RD), challenge check, and path helpers. Pure logic, fully unit-testable.
+3. **Layout and store types** — `internal/persona/store` types, read/write functions, `director/data.json` migration. Log hydrate/write success and ERROR on failure.
+4. **Watcher** — `internal/watcher` with mode-selected backends (`onedrive` poll vs `smb` notify-with-poll-fallback), conflict-copy detection only in OneDrive mode; ignore `logs/`; log content changes at INFO.
 4b. **Storage mode preferences** — `PrefStorageMode` and `PrefNTPServers` on the config screen; wire them into watcher construction and timesync.
-5. **Timer startup flow** — picker, challenge, directory validation, confirmation, hydration. Delete `setupStartupDialog`.
-6. **Role-aware race tree** — Start Time / Clear / Restore for ST, progress indicators for FT and RD, in-place watcher refresh.
-7. **Clock integration** — derived winning time, save on approve/save, rehydration, skew warnings.
-8. **Director binary** — `cmd/regattaDirector`, its read-only progress tree wired to the watcher over all four timing files, release packaging, and primary-vs-secondary reconciliation for export.
+5. **Timer startup flow** — picker, challenge, directory validation, confirmation, hydration; `applog.SetOutput` + `SetIdentity` once session root is known. Delete `setupStartupDialog`.
+6. **Role-aware race tree** — Start Time / Clear / Restore for ST, progress indicators for FT and RD, in-place watcher refresh; log button actions at INFO.
+7. **Clock integration** — derived winning time, save on approve/save, rehydration, skew warnings; log clock actions and ERROR on save failure.
+8. **Director binary** — `cmd/regattaDirector`, its read-only progress tree wired to the watcher over all four timing files, release packaging, and primary-vs-secondary reconciliation for export; executive-team log path.
 
 ## 11. Testing
 
@@ -548,6 +585,7 @@ The existing suites in `internal/regatta` and `internal/clock` already construct
 - **Round trip** — a fully timed race saved to `finish.json` and rehydrated into a fresh clock reproduces every lap row, place override, and OOF assignment.
 - **Startup flow** — wrong challenge returns to the picker; a directory not named `regattaData` is rejected; declining the confirmation returns to the folder dialog.
 - **Restart restores the view** — an ST with saved start times and cleared history sees both after a restart; an FT sees the ST's times plus its own approvals; a `start.json` whose `RegattaKey` belongs to another regatta is set aside rather than displayed; `Sequence` resumes from the file rather than resetting; and a persona file that fails to unmarshal blocks writes instead of being silently replaced with an empty one.
+- **Logging** — Logging off writes nothing; Logging on writes INFO/WARN/ERROR JSON lines; Logging+Debug also writes DEBUG; identity fields and hostname appear on every line and in the filename; a full queue does not block a button handler; watcher ignores `logs/`; a `dialog.ShowError` path also emits `applog.Error` with the same `err`.
 
 ## 12. Windows storage modes: OneDrive and local SMB
 
@@ -569,6 +607,7 @@ The app supports both. Prefer the spare Windows PC (SMB + LAN NTP) when the venu
 - **Sanitize filenames.** Route exporter and persona-derived paths through `sanitizeForFilename` for Windows-reserved characters and device names.
 - **Staleness indicator in the race tree.** Surface "start times last updated Ns ago" from the watcher's last-change time. Under OneDrive this catches paused sync; under SMB it catches a dead share or a sleeping host PC.
 - **`PrefStorageMode` / `PrefNTPServers`** on the config UI (section 6b).
+- **`PrefLogging` / `PrefDebug`** actually drive `internal/applog` (section 6c) — today the checkboxes are unbound to behaviour.
 
 ### Operating requirements for race day
 
@@ -591,4 +630,4 @@ The app supports both. Prefer the spare Windows PC (SMB + LAN NTP) when the venu
 - **Reconciliation.** When both teams time the same regatta, the RD needs a way to compare primary and secondary results and choose the authoritative set before export. Scoped into phase 8, but the UI for it is undesigned.
 - **Challenge codes in source.** Fine for now per the requirements. If the codes ever need to change without a release, they move to a file the RD writes into `regattaData/director/`, which stays consistent with the one-writer-per-file rule.
 - **Local write-ahead journal.** [shared-storage-options.md](shared-storage-options.md) recommends journaling collected values locally before writing to the shared path, so an SMB outage (or OneDrive stall) does not block collection. Valuable for both modes; not required for the first ship of personas.
-- **Persona event logging.** Analysis in [logging-options.md](logging-options.md): gate file creation on `PrefLogging`; `slog` JSON lines with explicit severities; Logging on ⇒ INFO/WARN/ERROR; Logging+Debug ⇒ also DEBUG; fixed attrs `persona` / `team` (`executive` for RD) / `role` / `machine`; filename `logs/<team>/<role>-<hostname>.log`; existing UI/returned errors also logged at ERROR. Not required to block the first persona ship, but cheap to add beside watcher and timesync.
+- **Log rotation / support zip.** Optional later: size-based rotate and a Director "collect logs" action. Not required for first ship once section 6c is in.

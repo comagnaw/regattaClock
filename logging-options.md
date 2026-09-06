@@ -1,6 +1,6 @@
 # Persona Event Logging
 
-Analysis and recommendation for OS-agnostic, syslog-style troubleshooting logs gated by the existing **Logging** preference. Deliberately separate from [persona-plan.md](persona-plan.md); a short pointer belongs there once you adopt an approach.
+Adopted into [persona-plan.md](persona-plan.md) as **section 6c** and **phase 1a** (foundational — lands before timesync/watcher/UI). This document keeps the fuller rationale and edge cases; the plan is authoritative for sequencing.
 
 ## Short answer
 
@@ -249,7 +249,7 @@ Creating `logs/` is the persona's responsibility on first write, same as creatin
 
 ## 11. Fit with the persona plan
 
-This can land as a thin cross-cutting phase after storage mode prefs (or alongside watcher/timesync, since those are primary producers). It does not change the data model in [persona-plan.md](persona-plan.md) aside from creating the `logs/` tree and documenting that the watcher allowlist excludes it.
+Logging is **section 6c** and **phase 1a** in [persona-plan.md](persona-plan.md) — foundational, not deferred. Later phases only add call sites.
 
 Open follow-ups (not required for a useful first version):
 
