@@ -30,13 +30,19 @@ func (r *Regatta) showRaceTree() {
 }
 
 // treeTitle - loaded regatta details, with the branding logo tucked into the top
-// left corner beside them.
+// left corner beside them. The operator's role sits above the regatta name when
+// a session is bound.
 func (r *Regatta) treeTitle() *fyne.Container {
-	details := container.NewVBox(
+	lines := make([]fyne.CanvasObject, 0, 4)
+	if r.persona != nil && r.persona.Text != common.EmptyString {
+		lines = append(lines, container.NewCenter(r.persona))
+	}
+	lines = append(lines,
 		container.NewCenter(r.title),
 		container.NewCenter(r.subtitle),
 		container.NewCenter(r.date),
 	)
+	details := container.NewVBox(lines...)
 
 	// Border hands the left slot the full height of the details block, and
 	// ImageFillContain keeps the logo at its aspect ratio centred within it.

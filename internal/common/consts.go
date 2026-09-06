@@ -67,9 +67,14 @@ const (
 
 	NumScheduledRacesTitle = "Scheduled Races: %d"
 	ScheduledRacesTile     = "Scheduled Races"
-	ConfigTitle            = "Configuration"
-	LoadDataTitle          = "Load Regatta Data"
-	CreateLaneImagesTitle  = "Create Lane Images"
+
+	// PersonaHeaderFormat labels the race-tree header with the operator's role;
+	// WindowTitleFormat puts it in the OS title bar next to the app name.
+	PersonaHeaderFormat   = "Role: %s"
+	WindowTitleFormat     = "%s — %s"
+	ConfigTitle           = "Configuration"
+	LoadDataTitle         = "Load Regatta Data"
+	CreateLaneImagesTitle = "Create Lane Images"
 
 	// Timer persona startup flow (internal/regatta persona_startup.go).
 	PersonaPickerPrompt           = "Choose your persona and enter its challenge code."

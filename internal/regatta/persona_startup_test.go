@@ -192,6 +192,27 @@ func TestStartSessionStartTimerHydratesOwnStart(t *testing.T) {
 	}
 }
 
+func TestStartSessionSetsRoleLabels(t *testing.T) {
+	app := test.NewTempApp(t)
+	sch := testSchedule()
+	root := seedRegatta(t, sch)
+	pst := timerSession(t, "pst", root)
+
+	r := NewTimer(app)
+	stopWatch(t, r)
+	r.startSession(pst, sch)
+
+	if r.persona.Text != "Role: Primary Start Timer" {
+		t.Errorf("header role line = %q, want %q", r.persona.Text, "Role: Primary Start Timer")
+	}
+	if got := r.window.Title(); got != "Regatta Clock — Primary Start Timer" {
+		t.Errorf("window title = %q, want %q", got, "Regatta Clock — Primary Start Timer")
+	}
+	if _, texts := countObjects(r.treeTitle()); texts != 4 {
+		t.Errorf("tree title text objects = %d, want 4 (role, name, subtitle, date)", texts)
+	}
+}
+
 func TestStartSessionRejectsDifferentRegatta(t *testing.T) {
 	app := test.NewTempApp(t)
 	sch := testSchedule()

@@ -1,6 +1,7 @@
 package regatta
 
 import (
+	"path/filepath"
 	"testing"
 
 	"fyne.io/fyne/v2"
@@ -257,6 +258,33 @@ func TestRegatta_TreeTitle(t *testing.T) {
 
 	if texts != 3 {
 		t.Errorf("Expected the title, subtitle and date, got %d text objects", texts)
+	}
+}
+
+func TestRegatta_TreeTitleWithRole(t *testing.T) {
+	app := test.NewApp()
+	defer app.Quit()
+
+	regatta := NewDirector(app)
+	regatta.persona.Text = "Role: Whatever"
+
+	if _, texts := countObjects(regatta.treeTitle()); texts != 4 {
+		t.Errorf("Expected the role line plus title, subtitle and date, got %d text objects", texts)
+	}
+}
+
+func TestDirector_ShowsRoleAfterRestore(t *testing.T) {
+	app := test.NewTempApp(t)
+	root := seedRegatta(t, testSchedule())
+	app.Preferences().SetString(common.PrefRegattaDir, filepath.Dir(root))
+
+	r := NewDirector(app)
+
+	if r.persona.Text != "Role: Regatta Director" {
+		t.Errorf("header role line = %q, want %q", r.persona.Text, "Role: Regatta Director")
+	}
+	if got := r.window.Title(); got != "Regatta Clock — Regatta Director" {
+		t.Errorf("window title = %q, want %q", got, "Regatta Clock — Regatta Director")
 	}
 }
 

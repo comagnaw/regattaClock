@@ -54,6 +54,10 @@ type Regatta struct {
 
 	config *fyne.Container
 
+	// persona - race-tree header line naming the operator's role, e.g.
+	// "Role: Primary Start Timer". Empty until a session is bound.
+	persona *canvas.Text
+
 	// title - text field that represents imported title from RegattaData
 	title *canvas.Text
 
@@ -112,6 +116,7 @@ func newRegatta(app fyne.App, m mode) *Regatta {
 		window:      app.NewWindow(common.AppTitle),
 		App:         app,
 		mode:        m,
+		persona:     text.Header3(common.EmptyString),
 		title:       text.Header2(common.EmptyString),
 		subtitle:    text.Header3(common.EmptyString),
 		date:        text.Header3(common.EmptyString),
@@ -135,9 +140,20 @@ func (r *Regatta) Run() {
 }
 
 func (r *Regatta) refreshContent() {
+	// The director's identity is implicit; bind it lazily so the role line and
+	// title work through the same path the timer uses.
+	if r.mode == modeDirector && r.session.Root == common.EmptyString {
+		r.session, _ = r.directorSession()
+	}
+
 	r.title.Text = r.RegattaData.Name
 	r.subtitle.Text = fmt.Sprintf(common.NumScheduledRacesTitle, r.RegattaData.ScheduledRaces())
 	r.date.Text = r.RegattaData.Date
+
+	if r.session.Label != common.EmptyString {
+		r.persona.Text = fmt.Sprintf(common.PersonaHeaderFormat, r.session.Label)
+		r.window.SetTitle(fmt.Sprintf(common.WindowTitleFormat, common.AppTitle, r.session.Label))
+	}
 
 	// On a restored session this runs before any view has been set.
 	if content := r.window.Content(); content != nil {
