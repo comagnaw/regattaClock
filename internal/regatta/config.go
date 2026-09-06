@@ -11,14 +11,20 @@ import (
 
 	"github.com/comagnaw/regattaClock/internal/applog"
 	"github.com/comagnaw/regattaClock/internal/common"
+	"github.com/comagnaw/regattaClock/internal/watcher"
 )
 
 func (r *Regatta) configContent() *fyne.Container {
+	ntpEntry := widget.NewEntryWithData(binding.BindPreferenceString(common.PrefNTPServers, r.App.Preferences()))
+	ntpEntry.SetPlaceHolder("host1, host2  (blank = public defaults)")
+
 	return container.NewVBox(
 		r.regattaDir(),
 		widget.NewForm(
 			widget.NewFormItem("Debug:", widget.NewCheckWithData("", binding.BindPreferenceBool(common.PrefDebug, r.App.Preferences()))),
 			widget.NewFormItem("Logging:", widget.NewCheckWithData("", binding.BindPreferenceBool(common.PrefLogging, r.App.Preferences()))),
+			widget.NewFormItem("Storage:", r.storageModeRadio()),
+			widget.NewFormItem("NTP servers:", ntpEntry),
 			widget.NewFormItem("Theme:", r.themeButtons()),
 		),
 		container.NewCenter(
@@ -35,6 +41,25 @@ func (r *Regatta) configContent() *fyne.Container {
 			}),
 		),
 	)
+}
+
+// storageModeRadio - cloud vs SMB selector for how the app watches the shared
+// regattaData tree and orders NTP servers. The value takes effect when the
+// watcher and time sync are constructed at startup, so a mid-session change
+// applies on the next launch.
+func (r *Regatta) storageModeRadio() *widget.RadioGroup {
+	prefs := r.App.Preferences()
+	rg := widget.NewRadioGroup(
+		[]string{common.StorageModeCloud, common.StorageModeSMB},
+		func(selected string) {
+			if selected != common.EmptyString {
+				prefs.SetString(common.PrefStorageMode, selected)
+			}
+		},
+	)
+	rg.Horizontal = true
+	rg.SetSelected(string(watcher.ParseMode(prefs.String(common.PrefStorageMode))))
+	return rg
 }
 
 func (r *Regatta) regattaDir() *fyne.Container {

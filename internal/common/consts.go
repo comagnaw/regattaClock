@@ -4,12 +4,20 @@ const (
 	AppTitle    = "Regatta Clock"
 	AppBundleID = "com.github.comagnaw.regattaClock"
 
-	PrefRegattaDir = "RegattaDir"
-	PrefTheme      = "Theme"
-	PrefLight      = "Light"
-	PrefDark       = "Dark"
-	PrefDebug      = "Debug"
-	PrefLogging    = "Logging"
+	PrefRegattaDir  = "RegattaDir"
+	PrefTheme       = "Theme"
+	PrefLight       = "Light"
+	PrefDark        = "Dark"
+	PrefDebug       = "Debug"
+	PrefLogging     = "Logging"
+	PrefStorageMode = "StorageMode"
+	PrefNTPServers  = "NTPServers"
+
+	// StorageModeCloud / StorageModeSMB are the PrefStorageMode values. They
+	// must stay equal to watcher.ModeCloud / watcher.ModeSMB (asserted by a test
+	// in the watcher package); common stays a leaf and cannot import watcher.
+	StorageModeCloud = "cloud"
+	StorageModeSMB   = "smb"
 
 	RegattaDataDir = "regattaData"
 

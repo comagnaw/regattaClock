@@ -18,9 +18,12 @@ func main() {
 	defer applog.Close()
 
 	// Measure this machine's clock offset in the background so the finish
-	// timer's cross-machine winning-time math can be corrected. Phase 4b feeds
-	// it PrefNTPServers / PrefStorageMode; for now it uses the public defaults.
-	timesync.Start(context.Background(), timesync.Config{})
+	// timer's cross-machine winning-time math can be corrected. PrefNTPServers
+	// overrides the public default list (blank = defaults); under smb mode the
+	// operator puts the LAN NTP host first. Read once at startup.
+	timesync.Start(context.Background(), timesync.Config{
+		Servers: timesync.ParseServers(prefs.String(common.PrefNTPServers)),
+	})
 	defer timesync.Stop()
 
 	regattaApp := regatta.NewRegatta(fyneApp)
