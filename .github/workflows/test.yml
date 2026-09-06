@@ -63,10 +63,15 @@ jobs:
           go-version: '1.27.1'
 
       # Fyne links GLFW via CGO; Windows runners need a gcc toolchain.
+      # Avoid egor-tensin/setup-mingw: its post-install cleanup breaks on current mingw packages.
       - name: Install MinGW
-        uses: egor-tensin/setup-mingw@v2
-        with:
-          platform: x64
+        shell: pwsh
+        run: |
+          choco install mingw -y --no-progress
+          $mingwBin = "C:\ProgramData\mingw64\mingw64\bin"
+          $mingwBin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          $env:PATH = "$mingwBin;$env:PATH"
+          gcc --version
 
       - name: Run tests
         run: go test ./internal/...
