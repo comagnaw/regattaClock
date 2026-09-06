@@ -54,14 +54,19 @@ func (r *Regatta) newRaceRow(race reader.RaceData) *raceRow {
 
 	switch r.session.Role {
 	case persona.RoleStart:
+		// Three fixed columns so rows line up regardless of content: the race
+		// title (right-aligned toward the buttons), the Start / Clear / Restore
+		// buttons in their own equal cells, then the collected time
+		// (right-aligned). Restore keeps its cell when hidden, so the time
+		// never shifts as it appears and disappears.
+		row.title.Alignment = fyne.TextAlignTrailing
 		row.startTime = widget.NewLabel(common.NoStartTimeText)
+		row.startTime.Alignment = fyne.TextAlignTrailing
 		row.startBtn = widget.NewButton(common.StartTimeButtonText, func() { r.recordStart(n) })
 		row.clearBtn = widget.NewButton(common.ClearButtonText, func() { r.clearStart(n) })
 		row.restoreBtn = widget.NewButton(common.RestoreButtonText, func() { r.restoreStart(n) })
-		row.root = container.NewHBox(
-			row.title, layout.NewSpacer(),
-			row.startTime, row.startBtn, row.clearBtn, row.restoreBtn,
-		)
+		buttons := container.NewGridWithColumns(3, row.startBtn, row.clearBtn, row.restoreBtn)
+		row.root = container.NewGridWithColumns(3, row.title, buttons, row.startTime)
 
 	case persona.RoleFinish:
 		row.startTime = widget.NewLabel(common.WaitingForStartText)
