@@ -4,7 +4,7 @@ Analysis and recommendation for OS-agnostic, syslog-style troubleshooting logs g
 
 ## Short answer
 
-Use Go's standard `log/slog` with a **text handler** writing **append-only files under `regattaData/logs/`**, one file per persona session path, gated by `PrefLogging`. Do **not** use the Windows Event Log. Keep the hot path non-blocking with a buffered async writer. Log user actions, NTP measure/drift, and watcher *content changes* — not every poll tick.
+Use Go's standard `log/slog` with a **JSON handler** writing **append-only files under `regattaData/logs/`**, one file per persona session path, gated by `PrefLogging`. Do **not** use the Windows Event Log. Keep the hot path non-blocking with a buffered async writer. Every line carries stable identity fields (`persona`, `team`, `role`, `machine`, …). Log user actions, NTP measure/drift, and watcher *content changes* — not every poll tick.
 
 ## 1. What already exists
 
@@ -16,27 +16,23 @@ Use Go's standard `log/slog` with a **text handler** writing **append-only files
 
 You already dislike it, and it also fails the OS-agnostic requirement. Event Log is Windows-only, needs different APIs, is awkward to collect from a spare timing PC mid-regatta, and is a poor fit for "email me the log from the Finish Timer laptop." A plain text file next to the race data is what officials can actually attach to a bug report.
 
-## 3. Syslog *style*, not a syslog *daemon*
+## 3. JSON lines (syslog *ideas*, JSON *shape*)
 
-"Syslog style" usually means:
+"Syslog style" here means the operational habits — one event per line, severity, timestamp, component — not RFC5424 text or a remote syslog daemon. For analysis, **JSON Lines** (NDJSON: one JSON object per line) is the better on-disk format: `jq`, Python, Excel Power Query, and most log tools ingest it cleanly.
 
-- One line per event
-- Timestamp, severity, facility/component, message
-- Optionally `key=value` structured fields
+**`log/slog` supports JSON natively** via `slog.JSONHandler`. No extra dependency. Example line:
 
-It does **not** require talking to `rsyslog`, `syslogd`, or UDP 514. Shipping to a remote syslog server would add network failure modes on race day and is overkill for four laptops.
-
-**Recommendation:** syslog-*shaped* lines on disk via `log/slog`, which is in the Go standard library since 1.21 and needs no new dependency:
-
-```text
-time=2026-09-06T14:03:11.452-04:00 level=INFO msg="button click" component=race_tree persona=pst team=primary action=start_time race=12 display=14:03:11.4
-time=2026-09-06T14:03:12.001-04:00 level=INFO msg="watcher change" component=watcher path=timing/primary/start.json sequence=41
-time=2026-09-06T14:05:00.120-04:00 level=INFO msg="ntp measure" component=timesync source=192.168.1.10 offset_ms=12 rtt_ms=3
+```json
+{"time":"2026-09-06T14:03:11.452-04:00","level":"INFO","msg":"button click","persona":"pst","team":"primary","role":"start","machine":"DESKTOP-A1B2C3","component":"race_tree","action":"start_time","race":12,"display":"14:03:11.4"}
 ```
 
-That is human-grepable, machine-parseable, and familiar if you live in syslog land. If you later want true RFC5424, you can wrap the same events; do not start there.
+```json
+{"time":"2026-09-06T14:05:00.120-04:00","level":"INFO","msg":"ntp measure","persona":"pst","team":"primary","role":"start","machine":"DESKTOP-A1B2C3","component":"timesync","source":"192.168.1.10","offset_ms":12,"rtt_ms":3}
+```
 
-`slog.TextHandler` is the right default. `slog.JSONHandler` is better for log pipelines and worse for a coach reading a file on a phone — prefer text unless you know you will ingest these into something else.
+Shipping to a remote syslog server (UDP 514) remains optional later and is a poor default on race day.
+
+Prefer `slog.JSONHandler` over `slog.TextHandler`. Text is nicer for eyeballing a single file; JSON is nicer once you are correlating four personas' logs after a bad race — which is the actual troubleshooting workflow.
 
 ## 4. Where the files should live
 
@@ -50,16 +46,20 @@ regattaData/
 ├── timing/
 └── logs/
     ├── primary/
-    │   ├── start.log      # Primary ST writes
-    │   └── finish.log     # Primary FT writes
+    │   ├── start-DESKTOP-A1B2C3.log      # Primary ST on that host
+    │   └── finish-LAPTOP-XYZ.log        # Primary FT on that host
     ├── secondary/
-    │   ├── start.log
-    │   └── finish.log
+    │   ├── start-DESKTOP-A1B2C3.log
+    │   └── finish-LAPTOP-XYZ.log
     └── director/
-        └── director.log   # RD writes
+        └── director-DESKTOP-RD01.log
 ```
 
-Path mirrors the timing ownership model: each persona appends only to its own log. Hostnames can appear *inside* log lines (`machine=DESKTOP-ABC`) rather than in the filename, so a restart on the same persona does not proliferate files.
+Pattern: `logs/<team>/<role>-<hostname>.log` (director: `logs/director/director-<hostname>.log`).
+
+**Hostname in the filename and on every JSON line.** The file name prevents two machines that somehow claim the same persona/team from appending to one file (the same class of failure that produces OneDrive conflict copies on timing data). The JSON `machine` field still appears on every line so a concatenated or renamed file remains self-describing for analysis.
+
+Sanitize the hostname the same way as other Windows filenames (`sanitizeForFilename`) so characters illegal in paths cannot break log creation.
 
 ### Why not a single shared `regattaClock.log`
 
@@ -140,14 +140,26 @@ package applog
 
 func Init(enabled bool)                          // from PrefLogging at startup / on toggle
 func SetOutput(path string) error                // after persona + regattaData resolved
-func With(attrs ...any) *slog.Logger             // persona, team, machine, role
+func SetIdentity(persona, team, role, machine string) // fixed attrs on every subsequent line
+func With(attrs ...any) *slog.Logger             // extra attrs for a subsystem
 func Info(msg string, args ...any)
 func Warn(msg string, args ...any)
 func Error(msg string, args ...any)
 func Close()                                     // flush on shutdown
 ```
 
-Call sites stay thin:
+**Identity fields on every line** (set once via `Logger.With` / `SetIdentity` when the session is known — do not repeat them at each call site):
+
+| Field | Example | Source |
+|-------|---------|--------|
+| `persona` | `pst`, `pft`, `sft`, `rd` | `persona.Definition.ID` |
+| `team` | `primary`, `secondary`, `""` for RD | `persona.Team` |
+| `role` | `start`, `finish`, `director` | `persona.Role` |
+| `machine` | `DESKTOP-A1B2C3` | `os.Hostname()` |
+
+Also useful as session defaults (same mechanism): `regatta_key` (short), `storage_mode` (`onedrive` \| `smb`).
+
+Call sites stay thin and only add event-specific keys:
 
 ```go
 applog.Info("button click", "component", "race_tree", "action", "start_time", "race", n, "display", display)
@@ -155,13 +167,13 @@ applog.Info("ntp measure", "component", "timesync", "source", src, "offset_ms", 
 applog.Info("watcher change", "component", "watcher", "path", rel, "sequence", seq)
 ```
 
-Always attach stable fields on the session logger: `persona`, `team`, `role`, `machine`, `regatta_key` (short), `storage_mode`. That makes grepping across collected files easy.
+Implementation sketch: `slog.New(slog.NewJSONHandler(asyncWriter, &slog.HandlerOptions{Level: slog.LevelInfo}))`, then `logger = logger.With("persona", id, "team", team, "role", role, "machine", host)`. That is exactly what `slog` is for — child loggers inherit attrs without per-call boilerplate.
 
 ## 8. Lifecycle relative to PrefLogging
 
 1. App starts → read `PrefLogging`. If false, `Init(false)` and return.
 2. If true, buffer to memory until `regattaData` + persona are known.
-3. Create `logs/<team>/<role>.log` (or `logs/director/director.log`), `SetOutput`, flush buffer.
+3. Create `logs/<team>/<role>-<hostname>.log` (or `logs/director/director-<hostname>.log`), `SetOutput`, flush buffer.
 4. If the user toggles Logging off in config mid-session, close the file and switch to discard (no restart required).
 5. If they toggle on mid-session and a root exists, open the file and continue.
 
@@ -173,20 +185,23 @@ Creating `logs/` is the persona's responsibility on first write, same as creatin
 |----------|---------|
 | Windows Event Log | Rejected — not OS-agnostic; hard to collect |
 | Remote syslog (UDP/TCP) | Optional later; race-day network is already fragile |
-| Third-party zap/zerolog | Unnecessary; `slog` is enough |
+| Third-party zap/zerolog | Unnecessary; `slog` + `JSONHandler` is enough |
+| `slog.TextHandler` (key=value) | Fine for eyeballing; worse for multi-file analysis — prefer JSON |
 | Console-only | Useless on a Fyne GUI release build |
 | Logs only in AppData | Easy I/O, poor cross-machine troubleshooting |
 | One shared log file in `regattaData` | Multi-writer hazard on OneDrive/SMB |
-| Per-persona files under `regattaData/logs/` | **Recommended** |
+| Per-persona file without hostname | Safer, but two hosts claiming the same persona/team still collide |
+| Per-persona **and** per-host files under `regattaData/logs/` | **Recommended** — filename isolates writers; JSON `machine` still on every line |
 
 ## 10. Recommendation
 
 1. Gate everything on existing **`PrefLogging`**.
-2. Implement **`internal/applog`** with `slog` text handler + async append writer.
-3. Write to **`regattaData/logs/<team>/<role>.log`** (plus director), same ownership model as timing files.
-4. Log **clicks, NTP measure/drift, watcher content changes, store hydrate/write errors** — not poll heartbeats.
-5. Ensure the **watcher ignores `logs/`**.
-6. Keep logging **best-effort**: never block or fail the timing path because a log write failed.
+2. Implement **`internal/applog`** with `slog.JSONHandler` + async append writer.
+3. Put **`persona`, `team`, `role`, and `machine` on every line** via `logger.With` at session start.
+4. Write to **`regattaData/logs/<team>/<role>-<hostname>.log`** (plus `director-<hostname>.log`), so two hosts cannot share one log file even if they claim the same persona.
+5. Log **clicks, NTP measure/drift, watcher content changes, store hydrate/write errors** — not poll heartbeats.
+6. Ensure the **watcher ignores `logs/`**.
+7. Keep logging **best-effort**: never block or fail the timing path because a log write failed.
 
 ## 11. Fit with the persona plan
 
