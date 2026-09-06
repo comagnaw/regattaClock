@@ -5,6 +5,7 @@ go 1.26.0
 require (
 	fyne.io/fyne/v2 v2.8.1
 	github.com/beevik/ntp v1.5.0
+	github.com/fsnotify/fsnotify v1.10.1
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/xuri/excelize/v2 v2.11.0
 	golang.org/x/sys v0.47.0
@@ -16,7 +17,6 @@ require (
 	github.com/FyshOS/fancyfs v0.0.1 // indirect
 	github.com/anthonynsimon/bild v0.17.0 // indirect
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
-	github.com/fsnotify/fsnotify v1.10.1 // indirect
 	github.com/fyne-io/gl-js v0.2.1-0.20260315212741-029c47fd27e8 // indirect
 	github.com/fyne-io/glfw-js v0.4.0 // indirect
 	github.com/fyne-io/image v0.1.1 // indirect
