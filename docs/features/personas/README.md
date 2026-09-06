@@ -5,6 +5,7 @@ High-level requirements for multi-persona operation of Regatta Clock.
 **Related docs in this directory**
 
 - [persona-plan.md](persona-plan.md) — implementation plan
+- [schedule-data-model.md](schedule-data-model.md) — slim `regattaSchedule.json` vs start/finish SoT
 - [logging-options.md](logging-options.md) — JSON event logging design
 - [shared-storage-options.md](shared-storage-options.md) — SMB / spare-PC vs cloud sync
 
@@ -34,9 +35,10 @@ Primary and secondary are independent ST/FT pairings for the same regatta. Timin
 
 ### Regatta Director (RD)
 
-- **Does:** Load / refresh schedule from Excel into shared data; establish `regattaData`; view live progress (restarts, start time, winning time, approval); export (e.g. lane images); read all timing data.
-- **Does not:** Time races; write start times or finish results.
+- **Does:** Load / refresh schedule from an **origin** (Excel today; future web API) into `regattaSchedule.json`; establish `regattaData`; notice when the origin fingerprint changes and **Apply** updates on confirmation; view live progress (restarts, start time, winning time, approval); export (e.g. lane images); read all timing data.
+- **Does not:** Time races; write start times or finish results; silently overwrite the schedule without confirmation while racing is underway.
 - **Entry:** Separate director entry point (not the timer picker).
+- **Constraint:** Timers consume only `regattaSchedule.json`, never the origin. That keeps a future Excel → API pivot inside the RD/reader layer.
 
 ### Start Timer (ST)
 

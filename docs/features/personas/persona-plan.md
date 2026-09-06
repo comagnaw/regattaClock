@@ -95,9 +95,57 @@ Two changes to what exists today:
 - Today's `regattaData/data.json` becomes `regattaData/director/regattaSchedule.json`. The name is intentional: this file is the race **schedule** (title, date, lanes, flights), not timing results. Rename the constant `common.RegattaDataFile` → `common.RegattaScheduleFile` (`"regattaSchedule.json"`). The RD startup path migrates once: if `regattaData/data.json` or an interim `director/data.json` exists and `director/regattaSchedule.json` does not, move/rename into the new path.
 - **The `results/` directory goes away.** `changeCallBack` in [internal/regatta/config.go](internal/regatta/config.go) currently creates `regattaData/results/` and nothing ever writes to it — lane-image export targets a separately chosen folder. With results living in `timing/<team>/finish.json`, that `CreateDirs` call and the `common.ResultsDir` constant should be removed rather than left as a misleading empty directory in everyone's synced folder. The directory creation that replaces it is the RD creating `director/`, and each timer creating its own `timing/<team>/` on first write.
 
+## 3b. Schedule origin refresh (RD only)
+
+Yes — the RD should notice when the **origin** of the schedule changes (lane reassignments, SCRATCHED boats). No — it should **not** silently rewrite `regattaSchedule.json` the moment Excel (or a future API) changes.
+
+### Why not silent auto-apply
+
+- Mid-regatta overwrites can collide with races already started or finished: ST has a start time for a lane that the new sheet scratched; FT has results for a school that moved lanes.
+- Excel is a hostile watch target while open: lock files (`~$…`), temp saves, and cloud sync of `.xlsx` produce noisy or partial reads.
+- Timing data lives in separate files; blindly replacing the schedule does not update those, so the UI can show a new lane map against old start times unless merge rules are explicit.
+
+### Recommended behaviour: detect → prompt → apply
+
+1. **Watch the origin for change, not for content.** For Excel today that means polling the source file’s identity (`SourceInfo.Hash`, already computed via `filesystem.FileHash`) on a modest interval (e.g. 30–60s), not parsing the workbook on every tick. When the hash differs from `regattaSchedule.json`’s stored `SourceInfo.Hash`, surface a persistent RD banner: “Schedule origin has changed.”
+2. **RD chooses Apply (or Dismiss).** Apply re-reads the origin through `internal/reader`, writes a new `regattaSchedule.json`, and refreshes the RD tree. Timers pick up the new schedule via the existing `regattaSchedule.json` watcher (they already load schedule from that file).
+3. **Always keep a manual “Reload schedule”** menu/button that does the same Apply path without waiting for detection — covers the case where the RD knows IT just published a new sheet.
+4. **On Apply, show a short summary** (races added/removed, lanes changed, scratches) and warn if any changed race already has start or finish data in the timing files. Do not wipe `start.json` / `finish.json`. Leave conflict resolution to the RD (and later reconciliation); the schedule update is authoritative for *entries*, not for *times*.
+
+### Keep Excel out of the long-term core: origin adapter
+
+`internal/reader` already has a `sourceData` interface used by Excel. Treat schedule ingest as:
+
+```go
+// conceptual — lives with reader, not persona/store
+type ScheduleOrigin interface {
+    // Fingerprint returns a cheap identity for "did the origin change?"
+    // Excel: content hash (or size+mtime as a weak pre-check).
+    // Future API: ETag / Last-Modified / version field from the response.
+    Fingerprint() (string, error)
+
+    // Load returns a full RegattaData snapshot from the origin.
+    Load() (*RegattaData, error)
+}
+```
+
+- **Today:** Excel path + hash (what `ReadExcelFile` / `SourceInfo` already approximate).
+- **Later:** API origin with URI + API key (prefs or director-only config). Same RD UX: detect fingerprint change → prompt → Apply → `regattaSchedule.json`.
+- **`regattaSchedule.json` remains the shared contract** for all personas. Timers never talk to Excel or the API; only the RD’s origin adapter does. That is what keeps a future API pivot from rewriting ST/FT.
+
+Do **not** build the API client in the first persona ship. Do **preserve** `SourceInfo.Type` / `URI` / `Hash` (or generalize Hash → Fingerprint) so the detector works for any origin.
+
+### Scope for phase planning
+
+- Persona ship: RD fingerprint poll + banner + Apply / Reload schedule → rewrite `regattaSchedule.json`.
+- Later: `ScheduleOrigin` implementation for HTTP API; RD config for endpoint + API key.
+- Optional later: “safe merge” that auto-applies only races with no timing data — not required for v1 if Apply is one click.
+
 ## 4. Data model
 
-New package `internal/persona/store` holding the on-disk types and their read/write functions. Keeping them out of `internal/reader` matters — `reader` is about Excel ingestion, and these types are about multi-writer state.
+**Schedule vs timing ownership is assessed in [schedule-data-model.md](schedule-data-model.md).** In short: `regattaSchedule.json` keeps only regatta meta + `RaceNumber` + class/flight + lane school assignments. `Place` / `Split` / `Time` / `Saved` / `Approved` leave the schedule file; FT owns them in `finish.json`. Join key across files: regatta identity + `RaceNumber`.
+
+New package `internal/persona/store` holding the on-disk types and their read/write functions. Keeping them out of `internal/reader` matters — `reader` is about origin ingestion, and these types are about multi-writer state. Schedule persistence should use a slim schedule type (see schedule-data-model), not the historical “everything in RegattaData” blob.
 
 Two notes on the package layout, since `store` sits under `persona`:
 
@@ -569,13 +617,13 @@ Each phase compiles, passes tests, and leaves the app usable.
 1a. **`internal/applog` (foundational)** — wire `PrefLogging` / `PrefDebug` to `slog.JSONHandler` + async file writer; identity attrs API; no-op when Logging off. Lands *before* timesync/watcher/UI so those phases log as they are built rather than in a retrofit pass. Detail in section 6c and [logging-options.md](logging-options.md).
 1b. **`internal/timesync`** — SNTP offset measurement via `github.com/beevik/ntp`, configurable server list (LAN NTP first under `smb` mode), median of several servers, background re-query, and a `Now()` returning the corrected time plus its `ClockRef`. Emit INFO/WARN/ERROR via `applog`.
 2. **Persona registry** — `internal/persona` with the registry (`TeamExecutive` for RD), challenge check, and path helpers. Pure logic, fully unit-testable.
-3. **Layout and store types** — `internal/persona/store` types, read/write functions, `director/regattaSchedule.json` migration. Log hydrate/write success and ERROR on failure.
+3. **Layout and store types** — `internal/persona/store` types; slim `regattaSchedule.json` per [schedule-data-model.md](schedule-data-model.md); migration from `data.json`; log hydrate/write success and ERROR on failure.
 4. **Watcher** — `internal/watcher` with mode-selected backends (`cloud` poll vs `smb` notify-with-poll-fallback), vendor-agnostic conflict-copy detection only in cloud mode; ignore `logs/`; log content changes at INFO.
 4b. **Storage mode preferences** — `PrefStorageMode` (`cloud` \| `smb`) and `PrefNTPServers` on the config screen; wire them into watcher construction and timesync.
 5. **Timer startup flow** — picker, challenge, directory validation, confirmation, hydration; `applog.SetOutput` + `SetIdentity` once session root is known. Delete `setupStartupDialog`.
 6. **Role-aware race tree** — Start Time / Clear / Restore for ST, progress indicators for FT and RD, in-place watcher refresh; log button actions at INFO.
 7. **Clock integration** — derived winning time, save on approve/save, rehydration, skew warnings; log clock actions and ERROR on save failure.
-8. **Director binary** — `cmd/regattaDirector`, its read-only progress tree wired to the watcher over all four timing files, release packaging, and primary-vs-secondary reconciliation for export; executive-team log path.
+8. **Director binary** — `cmd/regattaDirector`, read-only progress tree, **schedule origin fingerprint poll + Apply/Reload** (section 3b), release packaging, and primary-vs-secondary reconciliation for export; executive-team log path.
 
 ## 11. Testing
 
@@ -645,5 +693,6 @@ The app supports two **transport** modes, not two cloud vendors. Prefer the spar
 - **Cross-team fallback.** If the primary ST never records a start time, should the primary FT be able to fall back to the secondary team's `start.json`? Useful in practice, but it silently crosses the primary/secondary boundary, so it likely needs an explicit user confirmation rather than an automatic fallback.
 - **Reconciliation.** When both teams time the same regatta, the RD needs a way to compare primary and secondary results and choose the authoritative set before export. Scoped into phase 8, but the UI for it is undesigned.
 - **Challenge codes in source.** Fine for now per the requirements. If the codes ever need to change without a release, they move to a file the RD writes into `regattaData/director/`, which stays consistent with the one-writer-per-file rule.
-- **Local write-ahead journal.** [shared-storage-options.md](shared-storage-options.md) recommends journaling collected values locally before writing to the shared path, so an SMB outage (or OneDrive stall) does not block collection. Valuable for both modes; not required for the first ship of personas.
+- **Schedule API origin.** HTTP `ScheduleOrigin` with URI + API key for the RD. Fingerprint via ETag/version; same detect → Apply UX as Excel. Not part of the first persona ship; keep `SourceInfo` / fingerprint fields ready.
+- **Local write-ahead journal.** [shared-storage-options.md](shared-storage-options.md) recommends journaling collected values locally before writing to the shared path, so an SMB outage (or cloud sync stall) does not block collection. Valuable for both modes; not required for the first ship of personas.
 - **Log rotation / support zip.** Optional later: size-based rotate and a Director "collect logs" action. Not required for first ship once section 6c is in.
