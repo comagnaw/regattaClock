@@ -4,7 +4,20 @@ Adopted into [persona-plan.md](persona-plan.md) as **section 6c** and **phase 1a
 
 ## Short answer
 
-Use Go's standard `log/slog` with a **JSON handler** writing **append-only files under `regattaData/logs/`**, one file per persona+host, gated by `PrefLogging`. Handler level is `INFO` when Logging is on (so **INFO, WARN, and ERROR** are written); lower to `DEBUG` only when **both** Logging and Debug are on. Do **not** use the Windows Event Log. Keep the hot path non-blocking with a buffered async writer. Every line carries stable identity fields (`persona`, `team`, `role`, `machine`, …). Existing handled failures are logged at **ERROR**. Log user actions, NTP measure/drift, and watcher *content changes* at INFO — not every poll tick (those are DEBUG).
+Use Go's standard `log/slog` with a **JSON handler** writing **append-only files under `regattaData/logs/`**, one file per persona+host, gated by `PrefLogging`. Handler level is `INFO` when Logging is on (so **INFO, WARN, and ERROR** are written); lower to `DEBUG` only when **both** Logging and Debug are on. Do **not** use the Windows Event Log. Keep the hot path non-blocking with a buffered async writer. Every line carries stable identity fields (`persona_id`, `team`, `role`, `machine`, …). Existing handled failures are logged at **ERROR**. Log user actions, NTP measure/drift, and watcher *content changes* at INFO — not every poll tick (those are DEBUG).
+
+### Naming alignment with `internal/persona`
+
+The short codes `pst`, `sst`, `pft`, `sft`, `rd` are **`Definition.ID`** in source. Do **not** name a struct field `Persona` inside package `persona` (collides with the package name and reads as `persona.Persona`).
+
+| Concept | Go (`internal/persona`) | JSON log attr |
+|---------|-------------------------|---------------|
+| Stable short code | `Definition.ID` | `persona_id` |
+| Timing side / director | `Definition.Role` / `persona.Role` | `role` |
+| Primary / secondary / executive | `Definition.Team` / `persona.Team` | `team` |
+| Host | (from `os.Hostname()`) | `machine` |
+
+So the log field is explicitly the persona **id**, matching `Definition.ID`, without overloading the word “persona” as a field name in Go.
 
 ## 1. What already exists
 
@@ -40,11 +53,11 @@ You already dislike it, and it also fails the OS-agnostic requirement. Event Log
 **`log/slog` supports JSON natively** via `slog.JSONHandler`. No extra dependency. Example line:
 
 ```json
-{"time":"2026-09-06T14:03:11.452-04:00","level":"INFO","msg":"button click","persona":"pst","team":"primary","role":"start","machine":"DESKTOP-A1B2C3","component":"race_tree","action":"start_time","race":12,"display":"14:03:11.4"}
+{"time":"2026-09-06T14:03:11.452-04:00","level":"INFO","msg":"button click","persona_id":"pst","team":"primary","role":"start","machine":"DESKTOP-A1B2C3","component":"race_tree","action":"start_time","race":12,"display":"14:03:11.4"}
 ```
 
 ```json
-{"time":"2026-09-06T14:05:00.120-04:00","level":"INFO","msg":"ntp measure","persona":"pst","team":"primary","role":"start","machine":"DESKTOP-A1B2C3","component":"timesync","source":"192.168.1.10","offset_ms":12,"rtt_ms":3}
+{"time":"2026-09-06T14:05:00.120-04:00","level":"INFO","msg":"ntp measure","persona_id":"pst","team":"primary","role":"start","machine":"DESKTOP-A1B2C3","component":"timesync","source":"192.168.1.10","offset_ms":12,"rtt_ms":3}
 ```
 
 Shipping to a remote syslog server (UDP 514) remains optional later and is a poor default on race day.
@@ -169,7 +182,7 @@ package applog
 
 func Init(loggingEnabled, debugEnabled bool)     // PrefLogging + PrefDebug → handler Level
 func SetOutput(path string) error                // after persona + regattaData resolved
-func SetIdentity(persona, team, role, machine string) // fixed attrs on every subsequent line
+func SetIdentity(personaID, team, role, machine string) // fixed attrs; personaID == Definition.ID
 func SetLevel(loggingEnabled, debugEnabled bool) // if prefs toggled mid-session
 func With(attrs ...any) *slog.Logger             // extra attrs for a subsystem
 func Debug(msg string, args ...any)              // only reaches disk when Debug on
@@ -195,7 +208,7 @@ When `loggingEnabled` is false, use `slog.DiscardHandler` (or a no-op) regardles
 
 | Field | Example | Source |
 |-------|---------|--------|
-| `persona` | `pst`, `pft`, `sft`, `rd` | `persona.Definition.ID` |
+| `persona_id` | `pst`, `pft`, `sft`, `rd` | `persona.Definition.ID` |
 | `team` | `primary`, `secondary`, `executive` | `persona.Team` (`TeamExecutive` for RD) |
 | `role` | `start`, `finish`, `director` | `persona.Role` |
 | `machine` | `DESKTOP-A1B2C3` | `os.Hostname()` |
@@ -210,7 +223,7 @@ applog.Info("ntp measure", "component", "timesync", "source", src, "offset_ms", 
 applog.Info("watcher change", "component", "watcher", "path", rel, "sequence", seq)
 ```
 
-Implementation sketch: `slog.New(slog.NewJSONHandler(asyncWriter, &slog.HandlerOptions{Level: slog.LevelInfo}))`, then `logger = logger.With("persona", id, "team", team, "role", role, "machine", host)`. That is exactly what `slog` is for — child loggers inherit attrs without per-call boilerplate.
+Implementation sketch: `slog.New(slog.NewJSONHandler(asyncWriter, &slog.HandlerOptions{Level: slog.LevelInfo}))`, then `logger = logger.With("persona_id", def.ID, "team", def.Team, "role", def.Role, "machine", host)`. That is exactly what `slog` is for — child loggers inherit attrs without per-call boilerplate.
 
 ## 8. Lifecycle relative to PrefLogging
 
@@ -241,7 +254,7 @@ Creating `logs/` is the persona's responsibility on first write, same as creatin
 1. Gate file creation on **`PrefLogging`**. Use **`PrefDebug` only to lower the handler level to DEBUG**.
 2. Implement **`internal/applog`** with `slog.JSONHandler` + async append writer; every event uses an explicit severity.
 3. When Logging is on: always emit **INFO and ERROR** (and WARN). When Debug is also on: include **DEBUG**.
-4. Put **`persona`, `team`, `role`, and `machine` on every line** via `logger.With` at session start.
+4. Put **`persona_id`, `team`, `role`, and `machine` on every line** via `logger.With` at session start (`persona_id` = `Definition.ID`).
 5. Write to **`regattaData/logs/<team>/<role>-<hostname>.log`** (RD: `logs/executive/director-<hostname>.log`).
 6. Mirror existing handled failures as **ERROR** log lines (same `err` the UI already surfaces).
 7. Ensure the **watcher ignores `logs/`**.

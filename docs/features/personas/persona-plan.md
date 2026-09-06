@@ -504,7 +504,7 @@ Reuse the existing config checkboxes in [internal/regatta/config.go](internal/re
 
 - Package **`internal/applog`**: `slog.JSONHandler`, async append writer (never block Start/Lap on disk), best-effort on write failure.
 - Path: **`regattaData/logs/<team>/<role>-<hostname>.log`** (RD: `logs/executive/director-<hostname>.log`). Hostname in the filename *and* as JSON field `machine`.
-- Fixed attrs on every line via `logger.With`: `persona`, `team`, `role`, `machine` (plus `regatta_key`, `storage_mode` when known).
+- Fixed attrs on every line via `logger.With`: `persona_id`, `team`, `role`, `machine` (plus `regatta_key`, `storage_mode` when known). `persona_id` == `Definition.ID` (do not name a Go field `Persona` in package `persona`).
 - **INFO** — button clicks, NTP measure success, watcher content changes, hydrate/save success, challenge/directory confirm.
 - **WARN** — large NTP offset, NTP `none`, conflict copy, non-fatal read issues.
 - **ERROR** — any failure already shown in UI or returned as `error` (same `err` in the log line).
@@ -533,7 +533,7 @@ const (
 )
 
 type Definition struct {
-	ID        string // "pst", "sst", "pft", "sft", "rd"
+	ID        string // "pst", "sst", "pft", "sft", "rd" — stable code; log attr persona_id
 	Role      Role
 	Team      Team
 	Label     string // "Primary Start Timer"
@@ -554,6 +554,8 @@ var DirectorDefinition = Definition{
 	ID: "rd", Role: RoleDirector, Team: TeamExecutive, Label: "Regatta Director", Challenge: "rc-rd", File: "",
 }
 ```
+
+Do **not** add a field named `Persona` on this type (package is already `persona`; use `ID`). Logs use JSON key `persona_id` for the same value — see [logging-options.md](logging-options.md).
 
 There is no empty/`TeamNone` team. The RD belongs to **`TeamExecutive`**, which is reserved for non-timing official personas (today only the Director; easy to extend later without inventing a second "no team" sentinel).
 
