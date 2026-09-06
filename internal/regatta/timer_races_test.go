@@ -156,6 +156,20 @@ func TestRestoreRecoversValueAndOriginalClockRef(t *testing.T) {
 	}
 }
 
+func TestRestoreAlwaysConfirmsFirst(t *testing.T) {
+	r, _, _ := startedTimer(t, "pst")
+	r.recordStart(1)
+	r.clearStartConfirmed(1) // row now blank, one cleared entry
+	clearedLen := len(r.startLog.Races[1].Cleared)
+
+	r.restoreStart(1) // shows a confirmation; must not mutate until answered
+
+	rec := r.startLog.Races[1]
+	if rec.StartedAt != nil || len(rec.Cleared) != clearedLen {
+		t.Errorf("restoreStart changed state before confirmation: %+v", rec)
+	}
+}
+
 func TestClearedHistoryCapsAtMax(t *testing.T) {
 	r, _, _ := startedTimer(t, "pst")
 

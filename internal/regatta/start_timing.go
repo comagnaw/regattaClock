@@ -87,23 +87,26 @@ func (r *Regatta) clearStartConfirmed(n int) {
 }
 
 // restoreStart pops the most recently cleared start time back onto race n,
-// together with the clock offset that was in force when it was captured. If a
-// newer time already exists it prompts first, since restoring would replace it.
+// together with the clock offset that was in force when it was captured. It
+// always confirms first, naming the value being restored (and the current one
+// it would replace, if a newer time was recorded since the clear).
 func (r *Regatta) restoreStart(n int) {
 	rec := r.startLog.Races[n]
 	if len(rec.Cleared) == 0 {
 		return
 	}
+	previous := rec.Cleared[len(rec.Cleared)-1].Display
+
+	msg := fmt.Sprintf(common.RestoreStartPlainMessage, previous, n)
 	if rec.StartedAt != nil {
-		dialog.ShowConfirm(common.RestoreStartTitle, fmt.Sprintf(common.RestoreStartMessage, n),
-			func(yes bool) {
-				if yes {
-					r.restoreStartConfirmed(n)
-				}
-			}, r.window)
-		return
+		msg = fmt.Sprintf(common.RestoreStartMessage, rec.Display, previous, n)
 	}
-	r.restoreStartConfirmed(n)
+
+	dialog.ShowConfirm(common.RestoreStartTitle, msg, func(yes bool) {
+		if yes {
+			r.restoreStartConfirmed(n)
+		}
+	}, r.window)
 }
 
 func (r *Regatta) restoreStartConfirmed(n int) {
