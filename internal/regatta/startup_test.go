@@ -10,6 +10,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/comagnaw/regattaClock/internal/common"
+	"github.com/comagnaw/regattaClock/internal/persona"
 )
 
 // buttonLabels - collect the button text of the view currently on screen
@@ -112,9 +113,12 @@ func TestStartup_RestoresHistory(t *testing.T) {
 		t.Error("a successful import should leave the welcome view")
 	}
 
-	saved := filepath.Join(regattaDir, common.RegattaDataDir, common.RegattaDataFile)
+	saved := persona.Session{
+		Definition: persona.DirectorDefinition,
+		Root:       filepath.Join(regattaDir, common.RegattaDataDir),
+	}.SchedulePath()
 	if _, err = storage.Exists(storage.NewFileURI(saved)); err != nil {
-		t.Fatalf("expected history at %s: %v", saved, err)
+		t.Fatalf("expected schedule at %s: %v", saved, err)
 	}
 
 	// Restarting reads the history back rather than returning to the welcome view.

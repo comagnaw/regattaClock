@@ -11,9 +11,12 @@ const (
 	PrefDebug      = "Debug"
 	PrefLogging    = "Logging"
 
-	RegattaDataDir  = "regattaData"
-	RegattaDataFile = "data.json"
-	ResultsDir      = "results"
+	RegattaDataDir = "regattaData"
+
+	// LegacyDataFile - the pre-persona single-blob schedule+results file at
+	// regattaData/data.json. Read once by the migration into
+	// director/regattaSchedule.json, then renamed aside.
+	LegacyDataFile = "data.json"
 
 	// LogsDir - subtree of RegattaDataDir holding per-persona event logs
 	// (internal/applog). The persona phases nest this as logs/<team>/<role>-<host>.log;

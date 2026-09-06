@@ -11,7 +11,6 @@ import (
 
 	"github.com/comagnaw/regattaClock/internal/applog"
 	"github.com/comagnaw/regattaClock/internal/common"
-	"github.com/comagnaw/regattaClock/internal/filesystem"
 )
 
 func (r *Regatta) configContent() *fyne.Container {
@@ -83,13 +82,8 @@ func (r *Regatta) changeCallBack() func(fyne.ListableURI, error) {
 		r.startLogging()
 		applog.Info("regatta directory set", "component", "config", "path", regattaDir)
 
-		// Someone reading from a shared regatta directory may not be allowed to
-		// create the results tree. They can still load and time races, so warn
-		// rather than fail.
-		resultsDir := filepath.Join(regattaDir, common.RegattaDataDir, common.ResultsDir)
-		if err = filesystem.CreateDirs(resultsDir); err != nil {
-			r.warnSaveSkipped(err)
-		}
+		// director/ and timing/<team>/ are created on first write by the store,
+		// so nothing needs pre-creating here now that results/ is gone.
 	}
 
 }

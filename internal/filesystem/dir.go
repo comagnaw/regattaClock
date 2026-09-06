@@ -28,6 +28,16 @@ func DirExists(dirPath string) bool {
 	return true
 }
 
+// FileExists reports whether path names an existing regular file. A directory
+// or a stat error other than "not found" returns false.
+func FileExists(path string) bool {
+	info, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return info.Mode().IsRegular()
+}
+
 func ReadDir(dirPath string) ([]fs.DirEntry, error) {
 	if !DirExists(dirPath) {
 		return nil, fmt.Errorf("directory %s does not exist and cannot be read", dirPath)
