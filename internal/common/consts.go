@@ -15,6 +15,11 @@ const (
 	RegattaDataFile = "data.json"
 	ResultsDir      = "results"
 
+	// LogsDir - subtree of RegattaDataDir holding per-persona event logs
+	// (internal/applog). The persona phases nest this as logs/<team>/<role>-<host>.log;
+	// today the single operator writes one flat file here.
+	LogsDir = "logs"
+
 	ResultsSheetName = "Results"
 
 	EmptyString = ""

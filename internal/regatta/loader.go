@@ -7,6 +7,7 @@ import (
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/storage"
 
+	"github.com/comagnaw/regattaClock/internal/applog"
 	"github.com/comagnaw/regattaClock/internal/common"
 	"github.com/comagnaw/regattaClock/internal/reader"
 )
@@ -53,17 +54,21 @@ func (r *Regatta) callback(fromStartup bool) func(fyne.URIReadCloser, error) {
 
 		filePath, err := getFilePath(fileReader)
 		if err != nil {
+			applog.Error("regatta import failed", "component", "loader", "err", err)
 			dialog.ShowError(err, r.window)
 			return
 		}
 
 		if err = r.setRegattaData(filePath); err != nil {
+			applog.Error("regatta import failed", "component", "loader", "path", filePath, "err", err)
 			dialog.ShowError(err, r.window)
 			return
 		}
 
 		r.saveRegattaData()
 
+		applog.Info("regatta imported", "component", "loader",
+			"name", r.RegattaData.Name, "races", r.RegattaData.ScheduledRaces())
 		r.debugLoader()
 		r.refreshContent()
 
@@ -92,11 +97,14 @@ func (r *Regatta) setRegattaData(filePath string) error {
 	return nil
 }
 
-// debugLoader - console debug messages for loader method
+// debugLoader - verbose dump of what was just parsed, emitted only when the
+// Debug preference is on (applog drops it otherwise).
 func (r *Regatta) debugLoader() {
-	fmt.Printf("Debug: Successfully loaded regatta data - %d total races, %d scheduled races\n",
-		len(r.RegattaData.Races), r.RegattaData.ScheduledRaces())
-	fmt.Printf("Debug: Regatta Name: %s\n", r.RegattaData.Name)
-	fmt.Printf("Debug: Regatta Date: %s\n", r.RegattaData.Date)
-	fmt.Printf("Debug: Regatta Source Info: %v\n", r.RegattaData.SourceInfo)
+	applog.Debug("regatta data parsed", "component", "loader",
+		"races_total", len(r.RegattaData.Races),
+		"races_scheduled", r.RegattaData.ScheduledRaces(),
+		"name", r.RegattaData.Name,
+		"date", r.RegattaData.Date,
+		"source", fmt.Sprintf("%v", r.RegattaData.SourceInfo),
+	)
 }

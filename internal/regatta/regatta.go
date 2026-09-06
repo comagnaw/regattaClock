@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"os"
 	"path/filepath"
 
 	"fyne.io/fyne/v2"
@@ -14,6 +15,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/comagnaw/regattaClock/assets"
+	"github.com/comagnaw/regattaClock/internal/applog"
 	"github.com/comagnaw/regattaClock/internal/common"
 	"github.com/comagnaw/regattaClock/internal/filesystem"
 	"github.com/comagnaw/regattaClock/internal/reader"
@@ -134,6 +136,8 @@ func (r *Regatta) initRegatta() {
 		return
 	}
 
+	r.startLogging()
+
 	if err := r.loadRegattaData(); err != nil {
 		// A missing file is the normal first run for a configured directory: the
 		// user has chosen where their data lives but has not imported a regatta.
@@ -145,8 +149,29 @@ func (r *Regatta) initRegatta() {
 		return
 	}
 
+	applog.Info("regatta history restored", "component", "startup", "races", r.RegattaData.ScheduledRaces())
 	r.refreshContent()
 	r.showRaceTree()
+}
+
+// startLogging points applog at a file in the regatta directory once one is
+// known. The path is provisional: the persona phases replace it with
+// logs/<team>/<role>-<hostname>.log. A failure here is not fatal - timing and
+// export continue without a log.
+func (r *Regatta) startLogging() {
+	dir := r.App.Preferences().String(common.PrefRegattaDir)
+	if dir == common.EmptyString {
+		return
+	}
+
+	host, _ := os.Hostname()
+	applog.SetIdentity(common.EmptyString, common.EmptyString, common.EmptyString, host)
+
+	name := "regattaClock-" + filesystem.SanitizeForFilename(host) + ".log"
+	logPath := filepath.Join(dir, common.RegattaDataDir, common.LogsDir, name)
+	if err := applog.SetOutput(logPath); err != nil {
+		applog.Warn("log file unavailable", "component", "startup", "err", err)
+	}
 }
 
 // showWelcome - view presented until a regatta has been imported. The two steps
@@ -196,6 +221,7 @@ func welcomeStep(instruction string, action *widget.Button) *fyne.Container {
 // warnOnStarted - report err once the window is on screen. Dialogs raised while
 // NewRegatta is still running have no visible canvas to draw onto.
 func (r *Regatta) warnOnStarted(err error) {
+	applog.Error("startup warning", "component", "startup", "err", err)
 	r.App.Lifecycle().SetOnStarted(func() {
 		dialog.ShowError(err, r.window)
 	})
@@ -241,6 +267,7 @@ func (r *Regatta) loadRegattaData() error {
 // warnSaveSkipped - report that the regatta directory could not be written to.
 // Timing and export still work, the session just will not be restored next start.
 func (r *Regatta) warnSaveSkipped(err error) {
+	applog.Error("regatta data save skipped", "component", "persist", "err", err)
 	dialog.ShowInformation(
 		common.SaveSkippedTitle,
 		fmt.Sprintf(common.SaveSkippedMessage, err),
