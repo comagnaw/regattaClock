@@ -13,6 +13,12 @@ High-level requirements for multi-persona operation of Regatta Clock.
 
 Several operators share one `regattaData` directory. Each operator acts as one **persona** on one **team**, with clear privileges over what they may read, write, and see in the UI. Personas are defined in source so new ones can be added later without redesigning the model.
 
+## Timer priority (implementers)
+
+**Collecting times from button clicks is the highest-priority work for Start Timer and Finish Timer personas.** Start Time, Start, Lap, Stop, and related timing controls must respond immediately. The wall-clock capture for a click must not wait on disk I/O, cloud sync, network NTP, log flushes, schedule diffs, or other background work.
+
+Background routines that are not the running race clock (or the direct recording of a timing click) — for example shared-folder watchers, schedule updates, logging, and time-offset measurement — must be designed so they **never block** that primary path. Prefer async queues, best-effort I/O, and deferred UI refresh (`fyne.Do`) over doing heavy work on the click handler. If a background task fails, timing collection continues; the failure is reported without stalling the operator.
+
 ## Teams
 
 | Team | Code | Who |
