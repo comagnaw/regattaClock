@@ -102,8 +102,8 @@ Two notes on the package layout, since `store` sits under `persona`:
 // writer's clock offset.
 type Envelope struct {
 	Version    int          // schema version, for forward compatibility
-	Role       persona.Role // "start" | "finish"
-	Team       persona.Team // "primary" | "secondary"
+	Role       persona.Role // "start" | "finish" | "director"
+	Team       persona.Team // "primary" | "secondary" | "executive"
 	RegattaKey string       // hash of regatta Name+Date from director/data.json
 	Machine    string       // hostname, for skew and conflict messages
 	WrittenAt  time.Time    // writer's wall clock, UTC RFC3339Nano
@@ -324,18 +324,18 @@ const (
 	RoleStart    Role = "start"
 	RoleFinish   Role = "finish"
 
-	TeamNone      Team = ""
+	TeamExecutive Team = "executive" // RD (and any future non-timing officials)
 	TeamPrimary   Team = "primary"
 	TeamSecondary Team = "secondary"
 )
 
 type Definition struct {
-	ID        string // "pst", "sst", "pft", "sft"
+	ID        string // "pst", "sst", "pft", "sft", "rd"
 	Role      Role
 	Team      Team
 	Label     string // "Primary Start Timer"
 	Challenge string // "rc-pst"
-	File      string // "start.json"
+	File      string // "start.json"; empty for director schedule ownership
 }
 
 // Registry - personas offered on the timer startup screen, in display order.
@@ -345,7 +345,14 @@ var Registry = []Definition{
 	{ID: "pft", Role: RoleFinish, Team: TeamPrimary, Label: "Primary Finish Timer", Challenge: "rc-pft", File: "finish.json"},
 	{ID: "sft", Role: RoleFinish, Team: TeamSecondary, Label: "Secondary Finish Timer", Challenge: "rc-sft", File: "finish.json"},
 }
+
+// DirectorDefinition - used by the separate director binary; not offered on the timer picker.
+var DirectorDefinition = Definition{
+	ID: "rd", Role: RoleDirector, Team: TeamExecutive, Label: "Regatta Director", Challenge: "rc-rd", File: "",
+}
 ```
+
+There is no empty/`TeamNone` team. The RD belongs to **`TeamExecutive`**, which is reserved for non-timing official personas (today only the Director; easy to extend later without inventing a second "no team" sentinel).
 
 Challenge codes are constants in source, which [persona.md](persona.md) line 26 explicitly permits for now. Comparison is trimmed and case-insensitive.
 
@@ -584,4 +591,4 @@ The app supports both. Prefer the spare Windows PC (SMB + LAN NTP) when the venu
 - **Reconciliation.** When both teams time the same regatta, the RD needs a way to compare primary and secondary results and choose the authoritative set before export. Scoped into phase 8, but the UI for it is undesigned.
 - **Challenge codes in source.** Fine for now per the requirements. If the codes ever need to change without a release, they move to a file the RD writes into `regattaData/director/`, which stays consistent with the one-writer-per-file rule.
 - **Local write-ahead journal.** [shared-storage-options.md](shared-storage-options.md) recommends journaling collected values locally before writing to the shared path, so an SMB outage (or OneDrive stall) does not block collection. Valuable for both modes; not required for the first ship of personas.
-- **Persona event logging.** Analysis in [logging-options.md](logging-options.md): gate file creation on `PrefLogging`; `slog` JSON lines with explicit severities; Logging on ⇒ INFO/WARN/ERROR; Logging+Debug ⇒ also DEBUG; fixed attrs `persona` / `team` / `role` / `machine`; filename `…-<hostname>.log`; existing UI/returned errors also logged at ERROR. Not required to block the first persona ship, but cheap to add beside watcher and timesync.
+- **Persona event logging.** Analysis in [logging-options.md](logging-options.md): gate file creation on `PrefLogging`; `slog` JSON lines with explicit severities; Logging on ⇒ INFO/WARN/ERROR; Logging+Debug ⇒ also DEBUG; fixed attrs `persona` / `team` (`executive` for RD) / `role` / `machine`; filename `logs/<team>/<role>-<hostname>.log`; existing UI/returned errors also logged at ERROR. Not required to block the first persona ship, but cheap to add beside watcher and timesync.

@@ -59,20 +59,27 @@ Your gut — under `regattaData` — is right for **troubleshooting a shared reg
 
 ```
 regattaData/
-├── director/
+├── director/                  # schedule owned by RoleDirector (TeamExecutive)
+│   └── data.json
 ├── timing/
+│   ├── primary/
+│   │   ├── start.json
+│   │   └── finish.json
+│   └── secondary/
+│       ├── start.json
+│       └── finish.json
 └── logs/
     ├── primary/
-    │   ├── start-DESKTOP-A1B2C3.log      # Primary ST on that host
-    │   └── finish-LAPTOP-XYZ.log        # Primary FT on that host
+    │   ├── start-DESKTOP-A1B2C3.log
+    │   └── finish-LAPTOP-XYZ.log
     ├── secondary/
     │   ├── start-DESKTOP-A1B2C3.log
     │   └── finish-LAPTOP-XYZ.log
-    └── director/
+    └── executive/
         └── director-DESKTOP-RD01.log
 ```
 
-Pattern: `logs/<team>/<role>-<hostname>.log` (director: `logs/director/director-<hostname>.log`).
+Pattern: `logs/<team>/<role>-<hostname>.log` — for the RD that is `logs/executive/director-<hostname>.log`, matching `TeamExecutive` rather than a special-cased `logs/director/` tree.
 
 **Hostname in the filename and on every JSON line.** The file name prevents two machines that somehow claim the same persona/team from appending to one file (the same class of failure that produces OneDrive conflict copies on timing data). The JSON `machine` field still appears on every line so a concatenated or renamed file remains self-describing for analysis.
 
@@ -189,7 +196,7 @@ When `loggingEnabled` is false, use `slog.DiscardHandler` (or a no-op) regardles
 | Field | Example | Source |
 |-------|---------|--------|
 | `persona` | `pst`, `pft`, `sft`, `rd` | `persona.Definition.ID` |
-| `team` | `primary`, `secondary`, `""` for RD | `persona.Team` |
+| `team` | `primary`, `secondary`, `executive` | `persona.Team` (`TeamExecutive` for RD) |
 | `role` | `start`, `finish`, `director` | `persona.Role` |
 | `machine` | `DESKTOP-A1B2C3` | `os.Hostname()` |
 
@@ -209,7 +216,7 @@ Implementation sketch: `slog.New(slog.NewJSONHandler(asyncWriter, &slog.HandlerO
 
 1. App starts → read `PrefLogging` and `PrefDebug`. If Logging is false, `Init(false, …)` and discard everything (Debug alone does not open a file).
 2. If Logging is true, build `JSONHandler` at `INFO` or `DEBUG` per the table in section 1, and buffer to memory until `regattaData` + persona are known.
-3. Create `logs/<team>/<role>-<hostname>.log` (or `logs/director/director-<hostname>.log`), `SetOutput`, flush buffer.
+3. Create `logs/<team>/<role>-<hostname>.log` (RD: `logs/executive/director-<hostname>.log`), `SetOutput`, flush buffer.
 4. If the user toggles Logging or Debug in config mid-session, call `SetLevel` / close-or-open as needed (no app restart required).
 5. Existing error paths that already `dialog.ShowError` or return `error` should also `applog.Error("…", "err", err, …)` when Logging is on.
 
@@ -235,7 +242,7 @@ Creating `logs/` is the persona's responsibility on first write, same as creatin
 2. Implement **`internal/applog`** with `slog.JSONHandler` + async append writer; every event uses an explicit severity.
 3. When Logging is on: always emit **INFO and ERROR** (and WARN). When Debug is also on: include **DEBUG**.
 4. Put **`persona`, `team`, `role`, and `machine` on every line** via `logger.With` at session start.
-5. Write to **`regattaData/logs/<team>/<role>-<hostname>.log`** (plus `director-<hostname>.log`).
+5. Write to **`regattaData/logs/<team>/<role>-<hostname>.log`** (RD: `logs/executive/director-<hostname>.log`).
 6. Mirror existing handled failures as **ERROR** log lines (same `err` the UI already surfaces).
 7. Ensure the **watcher ignores `logs/`**.
 8. Keep logging **best-effort**: never block or fail the timing path because a log write failed.
