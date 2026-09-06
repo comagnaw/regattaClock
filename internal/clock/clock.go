@@ -40,7 +40,7 @@ type Clock struct {
 	clockState *clockState
 
 	// RegattaData - data for all races in the scheduled regatta
-	RegattaData reader.RegattaData
+	RegattaData *reader.RegattaData
 
 	// raceData - data that reflects information about one particular race
 	raceData reader.RaceData
@@ -82,7 +82,7 @@ func NewClock(parent fyne.App, regattaData *reader.RegattaData, race reader.Race
 			isCleared: true,
 			stopChan:  make(chan struct{}),
 		},
-		RegattaData: *regattaData,
+		RegattaData: regattaData,
 		raceData:    race,
 		window:      parent.NewWindow(fmt.Sprintf("Race %d Clock", race.RaceNumber)),
 		App:         parent,

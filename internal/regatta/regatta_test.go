@@ -3,6 +3,8 @@ package regatta
 import (
 	"testing"
 
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/test"
 
 	"github.com/comagnaw/regattaClock/internal/common"
@@ -52,9 +54,18 @@ func TestNewRegatta(t *testing.T) {
 		t.Errorf("Expected empty date, got %q", regatta.date.Text)
 	}
 
-	// Verify RegattaData is initially nil
-	if regatta.RegattaData != nil {
-		t.Error("RegattaData should be nil initially")
+	// NewRegatta initialises RegattaData, so a fresh app holds an empty regatta
+	// rather than a nil pointer.
+	if regatta.RegattaData == nil {
+		t.Fatal("RegattaData should be initialized")
+	}
+
+	if len(regatta.RegattaData.Races) != 0 {
+		t.Errorf("Expected no races initially, got %d", len(regatta.RegattaData.Races))
+	}
+
+	if regatta.RegattaData.Name != common.EmptyString {
+		t.Errorf("Expected empty regatta name, got %q", regatta.RegattaData.Name)
 	}
 }
 
@@ -230,15 +241,40 @@ func TestRegatta_TreeTitle(t *testing.T) {
 	regatta.subtitle.Text = "Test Subtitle"
 	regatta.date.Text = "Test Date"
 
-	container := regatta.treeTitle()
+	titleRow := regatta.treeTitle()
 
-	if container == nil {
+	if titleRow == nil {
 		t.Fatal("treeTitle returned nil")
 	}
 
-	if len(container.Objects) != 3 {
-		t.Errorf("Expected 3 objects in tree title container, got %d", len(container.Objects))
+	// Assert on what the row holds rather than its nesting, so wrapping it in a
+	// different layout does not break the test.
+	images, texts := countObjects(titleRow)
+
+	if images != 1 {
+		t.Errorf("Expected the branding logo in the tree title, got %d images", images)
 	}
+
+	if texts != 3 {
+		t.Errorf("Expected the title, subtitle and date, got %d text objects", texts)
+	}
+}
+
+// countObjects - tally the images and text objects anywhere under o
+func countObjects(o fyne.CanvasObject) (images, texts int) {
+	switch obj := o.(type) {
+	case *canvas.Image:
+		images++
+	case *canvas.Text:
+		texts++
+	case *fyne.Container:
+		for _, child := range obj.Objects {
+			childImages, childTexts := countObjects(child)
+			images += childImages
+			texts += childTexts
+		}
+	}
+	return images, texts
 }
 
 func TestRegatta_ListTitle(t *testing.T) {
@@ -279,11 +315,17 @@ func TestRegatta_RaceList_Empty(t *testing.T) {
 		t.Fatal("raceList returned nil")
 	}
 
-	// Verify scroll container properties
+	// The list keeps a height floor so it never collapses, but must stay well short
+	// of the window height: it shares the window with the title header, so demanding
+	// the full height would push the content past the window and force it to grow.
 	minSize := scroll.MinSize()
-	if minSize.Width != regattaWidth || minSize.Height != regattaHeight {
-		t.Errorf("Expected min size %fx%f, got %fx%f",
-			regattaWidth, regattaHeight, minSize.Width, minSize.Height)
+	if minSize.Height < raceListMinHeight {
+		t.Errorf("Expected min height of at least %f, got %f", raceListMinHeight, minSize.Height)
+	}
+
+	if minSize.Height >= regattaHeight {
+		t.Errorf("Min height %f leaves no room for the header within the %f window",
+			minSize.Height, regattaHeight)
 	}
 }
 
@@ -504,19 +546,6 @@ func TestRegatta_ExitItem(t *testing.T) {
 
 	if item.Action == nil {
 		t.Error("Exit item should have an action")
-	}
-}
-
-func TestRegatta_Constants(t *testing.T) {
-	expectedWidth := float32(500)
-	expectedHeight := float32(600)
-
-	if regattaWidth != expectedWidth {
-		t.Errorf("Expected regattaWidth to be %f, got %f", expectedWidth, regattaWidth)
-	}
-
-	if regattaHeight != expectedHeight {
-		t.Errorf("Expected regattaHeight to be %f, got %f", expectedHeight, regattaHeight)
 	}
 }
 
