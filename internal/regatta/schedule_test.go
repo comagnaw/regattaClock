@@ -78,7 +78,7 @@ func TestMigratesLegacyDataFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	r := NewRegatta(app)
+	r := NewDirector(app)
 
 	schedulePath := persona.Session{
 		Definition: persona.DirectorDefinition,
@@ -127,13 +127,13 @@ func TestMigrationIsNoOpWhenScheduleExists(t *testing.T) {
 	}
 
 	// First launch migrates.
-	NewRegatta(app)
+	NewDirector(app)
 	// Recreate the legacy file; a second launch must not touch it because the
 	// schedule now exists.
 	if err := filesystem.SaveJSONFile(legacyRegattaData(), legacyPath); err != nil {
 		t.Fatal(err)
 	}
-	NewRegatta(app)
+	NewDirector(app)
 
 	if !filesystem.FileExists(legacyPath) {
 		t.Error("second launch renamed a legacy file it should have ignored")

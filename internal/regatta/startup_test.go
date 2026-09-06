@@ -51,7 +51,7 @@ func listerFor(t *testing.T, dir string) fyne.ListableURI {
 func TestStartup_NoPreferences(t *testing.T) {
 	app := test.NewTempApp(t)
 
-	r := NewRegatta(app)
+	r := NewDirector(app)
 
 	if !onWelcome(r) {
 		t.Fatalf("expected the welcome view, got buttons %v", buttonLabels(r.window.Content()))
@@ -69,7 +69,7 @@ func TestStartup_DirectorySetWithoutHistory(t *testing.T) {
 	app := test.NewTempApp(t)
 	app.Preferences().SetString(common.PrefRegattaDir, t.TempDir())
 
-	r := NewRegatta(app)
+	r := NewDirector(app)
 
 	if !onWelcome(r) {
 		t.Fatalf("expected the welcome view, got buttons %v", buttonLabels(r.window.Content()))
@@ -86,7 +86,7 @@ func TestStartup_RestoresHistory(t *testing.T) {
 	app := test.NewTempApp(t)
 	regattaDir := t.TempDir()
 
-	first := NewRegatta(app)
+	first := NewDirector(app)
 	first.changeCallBack()(listerFor(t, regattaDir), nil)
 
 	if first.loadState.loadButton.Disabled() {
@@ -122,7 +122,7 @@ func TestStartup_RestoresHistory(t *testing.T) {
 	}
 
 	// Restarting reads the history back rather than returning to the welcome view.
-	second := NewRegatta(app)
+	second := NewDirector(app)
 
 	if len(second.RegattaData.Races) != imported {
 		t.Errorf("expected %d races restored, got %d", imported, len(second.RegattaData.Races))
@@ -138,7 +138,7 @@ func TestStartup_RestoresHistory(t *testing.T) {
 func TestStartup_CancelledDirectoryDialog(t *testing.T) {
 	app := test.NewTempApp(t)
 
-	r := NewRegatta(app)
+	r := NewDirector(app)
 	r.changeCallBack()(nil, nil)
 
 	if got := app.Preferences().String(common.PrefRegattaDir); got != common.EmptyString {
