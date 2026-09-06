@@ -120,6 +120,20 @@ An Excel (or API) fingerprint change is a **hint that the origin was touched**, 
 
 RD Apply already warns when changing races that have timing data. Timers still follow section 3c only when the schedule file’s **payload** actually changes.
 
+### A different regatta is not a schedule change
+
+The flow above assumes the workbook still describes *this* regatta. It does **not** cover the RD opening an unrelated workbook — a different event — while still pointed at a `regattaData/` that already holds a schedule, and possibly `timing/<team>/*.json`, for the current one. Applied as a normal schedule change, that overwrites `regattaSchedule.json` and silently orphans every timing file, whose records are keyed by `RaceNumber` against the schedule that just vanished. The single-operator app has this hole today: `saveRegattaData` rewrites the schedule on every import with no check.
+
+Guard on the **RegattaKey** before writing — `store.RegattaKey(Name, Date)` of the imported candidate vs the on-disk schedule:
+
+- **Keys match** → the detect → compare → Apply/Dismiss flow above.
+- **Keys differ** → this is a new regatta, not an edit. Never a one-click Apply.
+  - If any `timing/<team>/start.json` or `finish.json` exists, refuse the in-place replace. The RD either points at a fresh `regattaData/` directory, or explicitly archives the current one (move `director/` + `timing/` under `archive/<old-RegattaKey>/` or a timestamped sibling) first.
+  - If no timing data exists, one confirmation is enough; keep the outgoing file as `regattaSchedule.<old-RegattaKey>.json` rather than deleting it.
+- Manual “Reload schedule” runs the same key check.
+
+This is the RD-side mirror of the timer-side “reject data from a different regatta” rule in section 8; both compare the same key.
+
 ### Keep Excel out of the long-term core: origin adapter
 
 `internal/reader` already has a `sourceData` interface used by Excel. Treat schedule ingest as:
@@ -736,7 +750,7 @@ Each phase compiles, passes tests, and leaves the app usable.
 5. **Timer startup flow** — picker, challenge, directory validation, confirmation, hydration; `applog.SetOutput` + `SetIdentity` once session root is known. Delete `setupStartupDialog`.
 6. **Role-aware race tree** — Start Time / Clear / Restore for ST, progress indicators for FT and RD, in-place watcher refresh; log button actions at INFO.
 7. **Clock integration** — derived winning time, save on approve/save, rehydration, skew warnings; log clock actions and ERROR on save failure; schedule-conflict label refresh while clock open (section 3c).
-8. **Director binary** — `cmd/regattaDirector`, read-only progress tree, **schedule origin fingerprint poll + Apply/Reload** (section 3b), release packaging, and primary-vs-secondary reconciliation for export; executive-team log path. Timer-side schedule-diff notices (section 3c) ship with race tree / clock phases 6–7.
+8. **Director binary** — `cmd/regattaDirector`, read-only progress tree, **schedule origin fingerprint poll + Apply/Reload** (section 3b) including the **RegattaKey-mismatch guard** that archives or refuses rather than overwriting a different regatta's schedule and timing data (section 3b, "A different regatta is not a schedule change"), release packaging, and primary-vs-secondary reconciliation for export; executive-team log path. Timer-side schedule-diff notices (section 3c) ship with race tree / clock phases 6–7.
 
 ## 11. Testing
 
@@ -807,6 +821,7 @@ The app supports two **transport** modes, not two cloud vendors. Prefer the spar
 
 - **Cross-team fallback.** If the primary ST never records a start time, should the primary FT be able to fall back to the secondary team's `start.json`? Useful in practice, but it silently crosses the primary/secondary boundary, so it likely needs an explicit user confirmation rather than an automatic fallback.
 - **Reconciliation.** When both teams time the same regatta, the RD needs a way to compare primary and secondary results and choose the authoritative set before export. Scoped into phase 8, but the UI for it is undesigned.
+- **RD opens an unrelated workbook.** The origin-refresh flow (section 3b) assumes the workbook still describes the current regatta; opening a different event's workbook without changing the `regattaData/` directory would overwrite `regattaSchedule.json` and orphan the timing files keyed to it. Fix: a `RegattaKey` mismatch check on import / reload with archive-or-cancel handling (section 3b, "A different regatta is not a schedule change"). Lands with the Director in phase 8. The single-operator import path has the hole now; phases 5–7 must not make the in-place overwrite easier, and if phase 8 slips, a minimal mismatch confirm should be pulled forward once timers start writing `timing/<team>/*.json` (phases 6–7), which is when orphaning turns destructive.
 - **Challenge codes in source.** Fine for now per the requirements. If the codes ever need to change without a release, they move to a file the RD writes into `regattaData/director/`, which stays consistent with the one-writer-per-file rule.
 - **Schedule API origin.** HTTP `ScheduleOrigin` with URI + API key for the RD. Fingerprint via ETag/version; same detect → Apply UX as Excel. Not part of the first persona ship; keep `SourceInfo` / fingerprint fields ready.
 - **Local write-ahead journal.** [shared-storage-options.md](shared-storage-options.md) recommends journaling collected values locally before writing to the shared path, so an SMB outage (or cloud sync stall) does not block collection. Valuable for both modes; not required for the first ship of personas.
