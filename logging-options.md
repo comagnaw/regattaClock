@@ -4,13 +4,30 @@ Analysis and recommendation for OS-agnostic, syslog-style troubleshooting logs g
 
 ## Short answer
 
-Use Go's standard `log/slog` with a **JSON handler** writing **append-only files under `regattaData/logs/`**, one file per persona session path, gated by `PrefLogging`. Do **not** use the Windows Event Log. Keep the hot path non-blocking with a buffered async writer. Every line carries stable identity fields (`persona`, `team`, `role`, `machine`, …). Log user actions, NTP measure/drift, and watcher *content changes* — not every poll tick.
+Use Go's standard `log/slog` with a **JSON handler** writing **append-only files under `regattaData/logs/`**, one file per persona+host, gated by `PrefLogging`. Handler level is `INFO` when Logging is on (so **INFO, WARN, and ERROR** are written); lower to `DEBUG` only when **both** Logging and Debug are on. Do **not** use the Windows Event Log. Keep the hot path non-blocking with a buffered async writer. Every line carries stable identity fields (`persona`, `team`, `role`, `machine`, …). Existing handled failures are logged at **ERROR**. Log user actions, NTP measure/drift, and watcher *content changes* at INFO — not every poll tick (those are DEBUG).
 
 ## 1. What already exists
 
 [internal/regatta/config.go](internal/regatta/config.go) already exposes a Logging checkbox bound to `common.PrefLogging`. Nothing reads that boolean yet. The only `log.Printf` usage today is in the lane-image exporter. That preference should remain the **sole enable switch**: when false, the logger is a no-op (or `slog.DiscardHandler`); when true, file logging starts after the persona has a resolved `regattaData` root.
 
-`PrefDebug` stays separate: Logging = write troubleshooting events to disk; Debug = optional noisier detail (and whatever UI/dev behaviour you already intend). Do not overload one checkbox for both.
+`PrefLogging` and `PrefDebug` work together as a **severity filter**, not as two unrelated switches:
+
+| Preferences | Handler minimum level | What gets written |
+|-------------|----------------------|-------------------|
+| Logging off | — | Nothing (discard handler) |
+| Logging on, Debug off | `INFO` | `INFO`, `WARN`, `ERROR` |
+| Logging on, Debug on | `DEBUG` | `DEBUG`, `INFO`, `WARN`, `ERROR` |
+
+`slog.HandlerOptions{Level: ...}` is exactly this: set the minimum level when building the `JSONHandler`. Every call site must pass a real severity (`Info`, `Warn`, `Error`, `Debug`) — no severity-less print helpers.
+
+**Rules:**
+
+- **INFO** — normal operational events: button clicks, NTP measure success, watcher content changes, successful hydrate/save, persona challenge pass, directory confirmed.
+- **WARN** — recoverable problems worth noticing: NTP \|offset\| over threshold, source=`none`, stale share, conflict-copy detected, secondary-sourced fallback on the RD tree.
+- **ERROR** — failures that today already surface to the user or abort an operation: JSON parse failure, atomic write failure, Excel load failure, directory create failure, challenge/load errors that show a dialog. If the UI shows an error, the log line for that path should be `ERROR` with the same underlying `err`.
+- **DEBUG** — only when Logging **and** Debug are on: poll heartbeats / periodic watcher stats, verbose timesync internals, etc. Never emit DEBUG from hot paths when Debug is off (the handler would drop them, but skipping the call avoids work).
+
+If Logging is off, Debug alone does **not** open a log file — Debug only widens the level of an already-enabled logger. That keeps "I turned on Debug for the theme checkbox" from silently creating files on the share.
 
 ## 2. Why not Windows Event Log
 
@@ -89,22 +106,27 @@ Prefer (1) for simplicity: a ring buffer of the last N startup events, discarded
 
 ### Log when `PrefLogging` is true
 
-| Area | Events | Level |
-|------|--------|-------|
-| UI / persona | Persona selected, challenge pass/fail, directory chosen/rejected, confirm accept/decline | INFO |
-| Race tree | `Start Time`, `Clear`, `Restore`, `Time Race` clicks; race number and resulting display value | INFO |
+| Area | Events | Severity |
+|------|--------|----------|
+| UI / persona | Persona selected, challenge pass, directory chosen, confirm accept | INFO |
+| UI / persona | Challenge fail, directory rejected, confirm decline | INFO (or WARN if unexpected) |
+| Race tree | `Start Time`, `Clear`, `Restore`, `Time Race` clicks; race number and display value | INFO |
 | Clock | Start / Lap / Stop / Clear; Winning Time entered or auto-filled; Referee Approval; Save | INFO |
-| NTP / timesync | Measure success (source, offset, RTT); measure failure; drift beyond threshold; source=`none` | INFO (WARN if \|offset\| > ~1s) |
-| Watcher | Content change detected (path, new sequence / hash short id); conflict-copy spotted; read failure | INFO / WARN |
-| Store | Atomic write success/failure; hydrate on startup; RegattaKey mismatch; parse failure blocking writes | INFO / ERROR |
+| NTP / timesync | Measure success (source, offset, RTT) | INFO |
+| NTP / timesync | \|offset\| > ~1s; source=`none` | WARN |
+| Watcher | Content change detected (path, sequence) | INFO |
+| Watcher | Conflict-copy spotted; read failure that was non-fatal | WARN |
+| Store | Successful hydrate / atomic write | INFO |
+| Store / IO / load | Any failure already handled in UI or returned as `error` — parse failure, write failure, Excel load failure, migrate failure | **ERROR** (include `err`) |
+| Watcher / timesync | Verbose poll stats, internal traces | DEBUG (only if Debug on) |
 
-### Do **not** log by default
+### Do **not** log at INFO when Debug is off
 
-- Every watcher poll with "no change" (that is the hot path every ~2s × 4 files).
-- Every clock UI refresh tick (100ms).
-- Full file contents or PII beyond race numbers and school names already on the schedule (keep messages small).
+- Every watcher poll with "no change"
+- Every clock UI refresh tick (100ms)
+- Full file contents
 
-If both `PrefLogging` and `PrefDebug` are on, you may add DEBUG lines for poll stats (e.g. once a minute: files watched, last change ages). Never enable per-tick DEBUG from Logging alone.
+Those belong at **DEBUG** only, and only when both preferences allow them.
 
 ## 6. Keep it off the critical path
 
@@ -138,15 +160,29 @@ New package `internal/applog` (avoid the name `log` — clashes with stdlib):
 ```go
 package applog
 
-func Init(enabled bool)                          // from PrefLogging at startup / on toggle
+func Init(loggingEnabled, debugEnabled bool)     // PrefLogging + PrefDebug → handler Level
 func SetOutput(path string) error                // after persona + regattaData resolved
 func SetIdentity(persona, team, role, machine string) // fixed attrs on every subsequent line
+func SetLevel(loggingEnabled, debugEnabled bool) // if prefs toggled mid-session
 func With(attrs ...any) *slog.Logger             // extra attrs for a subsystem
+func Debug(msg string, args ...any)              // only reaches disk when Debug on
 func Info(msg string, args ...any)
 func Warn(msg string, args ...any)
-func Error(msg string, args ...any)
+func Error(msg string, args ...any)              // always when Logging on; include err=
 func Close()                                     // flush on shutdown
 ```
+
+Handler construction:
+
+```go
+level := slog.LevelInfo
+if debugEnabled {
+    level = slog.LevelDebug
+}
+h := slog.NewJSONHandler(asyncWriter, &slog.HandlerOptions{Level: level})
+```
+
+When `loggingEnabled` is false, use `slog.DiscardHandler` (or a no-op) regardless of Debug.
 
 **Identity fields on every line** (set once via `Logger.With` / `SetIdentity` when the session is known — do not repeat them at each call site):
 
@@ -171,11 +207,11 @@ Implementation sketch: `slog.New(slog.NewJSONHandler(asyncWriter, &slog.HandlerO
 
 ## 8. Lifecycle relative to PrefLogging
 
-1. App starts → read `PrefLogging`. If false, `Init(false)` and return.
-2. If true, buffer to memory until `regattaData` + persona are known.
+1. App starts → read `PrefLogging` and `PrefDebug`. If Logging is false, `Init(false, …)` and discard everything (Debug alone does not open a file).
+2. If Logging is true, build `JSONHandler` at `INFO` or `DEBUG` per the table in section 1, and buffer to memory until `regattaData` + persona are known.
 3. Create `logs/<team>/<role>-<hostname>.log` (or `logs/director/director-<hostname>.log`), `SetOutput`, flush buffer.
-4. If the user toggles Logging off in config mid-session, close the file and switch to discard (no restart required).
-5. If they toggle on mid-session and a root exists, open the file and continue.
+4. If the user toggles Logging or Debug in config mid-session, call `SetLevel` / close-or-open as needed (no app restart required).
+5. Existing error paths that already `dialog.ShowError` or return `error` should also `applog.Error("…", "err", err, …)` when Logging is on.
 
 Creating `logs/` is the persona's responsibility on first write, same as creating `timing/<team>/`.
 
@@ -195,13 +231,14 @@ Creating `logs/` is the persona's responsibility on first write, same as creatin
 
 ## 10. Recommendation
 
-1. Gate everything on existing **`PrefLogging`**.
-2. Implement **`internal/applog`** with `slog.JSONHandler` + async append writer.
-3. Put **`persona`, `team`, `role`, and `machine` on every line** via `logger.With` at session start.
-4. Write to **`regattaData/logs/<team>/<role>-<hostname>.log`** (plus `director-<hostname>.log`), so two hosts cannot share one log file even if they claim the same persona.
-5. Log **clicks, NTP measure/drift, watcher content changes, store hydrate/write errors** — not poll heartbeats.
-6. Ensure the **watcher ignores `logs/`**.
-7. Keep logging **best-effort**: never block or fail the timing path because a log write failed.
+1. Gate file creation on **`PrefLogging`**. Use **`PrefDebug` only to lower the handler level to DEBUG**.
+2. Implement **`internal/applog`** with `slog.JSONHandler` + async append writer; every event uses an explicit severity.
+3. When Logging is on: always emit **INFO and ERROR** (and WARN). When Debug is also on: include **DEBUG**.
+4. Put **`persona`, `team`, `role`, and `machine` on every line** via `logger.With` at session start.
+5. Write to **`regattaData/logs/<team>/<role>-<hostname>.log`** (plus `director-<hostname>.log`).
+6. Mirror existing handled failures as **ERROR** log lines (same `err` the UI already surfaces).
+7. Ensure the **watcher ignores `logs/`**.
+8. Keep logging **best-effort**: never block or fail the timing path because a log write failed.
 
 ## 11. Fit with the persona plan
 
