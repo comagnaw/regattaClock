@@ -18,6 +18,8 @@ import (
 	"github.com/comagnaw/regattaClock/internal/applog"
 	"github.com/comagnaw/regattaClock/internal/common"
 	"github.com/comagnaw/regattaClock/internal/filesystem"
+	"github.com/comagnaw/regattaClock/internal/persona"
+	"github.com/comagnaw/regattaClock/internal/persona/store"
 	"github.com/comagnaw/regattaClock/internal/reader"
 	"github.com/comagnaw/regattaClock/internal/text"
 )
@@ -227,41 +229,92 @@ func (r *Regatta) warnOnStarted(err error) {
 	})
 }
 
-// regattaFile - absolute path of the saved regatta history, or an empty string
-// when no regatta directory has been configured yet. Joining onto an unset
-// preference would otherwise yield a path relative to the working directory.
-func (r *Regatta) regattaFile() string {
+// directorSession - the persona.Session the single-operator app acts as for
+// schedule ownership: it establishes regattaData and owns
+// director/regattaSchedule.json, which is exactly the Regatta Director's role.
+// The persona picker (phase 5) and the separate director binary (phase 8)
+// replace this with a real chosen session. Returns false when no regatta
+// directory has been configured yet.
+func (r *Regatta) directorSession() (persona.Session, bool) {
 	regattaDir := r.App.Preferences().String(common.PrefRegattaDir)
 	if regattaDir == common.EmptyString {
-		return common.EmptyString
+		return persona.Session{}, false
 	}
-
-	return filepath.Join(regattaDir, common.RegattaDataDir, common.RegattaDataFile)
+	return persona.Session{
+		Definition: persona.DirectorDefinition,
+		Root:       filepath.Join(regattaDir, common.RegattaDataDir),
+	}, true
 }
 
 func (r *Regatta) saveRegattaData() {
-	regattaFile := r.regattaFile()
-	if regattaFile == common.EmptyString {
+	session, ok := r.directorSession()
+	if !ok {
 		return
 	}
 
-	if err := filesystem.CreateDirs(filepath.Dir(regattaFile)); err != nil {
-		r.warnSaveSkipped(err)
-		return
-	}
-
-	if err := filesystem.SaveJSONFile(r.RegattaData, regattaFile); err != nil {
+	if err := store.SaveSchedule(session, scheduleFromRegattaData(r.RegattaData)); err != nil {
 		r.warnSaveSkipped(err)
 	}
 }
 
 func (r *Regatta) loadRegattaData() error {
-	regattaFile := r.regattaFile()
-	if regattaFile == common.EmptyString {
+	session, ok := r.directorSession()
+	if !ok {
 		return fs.ErrNotExist
 	}
 
-	return filesystem.ReadJSONFile(r.RegattaData, regattaFile)
+	r.migrateLegacyData(session)
+
+	schedule, err := store.LoadSchedule(session)
+	if err != nil {
+		return err
+	}
+
+	r.RegattaData = regattaDataFromSchedule(schedule)
+	return nil
+}
+
+// migrateLegacyData performs the one-time move of the pre-persona
+// regattaData/data.json (or an interim director/data.json) into
+// director/regattaSchedule.json, stripping the result fields on the way. It is
+// a no-op once the schedule file exists, which is the normal case.
+func (r *Regatta) migrateLegacyData(session persona.Session) {
+	schedulePath := session.SchedulePath()
+	if filesystem.FileExists(schedulePath) {
+		return
+	}
+
+	candidates := []string{
+		filepath.Join(session.Root, common.LegacyDataFile),               // regattaData/data.json
+		filepath.Join(filepath.Dir(schedulePath), common.LegacyDataFile), // regattaData/director/data.json
+	}
+	legacy := ""
+	for _, c := range candidates {
+		if filesystem.FileExists(c) {
+			legacy = c
+			break
+		}
+	}
+	if legacy == common.EmptyString {
+		return
+	}
+
+	var legacyData reader.RegattaData
+	if err := filesystem.ReadJSONFile(&legacyData, legacy); err != nil {
+		applog.Error("legacy schedule migration failed", "component", "migrate", "file", legacy, "err", err)
+		return
+	}
+
+	if err := store.SaveSchedule(session, scheduleFromRegattaData(&legacyData)); err != nil {
+		applog.Error("legacy schedule migration failed", "component", "migrate", "file", legacy, "err", err)
+		return
+	}
+
+	if err := os.Rename(legacy, legacy+".migrated"); err != nil {
+		applog.Warn("legacy data file could not be renamed aside", "component", "migrate", "file", legacy, "err", err)
+	}
+	applog.Info("migrated legacy data.json to regattaSchedule.json", "component", "migrate",
+		"from", legacy, "to", schedulePath, "races", len(legacyData.Races))
 }
 
 // warnSaveSkipped - report that the regatta directory could not be written to.
