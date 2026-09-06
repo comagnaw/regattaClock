@@ -18,6 +18,14 @@ The remaining race detail that needs to be collected is the order-of-finish (OOF
 
 With all of these details collected, the results of a race can be reviewed by officials for approval and then published as an official race result time.
 
+## Timer priority (implementers)
+
+**Collecting times from button clicks is the highest-priority work in the timer apps.** Start Time, Start, Lap, Stop, and related timing controls must respond immediately. The wall-clock capture for a click must not wait on disk I/O, cloud sync, network NTP, log flushes, schedule diffs, or other background work.
+
+Background routines that are not the running race clock (or the direct recording of a timing click) — for example shared-folder watchers, schedule updates, logging, and time-offset measurement — must be designed so they **never block** that primary path. Prefer async queues, best-effort I/O, and deferred UI refresh (`fyne.Do`) over doing heavy work on the click handler. If a background task fails, timing collection continues; the failure is reported without stalling the operator.
+
+Planned multi-persona design details: [docs/features/personas/](docs/features/personas/).
+
 ## Regatta Data Input
 
 For better or worse, the only input for Regatta data is in the format of an Microsoft Excel spreadsheet (xlsx only).  Over time, this may change to a better structured input, but at the time of the initial development, the rowing organization that **regattaClock** was develped for used Excel spreadsheets as a means to organize Regatta race informaiton.
