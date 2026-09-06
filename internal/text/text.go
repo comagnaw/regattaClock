@@ -32,6 +32,12 @@ func Bold(t string) *canvas.Text {
 	return newText(t, false, true, fyne.TextAlignCenter, 16)
 }
 
+// BoldLeading - returns Bold format of fyne Text aligned to the leading edge,
+// for body copy that should read as a left aligned block rather than a heading
+func BoldLeading(t string) *canvas.Text {
+	return newText(t, false, true, fyne.TextAlignLeading, 16)
+}
+
 // newText - with provided input, return fyne Text
 func newText(t string, mono, bold bool, align fyne.TextAlign, size float32) *canvas.Text {
 	return &canvas.Text{

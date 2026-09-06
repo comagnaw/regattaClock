@@ -13,6 +13,26 @@ import (
 	"github.com/comagnaw/regattaClock/internal/reader"
 )
 
+// assertNothingLoaded - NewRegatta starts with initialised but empty RegattaData
+// rather than a nil pointer, so "the load did not take effect" means the data is
+// still empty. Asserting on nil here would only ever restate how NewRegatta builds
+// the struct.
+func assertNothingLoaded(t *testing.T, r *Regatta, when string) {
+	t.Helper()
+
+	if r.RegattaData == nil {
+		return
+	}
+
+	if len(r.RegattaData.Races) != 0 {
+		t.Errorf("Expected no races %s, got %d", when, len(r.RegattaData.Races))
+	}
+
+	if r.RegattaData.Name != common.EmptyString {
+		t.Errorf("Expected empty regatta name %s, got %q", when, r.RegattaData.Name)
+	}
+}
+
 // mockURIReadCloser implements fyne.URIReadCloser for testing
 type mockURIReadCloser struct {
 	uri    fyne.URI
@@ -153,9 +173,7 @@ func TestRegatta_SetRegattaData_InvalidFile(t *testing.T) {
 		t.Error("Expected error for nonexistent file")
 	}
 
-	if regatta.RegattaData != nil {
-		t.Error("RegattaData should remain nil after failed load")
-	}
+	assertNothingLoaded(t, regatta, "after a failed load")
 }
 
 func TestRegatta_SetRegattaData_EmptyPath(t *testing.T) {
@@ -184,10 +202,7 @@ func TestRegatta_Callback_WithError(t *testing.T) {
 	callback(nil, testErr)
 
 	// Should not crash, just show error dialog
-	// RegattaData should remain nil
-	if regatta.RegattaData != nil {
-		t.Error("RegattaData should remain nil after error")
-	}
+	assertNothingLoaded(t, regatta, "after a load error")
 }
 
 func TestRegatta_Callback_NilFileReader_FromStartup(t *testing.T) {
@@ -202,10 +217,7 @@ func TestRegatta_Callback_NilFileReader_FromStartup(t *testing.T) {
 	callback(nil, nil)
 
 	// Should not crash, just show info dialog
-	// RegattaData should remain nil
-	if regatta.RegattaData != nil {
-		t.Error("RegattaData should remain nil when user cancels")
-	}
+	assertNothingLoaded(t, regatta, "when the user cancels at startup")
 }
 
 func TestRegatta_Callback_NilFileReader_NotFromStartup(t *testing.T) {
@@ -220,10 +232,7 @@ func TestRegatta_Callback_NilFileReader_NotFromStartup(t *testing.T) {
 	callback(nil, nil)
 
 	// Should not crash
-	// RegattaData should remain nil
-	if regatta.RegattaData != nil {
-		t.Error("RegattaData should remain nil when user cancels")
-	}
+	assertNothingLoaded(t, regatta, "when the user cancels")
 }
 
 func TestRegatta_Callback_ValidFile(t *testing.T) {

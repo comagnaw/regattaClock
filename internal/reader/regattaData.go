@@ -48,7 +48,7 @@ type SourceInfo struct {
 	Type string
 
 	// URI - uniform resource identifier for the source race data
-	URI  string
+	URI string
 
 	// Hash - sha256 hash for the last read of the source data
 	Hash string

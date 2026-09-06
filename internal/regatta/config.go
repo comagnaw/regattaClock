@@ -40,6 +40,12 @@ func (r *Regatta) regattaDir() *fyne.Container {
 	)
 }
 
+// regattaDirButton - directory chooser for views that want the action alone,
+// without the editable path the config form exposes.
+func (r *Regatta) regattaDirButton() *widget.Button {
+	return widget.NewButton(common.SetRegattaDirButtonText, r.changeButtonFunc())
+}
+
 func (r *Regatta) changeButtonFunc() func() {
 	return func() {
 		dialog.ShowFolderOpen(r.changeCallBack(), r.window)
@@ -54,23 +60,25 @@ func (r *Regatta) changeCallBack() func(fyne.ListableURI, error) {
 			return
 		}
 
-		// User did not cancel directory load
-		if dirReader != nil {
-
-			r.App.Preferences().SetString(
-				common.PrefRegattaDir,
-				dirReader.Path(),
-			)
-
-			r.loadState.loadButton.Enable()
-		}
-
-		blah := filepath.Join(r.App.Preferences().String(common.PrefRegattaDir), "regattaData", "results")
-		if err = filesystem.CreateDirs(blah); err != nil {
-			dialog.ShowError(err, r.window)
+		// User cancelled the directory load
+		if dirReader == nil {
 			return
 		}
 
+		// Fyne reports URI paths with forward slashes, so restore the native form
+		// before persisting a value the user reads and edits in the config form.
+		regattaDir := filepath.FromSlash(dirReader.Path())
+
+		r.App.Preferences().SetString(common.PrefRegattaDir, regattaDir)
+		r.loadState.loadButton.Enable()
+
+		// Someone reading from a shared regatta directory may not be allowed to
+		// create the results tree. They can still load and time races, so warn
+		// rather than fail.
+		resultsDir := filepath.Join(regattaDir, common.RegattaDataDir, common.ResultsDir)
+		if err = filesystem.CreateDirs(resultsDir); err != nil {
+			r.warnSaveSkipped(err)
+		}
 	}
 
 }
