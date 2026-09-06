@@ -43,7 +43,9 @@ func (r *Regatta) timerRaceList() *container.Scroll {
 		r.refreshRow(race.RaceNumber)
 	}
 
-	scroll := container.NewScroll(list)
+	// Vertical scroll only: rows are laid out to the window width, so the times
+	// stay visible without scrolling sideways.
+	scroll := container.NewVScroll(list)
 	scroll.SetMinSize(fyne.NewSize(0, raceListMinHeight))
 	return scroll
 }
@@ -54,11 +56,12 @@ func (r *Regatta) newRaceRow(race reader.RaceData) *raceRow {
 
 	switch r.session.Role {
 	case persona.RoleStart:
-		// Three fixed columns so rows line up regardless of content: the race
-		// title (right-aligned toward the buttons), the Start / Clear / Restore
-		// buttons in their own equal cells, then the collected time
-		// (right-aligned). Restore keeps its cell when hidden, so the time
-		// never shifts as it appears and disappears.
+		// The race title fills the left, right-aligned so it reads straight into
+		// the buttons. The Start / Clear / Restore buttons and the collected
+		// time sit in a right-hand cluster of fixed width, so they line up down
+		// every row and Restore keeps its slot when hidden - the time never
+		// shifts as it toggles. Fixed-width cluster means the row never grows
+		// past the window, so there is no sideways scroll.
 		row.title.Alignment = fyne.TextAlignTrailing
 		row.startTime = widget.NewLabel(common.NoStartTimeText)
 		row.startTime.Alignment = fyne.TextAlignTrailing
@@ -66,7 +69,11 @@ func (r *Regatta) newRaceRow(race reader.RaceData) *raceRow {
 		row.clearBtn = widget.NewButton(common.ClearButtonText, func() { r.clearStart(n) })
 		row.restoreBtn = widget.NewButton(common.RestoreButtonText, func() { r.restoreStart(n) })
 		buttons := container.NewGridWithColumns(3, row.startBtn, row.clearBtn, row.restoreBtn)
-		row.root = container.NewGridWithColumns(3, row.title, buttons, row.startTime)
+		cluster := container.NewHBox(
+			buttons,
+			container.NewGridWrap(fyne.NewSize(startTimeColWidth, row.startTime.MinSize().Height), row.startTime),
+		)
+		row.root = container.NewBorder(nil, nil, nil, cluster, row.title)
 
 	case persona.RoleFinish:
 		row.startTime = widget.NewLabel(common.WaitingForStartText)
