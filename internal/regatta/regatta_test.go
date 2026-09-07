@@ -423,40 +423,6 @@ func TestRegatta_RaceList_SkipsEmptyRaces(t *testing.T) {
 	// Just verify it was created successfully
 }
 
-func TestRegatta_TimeButton(t *testing.T) {
-	app := test.NewApp()
-	defer app.Quit()
-
-	regatta := NewDirector(app)
-	regatta.RegattaData = &reader.RegattaData{
-		Name:  "Test Regatta",
-		Date:  "2024-01-15",
-		Races: []reader.RaceData{},
-	}
-
-	race := reader.RaceData{
-		RaceNumber: 1,
-		BoatCount:  4,
-		BoatClass:  "Varsity 8",
-		Lanes:      map[int]reader.RaceEntry{1: {SchoolName: "School A"}},
-	}
-
-	button := regatta.timeButton(race)
-
-	if button == nil {
-		t.Fatal("timeButton returned nil")
-	}
-
-	if button.Text != common.TimeRaceButtonText {
-		t.Errorf("Expected button text %q, got %q", common.TimeRaceButtonText, button.Text)
-	}
-
-	// Verify button has an action
-	if button.OnTapped == nil {
-		t.Error("Button should have OnTapped action")
-	}
-}
-
 func TestRegatta_RaceEntry(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()

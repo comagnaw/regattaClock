@@ -109,6 +109,10 @@ func TestStartup_RestoresHistory(t *testing.T) {
 		t.Fatal("expected races to be imported from the example workbook")
 	}
 
+	// callback now parks the parsed workbook behind a confirm dialog; accepting
+	// it writes the schedule and enters the tree.
+	first.applyImportedRegatta()
+
 	if onWelcome(first) {
 		t.Error("a successful import should leave the welcome view")
 	}

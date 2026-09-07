@@ -9,7 +9,7 @@ These answers shape everything below.
 - **Sharing model: configurable between cloud-synced folder and local SMB.** The preferred race-day path is a spare Windows PC on the venue LAN that shares `regattaData` over SMB and also runs a local NTP service. When course-wide networking is unavailable, fall back to a **cloud-synced local folder**. The app never calls a cloud vendor API — it only reads and writes ordinary paths. `PrefStorageMode` is therefore `cloud` | `smb`, not `onedrive` | `google` | …. OneDrive and Google Drive for Desktop are both consumers of `cloud` mode; switching vendors is an ops change, not a code change. Background on the SMB option lives in [shared-storage-options.md](shared-storage-options.md); storage modes are in sections 6 and 12.
 - **File granularity: one file per team + persona.** Every file has exactly one writer. Everyone else opens it read-only. There is no lock contention to manage because there is no shared write target.
 - **Timer click path is sacred.** Recording a time from a button click must not block on watchers, schedule diffs, logging, NTP, or disk/cloud I/O. Stated for implementers in [README.md](README.md#timer-priority-implementers); apply throughout timer UI and store write-through.
-- **Regatta Director: a separate entry point.** Timers get a binary that cannot reach RD functions at all.
+- **Regatta Director: one binary, gated by challenge.** There is a single executable. The Director is a persona on the startup picker like the four timers; picking it requires the `rc-rd` challenge code, which is what keeps a timing operator out of Excel import (the split into two binaries, tried in phase 8, added a second distributable for no separation the challenge code did not already give). The loader menu items appear only once the Director persona is chosen.
 - **Event logging is foundational.** Wire `PrefLogging` / `PrefDebug` early via `internal/applog` so every later phase can emit structured JSON logs as it lands, rather than retrofitting call sites at the end. Full design in section 6c; deeper rationale in [logging-options.md](logging-options.md).
 
 ## 2. Two problems the requirements do not mention
@@ -563,7 +563,7 @@ var Registry = []Definition{
 	{ID: "sft", Role: RoleFinish, Team: TeamSecondary, Label: "Secondary Finish Timer", Challenge: "rc-sft", File: "finish.json"},
 }
 
-// DirectorDefinition - used by the separate director binary; not offered on the timer picker.
+// DirectorDefinition - the Regatta Director; offered on the startup picker with the timing personas (persona.All), gated by its challenge.
 var DirectorDefinition = Definition{
 	ID: "rd", Role: RoleDirector, Team: TeamExecutive, Label: "Regatta Director", Challenge: "rc-rd", File: "",
 }
@@ -655,14 +655,14 @@ func (r *Regatta) initRegatta() {
 }
 ```
 
-  For the timer binary this is replaced entirely by the persona flow. `PrefRegattaDir` is no longer read to auto-load; at most it seeds the folder dialog's starting location as a convenience. The RD binary keeps it, since the RD is the persona that "establishes the regattaData save location".
-- **`setupStartupDialog` at [internal/regatta/regatta.go](internal/regatta/regatta.go) lines 103-128 is dead code** and should be deleted as part of this work rather than carried forward.
+  For a timing persona this is replaced entirely by the persona flow. For the Regatta Director, `PrefRegattaDir` is still where the schedule save location is remembered, and `PrefLastPersonaID == "rd"` turns it into a **"Resume as Regatta Director — &lt;name&gt;"** shortcut on the picker (skips the challenge, since it is the same machine and operator). A timing persona always re-picks.
+- **`setupStartupDialog` dead code** was removed with the phase-5 startup rework.
 
 ### Regatta Director entry point
 
-A second binary, `cmd/regattaDirector/main.go`, sharing `internal/regatta` via a mode flag on construction (`NewDirector` / `NewTimer`). The timer binary contains no path to the Excel loader, so timers cannot reach RD functions even accidentally. [.github/workflows/release.yml](.github/workflows/release.yml) gains parallel `fyne package -src ./cmd/regattaDirector/` steps for macOS and Windows.
+**One binary** (`cmd/regattaClock`). `regatta.New(app)` shows a single picker listing every persona (`persona.All()`); choosing "Regatta Director" and entering `rc-rd` routes to the director flow (bind session, rebuild the menu with the loader items, restore the schedule or show the welcome view). The loader is unreachable until the Director persona is chosen, so a timing operator cannot reach it. `NewDirector` / `NewTimer` remain as constructors for the test suite.
 
-Lower-effort alternative if two distributables prove annoying: one binary with a `--director` flag. Same code structure, weaker separation.
+An Excel import shows the Director a confirm-metadata dialog (title / date / race count) before `regattaSchedule.json` is written; Deny returns to file selection.
 
 ## 9. UI changes by role
 
@@ -754,7 +754,14 @@ Each phase compiles, passes tests, and leaves the app usable.
 5. **Timer startup flow** — picker, challenge, directory validation, confirmation, hydration; `applog.SetOutput` + `SetIdentity` once session root is known. Delete `setupStartupDialog`.
 6. **Role-aware race tree** — Start Time / Clear / Restore for ST, progress indicators for FT and RD, in-place watcher refresh; log button actions at INFO.
 7. **Clock integration** — derived winning time, save on approve/save (plus an in-progress `RaceResult` on the clock's Start click), rehydration, skew warnings; log clock actions and ERROR on save failure; schedule-conflict label refresh while clock open (section 3c), and a per-race `LaneMapHash` stamped on every `RaceResult` write (section 3c item 4). **Start Timer lock** — the ST mirrors `finish.json` read-only and disables `Start Time` / `Clear` / `Restore` for any race the FT has begun timing (section 9).
-8. **Director binary** — `cmd/regattaDirector`, read-only progress tree, **schedule origin fingerprint poll + Apply/Reload** (section 3b) including the **RegattaKey-mismatch guard** that archives or refuses rather than overwriting a different regatta's schedule and timing data (section 3b, "A different regatta is not a schedule change"), release packaging, and primary-vs-secondary reconciliation for export; executive-team log path. Timer-side schedule-diff notices (section 3c) ship with race tree / clock phases 6–7. **Consume `RaceResult.LaneMapHash`** (section 3c item 4): compare it to the live schedule to flag results approved against an older lane map — a persistent mark in the FT race tree and RD progress tree that survives a restart, and a guard in export reconciliation.
+8. **Regatta Director** — sliced:
+   - **8a. One binary + unified picker.** Delete `cmd/regattaDirector`; the Director is a persona on `regatta.New`'s picker, gated by `rc-rd`; `PrefLastPersonaID` drives a resume shortcut; Excel import gains a confirm-metadata step; the `Time Race` button comes off the Director row. *(done)*
+   - **8b. Read-only progress tree** — Director session + hydrate all four timing files + the schedule, watch all five, render the rows (Restarts / Start Time / Winning Time / approval) primary-first with per-value secondary fallback and a "secondary" marker; staleness + skew banners (sections 2.1 / 9); executive-team log path.
+   - **8c. Schedule origin fingerprint poll + Apply/Reload** (section 3b) including the **RegattaKey-mismatch guard** that archives or refuses rather than overwriting a different regatta's schedule and timing data (section 3b, "A different regatta is not a schedule change").
+   - **8d. Consume `RaceResult.LaneMapHash`** (section 3c item 4): compare it to the live schedule to flag results approved against an older lane map — a persistent mark in the FT race tree and RD progress tree that survives a restart.
+   - **8e. Primary-vs-secondary reconciliation for export**, with a `LaneMapHash` guard.
+
+   Timer-side schedule-diff notices (section 3c) shipped with race tree / clock phases 6–7.
 
 ## 11. Testing
 

@@ -26,14 +26,16 @@ import (
 	"github.com/comagnaw/regattaClock/internal/text"
 )
 
-// mode selects which persona this window serves. The Regatta Director
-// establishes regattaData and owns the schedule (Excel import lives here); a
-// timer picks one of the four timing personas at startup and cannot reach the
-// loader at all.
+// mode records which kind of persona the operator picked, so the menu and race
+// tree can differ without threading the role everywhere. It is modeUnset until
+// the persona picker completes. The Regatta Director establishes regattaData and
+// owns the schedule (Excel import); a timer picks one of the four timing
+// personas and its menu carries no loader.
 type mode int
 
 const (
-	modeDirector mode = iota
+	modeUnset mode = iota
+	modeDirector
 	modeTimer
 )
 
@@ -43,10 +45,10 @@ type Regatta struct {
 	// window - main app window
 	window fyne.Window
 
-	// App - app passed by main into NewDirector / NewTimer
+	// App - the fyne.App passed by main into New
 	App fyne.App
 
-	// mode - director or timer
+	// mode - unset until the persona picker resolves, then director or timer
 	mode mode
 
 	loadState *loadState
@@ -71,8 +73,8 @@ type Regatta struct {
 	// RegattaData - reference to loaded RegattaData
 	RegattaData *reader.RegattaData
 
-	// session - the chosen persona and regattaData root (timer mode). Zero
-	// value until the picker completes.
+	// session - the chosen persona and regattaData root. Zero value until the
+	// picker completes (or NewDirector binds it from PrefRegattaDir).
 	session persona.Session
 
 	// startLog / finishLog - in-memory mirrors held for the whole app run.
@@ -130,19 +132,39 @@ func (r *Regatta) newLoadState() {
 
 }
 
-// NewDirector - the Regatta Director window: welcome flow, Excel import, and
-// ownership of director/regattaSchedule.json.
-func NewDirector(app fyne.App) *Regatta { return newRegatta(app, modeDirector) }
+// New - the single application entry point. It shows one persona picker listing
+// every persona (Regatta Director + the four timers); the challenge code is what
+// keeps a timing operator out of the loader.
+func New(app fyne.App) *Regatta {
+	r := newRegatta(app)
+	r.showPersonaPicker()
+	return r
+}
 
-// NewTimer - a timing window: persona picker, challenge, directory confirm, and
-// hydration of this persona's saved data. No path to the Excel loader.
-func NewTimer(app fyne.App) *Regatta { return newRegatta(app, modeTimer) }
+// NewTimer - construct and go straight to the picker, as a timing operator
+// would. Retained for tests that then drive startSession directly.
+func NewTimer(app fyne.App) *Regatta {
+	r := newRegatta(app)
+	r.mode = modeTimer
+	r.showPersonaPicker()
+	return r
+}
 
-func newRegatta(app fyne.App, m mode) *Regatta {
+// NewDirector - construct as the Regatta Director and run the director flow
+// (resume from PrefRegattaDir, else the welcome view). This is the path the
+// picker takes when "Regatta Director" is chosen; retained as a constructor for
+// the director test suite.
+func NewDirector(app fyne.App) *Regatta {
+	r := newRegatta(app)
+	r.mode = modeDirector
+	r.startDirectorFlow()
+	return r
+}
+
+func newRegatta(app fyne.App) *Regatta {
 	regattaApp := &Regatta{
 		window:      app.NewWindow(common.AppTitle),
 		App:         app,
-		mode:        m,
 		persona:     text.Header3(common.EmptyString),
 		title:       text.Header2(common.EmptyString),
 		subtitle:    text.Header3(common.EmptyString),
@@ -155,8 +177,6 @@ func newRegatta(app fyne.App, m mode) *Regatta {
 	regattaApp.window.Resize(fyne.NewSize(regattaWidth, regattaHeight))
 	regattaApp.newLoadState()
 	regattaApp.config = regattaApp.configContent()
-
-	regattaApp.initRegatta()
 
 	return regattaApp
 }
@@ -188,10 +208,16 @@ func (r *Regatta) refreshContent() {
 	}
 }
 
-func (r *Regatta) initRegatta() {
-	if r.mode == modeTimer {
-		r.showPersonaPicker()
-		return
+// startDirectorFlow runs the Regatta Director's startup: mark the mode, rebuild
+// the menu so the loader items appear, bind the session, then either restore the
+// saved schedule or fall back to the welcome view. Reached from the picker when
+// "Regatta Director" is chosen and from NewDirector.
+func (r *Regatta) startDirectorFlow() {
+	r.mode = modeDirector
+	r.window.SetMainMenu(r.makeMenu())
+
+	if session, ok := r.directorSession(); ok {
+		r.session = session
 	}
 
 	if r.App.Preferences().String(common.PrefRegattaDir) == common.EmptyString {
@@ -212,7 +238,8 @@ func (r *Regatta) initRegatta() {
 		return
 	}
 
-	applog.Info("regatta history restored", "component", "startup", "races", r.RegattaData.ScheduledRaces())
+	r.App.Preferences().SetString(common.PrefLastPersonaID, persona.DirectorDefinition.ID)
+	applog.Info("regatta schedule restored", "component", "startup", "races", r.RegattaData.ScheduledRaces())
 	r.refreshContent()
 	r.showRaceTree()
 }
@@ -237,13 +264,11 @@ func (r *Regatta) startLogging() {
 	}
 }
 
-// loggingSession - the session startLogging writes under: the chosen persona in
-// timer mode, or the implicit director session otherwise.
+// loggingSession - the session startLogging writes under: the bound persona
+// once the picker (or NewDirector) has chosen one, falling back to the director
+// session derived from PrefRegattaDir.
 func (r *Regatta) loggingSession() (persona.Session, bool) {
-	if r.mode == modeTimer {
-		if r.session.Root == common.EmptyString {
-			return persona.Session{}, false
-		}
+	if r.session.Root != common.EmptyString {
 		return r.session, true
 	}
 	return r.directorSession()
@@ -302,12 +327,10 @@ func (r *Regatta) warnOnStarted(err error) {
 	})
 }
 
-// directorSession - the persona.Session the single-operator app acts as for
-// schedule ownership: it establishes regattaData and owns
-// director/regattaSchedule.json, which is exactly the Regatta Director's role.
-// The persona picker (phase 5) and the separate director binary (phase 8)
-// replace this with a real chosen session. Returns false when no regatta
-// directory has been configured yet.
+// directorSession - the Regatta Director's persona.Session, derived from the
+// saved PrefRegattaDir. Used to bind the session in startDirectorFlow and to
+// offer the picker's "resume as director" shortcut. Returns false when no
+// regatta directory has been configured yet.
 func (r *Regatta) directorSession() (persona.Session, bool) {
 	regattaDir := r.App.Preferences().String(common.PrefRegattaDir)
 	if regattaDir == common.EmptyString {

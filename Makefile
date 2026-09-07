@@ -17,11 +17,6 @@ test-cover:
 run:
 	go run ./cmd/regattaClock
 
-# run-director - the Regatta Director window (Excel import, schedule ownership).
-# Use this to set up a regatta; the timer needs a published regattaSchedule.json.
-run-director:
-	go run ./cmd/regattaDirector
-
 update-deps:
 	go get -u ./...
 	go mod tidy
