@@ -7,6 +7,7 @@ import (
 
 	"github.com/comagnaw/regattaClock/internal/common"
 	"github.com/comagnaw/regattaClock/internal/persona"
+	"github.com/comagnaw/regattaClock/internal/persona/store"
 	"github.com/comagnaw/regattaClock/internal/reader"
 )
 
@@ -182,7 +183,10 @@ func (r *Regatta) refreshStartRow(row *raceRow) {
 }
 
 // finishLockNote reports whether the finish timer has begun race n (a
-// RaceResult exists in the mirrored finish.json) and the row note to show.
+// RaceResult exists in the mirrored finish.json) and the status to show. The
+// note is the shared race-progress vocabulary (timing in progress / saved /
+// approved); the ST is locked out of the row in every one of those states, so
+// the disabled buttons - not the wording - carry the "locked" meaning.
 func (r *Regatta) finishLockNote(n int) (string, bool) {
 	if r.finishLog == nil {
 		return "", false
@@ -191,10 +195,20 @@ func (r *Regatta) finishLockNote(n int) (string, bool) {
 	if !ok {
 		return "", false
 	}
-	if res.WinningTime != "" || res.Approved {
-		return common.RaceLockedResultsText, true
+	return raceProgressStatus(res), true
+}
+
+// raceProgressStatus maps a committed RaceResult to the shared status text used
+// by all three race trees.
+func raceProgressStatus(res store.RaceResult) string {
+	switch {
+	case res.Approved:
+		return common.RaceApprovedText
+	case res.WinningTime != common.EmptyString:
+		return common.RaceSavedText
+	default:
+		return common.RaceInProgressText
 	}
-	return common.RaceLockedTimingText, true
 }
 
 // raceLockedByFinish - guard for the ST mutators.
@@ -219,12 +233,9 @@ func (r *Regatta) refreshFinishRow(row *raceRow) {
 		row.startTime.SetText(common.WaitingForStartText)
 	}
 
-	switch {
-	case timed && res.Approved:
-		row.progress.SetText(common.RaceApprovedText)
-	case timed && res.WinningTime != common.EmptyString:
-		row.progress.SetText(common.RaceSavedText)
-	default:
+	if timed {
+		row.progress.SetText(raceProgressStatus(res))
+	} else {
 		row.progress.SetText(common.EmptyString)
 	}
 }

@@ -132,8 +132,11 @@ const (
 	RestoreStartPlainMessage = "Restore the previously collected start time %s for race %d?"
 	RestoreStartMessage      = "Replace the current start time %s with the previously collected %s for race %d?"
 	WritesBlockedMessage     = "Recording is blocked because a timing file could not be read at startup. Resolve the file set aside for recovery and restart."
-	RaceLockedTimingText     = "timing in progress"
-	RaceLockedResultsText    = "results recorded"
+
+	// Race-progress status, one vocabulary across the ST, FT and RD race trees:
+	// FirstFinishAt set -> RaceInProgressText, a winning time saved ->
+	// RaceSavedText (above), referee-approved -> RaceApprovedText (above).
+	RaceInProgressText = "timing in progress"
 
 	// Schedule-conflict notices (persona-plan.md 3c). A schedule change that
 	// touches a race with timing (or an open clock) never rewrites start.json /

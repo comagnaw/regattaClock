@@ -109,8 +109,8 @@ func TestDirectorRow_InProgressStatus(t *testing.T) {
 		})},
 		&teamTiming{},
 	)
-	if got := r.rows[1].approved.Text; got != common.RaceLockedTimingText {
-		t.Errorf("in-progress status = %q, want %q", got, common.RaceLockedTimingText)
+	if got := r.rows[1].approved.Text; got != common.RaceInProgressText {
+		t.Errorf("in-progress status = %q, want %q", got, common.RaceInProgressText)
 	}
 }
 

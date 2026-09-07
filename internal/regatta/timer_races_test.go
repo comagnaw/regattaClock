@@ -289,6 +289,29 @@ func TestFinishRowNoStartTimeOnceCommitted(t *testing.T) {
 	}
 }
 
+func TestFinishRowShowsInProgressStatus(t *testing.T) {
+	app := test.NewTempApp(t)
+	sch := testSchedule()
+	root := seedRegatta(t, sch)
+
+	pft := timerSession(t, "pft", root)
+	finishLog := &store.FinishLog{Races: map[int]store.RaceResult{
+		1: {RaceNumber: 1, FirstFinishAt: ptr(time.Now().UTC())}, // started, nothing saved
+	}}
+	finishLog.RegattaKey = store.RegattaKey(sch.Name, sch.Date)
+	if err := store.SaveFinish(pft, finishLog); err != nil {
+		t.Fatal(err)
+	}
+
+	r := NewTimer(app)
+	stopWatch(t, r)
+	r.startSession(pft, sch)
+
+	if got := r.rows[1].progress.Text; got != common.RaceInProgressText {
+		t.Errorf("FT in-progress status = %q, want %q", got, common.RaceInProgressText)
+	}
+}
+
 func TestOnScheduleChangedRefreshesTitleInPlace(t *testing.T) {
 	r, sch, _ := startedTimer(t, "pst")
 

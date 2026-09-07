@@ -105,15 +105,7 @@ func (r *Regatta) directorFinishCells(n int) (win, status string, secondary bool
 		if res.WinningTime != common.EmptyString {
 			win = res.WinningTime
 		}
-		switch {
-		case res.Approved:
-			status = common.RaceApprovedText
-		case res.WinningTime != common.EmptyString:
-			status = common.RaceSavedText
-		default:
-			status = common.RaceLockedTimingText // in progress: FirstFinishAt set
-		}
-		return win, status, team == persona.TeamSecondary
+		return win, raceProgressStatus(res), team == persona.TeamSecondary
 	}
 	return common.NoStartTimeText, common.EmptyString, false
 }
