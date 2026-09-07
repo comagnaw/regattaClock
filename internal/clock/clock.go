@@ -107,6 +107,11 @@ type Clock struct {
 	// it on teardown (referee_window.go).
 	refereeWindow fyne.Window
 
+	// clockClosed - set when the clock window's own close handler runs, so the
+	// referee window's close handler knows not to restore or re-raise a clock
+	// that is going away.
+	clockClosed bool
+
 	// AfterClose - optional callback fired once when the clock window closes,
 	// so a finish timer's race tree can pick up saved results.
 	AfterClose func()
@@ -257,6 +262,7 @@ func (c *Clock) OpenRaceClock() {
 
 	// Set up window close handler to clean up the goroutine
 	c.window.SetOnClosed(func() {
+		c.clockClosed = true
 		if c.refereeWindow != nil {
 			c.refereeWindow.Close()
 		}

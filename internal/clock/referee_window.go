@@ -169,8 +169,18 @@ func (c *Clock) showRefereeeApproval(raceNumber int) {
 	w.CenterOnScreen()
 	w.SetOnClosed(func() {
 		c.refereeWindow = nil
+		if c.clockClosed {
+			return // the clock is tearing down; nothing to restore or raise
+		}
 		c.unblockClockAfterReferee()
-		c.window.RequestFocus() // return the operator to the clock, not whatever is behind it
+		// Raise the clock on the next event-loop tick - doing it inline, mid
+		// close, is too early: the window manager then picks the next focus
+		// window itself and the operator lands on whatever was behind (the race
+		// tree). fyne.Do defers to after the close completes.
+		fyne.Do(func() {
+			c.window.Show()
+			c.window.RequestFocus()
+		})
 	})
 	c.refereeWindow = w
 	w.Show()
