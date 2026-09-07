@@ -88,6 +88,13 @@ const (
 	LoadDataTitle         = "Load Regatta Data"
 	CreateLaneImagesTitle = "Create Lane Images"
 
+	// Race-tree column headers (internal/regatta races.go / timer_races.go). The
+	// race column reuses ScheduledRacesTile.
+	ColStartTime   = "Start Time"
+	ColStatus      = "Status"
+	ColRestarts    = "Restarts"
+	ColWinningTime = "Winning Time"
+
 	// Role-aware timer race tree (internal/regatta timer_races.go / start_timing.go).
 	StartTimeButtonText      = "Start Time"
 	ClearButtonText          = "Clear"

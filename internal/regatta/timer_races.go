@@ -1,9 +1,10 @@
 package regatta
 
 import (
+	"strconv"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/comagnaw/regattaClock/internal/common"
@@ -11,25 +12,32 @@ import (
 	"github.com/comagnaw/regattaClock/internal/reader"
 )
 
-// raceRow holds the widgets for one race in the timer tree. Only the fields the
-// row's role uses are non-nil.
+// raceRow holds the widgets for one race row. Every role lays its row out as
+// Border(nil,nil,nil,cluster,title) with the title right-aligned, so the race
+// column reads straight into the fixed-width columns to its right and the header
+// labels line up over them. Only the fields the row's role uses are non-nil.
 type raceRow struct {
 	raceNumber int
 	root       *fyne.Container
 
 	title     *widget.Label
-	startTime *widget.Label // start timer + finish timer
+	startTime *widget.Label // start timer, finish timer, director
 	progress  *widget.Label // finish timer progress; start timer lock note
 
 	startBtn   *widget.Button // start timer
 	clearBtn   *widget.Button // start timer
 	restoreBtn *widget.Button // start timer
 	timeBtn    *widget.Button // finish timer
+
+	restarts *widget.Label // director
+	winTime  *widget.Label // director
+	approved *widget.Label // director
 }
 
-// timerRaceList builds the role-aware race list and records a raceRow per race
-// so later updates can touch a single row.
-func (r *Regatta) timerRaceList() *container.Scroll {
+// raceListBody builds the scrolling race list and records a raceRow per race so
+// later updates can touch a single row. The per-role layout lives in
+// newRaceRow, so timer and director share this.
+func (r *Regatta) raceListBody() *container.Scroll {
 	r.rows = make(map[int]*raceRow)
 	list := container.NewVBox()
 
@@ -43,8 +51,8 @@ func (r *Regatta) timerRaceList() *container.Scroll {
 		r.refreshRow(race.RaceNumber)
 	}
 
-	// Vertical scroll only: rows are laid out to the window width, so the times
-	// stay visible without scrolling sideways.
+	// Vertical scroll only: rows are laid out to the window width, so the
+	// columns stay visible without scrolling sideways.
 	scroll := container.NewVScroll(list)
 	scroll.SetMinSize(fyne.NewSize(0, raceListMinHeight))
 	return scroll
@@ -53,43 +61,57 @@ func (r *Regatta) timerRaceList() *container.Scroll {
 func (r *Regatta) newRaceRow(race reader.RaceData) *raceRow {
 	n := race.RaceNumber
 	row := &raceRow{raceNumber: n, title: widget.NewLabel(race.RaceTitle())}
+	row.title.Alignment = fyne.TextAlignTrailing
 
+	var cluster *fyne.Container
 	switch r.session.Role {
 	case persona.RoleStart:
-		// The race title fills the left, right-aligned so it reads straight into
-		// the buttons. The Start / Clear / Restore buttons and the collected
-		// time sit in a right-hand cluster of fixed width, so they line up down
-		// every row and Restore keeps its slot when hidden - the time never
-		// shifts as it toggles. Fixed-width cluster means the row never grows
-		// past the window, so there is no sideways scroll.
-		row.title.Alignment = fyne.TextAlignTrailing
+		// Start / Clear / Restore, then the collected time, then the lock note.
+		// Restore keeps its slot when hidden so the time never shifts.
 		row.startTime = widget.NewLabel(common.NoStartTimeText)
 		row.startTime.Alignment = fyne.TextAlignTrailing
 		row.progress = widget.NewLabel(common.EmptyString) // lock note when the FT is timing this race
 		row.startBtn = widget.NewButton(common.StartTimeButtonText, func() { r.recordStart(n) })
 		row.clearBtn = widget.NewButton(common.ClearButtonText, func() { r.clearStart(n) })
 		row.restoreBtn = widget.NewButton(common.RestoreButtonText, func() { r.restoreStart(n) })
-		buttons := container.NewGridWithColumns(3, row.startBtn, row.clearBtn, row.restoreBtn)
-		cluster := container.NewHBox(
-			buttons,
-			container.NewGridWrap(fyne.NewSize(startTimeColWidth, row.startTime.MinSize().Height), row.startTime),
-			row.progress,
+		cluster = container.NewHBox(
+			fixedCell(actionsColWidth, container.NewGridWithColumns(3, row.startBtn, row.clearBtn, row.restoreBtn)),
+			fixedCell(startTimeColWidth, row.startTime),
+			fixedCell(statusColWidth, row.progress),
 		)
-		row.root = container.NewBorder(nil, nil, nil, cluster, row.title)
 
 	case persona.RoleFinish:
 		row.startTime = widget.NewLabel(common.WaitingForStartText)
-		row.progress = widget.NewLabel("")
+		row.startTime.Alignment = fyne.TextAlignTrailing
+		row.progress = widget.NewLabel(common.EmptyString)
 		row.timeBtn = widget.NewButton(common.TimeRaceButtonText, func() { r.openClock(n) })
-		row.root = container.NewHBox(
-			row.title, layout.NewSpacer(),
-			row.startTime, row.progress, row.timeBtn,
+		cluster = container.NewHBox(
+			fixedCell(startTimeColWidth, row.startTime),
+			fixedCell(statusColWidth, row.progress),
+			fixedCell(timeRaceColWidth, row.timeBtn),
 		)
 
-	default:
-		row.root = container.NewHBox(row.title)
+	default: // RoleDirector - read-only progress, no buttons.
+		row.restarts = trailingLabel(common.NoStartTimeText)
+		row.startTime = trailingLabel(common.NoStartTimeText)
+		row.winTime = trailingLabel(common.NoStartTimeText)
+		row.approved = trailingLabel(common.EmptyString)
+		cluster = container.NewHBox(
+			fixedCell(restartsColWidth, row.restarts),
+			fixedCell(startTimeColWidth, row.startTime),
+			fixedCell(winTimeColWidth, row.winTime),
+			fixedCell(statusColWidth, row.approved),
+		)
 	}
+
+	row.root = container.NewBorder(nil, nil, nil, cluster, row.title)
 	return row
+}
+
+func trailingLabel(text string) *widget.Label {
+	l := widget.NewLabel(text)
+	l.Alignment = fyne.TextAlignTrailing
+	return l
 }
 
 // refreshRow re-renders one race row from the current schedule and in-memory
@@ -112,6 +134,8 @@ func (r *Regatta) refreshRow(n int) {
 		r.refreshStartRow(row)
 	case persona.RoleFinish:
 		r.refreshFinishRow(row)
+	case persona.RoleDirector:
+		r.refreshDirectorRow(row)
 	}
 }
 
@@ -187,6 +211,43 @@ func (r *Regatta) refreshFinishRow(row *raceRow) {
 	default:
 		row.progress.SetText(common.EmptyString)
 	}
+}
+
+// refreshDirectorRow fills the read-only progress columns. It is nil-safe
+// against r.startLog / r.finishLog, which stay nil until the slice that binds
+// the Director session and hydrates both teams' timing files; until then every
+// cell shows its placeholder.
+func (r *Regatta) refreshDirectorRow(row *raceRow) {
+	n := row.raceNumber
+
+	restarts, startDisplay := common.NoStartTimeText, common.NoStartTimeText
+	if r.startLog != nil {
+		if rec, ok := r.startLog.Races[n]; ok {
+			restarts = strconv.Itoa(len(rec.Cleared))
+			if rec.StartedAt != nil {
+				startDisplay = rec.Display
+			}
+		}
+	}
+	row.restarts.SetText(restarts)
+	row.startTime.SetText(startDisplay)
+
+	winTime, status := common.NoStartTimeText, common.EmptyString
+	if r.finishLog != nil {
+		if res, ok := r.finishLog.Races[n]; ok {
+			if res.WinningTime != common.EmptyString {
+				winTime = res.WinningTime
+			}
+			switch {
+			case res.Approved:
+				status = common.RaceApprovedText
+			case res.WinningTime != common.EmptyString:
+				status = common.RaceSavedText
+			}
+		}
+	}
+	row.winTime.SetText(winTime)
+	row.approved.SetText(status)
 }
 
 func (r *Regatta) refreshAllRows() {

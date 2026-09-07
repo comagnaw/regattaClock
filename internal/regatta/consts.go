@@ -14,9 +14,30 @@ const (
 	// floor would push the content past the window and force it to grow.
 	raceListMinHeight = float32(120)
 
-	// startTimeColWidth - fixed width of the collected-time cell in a start
-	// timer row, wide enough for "HH:MM:SS.d" plus a little breathing room.
+	// Race-tree column widths. The header row and every data row wrap each
+	// column in a GridWrap of the matching width, so a bold header label sits
+	// directly over its column and the values line up down the list.
+
+	// startTimeColWidth - the collected / recorded start-time cell, wide enough
+	// for "HH:MM:SS.d" plus breathing room. Shared by ST, FT and RD.
 	startTimeColWidth = float32(110)
+
+	// actionsColWidth - the start timer's Start Time / Clear / Restore button
+	// group (three equal cells).
+	actionsColWidth = float32(300)
+
+	// statusColWidth - the ST lock note, the FT progress indicator, and the RD
+	// approval indicator ("timing in progress" is the widest text).
+	statusColWidth = float32(140)
+
+	// winTimeColWidth - the RD's winning-time cell.
+	winTimeColWidth = float32(110)
+
+	// restartsColWidth - the RD's restart count.
+	restartsColWidth = float32(80)
+
+	// timeRaceColWidth - the finish timer's Time Race button.
+	timeRaceColWidth = float32(110)
 
 	// welcomeBannerWidth, welcomeBannerHeight - banner size on the welcome view,
 	// keeping the source image's 16:9 ratio
