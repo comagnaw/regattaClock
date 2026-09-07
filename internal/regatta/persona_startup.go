@@ -204,6 +204,7 @@ func (r *Regatta) startSession(session persona.Session, schedule *store.Schedule
 		r.startLog = r.hydrateOwnStart(session, key)
 		r.startLog.RegattaKey = key
 		r.startLog.Machine = host
+		r.finishLog = r.hydratePeerFinish(session, key) // read-only, for the ST lock
 	case persona.RoleFinish:
 		r.startLog = r.hydratePeerStart(session, key)
 		r.finishLog = r.hydrateOwnFinish(session, key)
@@ -264,6 +265,30 @@ func (r *Regatta) hydratePeerStart(s persona.Session, key string) *store.StartLo
 	}
 	if log.Races == nil {
 		log.Races = map[int]store.StartRecord{}
+	}
+	return log
+}
+
+// hydratePeerFinish loads the finish timer's finish.json for a start timer,
+// which does not own it: a mismatch or unreadable file is a warning only, and
+// the start timer only reads it (to lock rows the FT has begun timing).
+func (r *Regatta) hydratePeerFinish(s persona.Session, key string) *store.FinishLog {
+	empty := &store.FinishLog{Races: map[int]store.RaceResult{}}
+	log, err := store.LoadFinish(s)
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		return empty
+	case err != nil:
+		applog.Warn("peer finish.json unusable; no rows locked", "component", "startup", "err", err)
+		return empty
+	}
+	if log.RegattaKey != "" && log.RegattaKey != key {
+		applog.Warn("peer finish.json belongs to a different regatta; ignored",
+			"component", "startup", "had", log.RegattaKey, "want", key)
+		return empty
+	}
+	if log.Races == nil {
+		log.Races = map[int]store.RaceResult{}
 	}
 	return log
 }
@@ -332,8 +357,11 @@ func (r *Regatta) startWatcher(s persona.Session) {
 	w := watcher.New(mode, 0)
 
 	paths := []string{s.SchedulePath()}
-	if s.Role == persona.RoleFinish {
-		paths = append(paths, s.StartPath())
+	switch s.Role {
+	case persona.RoleFinish:
+		paths = append(paths, s.StartPath()) // peer start times
+	case persona.RoleStart:
+		paths = append(paths, s.FinishPath()) // FT progress, for the row lock
 	}
 	// Seed the last-applied hash from what hydrate already read, so the
 	// watcher's unconditional first event for an unchanged file is a no-op.
@@ -397,6 +425,25 @@ func (r *Regatta) applyWatchEvent(ev watcher.Event) {
 		}
 		applog.Info("peer start times updated", "component", "race_tree", "races", len(log.Races))
 		fyne.Do(func() { r.onPeerStartChanged(&log) })
+
+	case r.session.FinishPath():
+		if r.session.Role != persona.RoleStart {
+			return
+		}
+		var log store.FinishLog
+		if err := json.Unmarshal(ev.Data, &log); err != nil {
+			applog.Warn("watched finish.json did not parse", "component", "race_tree", "err", err)
+			return
+		}
+		if log.RegattaKey != common.EmptyString && log.RegattaKey != r.regattaKey {
+			applog.Warn("watched finish.json is a different regatta; ignored", "component", "race_tree")
+			return
+		}
+		if log.Races == nil {
+			log.Races = map[int]store.RaceResult{}
+		}
+		applog.Info("finish progress updated", "component", "race_tree", "races", len(log.Races))
+		fyne.Do(func() { r.onPeerFinishChanged(&log) })
 	}
 }
 
@@ -424,6 +471,13 @@ func (r *Regatta) onScheduleChanged(sch *store.Schedule) {
 
 func (r *Regatta) onPeerStartChanged(log *store.StartLog) {
 	r.startLog = log
+	r.refreshAllRows()
+}
+
+// onPeerFinishChanged - a start timer seeing the finish timer's progress. It
+// only reads this file; a RaceResult appearing for a race locks that ST row.
+func (r *Regatta) onPeerFinishChanged(log *store.FinishLog) {
+	r.finishLog = log
 	r.refreshAllRows()
 }
 

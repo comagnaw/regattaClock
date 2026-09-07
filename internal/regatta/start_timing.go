@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/dialog"
 
 	"github.com/comagnaw/regattaClock/internal/applog"
@@ -18,8 +19,10 @@ import (
 // the button disables, and recording a different one means Clear then Start
 // Time again.
 func (r *Regatta) recordStart(n int) {
-	if r.writesBlocked {
-		r.warnWritesBlocked()
+	if r.writesBlocked || r.raceLockedByFinish(n) {
+		if r.writesBlocked {
+			r.warnWritesBlocked()
+		}
 		return
 	}
 	if r.startLog.Races[n].StartedAt != nil {
@@ -59,6 +62,9 @@ func (r *Regatta) clearStart(n int) {
 }
 
 func (r *Regatta) clearStartConfirmed(n int) {
+	if r.raceLockedByFinish(n) {
+		return
+	}
 	if r.writesBlocked {
 		r.warnWritesBlocked()
 		return
@@ -110,6 +116,9 @@ func (r *Regatta) restoreStart(n int) {
 }
 
 func (r *Regatta) restoreStartConfirmed(n int) {
+	if r.raceLockedByFinish(n) {
+		return
+	}
 	if r.writesBlocked {
 		r.warnWritesBlocked()
 		return
@@ -153,13 +162,18 @@ func (r *Regatta) warnWritesBlocked() {
 	dialog.ShowInformation(common.CorruptTimingFileTitle, common.WritesBlockedMessage, r.window)
 }
 
-// openClock opens the race-timing window for a finish timer. Phase 7 threads the
-// persona session into the clock; for now it takes the same arguments as before.
+// openClock opens the race-timing window for a finish timer, bound to this
+// session's finish.json so the clock persists results and, on its Start click,
+// engages the Start Timer lock. The FT race tree refreshes when the window
+// closes.
 func (r *Regatta) openClock(n int) {
 	race, ok := r.raceByNumber(n)
 	if !ok {
 		return
 	}
 	applog.Info("time race opened", "component", "race_tree", "action", "time_race", "race", n)
-	clock.NewClock(r.App, r.RegattaData, race).OpenRaceClock()
+
+	clk := clock.NewClock(r.App, r.RegattaData, race).WithFinishLog(r.session, r.finishLog)
+	clk.AfterClose = func() { fyne.Do(r.refreshAllRows) }
+	clk.OpenRaceClock()
 }

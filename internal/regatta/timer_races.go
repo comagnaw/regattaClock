@@ -19,7 +19,7 @@ type raceRow struct {
 
 	title     *widget.Label
 	startTime *widget.Label // start timer + finish timer
-	progress  *widget.Label // finish timer
+	progress  *widget.Label // finish timer progress; start timer lock note
 
 	startBtn   *widget.Button // start timer
 	clearBtn   *widget.Button // start timer
@@ -65,6 +65,7 @@ func (r *Regatta) newRaceRow(race reader.RaceData) *raceRow {
 		row.title.Alignment = fyne.TextAlignTrailing
 		row.startTime = widget.NewLabel(common.NoStartTimeText)
 		row.startTime.Alignment = fyne.TextAlignTrailing
+		row.progress = widget.NewLabel(common.EmptyString) // lock note when the FT is timing this race
 		row.startBtn = widget.NewButton(common.StartTimeButtonText, func() { r.recordStart(n) })
 		row.clearBtn = widget.NewButton(common.ClearButtonText, func() { r.clearStart(n) })
 		row.restoreBtn = widget.NewButton(common.RestoreButtonText, func() { r.restoreStart(n) })
@@ -72,6 +73,7 @@ func (r *Regatta) newRaceRow(race reader.RaceData) *raceRow {
 		cluster := container.NewHBox(
 			buttons,
 			container.NewGridWrap(fyne.NewSize(startTimeColWidth, row.startTime.MinSize().Height), row.startTime),
+			row.progress,
 		)
 		row.root = container.NewBorder(nil, nil, nil, cluster, row.title)
 
@@ -110,13 +112,25 @@ func (r *Regatta) refreshRow(n int) {
 }
 
 func (r *Regatta) refreshStartRow(row *raceRow) {
-	rec := r.startLog.Races[row.raceNumber]
+	n := row.raceNumber
+	rec := r.startLog.Races[n]
 
 	if rec.StartedAt != nil {
 		row.startTime.SetText(rec.Display)
 	} else {
 		row.startTime.SetText(common.NoStartTimeText)
 	}
+
+	// Locked once the finish timer has begun this race (persona-plan.md
+	// section 9): no changes to the start time while a result is in progress.
+	if note, locked := r.finishLockNote(n); locked {
+		row.progress.SetText(note)
+		setEnabled(row.startBtn, false)
+		setEnabled(row.clearBtn, false)
+		row.restoreBtn.Hide()
+		return
+	}
+	row.progress.SetText(common.EmptyString)
 
 	// Once a start time exists the button is done: changing it goes through
 	// Clear (non-destructive) then Start Time again, not a second click.
@@ -129,6 +143,28 @@ func (r *Regatta) refreshStartRow(row *raceRow) {
 	} else {
 		row.restoreBtn.Hide()
 	}
+}
+
+// finishLockNote reports whether the finish timer has begun race n (a
+// RaceResult exists in the mirrored finish.json) and the row note to show.
+func (r *Regatta) finishLockNote(n int) (string, bool) {
+	if r.finishLog == nil {
+		return "", false
+	}
+	res, ok := r.finishLog.Races[n]
+	if !ok {
+		return "", false
+	}
+	if res.WinningTime != "" || res.Approved {
+		return common.RaceLockedResultsText, true
+	}
+	return common.RaceLockedTimingText, true
+}
+
+// raceLockedByFinish - guard for the ST mutators.
+func (r *Regatta) raceLockedByFinish(n int) bool {
+	_, locked := r.finishLockNote(n)
+	return locked
 }
 
 func (r *Regatta) refreshFinishRow(row *raceRow) {

@@ -53,7 +53,10 @@ func (c *Clock) initStart() *widget.Button {
 	)
 }
 
-// startFunc - function used when start button is pushed
+// startFunc - function used when start button is pushed. This marks the first
+// boat crossing the finish line: the local stopwatch uses a monotonic
+// time.Now(), while recordFirstFinish captures the corrected cross-machine
+// timestamp for finish.json.
 func (c *Clock) startFunc() func() {
 	return func() {
 		if c.isNotRunning() && c.clockState.isCleared {
@@ -63,6 +66,7 @@ func (c *Clock) startFunc() func() {
 			c.laps.firstLap()
 			c.refreshContent()
 			c.winningTime.Disable()
+			c.recordFirstFinish()
 		}
 	}
 }
@@ -160,12 +164,14 @@ func (c *Clock) showRefereeeApproval(raceNumber int) {
 	)
 }
 
-// refereeApprovalFunc - when referee approves race results, update RegattaData and enable save button
+// refereeApprovalFunc - when referee approves race results, mark the race
+// approved, enable Save, and write finish.json.
 func (c *Clock) refereeApprovalFunc(raceNumber int) func(approve bool) {
 	return func(approve bool) {
 		if approve {
 			c.RegattaData.ApproveRace(raceNumber)
 			c.buttons.save.Enable()
+			c.persistFinish(true)
 		}
 	}
 }
@@ -178,11 +184,12 @@ func (c *Clock) refereeApprovalContent() *fyne.Container {
 	)
 }
 
-// initSave - initialize the save button.
-// Default is for button to be disabled until the race results are approved.
+// initSave - initialize the save button. Disabled until the race results are
+// approved; on click it re-writes finish.json (the identical write to Referee
+// Approval).
 func (c *Clock) initSave() *widget.Button {
 	button := widget.NewButton(common.SaveButtonText, func() {
-		// Save logic will be implemented later
+		c.persistFinish(true)
 	})
 	button.Disable()
 	return button

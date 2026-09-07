@@ -91,6 +91,8 @@ const (
 	RestoreStartPlainMessage = "Restore the previously collected start time %s for race %d?"
 	RestoreStartMessage      = "Replace the current start time %s with the previously collected %s for race %d?"
 	WritesBlockedMessage     = "Recording is blocked because a timing file could not be read at startup. Resolve the file set aside for recovery and restart."
+	RaceLockedTimingText     = "timing in progress"
+	RaceLockedResultsText    = "results recorded"
 
 	// Timer persona startup flow (internal/regatta persona_startup.go).
 	PersonaPickerPrompt           = "Choose your persona and enter its challenge code."
