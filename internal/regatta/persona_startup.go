@@ -163,7 +163,7 @@ func (r *Regatta) personaDirCallback(def persona.Definition) func(fyne.ListableU
 					r.pickPersonaDirectory(def)
 					return
 				}
-				r.startSession(session, schedule)
+				r.confirmRegattaDate(def, session, schedule)
 			},
 			r.window,
 		)

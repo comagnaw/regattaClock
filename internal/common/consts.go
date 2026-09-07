@@ -206,8 +206,17 @@ const (
 	ScheduleUnreadableMessage     = "Could not read the regatta schedule in that directory"
 	ConfirmRegattaTitle           = "Confirm regatta"
 	ConfirmRegattaMessage         = "%s\n%s\nScheduled races: %d\n\nTime this regatta?"
-	CorruptTimingFileTitle        = "Timing file could not be read"
-	CorruptTimingFileMessage      = "%s could not be parsed and has been copied aside as %s. Recording is blocked until this is resolved so a day's data is not overwritten.\n\n%s"
+
+	// Past-regatta gate (internal/regatta date_guard.go). Shown to a timer when
+	// the schedule's date is before the host's current local date - the
+	// "already-run regatta" mistake. An empty or unparseable date skips it.
+	// PastRegattaMessage args: regatta name, regatta date, today.
+	PastRegattaTitle         = "Regatta date has passed"
+	PastRegattaMessage       = "\"%s\" was scheduled for %s.\nToday is %s.\n\nTiming data is the permanent record for a regatta. Loading it now means recording times against an event that has already run.\n\nLoad it anyway?"
+	RegattaDateDisplayLayout = "Monday, January 2, 2006"
+
+	CorruptTimingFileTitle   = "Timing file could not be read"
+	CorruptTimingFileMessage = "%s could not be parsed and has been copied aside as %s. Recording is blocked until this is resolved so a day's data is not overwritten.\n\n%s"
 
 	ApproveButtonText       = "Approve"
 	CancelButtonText        = "Cancel"

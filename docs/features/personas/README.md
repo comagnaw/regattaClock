@@ -73,7 +73,8 @@ Primary and secondary are independent ST/FT pairings for the same regatta. Timin
 1. Choose a persona from the one picker — Regatta Director or primary/secondary × start/finish.
 2. Pass that persona’s challenge code (or return to step 1). The Director may instead take the "resume as director" shortcut when it was the last persona used.
 3. Select `regattaData` and confirm title / date / schedule. The Director may also point at a fresh directory and import Excel, confirming the parsed metadata before the schedule is written.
-4. Show the role-specific race tree.
+4. **Timers only:** if the schedule's date is already in the past (read in the host's timezone), a second confirmation warns that this is an already-run regatta before the session starts. An empty or unrecognised date skips this check.
+5. Show the role-specific race tree.
 
 ## Privilege summary
 
