@@ -76,6 +76,22 @@ const (
 	LoadDataTitle         = "Load Regatta Data"
 	CreateLaneImagesTitle = "Create Lane Images"
 
+	// Role-aware timer race tree (internal/regatta timer_races.go / start_timing.go).
+	StartTimeButtonText      = "Start Time"
+	ClearButtonText          = "Clear"
+	RestoreButtonText        = "Restore"
+	NoStartTimeText          = "—"
+	WaitingForStartText      = "waiting for start…"
+	RaceSavedText            = "saved"
+	RaceApprovedText         = "approved"
+	StartTimeDisplayLayout   = "15:04:05.0" // wall clock with tenths, as StartRecord.Display
+	ClearStartTitle          = "Clear start time"
+	ClearStartMessage        = "Clear the recorded start for race %d?"
+	RestoreStartTitle        = "Restore start time"
+	RestoreStartPlainMessage = "Restore the previously collected start time %s for race %d?"
+	RestoreStartMessage      = "Replace the current start time %s with the previously collected %s for race %d?"
+	WritesBlockedMessage     = "Recording is blocked because a timing file could not be read at startup. Resolve the file set aside for recovery and restart."
+
 	// Timer persona startup flow (internal/regatta persona_startup.go).
 	PersonaPickerPrompt           = "Choose your persona and enter its challenge code."
 	ChallengeFieldLabel           = "Challenge code:"
