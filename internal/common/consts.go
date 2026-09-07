@@ -77,6 +77,19 @@ const (
 	// ResumeDirectorFormat - picker shortcut label; arg is the regatta name.
 	ResumeDirectorFormat = "Resume as Regatta Director — %s"
 
+	// Reload Schedule + the RegattaKey-mismatch guard (persona-plan.md 3b,
+	// "A different regatta is not a schedule change"). internal/regatta
+	// schedule_guard.go / loader.go / menu.go.
+	ReloadScheduleTitle        = "Reload Schedule"
+	NoOriginRecordedMessage    = "No source workbook is recorded for this regatta. Use \"Load Regatta Data\" to pick one."
+	ReloadFailedMessage        = "Could not re-read the regatta workbook"
+	ExistingScheduleUnreadable = "The schedule already in %s could not be read. Resolve it before importing.\n\n%v"
+	DifferentRegattaTitle      = "Different regatta"
+	// Args: on-disk name, on-disk date, workbook name, workbook date.
+	DifferentRegattaBlockedMessage = "This workbook describes a different regatta:\n\n  on disk:  %s  (%s)\n  workbook: %s  (%s)\n\nThis folder already holds timing data for the regatta on disk. Point the Regatta Director at a fresh regatta folder, or archive this folder's director/ and timing/ data yourself, then import again."
+	// Args: on-disk name, on-disk date, workbook name, workbook date, old RegattaKey.
+	DifferentRegattaReplaceMessage = "This workbook describes a different regatta:\n\n  on disk:  %s  (%s)\n  workbook: %s  (%s)\n\nNo timing data has been recorded here yet. Replace the schedule? The current one is kept as regattaSchedule.%s.json."
+
 	NumScheduledRacesTitle = "Scheduled Races: %d"
 	ScheduledRacesTile     = "Scheduled Races"
 

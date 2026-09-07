@@ -91,13 +91,33 @@ func (r *Regatta) confirmImportedRegatta(fromStartup bool) {
 	)
 }
 
-// applyImportedRegatta writes the schedule from the parsed workbook and enters
-// the director tree.
+// applyImportedRegatta runs the RegattaKey guard (persona-plan.md 3b), writes
+// the schedule when it is clear to do so, and enters/refreshes the director
+// tree. A blocked import shows a dialog and leaves the tree untouched.
 func (r *Regatta) applyImportedRegatta() {
-	r.saveRegattaData()
-	applog.Info("regatta imported", "component", "loader",
-		"name", r.RegattaData.Name, "races", r.RegattaData.ScheduledRaces())
-	r.startDirectorFlow()
+	r.guardScheduleWrite(func() {
+		applog.Info("regatta imported", "component", "loader",
+			"name", r.RegattaData.Name, "races", r.RegattaData.ScheduledRaces())
+		r.startDirectorFlow()
+	})
+}
+
+// reloadSchedule re-reads the workbook the current schedule was imported from
+// and runs it back through the confirm + guard path. Used by the Reload
+// Schedule menu item (persona-plan.md 3b: a manual reload runs the same checks).
+func (r *Regatta) reloadSchedule() {
+	uri := r.RegattaData.URI
+	if uri == common.EmptyString {
+		dialog.ShowInformation(common.ReloadScheduleTitle, common.NoOriginRecordedMessage, r.window)
+		return
+	}
+	if err := r.setRegattaData(uri); err != nil {
+		applog.Error("schedule reload failed", "component", "loader", "path", uri, "err", err)
+		dialog.ShowError(fmt.Errorf("%s: %w", common.ReloadFailedMessage, err), r.window)
+		return
+	}
+	r.debugLoader()
+	r.confirmImportedRegatta(false)
 }
 
 func getFilePath(fileReader fyne.URIReadCloser) (string, error) {
