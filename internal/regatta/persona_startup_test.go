@@ -90,12 +90,12 @@ func TestTimerShowsPersonaPicker(t *testing.T) {
 	if rg == nil {
 		t.Fatal("persona picker has no radio group")
 	}
-	want := make([]string, len(persona.Registry))
-	for i, d := range persona.Registry {
-		want[i] = d.Label
+	// The one picker lists every persona now - the four timers and the director.
+	if len(rg.Options) != len(persona.All()) {
+		t.Fatalf("picker options = %v, want %d", rg.Options, len(persona.All()))
 	}
-	if len(rg.Options) != len(want) {
-		t.Fatalf("picker options = %v, want %v", rg.Options, want)
+	if !slices.Contains(rg.Options, persona.DirectorDefinition.Label) {
+		t.Errorf("picker options = %v, want the Regatta Director included", rg.Options)
 	}
 	if r.session.Root != "" {
 		t.Error("session should not be bound before the picker completes")

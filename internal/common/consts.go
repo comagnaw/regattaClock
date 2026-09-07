@@ -13,6 +13,11 @@ const (
 	PrefStorageMode = "StorageMode"
 	PrefNTPServers  = "NTPServers"
 
+	// PrefLastPersonaID - the persona ID chosen on the previous run. Only used
+	// to offer the Regatta Director a "resume" shortcut on the picker; timers
+	// always re-pick.
+	PrefLastPersonaID = "LastPersonaID"
+
 	// StorageModeCloud / StorageModeSMB are the PrefStorageMode values. They
 	// must stay equal to watcher.ModeCloud / watcher.ModeSMB (asserted by a test
 	// in the watcher package); common stays a leaf and cannot import watcher.
@@ -64,6 +69,13 @@ const (
 	// The welcome banner carries the app name, so the steps need no title above them
 	WelcomeSetDirText   = "1. Set the directory for loading and saving regatta data."
 	WelcomeLoadFileText = "2. Load the Excel file holding your regatta schedule."
+
+	// ConfirmImportedRegattaMessage - shown to the Regatta Director after an
+	// Excel import, before the schedule is written. Deny returns to file
+	// selection. Args: name, date, scheduled race count.
+	ConfirmImportedRegattaMessage = "%s\n%s\nScheduled races: %d\n\nUse this as the regatta schedule?"
+	// ResumeDirectorFormat - picker shortcut label; arg is the regatta name.
+	ResumeDirectorFormat = "Resume as Regatta Director — %s"
 
 	NumScheduledRacesTitle = "Scheduled Races: %d"
 	ScheduledRacesTile     = "Scheduled Races"

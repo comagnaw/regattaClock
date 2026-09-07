@@ -6,7 +6,6 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 
-	"github.com/comagnaw/regattaClock/internal/clock"
 	"github.com/comagnaw/regattaClock/internal/common"
 	"github.com/comagnaw/regattaClock/internal/reader"
 )
@@ -94,21 +93,12 @@ func (r *Regatta) raceList() *container.Scroll {
 	return scroll
 }
 
-func (r *Regatta) timeButton(race reader.RaceData) *widget.Button {
-	// Create a button to time this race
-	return widget.NewButton(common.TimeRaceButtonText, func(raceData reader.RaceData) func() {
-		return func() {
-			clockApp := clock.NewClock(r.App, r.RegattaData, raceData)
-			clockApp.OpenRaceClock()
-
-		}
-	}(race))
-}
-
+// raceEntry - one row of the Regatta Director's read-only list. It is just the
+// race title for now; the progress columns (start time, winning time, approval,
+// restarts) land in the next slice.
 func (r *Regatta) raceEntry(race reader.RaceData) *fyne.Container {
 	return container.NewHBox(
 		widget.NewLabel(race.RaceTitle()),
 		layout.NewSpacer(),
-		r.timeButton(race),
 	)
 }

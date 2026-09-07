@@ -52,8 +52,9 @@ type Definition struct {
 	File      string // owned timing file: "start.json" / "finish.json"; empty for the director
 }
 
-// Registry is the personas offered on the timer startup screen, in display
-// order. The director is not here; it has its own entry point.
+// Registry is the four timing personas, in display order. The startup picker
+// offers these plus DirectorDefinition (see All); Registry alone is still useful
+// where only the timing personas are meant, e.g. per-team path walks.
 var Registry = []Definition{
 	{ID: "pst", Role: RoleStart, Team: TeamPrimary, Label: "Primary Start Timer", Challenge: "rc-pst", File: fileStart},
 	{ID: "sst", Role: RoleStart, Team: TeamSecondary, Label: "Secondary Start Timer", Challenge: "rc-sst", File: fileStart},
@@ -61,9 +62,9 @@ var Registry = []Definition{
 	{ID: "sft", Role: RoleFinish, Team: TeamSecondary, Label: "Secondary Finish Timer", Challenge: "rc-sft", File: fileFinish},
 }
 
-// DirectorDefinition is used by the separate director binary and is not offered
-// on the timer picker. The director owns regattaSchedule.json, not a timing
-// file, so File is empty.
+// DirectorDefinition is the Regatta Director, offered on the startup picker
+// alongside the timing personas (see All) and gated by its challenge code. The
+// director owns regattaSchedule.json, not a timing file, so File is empty.
 var DirectorDefinition = Definition{
 	ID: "rd", Role: RoleDirector, Team: TeamExecutive, Label: "Regatta Director", Challenge: "rc-rd", File: "",
 }

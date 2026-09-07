@@ -25,11 +25,14 @@ import (
 	"github.com/comagnaw/regattaClock/internal/watcher"
 )
 
-// showPersonaPicker is the timer's first screen: pick one of the four timing
-// personas and type its challenge code.
+// showPersonaPicker is the one startup screen: pick a persona - Regatta Director
+// or one of the four timers - and type its challenge code. The Regatta Director
+// also gets a "resume" shortcut when the last run was as the director and its
+// schedule is still readable.
 func (r *Regatta) showPersonaPicker() {
-	labels := make([]string, len(persona.Registry))
-	for i, d := range persona.Registry {
+	defs := persona.All()
+	labels := make([]string, len(defs))
+	for i, d := range defs {
 		labels[i] = d.Label
 	}
 	picker := widget.NewRadioGroup(labels, nil)
@@ -40,15 +43,20 @@ func (r *Regatta) showPersonaPicker() {
 		r.onPersonaChosen(picker.Selected, challenge.Text)
 	})
 
+	rows := []fyne.CanvasObject{
+		text.BoldLeading(common.PersonaPickerPrompt),
+		picker,
+		widget.NewLabel(common.ChallengeFieldLabel),
+		challenge,
+		container.NewHBox(cont),
+	}
+	if resume := r.resumeDirectorButton(); resume != nil {
+		rows = append(rows, widget.NewSeparator(), container.NewHBox(resume))
+	}
+
 	body := container.New(
 		layout.NewCustomPaddedLayout(0, 0, viewMargin, viewMargin),
-		container.NewVBox(
-			text.BoldLeading(common.PersonaPickerPrompt),
-			picker,
-			widget.NewLabel(common.ChallengeFieldLabel),
-			challenge,
-			container.NewHBox(cont),
-		),
+		container.NewVBox(rows...),
 	)
 
 	r.window.SetContent(container.NewVBox(
@@ -60,8 +68,29 @@ func (r *Regatta) showPersonaPicker() {
 	))
 }
 
+// resumeDirectorButton returns a "Resume as Regatta Director - <name>" button
+// when the previous run was the director and its schedule is still readable, or
+// nil. Resume skips the challenge - same machine, same operator.
+func (r *Regatta) resumeDirectorButton() *widget.Button {
+	if r.App.Preferences().String(common.PrefLastPersonaID) != persona.DirectorDefinition.ID {
+		return nil
+	}
+	session, ok := r.directorSession()
+	if !ok {
+		return nil
+	}
+	schedule, err := store.LoadSchedule(session)
+	if err != nil {
+		return nil
+	}
+	return widget.NewButton(fmt.Sprintf(common.ResumeDirectorFormat, schedule.Name), func() {
+		applog.Info("resume as director", "component", "startup", "regatta", schedule.Name)
+		r.startDirectorFlow()
+	})
+}
+
 func personaByLabel(label string) (persona.Definition, bool) {
-	for _, d := range persona.Registry {
+	for _, d := range persona.All() {
 		if d.Label == label {
 			return d, true
 		}
@@ -69,8 +98,8 @@ func personaByLabel(label string) (persona.Definition, bool) {
 	return persona.Definition{}, false
 }
 
-// onPersonaChosen validates the challenge, then moves on to the folder dialog.
-// A failure keeps the picker on screen.
+// onPersonaChosen validates the challenge, then routes to the director flow or
+// the timer folder dialog. A failure keeps the picker on screen.
 func (r *Regatta) onPersonaChosen(label, challengeInput string) {
 	def, ok := personaByLabel(label)
 	if !ok {
@@ -83,6 +112,11 @@ func (r *Regatta) onPersonaChosen(label, challengeInput string) {
 		return
 	}
 	applog.Info("persona challenge accepted", "component", "startup", "persona_id", def.ID)
+
+	if def.Role == persona.RoleDirector {
+		r.startDirectorFlow()
+		return
+	}
 	r.pickPersonaDirectory(def)
 }
 
@@ -189,6 +223,9 @@ func scheduledRaceCount(sch *store.Schedule) int {
 // and starts the shared-file watcher.
 func (r *Regatta) startSession(session persona.Session, schedule *store.Schedule) {
 	r.session = session
+	r.mode = modeTimer
+	r.window.SetMainMenu(r.makeMenu()) // no loader items for a timer
+	r.App.Preferences().SetString(common.PrefLastPersonaID, session.ID)
 	r.startLogging()
 	applog.Info("persona session started", "component", "startup",
 		"root", session.Root, "regatta", schedule.Name)

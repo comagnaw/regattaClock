@@ -65,17 +65,39 @@ func (r *Regatta) callback(fromStartup bool) func(fyne.URIReadCloser, error) {
 			return
 		}
 
-		r.saveRegattaData()
-
-		applog.Info("regatta imported", "component", "loader",
-			"name", r.RegattaData.Name, "races", r.RegattaData.ScheduledRaces())
 		r.debugLoader()
-		r.refreshContent()
-
-		dialog.ShowInformation("Import", "Successfully read Excel file", r.window)
-
-		r.showRaceTree()
+		applog.Info("regatta parsed", "component", "loader",
+			"name", r.RegattaData.Name, "races", r.RegattaData.ScheduledRaces())
+		r.confirmImportedRegatta(fromStartup)
 	}
+}
+
+// confirmImportedRegatta asks the Regatta Director to confirm the metadata of
+// the just-parsed workbook before the schedule is written. Denying returns to
+// file selection, so a wrong workbook never lands.
+func (r *Regatta) confirmImportedRegatta(fromStartup bool) {
+	dialog.ShowConfirm(
+		common.ConfirmRegattaTitle,
+		fmt.Sprintf(common.ConfirmImportedRegattaMessage,
+			r.RegattaData.Name, r.RegattaData.Date, r.RegattaData.ScheduledRaces()),
+		func(yes bool) {
+			if !yes {
+				r.loader(fromStartup)
+				return
+			}
+			r.applyImportedRegatta()
+		},
+		r.window,
+	)
+}
+
+// applyImportedRegatta writes the schedule from the parsed workbook and enters
+// the director tree.
+func (r *Regatta) applyImportedRegatta() {
+	r.saveRegattaData()
+	applog.Info("regatta imported", "component", "loader",
+		"name", r.RegattaData.Name, "races", r.RegattaData.ScheduledRaces())
+	r.startDirectorFlow()
 }
 
 func getFilePath(fileReader fyne.URIReadCloser) (string, error) {
