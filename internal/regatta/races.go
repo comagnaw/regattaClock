@@ -8,6 +8,7 @@ import (
 
 	"github.com/comagnaw/regattaClock/internal/common"
 	"github.com/comagnaw/regattaClock/internal/persona"
+	"github.com/comagnaw/regattaClock/internal/text"
 )
 
 func (r *Regatta) showRaceTree() {
@@ -61,40 +62,33 @@ func (r *Regatta) treeTitle() *fyne.Container {
 // as a data row, so each label sits directly over its column and "Scheduled
 // Races" right-aligns to line up with the race titles below it.
 func (r *Regatta) raceListHeader() *fyne.Container {
-	race := boldLabel(common.ScheduledRacesTile)
+	race := text.BoldLabel(common.ScheduledRacesTile)
 	race.Alignment = fyne.TextAlignTrailing
 
 	var cluster *fyne.Container
 	switch r.session.Role {
 	case persona.RoleStart:
 		cluster = container.NewHBox(
-			fixedCell(actionsColWidth, boldLabel(common.EmptyString)),
-			fixedCell(startTimeColWidth, boldLabel(common.ColStartTime)),
-			fixedCell(statusColWidth, boldLabel(common.ColStatus)),
+			fixedCell(actionsColWidth, text.BoldLabel(common.EmptyString)),
+			fixedCell(startTimeColWidth, text.BoldLabel(common.ColStartTime)),
+			fixedCell(statusColWidth, text.BoldLabel(common.ColStatus)),
 		)
 	case persona.RoleFinish:
 		cluster = container.NewHBox(
-			fixedCell(startTimeColWidth, boldLabel(common.ColStartTime)),
-			fixedCell(statusColWidth, boldLabel(common.ColStatus)),
-			fixedCell(timeRaceColWidth, boldLabel(common.EmptyString)),
+			fixedCell(startTimeColWidth, text.BoldLabel(common.ColStartTime)),
+			fixedCell(statusColWidth, text.BoldLabel(common.ColStatus)),
+			fixedCell(timeRaceColWidth, text.BoldLabel(common.EmptyString)),
 		)
 	default: // RoleDirector
 		cluster = container.NewHBox(
-			fixedCell(restartsColWidth, boldLabel(common.ColRestarts)),
-			fixedCell(startTimeColWidth, boldLabel(common.ColStartTime)),
-			fixedCell(winTimeColWidth, boldLabel(common.ColWinningTime)),
-			fixedCell(statusColWidth, boldLabel(common.ColStatus)),
+			fixedCell(restartsColWidth, text.BoldLabel(common.ColRestarts)),
+			fixedCell(startTimeColWidth, text.BoldLabel(common.ColStartTime)),
+			fixedCell(winTimeColWidth, text.BoldLabel(common.ColWinningTime)),
+			fixedCell(statusColWidth, text.BoldLabel(common.ColStatus)),
 		)
 	}
 
 	return container.NewBorder(nil, nil, nil, cluster, race)
-}
-
-// boldLabel - a bold label, used for column headers.
-func boldLabel(text string) *widget.Label {
-	l := widget.NewLabel(text)
-	l.TextStyle = fyne.TextStyle{Bold: true}
-	return l
 }
 
 // fixedCell wraps a widget at a fixed column width so headers and row values
