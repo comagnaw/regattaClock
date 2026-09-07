@@ -12,7 +12,7 @@ func (r *Regatta) makeMenu() *fyne.MainMenu {
 	var items []*fyne.MenuItem
 
 	if r.mode == modeDirector {
-		items = append(items, r.importItem(), r.createLaneImages())
+		items = append(items, r.importItem(), r.reloadScheduleItem(), r.createLaneImages())
 	}
 	items = append(items,
 		r.showWindowItem(),
@@ -37,6 +37,14 @@ func (r *Regatta) configItem() *fyne.MenuItem {
 func (r *Regatta) importItem() *fyne.MenuItem {
 	return fyne.NewMenuItem(common.LoadDataTitle, func() {
 		r.loader(false)
+	})
+}
+
+// reloadScheduleItem - re-read the current regatta's workbook and run it back
+// through the confirm + RegattaKey guard.
+func (r *Regatta) reloadScheduleItem() *fyne.MenuItem {
+	return fyne.NewMenuItem(common.ReloadScheduleTitle, func() {
+		r.reloadSchedule()
 	})
 }
 
