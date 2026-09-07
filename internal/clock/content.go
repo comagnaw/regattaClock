@@ -119,13 +119,22 @@ func (c *Clock) lapsContainer() *fyne.Container {
 
 // winningTimeInput - container to collect official winning time for first boat that
 // crosses finish line.  This reflects the total time from when the race began and finished.
-func (c *Clock) winningTimeInput() *widget.Form {
-	return widget.NewForm(
+// The note line under it says where a pre-filled value came from, or why there
+// is none (persona-plan.md 2.1).
+func (c *Clock) winningTimeInput() *fyne.Container {
+	form := widget.NewForm(
 		widget.NewFormItem(
 			common.WinningTimeInputText,
 			c.winningTime,
 		),
 	)
+
+	c.winningNote = widget.NewLabel(common.EmptyString)
+	c.winningNote.Wrapping = fyne.TextWrapWord
+	c.winningNote.Importance = widget.MediumImportance
+	c.winningNote.Hide()
+
+	return container.NewVBox(form, c.winningNote)
 }
 
 // approvalPanel - container with buttons to make the results official.

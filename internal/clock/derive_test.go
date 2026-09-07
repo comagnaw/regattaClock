@@ -113,6 +113,71 @@ func TestDeriveImplausibleSuppressed(t *testing.T) {
 	}
 }
 
+func TestDeriveTinyValueStillFillsWithNote(t *testing.T) {
+	s := pftSession(t)
+	start := &store.StartLog{Races: map[int]store.StartRecord{
+		1: {RaceNumber: 1, StartedAt: tp(time.Now().UTC().Add(-5 * time.Second))},
+	}}
+	clk := openDerivingClock(t, s, emptyFinish(), start)
+
+	clk.buttons.start.OnTapped()
+
+	if clk.winningTime.Text == common.EmptyString {
+		t.Error("a small but real elapsed time should still pre-fill")
+	}
+	if clk.winningNote.Hidden || !strings.Contains(clk.winningNote.Text, "seconds apart") {
+		t.Errorf("note = %q (hidden=%v), want the seconds-apart warning",
+			clk.winningNote.Text, clk.winningNote.Hidden)
+	}
+}
+
+func TestDeriveStaleAndNegativeShowNote(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		start time.Time
+		want  string
+	}{
+		{"stale start", time.Now().UTC().Add(-45 * time.Minute), "old"},
+		{"future start", time.Now().UTC().Add(2 * time.Minute), "later than the first finish"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := pftSession(t)
+			start := &store.StartLog{Races: map[int]store.StartRecord{
+				1: {RaceNumber: 1, StartedAt: tp(tc.start)},
+			}}
+			clk := openDerivingClock(t, s, emptyFinish(), start)
+
+			clk.buttons.start.OnTapped()
+
+			if clk.winningTime.Text != common.EmptyString {
+				t.Errorf("winning time = %q, want empty for a suppressed derive", clk.winningTime.Text)
+			}
+			if clk.winningNote.Hidden || !strings.Contains(clk.winningNote.Text, tc.want) {
+				t.Errorf("note = %q (hidden=%v), want it to contain %q",
+					clk.winningNote.Text, clk.winningNote.Hidden, tc.want)
+			}
+		})
+	}
+}
+
+func TestDeriveNoteClearedOnManualOverride(t *testing.T) {
+	s := pftSession(t)
+	start := &store.StartLog{Races: map[int]store.StartRecord{
+		1: {RaceNumber: 1, StartedAt: tp(time.Now().UTC().Add(-6 * time.Minute))},
+	}}
+	clk := openDerivingClock(t, s, emptyFinish(), start)
+	clk.buttons.start.OnTapped()
+	if clk.winningNote.Hidden {
+		t.Fatal("precondition: derived note visible")
+	}
+
+	clk.winningTime.SetText("05:42.3") // referee types their own time
+
+	if !clk.winningNote.Hidden {
+		t.Error("the derived note should hide once the referee overrides the value")
+	}
+}
+
 func TestUpdateStartTimeRecomputes(t *testing.T) {
 	s := pftSession(t)
 	finish := emptyFinish()

@@ -110,6 +110,16 @@ const (
 	ClockSkewBannerFormat = "Clock skew: %s and %s clocks differ by %s (offsets %s and %s). Winning times may be off by that much until the machines agree."
 	DismissButtonText     = "Dismiss"
 
+	// Winning-time helper note under the FT clock's Winning Time field
+	// (persona-plan.md 2.1). The derived value only pre-fills; the referee's
+	// time always overrides. These say where the number came from, or why there
+	// is none.
+	WinningTimeDerivedNote  = "Auto-filled from the start timer. The referee's official time overrides this."
+	WinningTimeWaitingNote  = "Waiting for the start timer to record a start time for this race…"
+	WinningTimeTinyNote     = "Auto-filled %s - the start time and first finish are seconds apart. Verify the start timer or enter the referee's time."
+	WinningTimeStaleNote    = "Auto winning time skipped: the recorded start time is about %s old. Enter the referee's time."
+	WinningTimeNegativeNote = "Auto winning time skipped: the start time is %s later than the first finish (clock skew?). Enter the referee's time."
+
 	// Timer persona startup flow (internal/regatta persona_startup.go).
 	PersonaPickerPrompt           = "Choose your persona and enter its challenge code."
 	ChallengeFieldLabel           = "Challenge code:"

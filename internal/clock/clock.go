@@ -75,6 +75,10 @@ type Clock struct {
 	// the winning time recomputes when one arrives (persona-plan.md 2.2).
 	awaitingStart bool
 
+	// winningNote - helper line under the Winning Time field saying where the
+	// pre-filled value came from, or why there is none (persona-plan.md 2.1).
+	winningNote *widget.Label
+
 	// skew banner (persona-plan.md 2.1) - shown when the two machines' offsets
 	// disagree by more than timesync.SkewWarnThreshold. Dismissible; once
 	// dismissed it stays hidden for the life of the window.
