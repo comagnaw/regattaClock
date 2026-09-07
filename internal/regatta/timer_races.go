@@ -121,6 +121,9 @@ func (r *Regatta) refreshRow(n int) {
 	}
 	if race, ok := r.raceByNumber(n); ok {
 		title := race.RaceTitle()
+		if r.staleLaneMap(n, race) {
+			title = common.StaleLaneMapMark + title
+		}
 		if _, flagged := r.scheduleConflicts[n]; flagged {
 			title = common.ScheduleConflictMark + title
 		}
@@ -215,6 +218,7 @@ func (r *Regatta) refreshAllRows() {
 	for n := range r.rows {
 		r.refreshRow(n)
 	}
+	r.refreshStaleLaneLegend()
 }
 
 func (r *Regatta) raceByNumber(n int) (reader.RaceData, bool) {

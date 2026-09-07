@@ -137,7 +137,14 @@ const (
 	// Schedule-conflict notices (persona-plan.md 3c). A schedule change that
 	// touches a race with timing (or an open clock) never rewrites start.json /
 	// finish.json - it only refreshes labels and raises these.
-	ScheduleConflictMark         = "⚠ " // row-title prefix while a conflict is unacknowledged
+	ScheduleConflictMark = "⚠ " // row-title prefix while a conflict is unacknowledged
+
+	// StaleLaneMapMark / StaleLaneMapLegend (persona-plan.md 3c item 4). A
+	// persistent row-title mark on the RD and FT trees when a committed
+	// RaceResult's stored LaneMapHash no longer matches the live schedule's -
+	// i.e. results were entered against an earlier lane map. Survives a restart.
+	StaleLaneMapMark             = "† "
+	StaleLaneMapLegend           = "†  results were committed against an earlier lane map — reopen the race to review, then Save"
 	ScheduleConflictStartBanner  = "Schedule updated for race %s - lane assignments changed. Recorded start times are unaffected."
 	ScheduleConflictFinishBanner = "Schedule changed for race %s (scratch / lane reassignment). Review order of finish and results."
 	ClockScheduleNoticeFormat    = "Schedule changed for race %d - lane labels refreshed. Lap times and order of finish are unchanged; review the highlighted lanes."
