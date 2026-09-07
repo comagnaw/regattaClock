@@ -114,7 +114,10 @@ func (r *Regatta) onPersonaChosen(label, challengeInput string) {
 	applog.Info("persona challenge accepted", "component", "startup", "persona_id", def.ID)
 
 	if def.Role == persona.RoleDirector {
-		r.startDirectorFlow()
+		// The deliberate director choice always opens the Set Directory / Load
+		// Excel view; the picker's separate "Resume" shortcut is the only path
+		// that reopens the previous regatta.
+		r.startDirectorSetup()
 		return
 	}
 	r.pickPersonaDirectory(def)

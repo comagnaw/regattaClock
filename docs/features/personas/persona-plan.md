@@ -655,12 +655,12 @@ func (r *Regatta) initRegatta() {
 }
 ```
 
-  For a timing persona this is replaced entirely by the persona flow. For the Regatta Director, `PrefRegattaDir` is still where the schedule save location is remembered, and `PrefLastPersonaID == "rd"` turns it into a **"Resume as Regatta Director — &lt;name&gt;"** shortcut on the picker (skips the challenge, since it is the same machine and operator). A timing persona always re-picks.
+  For a timing persona this is replaced entirely by the persona flow. For the Regatta Director, `PrefRegattaDir` is still where the schedule save location is remembered, and `PrefLastPersonaID == "rd"` turns it into a **"Resume as Regatta Director — &lt;name&gt;"** shortcut on the picker (skips the challenge, since it is the same machine and operator). That shortcut is the **only** path that auto-restores the last regatta: deliberately choosing "Regatta Director" from the picker always opens the Set Regatta Directory / Load Excel File view, so the RD can switch to a different regatta without restarting the app. A timing persona always re-picks.
 - **`setupStartupDialog` dead code** was removed with the phase-5 startup rework.
 
 ### Regatta Director entry point
 
-**One binary** (`cmd/regattaClock`). `regatta.New(app)` shows a single picker listing every persona (`persona.All()`); choosing "Regatta Director" and entering `rc-rd` routes to the director flow (bind session, rebuild the menu with the loader items, restore the schedule or show the welcome view). The loader is unreachable until the Director persona is chosen, so a timing operator cannot reach it. `NewDirector` / `NewTimer` remain as constructors for the test suite.
+**One binary** (`cmd/regattaClock`). `regatta.New(app)` shows a single picker listing every persona (`persona.All()`); choosing "Regatta Director" and entering `rc-rd` rebuilds the menu with the loader items and opens the **Set Regatta Directory / Load Excel File** view (`startDirectorSetup`) — it never auto-restores, so it is the safe way to open a different regatta. The picker's separate "Resume as Regatta Director" shortcut is what reopens the previously configured regatta. The **Load Regatta Data** menu item returns to the same setup view. The loader is unreachable until the Director persona is chosen, so a timing operator cannot reach it. `NewDirector` / `NewTimer` remain as constructors for the test suite.
 
 An Excel import shows the Director a confirm-metadata dialog (title / date / race count) before `regattaSchedule.json` is written; Deny returns to file selection.
 

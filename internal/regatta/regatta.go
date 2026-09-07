@@ -174,10 +174,11 @@ func NewTimer(app fyne.App) *Regatta {
 	return r
 }
 
-// NewDirector - construct as the Regatta Director and run the director flow
-// (resume from PrefRegattaDir, else the welcome view). This is the path the
-// picker takes when "Regatta Director" is chosen; retained as a constructor for
-// the director test suite.
+// NewDirector - construct as the Regatta Director and restore the regatta
+// configured in PrefRegattaDir (else the welcome view) - the same path as the
+// picker's "Resume as Regatta Director" shortcut. Retained as a constructor for
+// the director test suite. The picker's deliberate "Regatta Director" choice
+// goes through startDirectorSetup instead, which never auto-restores.
 func NewDirector(app fyne.App) *Regatta {
 	r := newRegatta(app)
 	r.mode = modeDirector
@@ -232,10 +233,32 @@ func (r *Regatta) refreshContent() {
 	}
 }
 
+// startDirectorSetup puts the Regatta Director on the welcome view - Set Regatta
+// Directory / Load Excel File - without restoring the previously configured
+// regatta. This is the deliberate "choose a regatta" path: picking "Regatta
+// Director" on the startup picker, and the "Load Regatta Data" menu item. Only
+// the picker's "Resume as Regatta Director" shortcut auto-restores the last
+// regatta (startDirectorFlow). It is the safe way to switch regattas without
+// restarting the app.
+func (r *Regatta) startDirectorSetup() {
+	r.mode = modeDirector
+	r.window.SetMainMenu(r.makeMenu())
+
+	// A directory is already configured (this laptop has been a director before):
+	// enable Load Excel so the operator can re-import into it, or point Set
+	// Regatta Directory at a different folder first.
+	if r.App.Preferences().String(common.PrefRegattaDir) != common.EmptyString {
+		r.loadState.loadButton.Enable()
+	}
+
+	r.showWelcome()
+}
+
 // startDirectorFlow runs the Regatta Director's startup: mark the mode, rebuild
 // the menu so the loader items appear, bind the session, then either restore the
-// saved schedule or fall back to the welcome view. Reached from the picker when
-// "Regatta Director" is chosen and from NewDirector.
+// saved schedule or fall back to the welcome view. Reached from the picker's
+// "Resume as Regatta Director" shortcut, from a confirmed import, and from
+// NewDirector.
 func (r *Regatta) startDirectorFlow() {
 	r.mode = modeDirector
 	r.window.SetMainMenu(r.makeMenu())
