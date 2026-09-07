@@ -84,7 +84,7 @@ func TestOnPersonaChosen_DirectorWrongChallengeStays(t *testing.T) {
 	}
 }
 
-func TestOnPersonaChosen_DirectorRestoresSeededRegatta(t *testing.T) {
+func TestOnPersonaChosen_DirectorAlwaysStartsAtSetup(t *testing.T) {
 	app := test.NewTempApp(t)
 	sch := testSchedule()
 	root := seedRegatta(t, sch)
@@ -93,14 +93,43 @@ func TestOnPersonaChosen_DirectorRestoresSeededRegatta(t *testing.T) {
 	r := New(app)
 	r.onPersonaChosen(persona.DirectorDefinition.Label, "rc-rd")
 
+	// Deliberately choosing "Regatta Director" must open the Set Directory /
+	// Load Excel view even when a regatta is already configured - only the
+	// picker's separate Resume shortcut reopens the previous regatta.
+	if !onWelcome(r) {
+		t.Error("director pick should land on the setup view, not auto-restore")
+	}
+	if r.mode != modeDirector {
+		t.Errorf("mode = %v, want modeDirector", r.mode)
+	}
+	if !slices.Contains(menuLabels(r.window.MainMenu()), common.LoadDataTitle) {
+		t.Error("the director menu should carry the loader once chosen")
+	}
+	if r.RegattaData.Name == sch.Name {
+		t.Error("the previous regatta must not be loaded on the setup path")
+	}
+	if got := app.Preferences().String(common.PrefLastPersonaID); got == persona.DirectorDefinition.ID {
+		t.Error("PrefLastPersonaID should not be set until the director actually enters a regatta")
+	}
+}
+
+func TestLoadRegattaDataMenuReturnsToSetup(t *testing.T) {
+	app := test.NewTempApp(t)
+	sch := testSchedule()
+	root := seedRegatta(t, sch)
+	app.Preferences().SetString(common.PrefRegattaDir, filepath.Dir(root))
+	app.Preferences().SetString(common.PrefLastPersonaID, persona.DirectorDefinition.ID)
+
+	r := NewDirector(app) // restored into the seeded regatta's tree
+	stopWatch(t, r)
 	if onWelcome(r) {
-		t.Error("a director pointed at a seeded regatta should skip the welcome view")
+		t.Fatal("precondition: NewDirector should have restored the seeded regatta")
 	}
-	if r.RegattaData.Name != sch.Name {
-		t.Errorf("RegattaData.Name = %q, want %q", r.RegattaData.Name, sch.Name)
-	}
-	if got := app.Preferences().String(common.PrefLastPersonaID); got != persona.DirectorDefinition.ID {
-		t.Errorf("PrefLastPersonaID = %q, want %q", got, persona.DirectorDefinition.ID)
+
+	r.importItem().Action()
+
+	if !onWelcome(r) {
+		t.Error("Load Regatta Data should return the director to the Set Directory / Load Excel view")
 	}
 }
 

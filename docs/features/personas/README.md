@@ -45,7 +45,7 @@ Primary and secondary are independent ST/FT pairings for the same regatta. Timin
 
 - **Does:** Load / refresh schedule from an **origin** (Excel today; future web API) into `regattaSchedule.json` **only when normalized schedule content actually changes**; establish `regattaData`; notice origin fingerprint changes, ignore no-op workbook saves; Apply meaningful updates on confirmation; view live progress; export; read all timing data.
 - **Does not:** Time races; write start times or finish results; silently overwrite the schedule without confirmation while racing is underway.
-- **Entry:** A persona on the one startup picker, gated by the `rc-rd` challenge; a "resume as director" shortcut appears when the last run was the director. Excel import confirms the parsed metadata before writing the schedule.
+- **Entry:** A persona on the one startup picker, gated by the `rc-rd` challenge — choosing it opens the Set Regatta Directory / Load Excel File view and never auto-restores. A separate "resume as director" shortcut appears when the last run was the director and reopens that regatta directly. The **Load Regatta Data** menu returns to the same setup view, so the RD can switch regattas without restarting. Excel import confirms the parsed metadata before writing the schedule.
 - **Constraint:** Timers consume only `regattaSchedule.json`, never the origin. That keeps a future Excel → API pivot inside the RD/reader layer.
 
 ### Start Timer (ST)
@@ -74,7 +74,7 @@ Primary and secondary are independent ST/FT pairings for the same regatta. Timin
 
 1. Choose a persona from the one picker — Regatta Director or primary/secondary × start/finish.
 2. Pass that persona’s challenge code (or return to step 1). The Director may instead take the "resume as director" shortcut when it was the last persona used.
-3. Select `regattaData` and confirm title / date / schedule. The Director may also point at a fresh directory and import Excel, confirming the parsed metadata before the schedule is written.
+3. Select `regattaData` and confirm title / date / schedule. Choosing "Regatta Director" always lands on Set Regatta Directory / Load Excel File (it does not auto-restore); the Director points at a directory and imports Excel, confirming the parsed metadata before the schedule is written. Only the "resume as director" shortcut reopens the previous regatta directly.
 4. **Timers only:** if the schedule's date is already in the past (read in the host's timezone), a second confirmation warns that this is an already-run regatta before the session starts. An empty or unrecognised date skips this check.
 5. Show the role-specific race tree.
 

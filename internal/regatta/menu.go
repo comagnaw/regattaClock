@@ -33,10 +33,13 @@ func (r *Regatta) configItem() *fyne.MenuItem {
 	})
 }
 
-// importItem - menu item to load RegattaData
+// importItem - "Load Regatta Data" menu item. It returns to the Set Regatta
+// Directory / Load Excel File view, the safe way for the director to switch to
+// another regatta without restarting the app. Re-reading the *current*
+// workbook is the separate Reload Schedule item.
 func (r *Regatta) importItem() *fyne.MenuItem {
 	return fyne.NewMenuItem(common.LoadDataTitle, func() {
-		r.loader(false)
+		r.startDirectorSetup()
 	})
 }
 
