@@ -234,9 +234,36 @@ func formatSkew(d time.Duration) string {
 	return fmt.Sprintf("%+.1fs", d.Seconds())
 }
 
+// refreshCommitStatus updates the status line under the approval panel from the
+// race's persisted state, and enables the primary FT's Close button once the
+// race has left Pending. No-op for a director-opened clock (no status widget).
+func (c *Clock) refreshCommitStatus() {
+	if c.commitStatus == nil || c.finishLog == nil {
+		return
+	}
+	res := c.finishLog.Races[c.raceData.RaceNumber]
+	switch c.raceCommitState() {
+	case stateApproved:
+		stamp := time.Now()
+		if res.ApprovedAt != nil {
+			stamp = *res.ApprovedAt
+		}
+		c.commitStatus.SetText(fmt.Sprintf(common.CommitStatusApprovedFormat,
+			stamp.Local().Format(common.CommitStatusTimeFormat)))
+		c.buttons.close.Enable()
+	case stateSaved:
+		c.commitStatus.SetText(fmt.Sprintf(common.CommitStatusSavedFormat,
+			res.UpdatedAt.Local().Format(common.CommitStatusTimeFormat)))
+		c.buttons.close.Enable()
+	default:
+		c.commitStatus.SetText(common.CommitStatusPending)
+		c.buttons.close.Disable()
+	}
+}
+
 // persistFinish serializes the current lap rows and winning time into the race's
-// RaceResult and writes the whole finish.json. Called from Referee Approval and
-// Save (persona-plan.md section 9 - both perform the identical write).
+// RaceResult and writes the whole finish.json. Called from Referee Approval
+// (primary FT, approved=true) and Save and Close (secondary FT, approved=false).
 func (c *Clock) persistFinish(approved bool) {
 	if !c.canPersist() {
 		return
@@ -263,6 +290,8 @@ func (c *Clock) persistFinish(approved bool) {
 	}
 	applog.Info("race results saved", "component", "clock", "race", n,
 		"approved", approved, "winning_time", res.WinningTime)
+
+	c.refreshCommitStatus()
 }
 
 func (c *Clock) setRace(n int, res store.RaceResult) {
@@ -320,11 +349,9 @@ func (c *Clock) rehydrate() {
 
 	if res.WinningTime != "" {
 		c.winningTime.SetText(res.WinningTime)
-		c.commitButton().Enable() // Referee Approval for the primary FT, Save for the secondary
+		c.commitButton().Enable() // Referee Approval for the primary FT, Save and Close for the secondary
 	}
-	if res.Approved {
-		c.buttons.save.Enable()
-	}
+	c.refreshCommitStatus() // status line + primary FT's Close button
 
 	if restoredRows > 0 || res.WinningTime != "" {
 		c.clockState.isCleared = false

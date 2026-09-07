@@ -135,18 +135,30 @@ func (c *Clock) winningTimeInput() *fyne.Container {
 	return container.NewVBox(form, c.winningNote)
 }
 
-// approvalPanel - container with buttons to make the results official. The
-// Secondary Finish Timer has no Referee Approval step (reconciliation.md), so
-// its panel is Save only.
+// initCommitStatus - build the status line under the approval panel. It starts
+// at Pending and refreshCommitStatus advances it as the race is persisted.
+func (c *Clock) initCommitStatus() {
+	c.commitStatus = widget.NewLabel(common.CommitStatusPending)
+	c.commitStatus.Alignment = fyne.TextAlignCenter
+	c.commitStatus.Importance = widget.MediumImportance
+}
+
+// approvalPanel - container to make the results official, with a status line
+// under it. The primary FT gets Referee Approval + Close (Close disabled until
+// approved); the Secondary Finish Timer has no Referee Approval step
+// (reconciliation.md) - its panel is a single Save and Close button.
 func (c *Clock) approvalPanel() *fyne.Container {
+	var row *fyne.Container
 	if c.isSecondaryFinish() {
-		return container.NewHBox(layout.NewSpacer(), c.buttons.save, layout.NewSpacer())
+		row = container.NewHBox(layout.NewSpacer(), c.buttons.save, layout.NewSpacer())
+	} else {
+		row = container.NewHBox(
+			layout.NewSpacer(),
+			c.buttons.referee,
+			layout.NewSpacer(),
+			c.buttons.close,
+			layout.NewSpacer(),
+		)
 	}
-	return container.NewHBox(
-		layout.NewSpacer(),
-		c.buttons.referee,
-		layout.NewSpacer(),
-		c.buttons.save,
-		layout.NewSpacer(),
-	)
+	return container.NewVBox(row, c.commitStatus)
 }

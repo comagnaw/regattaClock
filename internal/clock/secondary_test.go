@@ -3,6 +3,7 @@ package clock
 import (
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"fyne.io/fyne/v2"
@@ -28,7 +29,7 @@ func openSecondaryClock(t *testing.T, s persona.Session, log *store.FinishLog) *
 	app := test.NewTempApp(t)
 	clk := NewClock(app, createTestRegattaData(), createTestRaceData()).WithFinishLog(s, log)
 	clk.OpenRaceClock()
-	t.Cleanup(func() { clk.window.Close() })
+	t.Cleanup(clk.closeWindow)
 	return clk
 }
 
@@ -51,14 +52,17 @@ func TestSecondaryFinish_NoRefereeButton(t *testing.T) {
 	if slices.Contains(labels, common.RefereeButtonText) {
 		t.Errorf("secondary approval panel has the Referee button: %v", labels)
 	}
-	if !slices.Contains(labels, common.SaveButtonText) {
-		t.Errorf("secondary approval panel is missing Save: %v", labels)
+	if !slices.Contains(labels, common.SaveAndCloseButtonText) {
+		t.Errorf("secondary approval panel is missing Save and Close: %v", labels)
 	}
 
 	pri := openBoundClock(t, pftSession(t), &store.FinishLog{Races: map[int]store.RaceResult{}})
 	priLabels := buttonLabels(pri.approvalPanel())
-	if !slices.Contains(priLabels, common.RefereeButtonText) || !slices.Contains(priLabels, common.SaveButtonText) {
-		t.Errorf("primary approval panel should keep both buttons: %v", priLabels)
+	if !slices.Contains(priLabels, common.RefereeButtonText) || !slices.Contains(priLabels, common.CloseButtonText) {
+		t.Errorf("primary approval panel should have Referee Approval + Close: %v", priLabels)
+	}
+	if slices.Contains(priLabels, common.SaveButtonText) || slices.Contains(priLabels, common.SaveAndCloseButtonText) {
+		t.Errorf("primary approval panel should have no Save button: %v", priLabels)
 	}
 }
 
@@ -87,11 +91,18 @@ func TestSecondaryFinish_SaveWritesUnapproved(t *testing.T) {
 	log := &store.FinishLog{Races: map[int]store.RaceResult{}}
 	sec := openSecondaryClock(t, s, log)
 
+	closed := false
+	sec.AfterClose = func() { closed = true }
+
 	sec.laps.setOOFLaneNum(0, "2")
 	sec.laps.setPlace(0, "1")
 	sec.laps.setSplit(0, "00:00.0")
 	sec.winningTime.SetText("06:00.0")
 	sec.buttons.save.OnTapped()
+
+	if !closed {
+		t.Error("Save and Close should close the clock window")
+	}
 
 	res := log.Races[1]
 	if res.WinningTime != "06:00.0" {
@@ -133,6 +144,9 @@ func TestSecondaryFinish_RehydrateEnablesSaveOnWinningTime(t *testing.T) {
 
 	if sec.buttons.save.Disabled() {
 		t.Error("rehydrating a saved (unapproved) secondary race should enable Save")
+	}
+	if !strings.HasPrefix(sec.commitStatus.Text, "Saved ") {
+		t.Errorf("commit status = %q, want a \"Saved …\" line", sec.commitStatus.Text)
 	}
 	if sec.winningTime.Text != "02:00.0" {
 		t.Errorf("winning time = %q, want 02:00.0", sec.winningTime.Text)

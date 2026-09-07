@@ -31,14 +31,22 @@ type buttons struct {
 	// referee - a button that is activated on capture of winningTime and is used to gain refereee approval of OOF and finish times
 	referee *widget.Button
 
-	// save - a button that is activated on approval of referee and used to save the race results.
+	// save - the secondary FT's "Save and Close" button: a valid winning time
+	// enables it; it writes the result unapproved and closes the window. Not
+	// placed in the primary FT's panel.
 	save *widget.Button
+
+	// close - the primary FT's "Close" button. Disabled until the race is
+	// approved (the persist gate), then closes the clock window. Not placed in
+	// the secondary FT's panel.
+	close *widget.Button
 }
 
 // initButtons - initialize buttons object
 func (c *Clock) initButtons() {
 	c.buttons.referee = c.initReferee()
 	c.buttons.save = c.initSave()
+	c.buttons.close = c.initClose()
 	c.buttons.start = c.initStart()
 	c.buttons.lap = c.initLap()
 	c.buttons.stop = c.initStop()
@@ -125,6 +133,8 @@ func (c *Clock) initClear() *widget.Button {
 
 			c.initButtons()
 
+			c.initCommitStatus()
+
 			c.window.SetContent(c.content())
 
 			c.window.Content().Refresh()
@@ -164,13 +174,14 @@ func (c *Clock) showRefereeeApproval(raceNumber int) {
 	)
 }
 
-// refereeApprovalFunc - when referee approves race results, mark the race
-// approved, enable Save, and write finish.json.
+// refereeApprovalFunc - when the referee approves race results, mark the race
+// approved and write finish.json. The window stays open so a later correction
+// can be re-presented; refreshCommitStatus (from persistFinish) flips the
+// status line to "Approved HH:MM:SS" and enables the Close button.
 func (c *Clock) refereeApprovalFunc(raceNumber int) func(approve bool) {
 	return func(approve bool) {
 		if approve {
 			c.RegattaData.ApproveRace(raceNumber)
-			c.buttons.save.Enable()
 			c.persistFinish(true)
 		}
 	}
@@ -184,22 +195,32 @@ func (c *Clock) refereeApprovalContent() *fyne.Container {
 	)
 }
 
-// initSave - initialize the save button. Disabled until the race results are
-// approved; on click it re-writes finish.json (the identical write to Referee
-// Approval).
+// initSave - initialize the secondary FT's "Save and Close" button. Disabled
+// until a valid winning time is entered (via commitButton); on click it writes
+// the result unapproved and closes the window. The secondary team never presents
+// to a referee, so this is its terminal action (reconciliation.md).
 func (c *Clock) initSave() *widget.Button {
-	button := widget.NewButton(common.SaveButtonText, func() {
-		// Primary FT Save is only reachable after Referee Approval, so it keeps
-		// the result approved. Secondary FT Save is the terminal action and
-		// writes Approved=false (reconciliation.md).
-		c.persistFinish(!c.isSecondaryFinish())
+	button := widget.NewButton(common.SaveAndCloseButtonText, func() {
+		c.persistFinish(false)
+		c.closeWindow()
+	})
+	button.Disable()
+	return button
+}
+
+// initClose - initialize the primary FT's Close button. Disabled until the race
+// is persisted (Approved for the primary FT); refreshCommitStatus enables it.
+// It persists nothing - Referee Approval is the only commit.
+func (c *Clock) initClose() *widget.Button {
+	button := widget.NewButton(common.CloseButtonText, func() {
+		c.closeWindow()
 	})
 	button.Disable()
 	return button
 }
 
 // initPlace - initialize the place button
-func (c Clock) initPlace(rowNum int) *widget.Button {
+func (c *Clock) initPlace(rowNum int) *widget.Button {
 	button := widget.NewButton(common.EmptyString, nil)
 	button.Importance = widget.MediumImportance
 	button.Resize(fyne.NewSize(100, 30)) // Set minimum size
