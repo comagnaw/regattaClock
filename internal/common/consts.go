@@ -181,6 +181,15 @@ const (
 	WinningTimeStaleNote    = "Auto winning time skipped: the recorded start time is about %s old. Enter the referee's time."
 	WinningTimeNegativeNote = "Auto winning time skipped: the start time is %s later than the first finish (clock skew?). Enter the referee's time."
 
+	// FT clock commit-status line, under the approval panel. A race is Pending
+	// until it is persisted: the primary FT reaches Approved via Referee
+	// Approval, the secondary FT reaches Saved via Save and Close. The primary
+	// FT's Close button stays disabled until the line leaves Pending.
+	CommitStatusPending        = "Pending"
+	CommitStatusSavedFormat    = "Saved %s"
+	CommitStatusApprovedFormat = "Approved %s"
+	CommitStatusTimeFormat     = "15:04:05"
+
 	// Timer persona startup flow (internal/regatta persona_startup.go).
 	PersonaPickerPrompt           = "Choose your persona and enter its challenge code."
 	ChallengeFieldLabel           = "Challenge code:"
@@ -205,6 +214,7 @@ const (
 	LoadExcelButtonText     = "Load Excel File"
 	SetRegattaDirButtonText = "Set Regatta Directory"
 	SaveButtonText          = "Save"
+	SaveAndCloseButtonText  = "Save and Close"
 	ShowWindowText          = "Show Window"
 	StartButtonText         = "Start (F2)"
 	StopButtonText          = "Stop"

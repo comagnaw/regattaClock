@@ -2,6 +2,7 @@ package clock
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"fyne.io/fyne/v2/test"
@@ -26,7 +27,7 @@ func openBoundClock(t *testing.T, s persona.Session, log *store.FinishLog) *Cloc
 	app := test.NewTempApp(t)
 	clk := NewClock(app, createTestRegattaData(), createTestRaceData()).WithFinishLog(s, log)
 	clk.OpenRaceClock()
-	t.Cleanup(func() { clk.window.Close() })
+	t.Cleanup(clk.closeWindow)
 	return clk
 }
 
@@ -169,8 +170,11 @@ func TestClockRehydratesSavedRace(t *testing.T) {
 	if clk.buttons.referee.Disabled() {
 		t.Error("referee button should be enabled for a race with a winning time")
 	}
-	if clk.buttons.save.Disabled() {
-		t.Error("save button should be enabled for an approved race")
+	if clk.buttons.close.Disabled() {
+		t.Error("close button should be enabled for an approved race")
+	}
+	if !strings.HasPrefix(clk.commitStatus.Text, "Approved ") {
+		t.Errorf("commit status = %q, want an \"Approved …\" line", clk.commitStatus.Text)
 	}
 }
 

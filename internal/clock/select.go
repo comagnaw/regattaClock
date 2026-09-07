@@ -9,7 +9,7 @@ import (
 )
 
 // placeSelection - presents options for place with current value selected
-func (c Clock) placeSelection(row, lane int) *widget.Select {
+func (c *Clock) placeSelection(row, lane int) *widget.Select {
 	options := []string{common.RaceDidNotStart, common.RaceDidNotFinish, common.RaceDisqualification, nextPlace}
 	selection := widget.NewSelect(
 		options,
@@ -29,7 +29,7 @@ func (c Clock) placeSelection(row, lane int) *widget.Select {
 }
 
 // placeSelectionFunc - function used for place selection, which updates laps and resultsTable based on what is selected
-func (c Clock) placeSelectionFunc(row, lane int) func(newPlace string) {
+func (c *Clock) placeSelectionFunc(row, lane int) func(newPlace string) {
 	laneNumAsStr := strconv.Itoa(lane)
 	return func(newPlace string) {
 

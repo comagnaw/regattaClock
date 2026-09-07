@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -96,9 +97,57 @@ type Clock struct {
 	scheduleBanner *fyne.Container
 	scheduleLabel  *widget.Label
 
+	// commitStatus - line under the approval panel: Pending until the race is
+	// persisted, then "Saved HH:MM:SS" (secondary FT) or "Approved HH:MM:SS"
+	// (primary FT). Nil for a director-opened clock.
+	commitStatus *widget.Label
+
 	// AfterClose - optional callback fired once when the clock window closes,
 	// so a finish timer's race tree can pick up saved results.
 	AfterClose func()
+
+	// closeOnce makes closeWindow idempotent, so a Save and Close tap (which
+	// closes the window itself) followed by the parent tearing the window down
+	// does not drive the fyne close path twice.
+	closeOnce sync.Once
+}
+
+// closeWindow closes the clock window at most once. Use it for every
+// programmatic close (Save and Close, the primary FT's Close button) so a
+// later teardown is a no-op rather than a double close.
+func (c *Clock) closeWindow() {
+	c.closeOnce.Do(func() { c.window.Close() })
+}
+
+// commitState is how far a race has been persisted to finish.json. The primary
+// FT moves statePending -> stateApproved (Referee Approval); the secondary FT
+// moves statePending -> stateSaved (Save and Close). An in-progress record
+// (Start clicked, no winning time) is still statePending.
+type commitState int
+
+const (
+	statePending commitState = iota
+	stateSaved
+	stateApproved
+)
+
+// raceCommitState reports the persisted state of this clock's race from the
+// in-memory finish.json mirror.
+func (c *Clock) raceCommitState() commitState {
+	if c.finishLog == nil {
+		return statePending
+	}
+	res, ok := c.finishLog.Races[c.raceData.RaceNumber]
+	switch {
+	case !ok:
+		return statePending
+	case res.Approved:
+		return stateApproved
+	case res.WinningTime != common.EmptyString:
+		return stateSaved
+	default:
+		return statePending
+	}
 }
 
 // clockState - object used to determine progress of the clock usage for timing the race
@@ -139,6 +188,7 @@ func NewClock(parent fyne.App, regattaData *reader.RegattaData, race reader.Race
 
 	raceClock.initButtons()
 	raceClock.initWinningTime()
+	raceClock.initCommitStatus()
 
 	return raceClock
 }

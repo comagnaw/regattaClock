@@ -89,7 +89,7 @@ Ownership, stated as a rule the code enforces rather than a convention:
 - **Primary/Secondary Start Timer** writes only `timing/<team>/start.json`. Reads `director/regattaSchedule.json`.
 - **Primary/Secondary Finish Timer** writes only `timing/<team>/finish.json`, which *is* the race results file. Reads `director/regattaSchedule.json` and `timing/<team>/start.json`.
 
-The Director never writes results. Results are produced by the Finish Timer and written when the FT clicks **Referee Approval** or **Save** — both perform the identical write ([README.md](README.md) Finish Timer privileges). The RD is a consumer of results, not a producer: it reads both teams' `finish.json` to reconcile and export.
+The Director never writes results. Results are produced by the Finish Timer: the primary FT writes on **Referee Approval** (`Approved: true`), the secondary FT writes on **Save and Close** (`Approved: false`) ([README.md](README.md) Finish Timer privileges). The RD is a consumer of results, not a producer: it reads both teams' `finish.json` to reconcile and export.
 
 Two changes to what exists today:
 
@@ -225,7 +225,7 @@ onScheduleWatcherEvent:
 
 - Untimed race lane change → tree updates, no banner.
 - ST has start for race N, school in lane 2 changes → ST row notice, `start.json` unchanged on disk until ST acts.
-- FT has saved/approved race N, lane 2 school changes → FT banner + row mark; reopen clock shows new labels, prior OOF/times intact; `finish.json` unchanged until FT Save.
+- FT has saved/approved race N, lane 2 school changes → FT banner + row mark; reopen clock shows new labels, prior OOF/times intact; `finish.json` unchanged until the FT next commits the race.
 - FT clock open for race N when schedule arrives → labels refresh, times preserved, conflict highlight; no forced close.
 
 **Schedule vs timing ownership is assessed in [schedule-data-model.md](schedule-data-model.md).** In short: `regattaSchedule.json` keeps only regatta meta + `RaceNumber` + class/flight + lane school assignments. `Place` / `Split` / `Time` / `Saved` / `Approved` leave the schedule file; FT owns them in `finish.json`. Join key across files: regatta identity + `RaceNumber`.
@@ -371,7 +371,7 @@ When the ST records (or clears/restores) race 12:
 2. Atomically write the **whole** `StartLog` (every race already collected, plus 12) via `SaveJSONFileAtomic`.
 3. Bump `Envelope.Sequence` / `WrittenAt` on that full write.
 
-Same pattern for FT Save / Referee Approval on `FinishLog`.
+Same pattern for the FT's Referee Approval (primary) / Save and Close (secondary) on `FinishLog`.
 
 **Forbidden:** constructing a new `StartLog`/`FinishLog` that contains solely `{12: …}` and replacing the file with that. That would erase every other race’s times. Tests must cover “save race 5 then save race 6 → file still contains both.”
 
@@ -704,7 +704,7 @@ It becomes role-driven:
   **The ST row locks once the FT begins timing that race.** As soon as a `RaceResult` exists for the race in the team's `finish.json` — written from the FT's clock **Start** click onward (see the Finish Timer clock notes below) — the ST's `Start Time` / `Clear` / `Restore` buttons for that race are disabled and the mutators no-op. The rationale is section 2.1: after the FT's Start click the winning time is being computed as `FT Start − ST start time`, so a later change to the start time silently corrupts a result in progress. The ST observes this by **mirroring `finish.json` read-only** (a read, like the FT reading `start.json`); it never writes `finish.json`. The lock releases if the FT abandons the race before saving. A short row note reads "timing in progress", or "results recorded" once a winning time or approval is present. There is deliberately no explicit ST lock control — a lock the ST must remember to set has the same human-error failure mode it exists to prevent.
 - **Finish Timer**: title, start-time label (read-only, watcher-updated), an indicator of the FT's own saved progress for that race, and the `Time Race` button. No `Start Time` button. As schedule updates arrive, refresh labels; if the race already has finish data or an open clock, show a non-blocking conflict banner (section 3c) — never auto-edit `finish.json` for scratches/lane moves.
 
-  The progress indicator exists so the restart case in section 8 actually restores something visible: an FT returning after a crash needs to see at a glance which races they have already timed and approved, not just which ones have start times. It reads `WinningTime` and `Approved` from their own `finish.json`.
+  The progress indicator exists so the restart case in section 8 actually restores something visible: an FT returning after a crash needs to see at a glance which races they have already timed and committed (Pending / Saved / Approved), not just which ones have start times. It reads `WinningTime` and `Approved` from their own `finish.json`.
 - **Director**: read-only. No buttons on any row. Each row carries the race title plus four values that together show how far the regatta has progressed: **Restarts**, **Start Time**, **Winning Time**, and an **approval indicator**.
 
   Sources are `len(StartRecord.Cleared)` for restarts, `StartRecord.Display` for the start time, and `RaceResult.WinningTime` and `RaceResult.Approved` from the finish log.
@@ -722,23 +722,15 @@ It becomes role-driven:
 Three changes to [internal/clock](internal/clock):
 
 1. **Auto-filled winning time.** On `Start`, look up the ST record for this race. If present and sane, pre-fill `winningTime` with `ClockStart - StartedAt` and mark it as derived; the field stays editable. If absent, show `waiting for start time...` and recompute when the watcher delivers it. The existing `Time = Split + WinningTime` math in `adjustTime` is unchanged — only the source of `WinningTime` changes.
-2. **Save on approve and on Save.** `refereeApprovalFunc` currently only flips an in-memory flag, and `initSave` is a stub that does nothing:
+2. **Persisting the result — one commit per team.** The approval panel serializes the lap rows into a `RaceResult` and atomically rewrites `finish.json` ([README.md](README.md) FT privileges); each FT persona has exactly one control that does it.
 
-```181:189:internal/clock/buttons.go
-func (c *Clock) initSave() *widget.Button {
-	button := widget.NewButton(common.SaveButtonText, func() {
-		// Save logic will be implemented later
-	})
-	button.Disable()
-	return button
-}
-```
+   The **Primary Finish Timer** panel is **Referee Approval** + **Close**. A valid winning time enables Referee Approval; approving writes the result with `Approved: true` / `ApprovedAt` stamped and **leaves the window open** so a later correction can be re-presented. There is no standalone Save — **Close** is disabled until the race is approved, then it just closes the clock (it persists nothing). So a primary `finish.json` entry that carries a `WinningTime` and `Rows` always has `Approved: true`.
 
-   Both now serialize the lap rows into a `RaceResult` and atomically rewrite `finish.json` ([README.md](README.md) FT privileges).
+   The **Secondary Finish Timer** has no Referee Approval step — its panel is a single **Save and Close** button. A valid winning time enables it; it writes the result with `Approved: false` and then closes the window. The secondary team never presents to a referee; its `finish.json` is a backup data source for the primary FT and reconciliation ([reconciliation.md](reconciliation.md)).
 
-   The **Secondary Finish Timer has no Referee Approval step** — its approval panel is Save only, a valid winning time enables Save directly, and Save writes `Approved: false`. The secondary team never presents to a referee; its `finish.json` is a backup data source for the primary FT and reconciliation ([reconciliation.md](reconciliation.md)).
+   A **status line** under the panel reads `Pending` until the race is persisted, then `Approved HH:MM:SS` (primary) or `Saved HH:MM:SS` (secondary), from `RaceResult.ApprovedAt` / `UpdatedAt`.
 
-   The clock also writes an **in-progress `RaceResult`** — `FirstFinishAt` / `FirstFinishClock` set, no `WinningTime`, `Approved` false — the moment the FT clicks the clock's **Start** button. This is what makes the ST row lock (see the Start Timer notes above) engage immediately rather than only at Save, and lets the RD progress tree show a race as underway. It is the FT writing its own file, so it stays within the one-writer rule. A failed write is surfaced but never blocks timing.
+   The clock also writes an **in-progress `RaceResult`** — `FirstFinishAt` / `FirstFinishClock` set, no `WinningTime`, `Approved` false — the moment the FT clicks the clock's **Start** button. This is what makes the ST row lock (see the Start Timer notes above) engage immediately rather than only at commit, and lets the RD progress tree show a race as underway. It is the FT writing its own file, so it stays within the one-writer rule. A failed write is surfaced but never blocks timing.
 3. **Rehydration.** `NewClock` checks `finish.json` for an existing `RaceResult` for this race number and, if found, restores lap rows, OOF assignments, place overrides, winning time, and button enablement before showing the window ([README.md](README.md)).
 
 ## 10. Suggested phasing
