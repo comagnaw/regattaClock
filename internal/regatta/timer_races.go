@@ -1,8 +1,6 @@
 package regatta
 
 import (
-	"strconv"
-
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
@@ -211,43 +209,6 @@ func (r *Regatta) refreshFinishRow(row *raceRow) {
 	default:
 		row.progress.SetText(common.EmptyString)
 	}
-}
-
-// refreshDirectorRow fills the read-only progress columns. It is nil-safe
-// against r.startLog / r.finishLog, which stay nil until the slice that binds
-// the Director session and hydrates both teams' timing files; until then every
-// cell shows its placeholder.
-func (r *Regatta) refreshDirectorRow(row *raceRow) {
-	n := row.raceNumber
-
-	restarts, startDisplay := common.NoStartTimeText, common.NoStartTimeText
-	if r.startLog != nil {
-		if rec, ok := r.startLog.Races[n]; ok {
-			restarts = strconv.Itoa(len(rec.Cleared))
-			if rec.StartedAt != nil {
-				startDisplay = rec.Display
-			}
-		}
-	}
-	row.restarts.SetText(restarts)
-	row.startTime.SetText(startDisplay)
-
-	winTime, status := common.NoStartTimeText, common.EmptyString
-	if r.finishLog != nil {
-		if res, ok := r.finishLog.Races[n]; ok {
-			if res.WinningTime != common.EmptyString {
-				winTime = res.WinningTime
-			}
-			switch {
-			case res.Approved:
-				status = common.RaceApprovedText
-			case res.WinningTime != common.EmptyString:
-				status = common.RaceSavedText
-			}
-		}
-	}
-	row.winTime.SetText(winTime)
-	row.approved.SetText(status)
 }
 
 func (r *Regatta) refreshAllRows() {

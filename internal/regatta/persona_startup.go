@@ -292,7 +292,7 @@ func (r *Regatta) hydratePeerStart(s persona.Session, key string) *store.StartLo
 	case errors.Is(err, fs.ErrNotExist):
 		return empty
 	case err != nil:
-		applog.Warn("peer start.json unusable; no start times shown", "component", "startup", "err", err)
+		applog.Warn("peer start.json unusable; ignored", "component", "startup", "err", err)
 		return empty
 	}
 	if log.RegattaKey != "" && log.RegattaKey != key {
@@ -316,7 +316,7 @@ func (r *Regatta) hydratePeerFinish(s persona.Session, key string) *store.Finish
 	case errors.Is(err, fs.ErrNotExist):
 		return empty
 	case err != nil:
-		applog.Warn("peer finish.json unusable; no rows locked", "component", "startup", "err", err)
+		applog.Warn("peer finish.json unusable; ignored", "component", "startup", "err", err)
 		return empty
 	}
 	if log.RegattaKey != "" && log.RegattaKey != key {
@@ -399,6 +399,8 @@ func (r *Regatta) startWatcher(s persona.Session) {
 		paths = append(paths, s.StartPath()) // peer start times
 	case persona.RoleStart:
 		paths = append(paths, s.FinishPath()) // FT progress, for the row lock
+	case persona.RoleDirector:
+		paths = append(paths, directorWatchPaths(s.Root)...) // both teams' start + finish
 	}
 	// Seed the last-applied hash from what hydrate already read, so the
 	// watcher's unconditional first event for an unchanged file is a no-op.
@@ -414,6 +416,10 @@ func (r *Regatta) startWatcher(s persona.Session) {
 	r.stopWatcher = cancel
 	events := w.Start(ctx)
 	go r.consumeWatcher(events)
+
+	if s.Role == persona.RoleDirector {
+		go r.staleTicker(ctx.Done())
+	}
 
 	r.window.SetOnClosed(func() {
 		cancel()
@@ -481,6 +487,11 @@ func (r *Regatta) applyWatchEvent(ev watcher.Event) {
 		}
 		applog.Info("finish progress updated", "component", "race_tree", "races", len(log.Races))
 		fyne.Do(func() { r.onPeerFinishChanged(&log) })
+
+	default:
+		if r.session.Role == persona.RoleDirector {
+			r.applyDirectorTimingEvent(ev)
+		}
 	}
 }
 

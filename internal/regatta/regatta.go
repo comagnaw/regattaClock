@@ -83,6 +83,17 @@ type Regatta struct {
 	startLog  *store.StartLog
 	finishLog *store.FinishLog
 
+	// teamLogs - the Regatta Director's read-only mirror of both teams'
+	// start.json + finish.json, keyed by team. The progress tree reads the
+	// primary and falls back to the secondary per value (persona-plan.md 9).
+	teamLogs map[persona.Team]*teamTiming
+
+	// directorSkew / directorStale - dismissible RD-tree banners: measured clock
+	// offsets across the four timing files disagree (persona-plan.md 2.1), and
+	// no timing file has been written for a while (persona-plan.md 9).
+	directorSkew  *dismissibleBanner
+	directorStale *dismissibleBanner
+
 	// regattaKey - the schedule's RegattaKey captured when the session started,
 	// used to reject watched peer data that belongs to another regatta.
 	regattaKey string
@@ -240,8 +251,15 @@ func (r *Regatta) startDirectorFlow() {
 
 	r.App.Preferences().SetString(common.PrefLastPersonaID, persona.DirectorDefinition.ID)
 	applog.Info("regatta schedule restored", "component", "startup", "races", r.RegattaData.ScheduledRaces())
+
+	// The RD reads every team's timing files (persona-plan.md 9). The schedule
+	// name/date drive the same RegattaKey the timers stamp.
+	r.regattaKey = store.RegattaKey(r.RegattaData.Name, r.RegattaData.Date)
+	r.hydrateDirectorLogs(r.session.Root, r.regattaKey)
+
 	r.refreshContent()
 	r.showRaceTree()
+	r.startWatcher(r.session)
 }
 
 // startLogging points applog at this persona's file,

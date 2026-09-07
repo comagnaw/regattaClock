@@ -26,6 +26,8 @@ func (r *Regatta) showRaceTree() {
 	)
 	if r.mode == modeTimer {
 		header.Add(r.scheduleBannerWidget())
+	} else {
+		header.Add(r.directorHeaderExtras())
 	}
 
 	// Set the window content
