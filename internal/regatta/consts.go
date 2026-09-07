@@ -1,5 +1,15 @@
 package regatta
 
+import "time"
+
+const (
+	// directorStaleThreshold - the RD stale banner appears once the freshest of
+	// the four timing files is older than this; directorStaleInterval is how
+	// often that age is re-checked (it is a wall-clock condition, not an event).
+	directorStaleThreshold = 10 * time.Minute
+	directorStaleInterval  = time.Minute
+)
+
 const (
 	// regattaWidth is a touch wider than the pre-persona 800 so a start timer
 	// row (title + three buttons + collected time) fits without sideways scroll.

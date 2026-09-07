@@ -129,6 +129,21 @@ const (
 	ClockSkewBannerFormat = "Clock skew: %s and %s clocks differ by %s (offsets %s and %s). Winning times may be off by that much until the machines agree."
 	DismissButtonText     = "Dismiss"
 
+	// Regatta Director progress tree (internal/regatta director_tree.go). A cell
+	// whose value fell back to the secondary team is suffixed with
+	// SecondaryValueMark and explained by SecondaryValueLegend under the header.
+	SecondaryValueMark   = " ·2nd"
+	SecondaryValueLegend = "·2nd  value from the secondary team"
+
+	// DirectorSkewBannerFormat - persona-plan.md 2.1 skew banner on the RD tree,
+	// comparing the offsets stamped on the four timing files' envelopes. Args:
+	// machine A, machine B, offset delta.
+	DirectorSkewBannerFormat = "Clock skew: %s and %s differ by %s. Race times combining both teams may be off by that much."
+
+	// DirectorStaleBannerFormat - persona-plan.md 9 staleness indicator: no
+	// timing file has been written for a while. Arg: age of the freshest write.
+	DirectorStaleBannerFormat = "No timing updates in %s. The regatta may have stalled, or a timer's machine is offline."
+
 	// Winning-time helper note under the FT clock's Winning Time field
 	// (persona-plan.md 2.1). The derived value only pre-fills; the referee's
 	// time always overrides. These say where the number came from, or why there
