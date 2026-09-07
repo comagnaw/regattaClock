@@ -43,7 +43,7 @@ Primary and secondary are independent ST/FT pairings for the same regatta. Timin
 
 - **Does:** Load / refresh schedule from an **origin** (Excel today; future web API) into `regattaSchedule.json` **only when normalized schedule content actually changes**; establish `regattaData`; notice origin fingerprint changes, ignore no-op workbook saves; Apply meaningful updates on confirmation; view live progress; export; read all timing data.
 - **Does not:** Time races; write start times or finish results; silently overwrite the schedule without confirmation while racing is underway.
-- **Entry:** Separate director entry point (not the timer picker).
+- **Entry:** A persona on the one startup picker, gated by the `rc-rd` challenge; a "resume as director" shortcut appears when the last run was the director. Excel import confirms the parsed metadata before writing the schedule.
 - **Constraint:** Timers consume only `regattaSchedule.json`, never the origin. That keeps a future Excel → API pivot inside the RD/reader layer.
 
 ### Start Timer (ST)
@@ -64,13 +64,13 @@ Primary and secondary are independent ST/FT pairings for the same regatta. Timin
 - **One writer per file** — no shared write targets across personas.
 - Watch shared timing files and refresh UI when they change.
 - On restart, hydrate each persona’s view from its already-saved data.
-- Do not auto-restore the last session from preferences alone; choose persona (timers) and confirm the regatta directory each launch.
+- Do not auto-restore the last session from preferences alone; choose a persona and confirm the regatta each launch. The one exception is the Regatta Director's opt-in "resume" shortcut.
 
-## Timer startup (high level)
+## Startup (high level)
 
-1. Choose persona (primary/secondary × start/finish).
-2. Pass that persona’s simple challenge code (or return to step 1).
-3. Select `regattaData` and confirm title / date / schedule.
+1. Choose a persona from the one picker — Regatta Director or primary/secondary × start/finish.
+2. Pass that persona’s challenge code (or return to step 1). The Director may instead take the "resume as director" shortcut when it was the last persona used.
+3. Select `regattaData` and confirm title / date / schedule. The Director may also point at a fresh directory and import Excel, confirming the parsed metadata before the schedule is written.
 4. Show the role-specific race tree.
 
 ## Privilege summary
