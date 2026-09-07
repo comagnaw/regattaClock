@@ -82,6 +82,16 @@ type Clock struct {
 	skewLabel     *widget.Label
 	skewDismissed bool
 
+	// schedule-conflict refresh (persona-plan.md 3c). When the watched
+	// schedule changes while this clock is open, UpdateSchedule refreshes the
+	// lane labels without touching lap rows / OOF / winning time, highlights the
+	// lanes that moved, and shows the notice banner.
+	raceTitle      *canvas.Text
+	resultsTable   *widget.Table
+	changedLanes   map[int]bool
+	scheduleBanner *fyne.Container
+	scheduleLabel  *widget.Label
+
 	// AfterClose - optional callback fired once when the clock window closes,
 	// so a finish timer's race tree can pick up saved results.
 	AfterClose func()

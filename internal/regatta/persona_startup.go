@@ -459,14 +459,21 @@ func (r *Regatta) watchedContentChanged(ev watcher.Event) bool {
 }
 
 // onScheduleChanged re-renders labels from a new schedule in place, rebuilding
-// the tree only when races were added or removed.
+// the tree only when races were added or removed. It never rewrites start.json
+// or finish.json; a change to a race that already has timing (or an open clock)
+// raises a dismissible notice instead (persona-plan.md 3c).
 func (r *Regatta) onScheduleChanged(sch *store.Schedule) {
+	old := r.RegattaData
 	r.RegattaData = regattaDataFromSchedule(sch)
+	changed := diffSchedule(old, r.RegattaData)
+
 	if r.raceSetChanged() {
 		r.showRaceTree()
-		return
+	} else {
+		r.refreshAllRows()
 	}
-	r.refreshAllRows()
+	r.applyScheduleConflicts(changed)
+	r.pushScheduleToOpenClocks(changed)
 }
 
 func (r *Regatta) onPeerStartChanged(log *store.StartLog) {

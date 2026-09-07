@@ -95,6 +95,14 @@ const (
 	RaceLockedTimingText     = "timing in progress"
 	RaceLockedResultsText    = "results recorded"
 
+	// Schedule-conflict notices (persona-plan.md 3c). A schedule change that
+	// touches a race with timing (or an open clock) never rewrites start.json /
+	// finish.json - it only refreshes labels and raises these.
+	ScheduleConflictMark         = "⚠ " // row-title prefix while a conflict is unacknowledged
+	ScheduleConflictStartBanner  = "Schedule updated for race %s - lane assignments changed. Recorded start times are unaffected."
+	ScheduleConflictFinishBanner = "Schedule changed for race %s (scratch / lane reassignment). Review order of finish and results."
+	ClockScheduleNoticeFormat    = "Schedule changed for race %d - lane labels refreshed. Lap times and order of finish are unchanged; review the highlighted lanes."
+
 	// ClockSkewBannerFormat - persona-plan.md 2.1: a persistent, dismissible
 	// banner shown on the FT clock when the two machines' measured offsets
 	// disagree by more than timesync.SkewWarnThreshold. Args: FT machine, ST

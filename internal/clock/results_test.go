@@ -305,17 +305,15 @@ func TestResults_IsNextPlace(t *testing.T) {
 	}
 }
 
-func TestResults_ResultsContainer(t *testing.T) {
-	results := createTestResults()
+func TestClock_ResultsPanel(t *testing.T) {
+	clk := &Clock{results: createTestResults()}
 
-	container := results.resultsContainer()
-
-	if container == nil {
-		t.Fatal("resultsContainer returned nil")
+	panel := clk.resultsPanel()
+	if panel == nil || len(panel.Objects) == 0 {
+		t.Fatal("resultsPanel returned an empty container")
 	}
-
-	if len(container.Objects) == 0 {
-		t.Error("Container should have objects")
+	if clk.resultsTable == nil {
+		t.Error("resultsPanel should retain the table handle for a live schedule refresh")
 	}
 }
 

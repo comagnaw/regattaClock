@@ -94,6 +94,14 @@ type Regatta struct {
 	// window for a reactive winning-time recompute (persona-plan.md 2.2).
 	openClocks map[int]*clock.Clock
 
+	// scheduleConflicts - races whose schedule row changed after this persona
+	// already had timing for them (or an open clock). Drives the race-tree
+	// banner and per-row marks until the operator dismisses them
+	// (persona-plan.md 3c). Cleared, never a silent rewrite of timing files.
+	scheduleConflicts   map[int]scheduleChange
+	scheduleBanner      *fyne.Container
+	scheduleBannerLabel *widget.Label
+
 	// watchedHashes - last-applied content hash per watched file, seeded at
 	// startup so the watcher's initial "current content" event for a file that
 	// has not changed since hydrate is skipped rather than rebuilding the tree.
