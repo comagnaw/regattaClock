@@ -736,6 +736,8 @@ func (c *Clock) initSave() *widget.Button {
 
    Both now serialize the lap rows into a `RaceResult` and atomically rewrite `finish.json` ([README.md](README.md) FT privileges).
 
+   The **Secondary Finish Timer has no Referee Approval step** — its approval panel is Save only, a valid winning time enables Save directly, and Save writes `Approved: false`. The secondary team never presents to a referee; its `finish.json` is a backup data source for the primary FT and reconciliation ([reconciliation.md](reconciliation.md)).
+
    The clock also writes an **in-progress `RaceResult`** — `FirstFinishAt` / `FirstFinishClock` set, no `WinningTime`, `Approved` false — the moment the FT clicks the clock's **Start** button. This is what makes the ST row lock (see the Start Timer notes above) engage immediately rather than only at Save, and lets the RD progress tree show a race as underway. It is the FT writing its own file, so it stays within the one-writer rule. A failed write is surfaced but never blocks timing.
 3. **Rehydration.** `NewClock` checks `finish.json` for an existing `RaceResult` for this race number and, if found, restores lap rows, OOF assignments, place overrides, winning time, and button enablement before showing the window ([README.md](README.md)).
 

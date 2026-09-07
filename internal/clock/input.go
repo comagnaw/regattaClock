@@ -22,9 +22,10 @@ func (c *Clock) initWinningTime() {
 func (c *Clock) onChangedWinningTimeFunc() func(text string) {
 	return func(text string) {
 
-		// If winning time is empty, just disable referee button
+		// If winning time is empty, disable the commit button (Referee Approval
+		// for the primary FT, Save for the secondary).
 		if text == common.EmptyString {
-			c.buttons.referee.Disable()
+			c.commitButton().Disable()
 			return
 		}
 
@@ -37,11 +38,11 @@ func (c *Clock) onChangedWinningTimeFunc() func(text string) {
 		// Try to parse the winning time
 		_, err := parseTime(text)
 		if err != nil {
-			c.buttons.referee.Disable()
+			c.commitButton().Disable()
 			return
 		}
 
-		c.buttons.referee.Enable()
+		c.commitButton().Enable()
 		c.refreshContent()
 		c.window.Content().Refresh()
 

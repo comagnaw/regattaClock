@@ -166,6 +166,24 @@ func (c *Clock) canPersist() bool {
 	return c.finishLog != nil && c.session.Role == persona.RoleFinish
 }
 
+// isSecondaryFinish reports whether this clock belongs to the Secondary Finish
+// Timer. Its results are a backup data source for the primary FT and for
+// reconciliation, never presented to a referee, so it has no Referee Approval
+// step: Save is the terminal action and it writes RaceResult.Approved = false
+// (docs/features/personas/reconciliation.md).
+func (c *Clock) isSecondaryFinish() bool {
+	return c.session.Role == persona.RoleFinish && c.session.Team == persona.TeamSecondary
+}
+
+// commitButton is the button a valid winning time enables: Referee Approval for
+// the primary FT (which then gates Save), or Save directly for the secondary FT.
+func (c *Clock) commitButton() *widget.Button {
+	if c.isSecondaryFinish() {
+		return c.buttons.save
+	}
+	return c.buttons.referee
+}
+
 // OpenRaceClock - opens the Clock app so that a race can be timed
 func (c *Clock) OpenRaceClock() {
 

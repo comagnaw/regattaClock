@@ -34,6 +34,12 @@ spec.
   decides.
 - **Common case is trivial.** Secondary empty ⇒ every race is `primary` or a
   `gap`; there is nothing to reconcile.
+- **The secondary FT never approves.** Its race clock has no Referee Approval
+  step — the approval panel is Save only, and Save writes
+  `RaceResult.Approved = false`. So `Approved == false` in
+  `timing/secondary/finish.json` is *definitive*: the results are complete, they
+  are simply not a refereed outcome. The only path to `approved` is the **primary
+  FT** re-entering the secondary's numbers and presenting them.
 
 ## Per-race timing state
 
@@ -46,7 +52,7 @@ reasons in these states, not in raw field values.
 | `start-recorded` | ST captured a start time | `start.json` `StartRecord.StartedAt` (not a finish state, but the RD tree shows it) |
 | `in-progress` | FT clicked **Start** on the clock | `FirstFinishAt` set, `WinningTime` empty, `Approved` false |
 | `saved` | FT entered a winning time / OOF and pressed **Save** | `WinningTime` non-empty, `Rows` populated |
-| `approved` | Referee Approval | `Approved` true, `ApprovedAt` set |
+| `approved` | Referee Approval (**primary FT only** — the secondary FT has no approval step) | `Approved` true, `ApprovedAt` set |
 
 This mirrors the RD progress tree's existing status vocabulary — *timing in
 progress* / *saved* / *approved* — in
@@ -55,17 +61,15 @@ progress* / *saved* / *approved* — in
 
 ## The reconciliation verdict
 
-Per race, from `(primary state, secondary state)`:
+Per race, from `(primary state, secondary state)`. The secondary column tops out
+at `saved` — it has no `approved` state.
 
 | Primary | Secondary | Verdict | Notes |
 |---------|-----------|---------|-------|
 | `saved` / `approved` | `none` / `start-recorded` / `in-progress` | **primary** | normal; publish primary, tag "no secondary confirmation" |
 | `saved` / `approved` | `saved`, values match | **primary** | agreement |
-| `approved` | `approved`, values match | **primary** | agreement |
-| `approved` | `approved`, values differ | **disputed** | human resolves; nothing auto-published |
-| `saved` | `saved`, values differ | **disputed** | same |
-| `saved` | `approved` | **primary**, *flag for RD review* | secondary is further along — the RD should look before publishing |
-| `none` / `start-recorded` / `in-progress` | `saved` / `approved` | **secondary** | primary pair missed this race; publish secondary, provenance `secondary` |
+| `saved` / `approved` | `saved`, values differ | **disputed** | human resolves; nothing auto-published |
+| `none` / `start-recorded` / `in-progress` | `saved` | **secondary** | primary pair missed this race; publish secondary, provenance `secondary` |
 | `in-progress` | `in-progress` | `not-yet` | revisit — neither committed |
 | `none` | `none` | `gap` | race not timed by anyone; already visible as an empty RD row |
 
@@ -145,8 +149,8 @@ hydration and never entered into reconciliation.
 
 A `saved` result whose `Envelope.WrittenAt` is hours old while racing continues
 is probably abandoned. The RD staleness banner (8b-2) already warns; the consumer
-should treat a stale `saved` primary against a fresh `approved` secondary as
-*flag for RD review*, not automatic.
+should treat a stale `saved` primary against a fresh `saved` secondary as *flag
+for RD review*, not automatic.
 
 ### Partial secondary
 
@@ -182,7 +186,7 @@ Per race, from each team's [`store.RaceResult`](../../../internal/persona/store/
 |-------|-----|
 | `WinningTime` | referee time (auto-filled from ST, editable) |
 | `Rows []LapRow` | `Lane` (0 = unassigned), `Place`, `Split`, `Time` — the order of finish |
-| `Approved` / `ApprovedAt` | milestone: referee approval |
+| `Approved` / `ApprovedAt` | referee approval — set by the primary FT only; always `false` in `timing/secondary/finish.json` |
 | `UpdatedAt` | last write time for this race |
 | `LaneMapHash` | lane map the result was committed against (`ScheduleRace.LaneMapHash`) |
 | `StartedAt` / `StartedAtClock` | ST start actually used + its offset |
