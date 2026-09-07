@@ -19,7 +19,10 @@ authoritative, and how disagreements surface.
 today renders lane images from the schedule only; the results-publishing surface
 (places, times, a disputed-race resolution screen) will land with a future
 results/publish persona that does not exist yet. This document is that persona's
-spec.
+spec. [future-result-driven-persona.md](future-result-driven-persona.md) assesses
+the *content* personas downstream of it (a social-media text table, the same as a
+PNG) and whether Referee Approval should materialize a per-race `results/` file —
+recommendation: defer, keep `finish.json` the only source of truth.
 
 ## Operating model
 

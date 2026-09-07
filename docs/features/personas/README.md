@@ -6,6 +6,8 @@ High-level requirements for multi-persona operation of Regatta Clock.
 
 - [persona-plan.md](persona-plan.md) — implementation plan
 - [schedule-data-model.md](schedule-data-model.md) — slim `regattaSchedule.json` vs start/finish SoT
+- [reconciliation.md](reconciliation.md) — combining the two finish teams into one published set
+- [future-result-driven-persona.md](future-result-driven-persona.md) — assessment: content-publishing personas downstream of results
 - [logging-options.md](logging-options.md) — JSON event logging design
 - [shared-storage-options.md](shared-storage-options.md) — SMB / spare-PC vs cloud sync
 
@@ -23,7 +25,7 @@ Background routines that are not the running race clock (or the direct recording
 
 | Team | Code | Who |
 |------|------|-----|
-| Executive | `executive` | Regatta Director (and future non-timing officials) |
+| Executive | `executive` | Regatta Director (and future non-timing officials — e.g. the result-publishing personas assessed in [future-result-driven-persona.md](future-result-driven-persona.md)) |
 | Primary | `primary` | Primary Start Timer + Primary Finish Timer |
 | Secondary | `secondary` | Secondary Start Timer + Secondary Finish Timer |
 
