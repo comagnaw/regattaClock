@@ -17,6 +17,7 @@ import (
 
 	"github.com/comagnaw/regattaClock/assets"
 	"github.com/comagnaw/regattaClock/internal/applog"
+	"github.com/comagnaw/regattaClock/internal/clock"
 	"github.com/comagnaw/regattaClock/internal/common"
 	"github.com/comagnaw/regattaClock/internal/filesystem"
 	"github.com/comagnaw/regattaClock/internal/persona"
@@ -87,6 +88,11 @@ type Regatta struct {
 	// rows - per-race widget handles for the timer race tree, so watcher
 	// updates and button actions refresh a row in place instead of rebuilding.
 	rows map[int]*raceRow
+
+	// openClocks - finish-timer race clocks currently on screen, keyed by race
+	// number, so a late-arriving peer start time can be pushed into the open
+	// window for a reactive winning-time recompute (persona-plan.md 2.2).
+	openClocks map[int]*clock.Clock
 
 	// watchedHashes - last-applied content hash per watched file, seeded at
 	// startup so the watcher's initial "current content" event for a file that
