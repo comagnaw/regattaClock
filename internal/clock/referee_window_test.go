@@ -1,9 +1,11 @@
 package clock
 
 import (
+	"image/color"
 	"testing"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
@@ -11,6 +13,12 @@ import (
 	"github.com/comagnaw/regattaClock/internal/common"
 	"github.com/comagnaw/regattaClock/internal/persona/store"
 )
+
+func sameColor(a, b color.Color) bool {
+	ar, ag, ab, aa := a.RGBA()
+	br, bg, bb, ba := b.RGBA()
+	return ar == br && ag == bg && ab == bb && aa == ba
+}
 
 func findButton(o fyne.CanvasObject, label string) *widget.Button {
 	switch v := o.(type) {
@@ -141,10 +149,35 @@ func TestRefereeApproval_ClosingClockClosesApprovalWindow(t *testing.T) {
 	}
 }
 
+func TestApprovalHeaderReverseContrast(t *testing.T) {
+	a := initApprovalContainer() // header row already added
+	a.setRow(0, []string{"1", "1", "00:00.0", "01:00.0", "Crew"})
+
+	headerRect := a.Objects[0].(*fyne.Container).Objects[0].(*canvas.Rectangle)
+	rowRect := a.Objects[refereeCols].(*fyne.Container).Objects[0].(*canvas.Rectangle)
+	headerText := cellText(a.Objects[0])
+	rowText := cellText(a.Objects[refereeCols])
+
+	if !sameColor(headerRect.FillColor, refereeDarkColor(theme.ColorNameBackground)) {
+		t.Errorf("header background = %v, want the default dark background", headerRect.FillColor)
+	}
+	if !sameColor(headerText.Color, refereeColor(theme.ColorNameBackground)) {
+		t.Errorf("header text = %v, want the lightest table white", headerText.Color)
+	}
+	if sameColor(headerRect.FillColor, rowRect.FillColor) {
+		t.Error("header background should be reverse contrast from the rows")
+	}
+	if sameColor(headerText.Color, rowText.Color) {
+		t.Error("header text should be reverse contrast from the rows")
+	}
+}
+
 func TestScalingGridLayout_FontScalesWithWidth(t *testing.T) {
+	fg := refereeColor(theme.ColorNameForeground)
+	bg := refereeColor(theme.ColorNameBackground)
 	var objs []fyne.CanvasObject
 	for range 10 { // two rows of five
-		objs = append(objs, approvalCell("Placeholder", theme.ColorNameBackground, false))
+		objs = append(objs, approvalCell("Placeholder", fg, bg, false))
 	}
 
 	if got := (scalingGridLayout{}).MinSize(objs); got.Width <= 0 || got.Height <= 0 {

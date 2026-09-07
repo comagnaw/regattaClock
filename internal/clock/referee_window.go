@@ -40,6 +40,12 @@ func refereeColor(name fyne.ThemeColorName) color.Color {
 	return refereeTheme.Color(name, theme.VariantLight)
 }
 
+// refereeDarkColor is the dark-variant value of a colour, for the reverse-
+// contrast header row of the results table.
+func refereeDarkColor(name fyne.ThemeColorName) color.Color {
+	return theme.DefaultTheme().Color(name, theme.VariantDark)
+}
+
 // refereeColWeights is the fraction of the grid width each column gets: OOF and
 // Place are narrow (but wide enough for their headers), School is the widest.
 var refereeColWeights = [refereeCols]float32{0.11, 0.15, 0.17, 0.17, 0.40}
