@@ -120,7 +120,8 @@ const (
 	ClearButtonText          = "Clear"
 	RestoreButtonText        = "Restore"
 	NoStartTimeText          = "—"
-	WaitingForStartText      = "waiting for start…"
+	WaitingForStartText      = "awaiting start"          // FT race-tree Start Time cell before the peer start lands (fits the start-time column)
+	StartNotCollectedText    = "no start time"           // FT race-tree Start Time cell once a result is saved/approved and no start was recorded
 	WaitingForStartTimeText  = "waiting for start time…" // FT clock winning-time placeholder until the ST start lands
 	RaceSavedText            = "saved"
 	RaceApprovedText         = "approved"
@@ -131,8 +132,11 @@ const (
 	RestoreStartPlainMessage = "Restore the previously collected start time %s for race %d?"
 	RestoreStartMessage      = "Replace the current start time %s with the previously collected %s for race %d?"
 	WritesBlockedMessage     = "Recording is blocked because a timing file could not be read at startup. Resolve the file set aside for recovery and restart."
-	RaceLockedTimingText     = "timing in progress"
-	RaceLockedResultsText    = "results recorded"
+
+	// Race-progress status, one vocabulary across the ST, FT and RD race trees:
+	// FirstFinishAt set -> RaceInProgressText, a winning time saved ->
+	// RaceSavedText (above), referee-approved -> RaceApprovedText (above).
+	RaceInProgressText = "timing in progress"
 
 	// Schedule-conflict notices (persona-plan.md 3c). A schedule change that
 	// touches a race with timing (or an open clock) never rewrites start.json /

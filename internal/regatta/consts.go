@@ -32,9 +32,16 @@ const (
 	// column in a GridWrap of the matching width, so a bold header label sits
 	// directly over its column and the values line up down the list.
 
+	// colInset - horizontal padding fixedCell puts inside every column, so a
+	// right-aligned value (e.g. the FT "awaiting start" placeholder) keeps a
+	// gap from the column to its left (the Time Race button) rather than
+	// bleeding onto it.
+	colInset = float32(6)
+
 	// startTimeColWidth - the collected / recorded start-time cell, wide enough
-	// for "HH:MM:SS.d" plus breathing room. Shared by ST, FT and RD.
-	startTimeColWidth = float32(110)
+	// for "HH:MM:SS.d" and the FT's "awaiting start" placeholder plus the inset.
+	// Shared by ST, FT and RD.
+	startTimeColWidth = float32(130)
 
 	// actionsColWidth - the start timer's Start Time / Clear / Restore button
 	// group (three equal cells).
@@ -42,16 +49,18 @@ const (
 
 	// statusColWidth - the ST lock note, the FT progress indicator, and the RD
 	// approval indicator ("timing in progress" is the widest text).
-	statusColWidth = float32(140)
+	statusColWidth = float32(150)
 
-	// winTimeColWidth - the RD's winning-time cell.
-	winTimeColWidth = float32(110)
+	// winTimeColWidth - the RD's winning-time cell (fits the "Winning Time"
+	// header plus the inset).
+	winTimeColWidth = float32(120)
 
 	// restartsColWidth - the RD's restart count.
 	restartsColWidth = float32(80)
 
-	// timeRaceColWidth - the finish timer's Time Race button.
-	timeRaceColWidth = float32(110)
+	// timeRaceColWidth - the finish timer's Time Race button (fits the button
+	// plus the inset).
+	timeRaceColWidth = float32(120)
 
 	// welcomeBannerWidth, welcomeBannerHeight - banner size on the welcome view,
 	// keeping the source image's 16:9 ratio

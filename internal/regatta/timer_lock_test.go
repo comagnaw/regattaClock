@@ -6,6 +6,7 @@ import (
 
 	"fyne.io/fyne/v2/test"
 
+	"github.com/comagnaw/regattaClock/internal/common"
 	"github.com/comagnaw/regattaClock/internal/persona/store"
 )
 
@@ -59,8 +60,8 @@ func TestStartRowLocksWhenFinishHasInProgressResult(t *testing.T) {
 		t.Errorf("race 1 buttons should be locked: start=%v clear=%v restoreHidden=%v",
 			locked.startBtn.Disabled(), locked.clearBtn.Disabled(), locked.restoreBtn.Hidden)
 	}
-	if locked.progress.Text != "timing in progress" {
-		t.Errorf("race 1 note = %q, want 'timing in progress'", locked.progress.Text)
+	if locked.progress.Text != common.RaceInProgressText {
+		t.Errorf("race 1 note = %q, want %q", locked.progress.Text, common.RaceInProgressText)
 	}
 
 	free := r.rows[2]
@@ -72,15 +73,26 @@ func TestStartRowLocksWhenFinishHasInProgressResult(t *testing.T) {
 	}
 }
 
-func TestStartRowShowsResultsRecordedNote(t *testing.T) {
+func TestStartRowStatusMatchesFinishProgress(t *testing.T) {
+	// Saved but not approved: the ST row shows the shared "saved" status, still locked.
 	r, _ := startTimerWithFinish(t, &store.FinishLog{Races: map[int]store.RaceResult{
-		1: {RaceNumber: 1, FirstFinishAt: ptr(time.Now().UTC()), WinningTime: "06:00.0", Approved: true},
+		1: {RaceNumber: 1, FirstFinishAt: ptr(time.Now().UTC()), WinningTime: "06:00.0"},
 	}})
-
-	if got := r.rows[1].progress.Text; got != "results recorded" {
-		t.Errorf("note = %q, want 'results recorded'", got)
+	if got := r.rows[1].progress.Text; got != common.RaceSavedText {
+		t.Errorf("saved race status = %q, want %q", got, common.RaceSavedText)
 	}
 	if !r.rows[1].startBtn.Disabled() {
+		t.Error("a saved race must stay locked")
+	}
+
+	// Approved: the shared "approved" status, still locked.
+	r2, _ := startTimerWithFinish(t, &store.FinishLog{Races: map[int]store.RaceResult{
+		1: {RaceNumber: 1, FirstFinishAt: ptr(time.Now().UTC()), WinningTime: "06:00.0", Approved: true},
+	}})
+	if got := r2.rows[1].progress.Text; got != common.RaceApprovedText {
+		t.Errorf("approved race status = %q, want %q", got, common.RaceApprovedText)
+	}
+	if !r2.rows[1].startBtn.Disabled() {
 		t.Error("an approved race must stay locked")
 	}
 }
@@ -95,7 +107,7 @@ func TestOnPeerFinishChangedLocksRowLive(t *testing.T) {
 		1: {RaceNumber: 1, FirstFinishAt: ptr(time.Now().UTC())},
 	}})
 
-	if !r.rows[1].startBtn.Disabled() || r.rows[1].progress.Text != "timing in progress" {
+	if !r.rows[1].startBtn.Disabled() || r.rows[1].progress.Text != common.RaceInProgressText {
 		t.Error("race 1 should lock when the watcher delivers a finish record")
 	}
 }

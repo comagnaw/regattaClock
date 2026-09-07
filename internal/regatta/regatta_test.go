@@ -29,6 +29,75 @@ func labelTexts(o fyne.CanvasObject) []string {
 	return out
 }
 
+// leafTexts collects label and button text under o in visual (tree) order, so a
+// test can assert one column sits ahead of another.
+func leafTexts(o fyne.CanvasObject) []string {
+	switch v := o.(type) {
+	case *widget.Button:
+		return []string{v.Text}
+	case *widget.Label:
+		return []string{v.Text}
+	case *fyne.Container:
+		var out []string
+		for _, c := range v.Objects {
+			out = append(out, leafTexts(c)...)
+		}
+		return out
+	}
+	return nil
+}
+
+// ftRegatta is a NewTimer bound to a Primary Finish Timer session, enough for
+// the pure layout helpers (raceListHeader, newRaceRow).
+func ftRegatta(t *testing.T) *Regatta {
+	t.Helper()
+	app := test.NewApp()
+	t.Cleanup(app.Quit)
+
+	r := NewTimer(app)
+	def, ok := persona.ByID("pft")
+	if !ok {
+		t.Fatal("no pft persona")
+	}
+	r.session = persona.Session{Definition: def}
+	return r
+}
+
+func TestRegatta_RaceListHeader_Finish(t *testing.T) {
+	texts := labelTexts(ftRegatta(t).raceListHeader())
+
+	for _, want := range []string{common.ScheduledRacesTile, common.ColStartTime, common.ColStatus} {
+		if !slices.Contains(texts, want) {
+			t.Errorf("finish header %v is missing %q", texts, want)
+		}
+	}
+	if i, j := slices.Index(texts, common.ColStartTime), slices.Index(texts, common.ColStatus); i < 0 || j < 0 || i > j {
+		t.Errorf("finish header %v: want %q before %q", texts, common.ColStartTime, common.ColStatus)
+	}
+}
+
+func TestRegatta_FinishRow_TimeRaceLeadsCluster(t *testing.T) {
+	r := ftRegatta(t)
+	row := r.newRaceRow(reader.RaceData{
+		RaceNumber: 1, BoatCount: 2,
+		Lanes: map[int]reader.RaceEntry{1: {SchoolName: "A"}, 2: {SchoolName: "B"}},
+	})
+
+	seq := leafTexts(row.root)
+	btn := slices.Index(seq, common.TimeRaceButtonText)
+	start := slices.Index(seq, common.WaitingForStartText)
+	if btn < 0 || start < 0 || btn > start {
+		t.Errorf("finish row leaf order %v: want %q before the start-time cell %q",
+			seq, common.TimeRaceButtonText, common.WaitingForStartText)
+	}
+
+	// The start-time cell must clip rather than bleed onto the Time Race button
+	// now sitting directly to its left.
+	if row.startTime.Truncation != fyne.TextTruncateEllipsis {
+		t.Errorf("start-time label truncation = %v, want ellipsis", row.startTime.Truncation)
+	}
+}
+
 func TestNewDirector(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
