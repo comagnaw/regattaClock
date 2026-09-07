@@ -7,6 +7,19 @@ import (
 	"fyne.io/fyne/v2/canvas"
 )
 
+func TestBoldLabel(t *testing.T) {
+	l := BoldLabel("Header")
+	if l == nil {
+		t.Fatal("BoldLabel returned nil")
+	}
+	if l.Text != "Header" {
+		t.Errorf("Text = %q, want %q", l.Text, "Header")
+	}
+	if !l.TextStyle.Bold {
+		t.Error("BoldLabel should be bold")
+	}
+}
+
 func TestHeader1(t *testing.T) {
 	testText := "Test Header 1"
 	result := Header1(testText)

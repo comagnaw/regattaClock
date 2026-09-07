@@ -99,9 +99,7 @@ func (c *Clock) lapsContainer() *fyne.Container {
 
 	header := container.NewGridWithColumns(4)
 	for _, h := range headers {
-		text := widget.NewLabel(h)
-		text.TextStyle = fyne.TextStyle{Bold: true}
-		header.Add(text)
+		header.Add(text.BoldLabel(h))
 	}
 	laps.Add(header)
 

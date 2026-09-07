@@ -7,7 +7,8 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/comagnaw/regattaClock/internal/common"
-	"github.com/comagnaw/regattaClock/internal/reader"
+	"github.com/comagnaw/regattaClock/internal/persona"
+	"github.com/comagnaw/regattaClock/internal/text"
 )
 
 func (r *Regatta) showRaceTree() {
@@ -21,21 +22,14 @@ func (r *Regatta) showRaceTree() {
 	header := container.NewVBox(
 		r.treeTitle(),
 		widget.NewSeparator(),
-		r.listTitle(),
+		r.raceListHeader(),
 	)
 	if r.mode == modeTimer {
 		header.Add(r.scheduleBannerWidget())
 	}
 
-	var body fyne.CanvasObject
-	if r.mode == modeTimer {
-		body = r.timerRaceList()
-	} else {
-		body = r.raceList()
-	}
-
 	// Set the window content
-	r.window.SetContent(container.NewBorder(header, nil, nil, nil, body))
+	r.window.SetContent(container.NewBorder(header, nil, nil, nil, r.raceListBody()))
 }
 
 // treeTitle - loaded regatta details, with the branding logo tucked into the top
@@ -63,42 +57,42 @@ func (r *Regatta) treeTitle() *fyne.Container {
 	return container.NewBorder(nil, nil, logo, nil, details)
 }
 
-func (r *Regatta) listTitle() *widget.Label {
-	// Add a title for the race list
-	title := widget.NewLabel(common.ScheduledRacesTile)
-	title.TextStyle = fyne.TextStyle{Bold: true}
-	return title
-}
+// raceListHeader is the bold column-header row above the race list. It uses the
+// same Border(nil,nil,nil,cluster,title) shape and the same fixed column widths
+// as a data row, so each label sits directly over its column and "Scheduled
+// Races" right-aligns to line up with the race titles below it.
+func (r *Regatta) raceListHeader() *fyne.Container {
+	race := text.BoldLabel(common.ScheduledRacesTile)
+	race.Alignment = fyne.TextAlignTrailing
 
-func (r *Regatta) raceList() *container.Scroll {
-
-	// Create a list to hold the race nodes
-	raceList := container.NewVBox()
-
-	// Add each race to the tree
-	for _, race := range r.RegattaData.SortedRaces() {
-
-		if !race.HasBoats() {
-			continue
-		}
-
-		raceList.Add(r.raceEntry(race))
+	var cluster *fyne.Container
+	switch r.session.Role {
+	case persona.RoleStart:
+		cluster = container.NewHBox(
+			fixedCell(actionsColWidth, text.BoldLabel(common.EmptyString)),
+			fixedCell(startTimeColWidth, text.BoldLabel(common.ColStartTime)),
+			fixedCell(statusColWidth, text.BoldLabel(common.ColStatus)),
+		)
+	case persona.RoleFinish:
+		cluster = container.NewHBox(
+			fixedCell(startTimeColWidth, text.BoldLabel(common.ColStartTime)),
+			fixedCell(statusColWidth, text.BoldLabel(common.ColStatus)),
+			fixedCell(timeRaceColWidth, text.BoldLabel(common.EmptyString)),
+		)
+	default: // RoleDirector
+		cluster = container.NewHBox(
+			fixedCell(restartsColWidth, text.BoldLabel(common.ColRestarts)),
+			fixedCell(startTimeColWidth, text.BoldLabel(common.ColStartTime)),
+			fixedCell(winTimeColWidth, text.BoldLabel(common.ColWinningTime)),
+			fixedCell(statusColWidth, text.BoldLabel(common.ColStatus)),
+		)
 	}
 
-	// Only a floor to keep a few rows visible if the window is dragged small. Giving
-	// this the full window height instead would make the content taller than the
-	// window, since the header sits above it.
-	scroll := container.NewScroll(raceList)
-	scroll.SetMinSize(fyne.NewSize(0, raceListMinHeight))
-	return scroll
+	return container.NewBorder(nil, nil, nil, cluster, race)
 }
 
-// raceEntry - one row of the Regatta Director's read-only list. It is just the
-// race title for now; the progress columns (start time, winning time, approval,
-// restarts) land in the next slice.
-func (r *Regatta) raceEntry(race reader.RaceData) *fyne.Container {
-	return container.NewHBox(
-		widget.NewLabel(race.RaceTitle()),
-		layout.NewSpacer(),
-	)
+// fixedCell wraps a widget at a fixed column width so headers and row values
+// share one set of column edges.
+func fixedCell(w float32, o fyne.CanvasObject) *fyne.Container {
+	return container.NewGridWrap(fyne.NewSize(w, o.MinSize().Height), o)
 }

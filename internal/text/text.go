@@ -5,7 +5,17 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/widget"
 )
+
+// BoldLabel - a bold widget.Label, for interactive layouts (column headers,
+// table headings) where a canvas.Text cannot participate. The canvas.Text
+// helpers above are for static display copy.
+func BoldLabel(t string) *widget.Label {
+	l := widget.NewLabel(t)
+	l.TextStyle = fyne.TextStyle{Bold: true}
+	return l
+}
 
 // Header1 - returns title format of fyne Text
 func Header1(t string) *canvas.Text {
