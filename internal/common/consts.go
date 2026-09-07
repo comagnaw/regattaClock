@@ -90,6 +90,13 @@ const (
 	// Args: on-disk name, on-disk date, workbook name, workbook date, old RegattaKey.
 	DifferentRegattaReplaceMessage = "This workbook describes a different regatta:\n\n  on disk:  %s  (%s)\n  workbook: %s  (%s)\n\nNo timing data has been recorded here yet. Replace the schedule? The current one is kept as regattaSchedule.%s.json."
 
+	// Origin-refresh banner (persona-plan.md 3b step 5). The RD polls the source
+	// workbook; a change to the schedule *content* (not just the file) raises
+	// this. Arg: a short summary of what changed.
+	ApplyButtonText           = "Apply"
+	OriginChangedBannerFormat = "The regatta workbook has changed: %s. Apply to publish it to every timer, or dismiss."
+	OriginUnchangedMessage    = "The workbook has not changed the schedule."
+
 	NumScheduledRacesTitle = "Scheduled Races: %d"
 	ScheduledRacesTile     = "Scheduled Races"
 

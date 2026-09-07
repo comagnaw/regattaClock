@@ -390,6 +390,13 @@ func (r *Regatta) blockWritesForCorruptFile(path string, cause error) {
 // start.json) for the life of the window, refreshing race rows in place as
 // files change.
 func (r *Regatta) startWatcher(s persona.Session) {
+	// startDirectorFlow re-runs on every Apply / Reload, so tear down the
+	// previous watcher (and its stale / origin tickers) before starting a new
+	// one, or they accumulate.
+	if r.stopWatcher != nil {
+		r.stopWatcher()
+	}
+
 	mode := watcher.ParseMode(r.App.Preferences().String(common.PrefStorageMode))
 	w := watcher.New(mode, 0)
 
@@ -413,18 +420,25 @@ func (r *Regatta) startWatcher(s persona.Session) {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	r.stopWatcher = cancel
 	events := w.Start(ctx)
-	go r.consumeWatcher(events)
+
+	consumed := make(chan struct{})
+	go func() { r.consumeWatcher(events); close(consumed) }()
 
 	if s.Role == persona.RoleDirector {
 		go r.staleTicker(ctx.Done())
+		go r.originPoller(r.RegattaData.URI, r.RegattaData.Hash, ctx.Done())
 	}
 
-	r.window.SetOnClosed(func() {
+	// stopWatcher blocks until the watcher goroutine and its event consumer have
+	// fully exited, so a subsequent startWatcher can safely reset watchedHashes.
+	stop := func() {
 		cancel()
 		w.Stop()
-	})
+		<-consumed
+	}
+	r.stopWatcher = stop
+	r.window.SetOnClosed(stop)
 	applog.Info("watcher started", "component", "startup", "mode", string(mode))
 }
 

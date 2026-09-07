@@ -8,6 +8,10 @@ const (
 	// often that age is re-checked (it is a wall-clock condition, not an event).
 	directorStaleThreshold = 10 * time.Minute
 	directorStaleInterval  = time.Minute
+
+	// originPollInterval - how often the RD re-hashes the source workbook to
+	// notice the origin was touched (persona-plan.md 3b step 1).
+	originPollInterval = 45 * time.Second
 )
 
 const (

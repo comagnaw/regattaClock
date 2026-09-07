@@ -1,7 +1,6 @@
 package regatta
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -94,6 +93,14 @@ type Regatta struct {
 	directorSkew  *dismissibleBanner
 	directorStale *dismissibleBanner
 
+	// origin-refresh (persona-plan.md 3b): a background poll notices the source
+	// workbook changed; originBanner offers Apply/Dismiss for the parsed
+	// candidate held in pendingOrigin; dismissedContentHash suppresses re-nagging
+	// for a change the RD already declined.
+	originBanner         *actionBanner
+	pendingOrigin        *reader.RegattaData
+	dismissedContentHash string
+
 	// regattaKey - the schedule's RegattaKey captured when the session started,
 	// used to reject watched peer data that belongs to another regatta.
 	regattaKey string
@@ -125,8 +132,10 @@ type Regatta struct {
 	// replacing a corrupt history with an empty one.
 	writesBlocked bool
 
-	// stopWatcher - cancels the shared-file watcher at window close.
-	stopWatcher context.CancelFunc
+	// stopWatcher - tears the shared-file watcher (and the RD's stale / origin
+	// tickers) down and blocks until they have exited, so it is safe to start a
+	// new one. Called at window close and at the top of startWatcher.
+	stopWatcher func()
 }
 
 type loadState struct {

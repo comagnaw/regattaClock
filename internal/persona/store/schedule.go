@@ -52,6 +52,25 @@ type ScheduleEntry struct {
 // Key returns the RegattaKey for this schedule.
 func (s *Schedule) Key() string { return RegattaKey(s.Name, s.Date) }
 
+// ContentHash is a canonical fingerprint of the schedule's meaningful payload -
+// name, date, and every race's number, class, flight, boat count and ordered
+// lane assignments - excluding Origin metadata. Two schedules with the same
+// ContentHash describe the same regatta program regardless of which workbook
+// (or workbook save) produced them; the Regatta Director's origin-refresh
+// detector compares this, not the Excel file hash (persona-plan.md 3b).
+func (s *Schedule) ContentHash() string {
+	races := append([]ScheduleRace(nil), s.Races...)
+	sort.Slice(races, func(i, j int) bool { return races[i].RaceNumber < races[j].RaceNumber })
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "%s\x00%s\x1d", s.Name, s.Date)
+	for _, r := range races {
+		fmt.Fprintf(&b, "%d\x1e%s\x1e%s\x1e%d\x1e%s\x1d",
+			r.RaceNumber, r.BoatClass, r.FlightInfo, r.BoatCount, r.LaneMapHash())
+	}
+	return filesystem.HashBytes([]byte(b.String()))[:16]
+}
+
 // LaneMapHash is a stable fingerprint of one race's lane assignments: the race
 // number plus each lane's school and additional info, in ascending lane order.
 // An empty SchoolName is a scratch, so scratches are covered. BoatClass and
