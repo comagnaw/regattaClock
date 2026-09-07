@@ -29,5 +29,6 @@ const (
 	refereeFontMin          = float32(28) // font at the narrowest usable width
 	refereeCharWidthDivisor = float32(9)  // school-column width / this ≈ font size; tuned to the widest school names
 	refereeRowHeightFactor  = float32(1.5)
+	refereeColGutter        = float32(16) // inset each grid cell so columns don't bleed together
 	refereeMinGridWidth     = float32(640)
 )

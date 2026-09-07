@@ -41,8 +41,8 @@ func refereeColor(name fyne.ThemeColorName) color.Color {
 }
 
 // refereeColWeights is the fraction of the grid width each column gets: OOF and
-// Place are narrow, School is the widest (it holds the longest text).
-var refereeColWeights = [refereeCols]float32{0.09, 0.11, 0.17, 0.17, 0.46}
+// Place are narrow (but wide enough for their headers), School is the widest.
+var refereeColWeights = [refereeCols]float32{0.11, 0.15, 0.17, 0.17, 0.40}
 
 // scalingGridLayout lays the 5-column approvals grid into weighted columns and
 // scales the cell font with the window: it grows toward refereeFontDesign as the
@@ -83,8 +83,10 @@ func (scalingGridLayout) Layout(objs []fyne.CanvasObject, size fyne.Size) {
 		for i := range col {
 			x += colW[i]
 		}
-		o.Move(fyne.NewPos(x, float32(row)*cellH))
-		o.Resize(fyne.NewSize(colW[col], cellH))
+		// Inset each cell by a gutter so a wide value (e.g. "OOF" at 48pt) keeps
+		// clear air from the next column instead of bleeding into it.
+		o.Move(fyne.NewPos(x+refereeColGutter/2, float32(row)*cellH))
+		o.Resize(fyne.NewSize(colW[col]-refereeColGutter, cellH))
 	}
 }
 
@@ -136,7 +138,8 @@ func (c *Clock) showRefereeeApproval(raceNumber int) {
 		c.closeRefereeWindow()
 	})
 
-	title := text.Header2(c.raceData.RaceTitle())
+	// Header1 (large) so a referee glancing at the window sees which race it is.
+	title := text.Header1(c.raceData.RaceTitle())
 	title.Color = refereeColor(theme.ColorNameForeground) // canvas.Text ignores the ThemeOverride
 
 	body := container.NewBorder(
@@ -161,6 +164,7 @@ func (c *Clock) showRefereeeApproval(raceNumber int) {
 	w.SetOnClosed(func() {
 		c.refereeWindow = nil
 		c.unblockClockAfterReferee()
+		c.window.RequestFocus() // return the operator to the clock, not whatever is behind it
 	})
 	c.refereeWindow = w
 	w.Show()

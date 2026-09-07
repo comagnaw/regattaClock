@@ -157,6 +157,15 @@ func TestScalingGridLayout_FontScalesWithWidth(t *testing.T) {
 		t.Errorf("narrow font = %v, want within [%v, %v]", narrow, refereeFontMin, refereeFontDesign)
 	}
 
+	// Each cell is inset by the gutter so adjacent columns keep clear air.
+	oofW := 480 * refereeColWeights[0]
+	if got := objs[0].Size().Width; got >= oofW {
+		t.Errorf("OOF cell width %v should be less than its column %v (gutter not applied)", got, oofW)
+	}
+	if objs[0].Position().X <= 0 {
+		t.Error("OOF cell should be inset from the left edge by half a gutter")
+	}
+
 	scalingGridLayout{}.Layout(objs, fyne.NewSize(4000, 400))
 	wide := cellText(objs[0]).TextSize
 	if wide != refereeFontDesign {
