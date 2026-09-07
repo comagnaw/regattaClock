@@ -17,6 +17,7 @@ import (
 func Bootstrap(app fyne.App) func() {
 	prefs := app.Preferences()
 
+	applyLoggingDefault(prefs)
 	applog.Init(prefs.Bool(common.PrefLogging), prefs.Bool(common.PrefDebug))
 
 	// The offset is measured, never applied to the system clock. PrefNTPServers
@@ -29,5 +30,19 @@ func Bootstrap(app fyne.App) func() {
 	return func() {
 		timesync.Stop()
 		applog.Close()
+	}
+}
+
+// applyLoggingDefault turns event logging on the first time the app runs.
+// Logging is on by default; the operator opts out through the config screen,
+// and that choice (stored as an explicit false) is preserved. The key is only
+// seeded when it has never been written, so the config checkbox reflects the
+// real state - BoolWithFallback returns the fallback verbatim only when the key
+// is absent.
+func applyLoggingDefault(prefs fyne.Preferences) {
+	unset := prefs.BoolWithFallback(common.PrefLogging, true) &&
+		!prefs.BoolWithFallback(common.PrefLogging, false)
+	if unset {
+		prefs.SetBool(common.PrefLogging, true)
 	}
 }

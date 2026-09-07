@@ -21,7 +21,7 @@ So the log field is explicitly the persona **id**, matching `Definition.ID`, wit
 
 ## 1. What already exists
 
-[internal/regatta/config.go](internal/regatta/config.go) already exposes a Logging checkbox bound to `common.PrefLogging`. Nothing reads that boolean yet. The only `log.Printf` usage today is in the lane-image exporter. That preference should remain the **sole enable switch**: when false, the logger is a no-op (or `slog.DiscardHandler`); when true, file logging starts after the persona has a resolved `regattaData` root.
+[internal/regatta/config.go](internal/regatta/config.go) exposes a Logging checkbox bound to `common.PrefLogging`. That preference is the **sole enable switch**: when false, the logger is a no-op (`slog.DiscardHandler`); when true, file logging starts after the persona has a resolved `regattaData` root. **It is on by default** — `regatta.Bootstrap` seeds `PrefLogging` to true the first time the app runs, so an operator has to open config and uncheck it to opt out (an explicit false is then preserved).
 
 `PrefLogging` and `PrefDebug` work together as a **severity filter**, not as two unrelated switches:
 
@@ -104,7 +104,7 @@ Multiple personas appending to one file on OneDrive/SMB is exactly the multi-wri
 
 ### Why not only local AppData
 
-Local-only logs are safer for I/O and do not sync, but when the RD is diagnosing "why didn't FT get race 12's start time?", the useful trail is on *another* laptop. Putting logs under `regattaData` means the RD (or anyone with the share) can collect them after the fact without chasing four machines. That benefit is large enough to accept the sync cost **if logging is opt-in via `PrefLogging`** and volume stays low.
+Local-only logs are safer for I/O and do not sync, but when the RD is diagnosing "why didn't FT get race 12's start time?", the useful trail is on *another* laptop. Putting logs under `regattaData` means the RD (or anyone with the share) can collect them after the fact without chasing four machines. The sync cost is acceptable because volume stays low (INFO-level, one append file per persona per regatta) and an operator on a constrained connection can still opt out via `PrefLogging`.
 
 ### Watcher and sync interactions
 
@@ -227,7 +227,7 @@ Implementation sketch: `slog.New(slog.NewJSONHandler(asyncWriter, &slog.HandlerO
 
 ## 8. Lifecycle relative to PrefLogging
 
-1. App starts → read `PrefLogging` and `PrefDebug`. If Logging is false, `Init(false, …)` and discard everything (Debug alone does not open a file).
+1. App starts → `Bootstrap` seeds `PrefLogging` to true if it was never set (logging is on by default; an explicit opt-out is left alone), then reads `PrefLogging` and `PrefDebug`. If Logging is false, `Init(false, …)` and discard everything (Debug alone does not open a file).
 2. If Logging is true, build `JSONHandler` at `INFO` or `DEBUG` per the table in section 1, and buffer to memory until `regattaData` + persona are known.
 3. Create `logs/<team>/<role>-<hostname>.log` (RD: `logs/executive/director-<hostname>.log`), `SetOutput`, flush buffer.
 4. If the user toggles Logging or Debug in config mid-session, call `SetLevel` / close-or-open as needed (no app restart required).
