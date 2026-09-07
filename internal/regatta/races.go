@@ -24,6 +24,9 @@ func (r *Regatta) showRaceTree() {
 		widget.NewSeparator(),
 		r.listTitle(),
 	)
+	if r.mode == modeTimer {
+		header.Add(r.scheduleBannerWidget())
+	}
 
 	var body fyne.CanvasObject
 	if r.mode == modeTimer {

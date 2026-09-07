@@ -18,6 +18,12 @@ import (
 // suppressed and manual entry stands (persona-plan.md 2.1).
 const maxPlausibleRace = 30 * time.Minute
 
+// minPlausibleRace is the shortest winning time that looks like a real race.
+// Below this the value still pre-fills - it is the honest computation - but the
+// note warns that the ST start and the first finish were only seconds apart,
+// which usually means a back-to-back test rather than a race.
+const minPlausibleRace = 30 * time.Second
+
 // recordFirstFinish stamps the FT's clock-Start moment onto finish.json as an
 // in-progress RaceResult. This is what engages the Start Timer lock for the
 // race (persona-plan.md section 9). A write failure is logged but never blocks
@@ -41,6 +47,7 @@ func (c *Clock) recordFirstFinish() {
 		res.FirstFinishAt = &ff
 		res.FirstFinishClock = ref
 	}
+	res.LaneMapHash = c.currentLaneMapHash()
 	res.UpdatedAt = time.Now().UTC()
 	c.setRace(n, res)
 
@@ -84,10 +91,27 @@ func (c *Clock) deriveWinningTime() bool {
 	finish := res.FirstFinishClock.Corrected(*res.FirstFinishAt)
 	start := rec.Clock.Corrected(*rec.StartedAt)
 	wt := finish.Sub(start)
-	if wt <= 0 || wt > maxPlausibleRace {
-		applog.Warn("derived winning time implausible; manual entry stands",
+
+	applog.Info("winning time derived", "component", "clock", "race", n,
+		"seconds", wt.Seconds(),
+		"first_finish", finish.UTC().Format(time.RFC3339Nano),
+		"start", start.UTC().Format(time.RFC3339Nano),
+		"ft_offset_ms", res.FirstFinishClock.Offset.Milliseconds(),
+		"st_offset_ms", rec.Clock.Offset.Milliseconds())
+
+	c.awaitingStart = false
+	c.checkSkew(rec.Clock, res.FirstFinishClock)
+
+	switch {
+	case wt <= 0:
+		applog.Warn("derived winning time is negative; manual entry stands",
 			"component", "clock", "race", n, "seconds", wt.Seconds())
-		c.awaitingStart = false
+		c.noteWinningTime(fmt.Sprintf(common.WinningTimeNegativeNote, (-wt).Round(time.Millisecond)))
+		return false
+	case wt > maxPlausibleRace:
+		applog.Warn("derived winning time exceeds a plausible race; manual entry stands",
+			"component", "clock", "race", n, "seconds", wt.Seconds())
+		c.noteWinningTime(fmt.Sprintf(common.WinningTimeStaleNote, wt.Round(time.Minute)))
 		return false
 	}
 
@@ -98,10 +122,27 @@ func (c *Clock) deriveWinningTime() bool {
 	res.StartedAtClock = rec.Clock
 	c.setRace(n, res)
 
-	c.awaitingStart = false
 	c.applyDerivedWinningTime(formatTime(wt))
-	c.checkSkew(rec.Clock, res.FirstFinishClock)
+	if wt < minPlausibleRace {
+		c.noteWinningTime(fmt.Sprintf(common.WinningTimeTinyNote, wt.Round(100*time.Millisecond)))
+	} else {
+		c.noteWinningTime(common.WinningTimeDerivedNote)
+	}
 	return true
+}
+
+// noteWinningTime shows a helper line under the Winning Time field. An empty
+// message hides it.
+func (c *Clock) noteWinningTime(msg string) {
+	if c.winningNote == nil {
+		return
+	}
+	c.winningNote.SetText(msg)
+	if msg == common.EmptyString {
+		c.winningNote.Hide()
+		return
+	}
+	c.winningNote.Show()
 }
 
 // UpdateStartTime replaces the peer start-time mirror and re-derives the winning
@@ -153,6 +194,7 @@ func (c *Clock) awaitStartTime() {
 		c.winningTime.SetPlaceHolder(common.WaitingForStartTimeText)
 		c.winningTime.Refresh()
 	}
+	c.noteWinningTime(common.WinningTimeWaitingNote)
 }
 
 // checkSkew shows the dismissible skew banner when the finish and start
@@ -206,6 +248,7 @@ func (c *Clock) persistFinish(approved bool) {
 	res.RaceNumber = n
 	res.WinningTime = c.winningTime.Text
 	res.Rows = c.serializeLapRows()
+	res.LaneMapHash = c.currentLaneMapHash()
 	res.Approved = approved
 	if approved && res.ApprovedAt == nil {
 		res.ApprovedAt = &now

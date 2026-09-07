@@ -5,6 +5,71 @@ import (
 	"github.com/comagnaw/regattaClock/internal/reader"
 )
 
+// scheduleChange records how one race's schedule row moved between two loads
+// (persona-plan.md 3c). lanes holds the lane numbers whose school or scratch
+// state changed, for the open-clock highlight.
+type scheduleChange struct {
+	scratch bool // a lane gained or lost its school (SCR)
+	moved   bool // a school or its additional info changed within a lane
+	meta    bool // boat class or flight changed
+	lanes   map[int]bool
+}
+
+func (c scheduleChange) any() bool { return c.scratch || c.moved || c.meta }
+
+// changedLanes returns the affected lane numbers in ascending order.
+func (c scheduleChange) changedLanes() []int {
+	out := make([]int, 0, len(c.lanes))
+	for lane := 1; lane <= 6; lane++ {
+		if c.lanes[lane] {
+			out = append(out, lane)
+		}
+	}
+	return out
+}
+
+// diffSchedule compares two RegattaData snapshots by race number and lane and
+// returns only the races that materially changed. New or dropped races are left
+// out - the race set changing is handled by a full tree rebuild, not a notice.
+func diffSchedule(old, cur *reader.RegattaData) map[int]scheduleChange {
+	out := map[int]scheduleChange{}
+	if old == nil || cur == nil {
+		return out
+	}
+
+	prev := make(map[int]reader.RaceData, len(old.Races))
+	for _, race := range old.Races {
+		prev[race.RaceNumber] = race
+	}
+
+	for _, race := range cur.Races {
+		o, ok := prev[race.RaceNumber]
+		if !ok {
+			continue
+		}
+		ch := scheduleChange{lanes: map[int]bool{}}
+		if o.BoatClass != race.BoatClass || o.FlightInfo != race.FlightInfo {
+			ch.meta = true
+		}
+		for lane := 1; lane <= 6; lane++ {
+			ob, nb := o.Lanes[lane], race.Lanes[lane]
+			if ob.SchoolName == nb.SchoolName && ob.AdditionalInfo == nb.AdditionalInfo {
+				continue
+			}
+			ch.lanes[lane] = true
+			if (ob.SchoolName == "") != (nb.SchoolName == "") {
+				ch.scratch = true
+			} else {
+				ch.moved = true
+			}
+		}
+		if ch.any() {
+			out[race.RaceNumber] = ch
+		}
+	}
+	return out
+}
+
 // scheduleFromRegattaData projects a freshly imported RegattaData onto the slim
 // schedule that is persisted: regatta metadata, lane assignments, class and
 // flight only. Places, splits, times, approval flags, and the raw Excel grid

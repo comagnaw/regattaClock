@@ -100,7 +100,11 @@ func (r *Regatta) refreshRow(n int) {
 		return
 	}
 	if race, ok := r.raceByNumber(n); ok {
-		row.title.SetText(race.RaceTitle())
+		title := race.RaceTitle()
+		if _, flagged := r.scheduleConflicts[n]; flagged {
+			title = common.ScheduleConflictMark + title
+		}
+		row.title.SetText(title)
 	}
 
 	switch r.session.Role {

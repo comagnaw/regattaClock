@@ -75,12 +75,26 @@ type Clock struct {
 	// the winning time recomputes when one arrives (persona-plan.md 2.2).
 	awaitingStart bool
 
+	// winningNote - helper line under the Winning Time field saying where the
+	// pre-filled value came from, or why there is none (persona-plan.md 2.1).
+	winningNote *widget.Label
+
 	// skew banner (persona-plan.md 2.1) - shown when the two machines' offsets
 	// disagree by more than timesync.SkewWarnThreshold. Dismissible; once
 	// dismissed it stays hidden for the life of the window.
 	skewBanner    *fyne.Container
 	skewLabel     *widget.Label
 	skewDismissed bool
+
+	// schedule-conflict refresh (persona-plan.md 3c). When the watched
+	// schedule changes while this clock is open, UpdateSchedule refreshes the
+	// lane labels without touching lap rows / OOF / winning time, highlights the
+	// lanes that moved, and shows the notice banner.
+	raceTitle      *canvas.Text
+	resultsTable   *widget.Table
+	changedLanes   map[int]bool
+	scheduleBanner *fyne.Container
+	scheduleLabel  *widget.Label
 
 	// AfterClose - optional callback fired once when the clock window closes,
 	// so a finish timer's race tree can pick up saved results.

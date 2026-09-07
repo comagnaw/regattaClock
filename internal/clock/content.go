@@ -14,17 +14,48 @@ import (
 
 // content - primary fyne objects presented as clock and race input
 func (c *Clock) content() *fyne.Container {
+	c.raceTitle = text.Header1(c.raceData.RaceTitle())
 	return container.NewVBox(
-		container.NewCenter(text.Header1(c.raceData.RaceTitle())),
+		container.NewCenter(c.raceTitle),
 		c.skewBannerWidget(),
+		c.scheduleBannerWidget(),
 		container.NewVBox(
 			container.NewCenter(c.clock),
 			c.controlPanel(),
 			c.lapsContainer(),
 			c.winningTimeInput(),
-			c.resultsContainer(),
+			c.resultsPanel(),
 			c.approvalPanel(),
 		),
+	)
+}
+
+// resultsPanel is resultsContainer with the table handle kept, so a schedule
+// refresh can repaint lane labels in place, and with changed lanes drawn in a
+// warning style (persona-plan.md 3c).
+func (c *Clock) resultsPanel() *fyne.Container {
+	c.resultsTable = widget.NewTable(
+		func() (int, int) { return len(c.results), len(c.results[0]) },
+		func() fyne.CanvasObject {
+			label := widget.NewLabel("wide wide wide content")
+			label.Alignment = fyne.TextAlignCenter
+			return label
+		},
+		func(i widget.TableCellID, o fyne.CanvasObject) {
+			label := o.(*widget.Label)
+			label.SetText(c.results[i.Row][i.Col])
+			if (i.Row == schoolRow || i.Row == additionalRow) && i.Col >= 1 && c.changedLanes[i.Col] {
+				label.TextStyle = fyne.TextStyle{Bold: true}
+				label.Importance = widget.WarningImportance
+			} else {
+				label.TextStyle = fyne.TextStyle{}
+				label.Importance = widget.MediumImportance
+			}
+		})
+
+	return container.NewGridWrap(
+		fyne.Size{Width: clockWidth, Height: resultsHeight},
+		container.NewStack(c.resultsTable),
 	)
 }
 
@@ -88,13 +119,22 @@ func (c *Clock) lapsContainer() *fyne.Container {
 
 // winningTimeInput - container to collect official winning time for first boat that
 // crosses finish line.  This reflects the total time from when the race began and finished.
-func (c *Clock) winningTimeInput() *widget.Form {
-	return widget.NewForm(
+// The note line under it says where a pre-filled value came from, or why there
+// is none (persona-plan.md 2.1).
+func (c *Clock) winningTimeInput() *fyne.Container {
+	form := widget.NewForm(
 		widget.NewFormItem(
 			common.WinningTimeInputText,
 			c.winningTime,
 		),
 	)
+
+	c.winningNote = widget.NewLabel(common.EmptyString)
+	c.winningNote.Wrapping = fyne.TextWrapWord
+	c.winningNote.Importance = widget.MediumImportance
+	c.winningNote.Hide()
+
+	return container.NewVBox(form, c.winningNote)
 }
 
 // approvalPanel - container with buttons to make the results official.

@@ -95,12 +95,30 @@ const (
 	RaceLockedTimingText     = "timing in progress"
 	RaceLockedResultsText    = "results recorded"
 
+	// Schedule-conflict notices (persona-plan.md 3c). A schedule change that
+	// touches a race with timing (or an open clock) never rewrites start.json /
+	// finish.json - it only refreshes labels and raises these.
+	ScheduleConflictMark         = "⚠ " // row-title prefix while a conflict is unacknowledged
+	ScheduleConflictStartBanner  = "Schedule updated for race %s - lane assignments changed. Recorded start times are unaffected."
+	ScheduleConflictFinishBanner = "Schedule changed for race %s (scratch / lane reassignment). Review order of finish and results."
+	ClockScheduleNoticeFormat    = "Schedule changed for race %d - lane labels refreshed. Lap times and order of finish are unchanged; review the highlighted lanes."
+
 	// ClockSkewBannerFormat - persona-plan.md 2.1: a persistent, dismissible
 	// banner shown on the FT clock when the two machines' measured offsets
 	// disagree by more than timesync.SkewWarnThreshold. Args: FT machine, ST
 	// machine, offset delta, FT offset, ST offset.
 	ClockSkewBannerFormat = "Clock skew: %s and %s clocks differ by %s (offsets %s and %s). Winning times may be off by that much until the machines agree."
 	DismissButtonText     = "Dismiss"
+
+	// Winning-time helper note under the FT clock's Winning Time field
+	// (persona-plan.md 2.1). The derived value only pre-fills; the referee's
+	// time always overrides. These say where the number came from, or why there
+	// is none.
+	WinningTimeDerivedNote  = "Auto-filled from the start timer. The referee's official time overrides this."
+	WinningTimeWaitingNote  = "Waiting for the start timer to record a start time for this race…"
+	WinningTimeTinyNote     = "Auto-filled %s - the start time and first finish are seconds apart. Verify the start timer or enter the referee's time."
+	WinningTimeStaleNote    = "Auto winning time skipped: the recorded start time is about %s old. Enter the referee's time."
+	WinningTimeNegativeNote = "Auto winning time skipped: the start time is %s later than the first finish (clock skew?). Enter the referee's time."
 
 	// Timer persona startup flow (internal/regatta persona_startup.go).
 	PersonaPickerPrompt           = "Choose your persona and enter its challenge code."

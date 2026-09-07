@@ -86,9 +86,17 @@ type RaceResult struct {
 
 	WinningTime string // referee time; auto-filled but user-editable
 	Rows        []LapRow
-	Approved    bool
-	ApprovedAt  *time.Time
-	UpdatedAt   time.Time
+
+	// LaneMapHash fingerprints the schedule lane assignments for this race that
+	// were in force when these results were last written
+	// (ScheduleRace.LaneMapHash). Empty on results written before this field
+	// existed. Phase 8 compares it to the live schedule to flag results approved
+	// against an older lane map (persona-plan.md 3c).
+	LaneMapHash string
+
+	Approved   bool
+	ApprovedAt *time.Time
+	UpdatedAt  time.Time
 }
 
 // LapRow is one finish-order row. It is a one-to-one mirror of the in-memory
