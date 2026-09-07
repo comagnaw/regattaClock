@@ -471,6 +471,11 @@ func (r *Regatta) onScheduleChanged(sch *store.Schedule) {
 
 func (r *Regatta) onPeerStartChanged(log *store.StartLog) {
 	r.startLog = log
+	// Push the fresh start times into any open race clock so a winning time
+	// that was waiting on the ST recomputes in place (persona-plan.md 2.2).
+	for _, clk := range r.openClocks {
+		clk.UpdateStartTime(log)
+	}
 	r.refreshAllRows()
 }
 

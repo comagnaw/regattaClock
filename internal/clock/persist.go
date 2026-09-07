@@ -1,15 +1,22 @@
 package clock
 
 import (
+	"fmt"
 	"strconv"
 	"time"
 
 	"fyne.io/fyne/v2/dialog"
 
 	"github.com/comagnaw/regattaClock/internal/applog"
+	"github.com/comagnaw/regattaClock/internal/common"
 	"github.com/comagnaw/regattaClock/internal/persona/store"
 	"github.com/comagnaw/regattaClock/internal/timesync"
 )
+
+// maxPlausibleRace bounds the derived winning time. A value that is negative or
+// longer than this means the ST start time is bad or stale, so the auto-fill is
+// suppressed and manual entry stands (persona-plan.md 2.1).
+const maxPlausibleRace = 30 * time.Minute
 
 // recordFirstFinish stamps the FT's clock-Start moment onto finish.json as an
 // in-progress RaceResult. This is what engages the Start Timer lock for the
@@ -20,7 +27,12 @@ func (c *Clock) recordFirstFinish() {
 		return
 	}
 
-	ff, ref := timesync.Now()
+	// Store the raw local timestamp and the offset separately - never a
+	// pre-corrected time - so a bad NTP offset found later can be recomputed
+	// away (persona-plan.md 2.1). .UTC() also strips the monotonic reading that
+	// would otherwise be lost silently at marshal time.
+	ff := time.Now().UTC()
+	ref := timesync.Ref()
 	n := c.raceData.RaceNumber
 
 	res := c.finishLog.Races[n]
@@ -32,11 +44,152 @@ func (c *Clock) recordFirstFinish() {
 	res.UpdatedAt = time.Now().UTC()
 	c.setRace(n, res)
 
+	// Pre-fill the winning time from the ST start time before the write, so the
+	// audited ST side (StartedAt / StartedAtClock) lands in the same finish.json.
+	c.deriveWinningTime()
+
 	if err := store.SaveFinish(c.session, c.finishLog); err != nil {
 		applog.Error("finish log write failed", "component", "clock", "race", n, "err", err)
 		return
 	}
 	applog.Info("clock started", "component", "clock", "race", n)
+}
+
+// deriveWinningTime pre-fills winningTime with the finish timer's Start click
+// minus the start timer's start time, each shifted by its own machine's measured
+// offset (persona-plan.md 2.1). The field stays editable and a referee override
+// is never touched. Returns true when it applied (or refreshed) a derived value.
+//
+//   - No FirstFinishAt: the FT has not started this race; nothing to derive.
+//   - No ST start time yet: show the "waiting for start time" placeholder and
+//     recompute when UpdateStartTime delivers one (persona-plan.md 2.2).
+//   - Negative or implausibly long: the ST time is bad or stale; suppress the
+//     auto-fill and leave manual entry.
+func (c *Clock) deriveWinningTime() bool {
+	if !c.canPersist() {
+		return false
+	}
+	n := c.raceData.RaceNumber
+	res, ok := c.finishLog.Races[n]
+	if !ok || res.FirstFinishAt == nil {
+		return false
+	}
+
+	rec, ok := c.startRecord(n)
+	if !ok || rec.StartedAt == nil {
+		c.awaitStartTime()
+		return false
+	}
+
+	finish := res.FirstFinishClock.Corrected(*res.FirstFinishAt)
+	start := rec.Clock.Corrected(*rec.StartedAt)
+	wt := finish.Sub(start)
+	if wt <= 0 || wt > maxPlausibleRace {
+		applog.Warn("derived winning time implausible; manual entry stands",
+			"component", "clock", "race", n, "seconds", wt.Seconds())
+		c.awaitingStart = false
+		return false
+	}
+
+	// Record the ST side actually used so the winning time can be audited or
+	// recomputed later (store.RaceResult.StartedAt).
+	started := *rec.StartedAt
+	res.StartedAt = &started
+	res.StartedAtClock = rec.Clock
+	c.setRace(n, res)
+
+	c.awaitingStart = false
+	c.applyDerivedWinningTime(formatTime(wt))
+	c.checkSkew(rec.Clock, res.FirstFinishClock)
+	return true
+}
+
+// UpdateStartTime replaces the peer start-time mirror and re-derives the winning
+// time in place, unless the referee has typed one in. Call on the UI thread when
+// the watcher reports a fresh start.json (persona-plan.md 2.2).
+func (c *Clock) UpdateStartTime(log *store.StartLog) {
+	c.startLog = log
+	if !c.canPersist() {
+		return
+	}
+	n := c.raceData.RaceNumber
+	if res, ok := c.finishLog.Races[n]; !ok || res.FirstFinishAt == nil {
+		return // this race is not being timed yet
+	}
+
+	// A manual entry is one that differs from what we last auto-filled. Leave it.
+	if c.winningTime.Text != common.EmptyString && c.winningTime.Text != c.derivedWinningTime {
+		return
+	}
+
+	if c.deriveWinningTime() {
+		if err := store.SaveFinish(c.session, c.finishLog); err != nil {
+			applog.Error("finish log write failed", "component", "clock", "race", n, "err", err)
+		}
+	}
+}
+
+// startRecord returns this race's ST start record from the mirrored start.json.
+func (c *Clock) startRecord(n int) (store.StartRecord, bool) {
+	if c.startLog == nil || c.startLog.Races == nil {
+		return store.StartRecord{}, false
+	}
+	rec, ok := c.startLog.Races[n]
+	return rec, ok
+}
+
+// applyDerivedWinningTime fills the field and remembers the value, so a later
+// recompute can tell an untouched pre-fill from a referee's manual entry.
+func (c *Clock) applyDerivedWinningTime(v string) {
+	c.derivedWinningTime = v
+	c.winningTime.SetText(v)
+}
+
+// awaitStartTime flags the race as waiting on the ST start time and shows the
+// placeholder, without disturbing anything the operator may have typed.
+func (c *Clock) awaitStartTime() {
+	c.awaitingStart = true
+	if c.winningTime.Text == common.EmptyString {
+		c.winningTime.SetPlaceHolder(common.WaitingForStartTimeText)
+		c.winningTime.Refresh()
+	}
+}
+
+// checkSkew shows the dismissible skew banner when the finish and start
+// machines' measured offsets disagree by more than timesync.SkewWarnThreshold -
+// every winning time in the regatta is then wrong by roughly that much
+// (persona-plan.md 2.1).
+func (c *Clock) checkSkew(stClock, ftClock timesync.ClockRef) {
+	if c.skewBanner == nil || c.skewDismissed {
+		return
+	}
+	delta := stClock.Offset - ftClock.Offset
+	if delta < 0 {
+		delta = -delta
+	}
+	if delta <= timesync.SkewWarnThreshold {
+		c.skewBanner.Hide()
+		return
+	}
+
+	stName := "start timer"
+	if c.startLog != nil && c.startLog.Machine != common.EmptyString {
+		stName = c.startLog.Machine
+	}
+	ftName := "finish timer"
+	if c.finishLog != nil && c.finishLog.Machine != common.EmptyString {
+		ftName = c.finishLog.Machine
+	}
+	c.skewLabel.SetText(fmt.Sprintf(common.ClockSkewBannerFormat,
+		ftName, stName, fmt.Sprintf("%.1fs", delta.Seconds()),
+		formatSkew(ftClock.Offset), formatSkew(stClock.Offset)))
+	c.skewBanner.Show()
+}
+
+// formatSkew renders one machine's offset for the banner as a signed number of
+// seconds, so "ahead" and "behind" read at a glance.
+func formatSkew(d time.Duration) string {
+	return fmt.Sprintf("%+.1fs", d.Seconds())
 }
 
 // persistFinish serializes the current lap rows and winning time into the race's

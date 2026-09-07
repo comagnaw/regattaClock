@@ -29,13 +29,21 @@ func (r *Regatta) recordStart(n int) {
 		return // already recorded; Clear first to record a different time
 	}
 
-	now, ref := timesync.Now()
-	captured := now
+	// Store the raw local timestamp and the offset separately - never a
+	// pre-corrected time - so a bad NTP offset found later can be recomputed
+	// away (persona-plan.md 2.1). The FT derives the winning time as
+	// FirstFinishAt (corrected) - StartedAt (corrected); double-correcting here
+	// would bake the offset in twice. .UTC() also drops the monotonic reading
+	// that JSON would strip silently. Display is the wall clock the ST sees, so
+	// it does carry the correction.
+	local := time.Now()
+	ref := timesync.Ref()
+	captured := local.UTC()
 
 	rec := r.startLog.Races[n]
 	rec.RaceNumber = n
 	rec.StartedAt = &captured
-	rec.Display = now.Format(common.StartTimeDisplayLayout)
+	rec.Display = ref.Corrected(local).Format(common.StartTimeDisplayLayout)
 	rec.Clock = ref
 	r.startLog.Races[n] = rec
 
@@ -173,7 +181,20 @@ func (r *Regatta) openClock(n int) {
 	}
 	applog.Info("time race opened", "component", "race_tree", "action", "time_race", "race", n)
 
-	clk := clock.NewClock(r.App, r.RegattaData, race).WithFinishLog(r.session, r.finishLog)
-	clk.AfterClose = func() { fyne.Do(r.refreshAllRows) }
+	clk := clock.NewClock(r.App, r.RegattaData, race).
+		WithFinishLog(r.session, r.finishLog).
+		WithStartLog(r.startLog)
+
+	if r.openClocks == nil {
+		r.openClocks = make(map[int]*clock.Clock)
+	}
+	r.openClocks[n] = clk
+
+	clk.AfterClose = func() {
+		fyne.Do(func() {
+			delete(r.openClocks, n)
+			r.refreshAllRows()
+		})
+	}
 	clk.OpenRaceClock()
 }

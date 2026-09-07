@@ -16,6 +16,7 @@ import (
 func (c *Clock) content() *fyne.Container {
 	return container.NewVBox(
 		container.NewCenter(text.Header1(c.raceData.RaceTitle())),
+		c.skewBannerWidget(),
 		container.NewVBox(
 			container.NewCenter(c.clock),
 			c.controlPanel(),
@@ -25,6 +26,21 @@ func (c *Clock) content() *fyne.Container {
 			c.approvalPanel(),
 		),
 	)
+}
+
+// skewBannerWidget builds the (initially hidden) clock-skew banner. checkSkew
+// fills the label and shows it; the Dismiss button hides it for good
+// (persona-plan.md 2.1).
+func (c *Clock) skewBannerWidget() fyne.CanvasObject {
+	c.skewLabel = widget.NewLabel(common.EmptyString)
+	c.skewLabel.Wrapping = fyne.TextWrapWord
+	dismiss := widget.NewButton(common.DismissButtonText, func() {
+		c.skewDismissed = true
+		c.skewBanner.Hide()
+	})
+	c.skewBanner = container.NewBorder(nil, nil, nil, dismiss, c.skewLabel)
+	c.skewBanner.Hide()
+	return c.skewBanner
 }
 
 // controlPanel - container with buttons that control clock and clear results

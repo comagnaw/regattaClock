@@ -82,6 +82,7 @@ const (
 	RestoreButtonText        = "Restore"
 	NoStartTimeText          = "—"
 	WaitingForStartText      = "waiting for start…"
+	WaitingForStartTimeText  = "waiting for start time…" // FT clock winning-time placeholder until the ST start lands
 	RaceSavedText            = "saved"
 	RaceApprovedText         = "approved"
 	StartTimeDisplayLayout   = "15:04:05.0" // wall clock with tenths, as StartRecord.Display
@@ -93,6 +94,13 @@ const (
 	WritesBlockedMessage     = "Recording is blocked because a timing file could not be read at startup. Resolve the file set aside for recovery and restart."
 	RaceLockedTimingText     = "timing in progress"
 	RaceLockedResultsText    = "results recorded"
+
+	// ClockSkewBannerFormat - persona-plan.md 2.1: a persistent, dismissible
+	// banner shown on the FT clock when the two machines' measured offsets
+	// disagree by more than timesync.SkewWarnThreshold. Args: FT machine, ST
+	// machine, offset delta, FT offset, ST offset.
+	ClockSkewBannerFormat = "Clock skew: %s and %s clocks differ by %s (offsets %s and %s). Winning times may be off by that much until the machines agree."
+	DismissButtonText     = "Dismiss"
 
 	// Timer persona startup flow (internal/regatta persona_startup.go).
 	PersonaPickerPrompt           = "Choose your persona and enter its challenge code."

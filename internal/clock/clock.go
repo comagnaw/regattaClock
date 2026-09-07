@@ -60,6 +60,28 @@ type Clock struct {
 	session   persona.Session
 	finishLog *store.FinishLog
 
+	// startLog - the start timer's start.json, mirrored read-only, set by
+	// WithStartLog. The winning time is derived from the ST start time for this
+	// race; UpdateStartTime replaces this when the watcher delivers a fresh one.
+	startLog *store.StartLog
+
+	// derivedWinningTime - the value last auto-filled into winningTime from the
+	// ST start time. A referee edit makes winningTime.Text differ from this, and
+	// a reactive recompute then leaves the manual value alone (persona-plan.md
+	// 2.1: the manual entry is an always-available override).
+	derivedWinningTime string
+
+	// awaitingStart - Start was clicked with no ST start time for this race yet;
+	// the winning time recomputes when one arrives (persona-plan.md 2.2).
+	awaitingStart bool
+
+	// skew banner (persona-plan.md 2.1) - shown when the two machines' offsets
+	// disagree by more than timesync.SkewWarnThreshold. Dismissible; once
+	// dismissed it stays hidden for the life of the window.
+	skewBanner    *fyne.Container
+	skewLabel     *widget.Label
+	skewDismissed bool
+
 	// AfterClose - optional callback fired once when the clock window closes,
 	// so a finish timer's race tree can pick up saved results.
 	AfterClose func()
@@ -113,6 +135,14 @@ func NewClock(parent fyne.App, regattaData *reader.RegattaData, race reader.Race
 func (c *Clock) WithFinishLog(session persona.Session, log *store.FinishLog) *Clock {
 	c.session = session
 	c.finishLog = log
+	return c
+}
+
+// WithStartLog binds the start timer's start.json mirror, the source of the
+// derived winning time. Safe to pass an empty log; safe to omit entirely for a
+// director-opened clock, which does not derive.
+func (c *Clock) WithStartLog(log *store.StartLog) *Clock {
+	c.startLog = log
 	return c
 }
 
