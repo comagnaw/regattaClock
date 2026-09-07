@@ -6,12 +6,10 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/comagnaw/regattaClock/internal/common"
-	"github.com/comagnaw/regattaClock/internal/text"
 )
 
 type buttons struct {
@@ -155,29 +153,18 @@ func (c *Clock) initReferee() *widget.Button {
 	return button
 }
 
-// refereeFunc - function used when referee button is pushed
+// refereeFunc - function used when referee button is pushed. It opens the
+// independent Referee Approval window (referee_window.go).
 func (c *Clock) refereeFunc() func() {
 	return func() {
 		c.showRefereeeApproval(c.raceData.RaceNumber)
 	}
 }
 
-// showRefereeApproval - present race results for refereee approval
-func (c *Clock) showRefereeeApproval(raceNumber int) {
-	dialog.ShowCustomConfirm(
-		fmt.Sprintf(common.RefereeApproveTitle, raceNumber),
-		common.ApproveButtonText,
-		common.CancelButtonText,
-		c.refereeApprovalContent(),
-		c.refereeApprovalFunc(raceNumber),
-		c.window,
-	)
-}
-
 // refereeApprovalFunc - when the referee approves race results, mark the race
-// approved and write finish.json. The window stays open so a later correction
-// can be re-presented; refreshCommitStatus (from persistFinish) flips the
-// status line to "Approved HH:MM:SS" and enables the Close button.
+// approved and write finish.json. The clock window stays open so a later
+// correction can be re-presented; refreshCommitStatus (from persistFinish) flips
+// the status line to "Approved HH:MM:SS" and enables the Close button.
 func (c *Clock) refereeApprovalFunc(raceNumber int) func(approve bool) {
 	return func(approve bool) {
 		if approve {
@@ -185,14 +172,6 @@ func (c *Clock) refereeApprovalFunc(raceNumber int) func(approve bool) {
 			c.persistFinish(true)
 		}
 	}
-}
-
-// refereeApprovalContent - content used to present race results for referee approval
-func (c *Clock) refereeApprovalContent() *fyne.Container {
-	return container.NewVBox(
-		container.NewCenter(text.Header1(c.raceData.RaceTitle())),
-		c.results.asApprovals(c.laps.getOOFLanes()).Container,
-	)
 }
 
 // initSave - initialize the secondary FT's "Save and Close" button. Disabled
