@@ -102,6 +102,11 @@ type Clock struct {
 	// (primary FT). Nil for a director-opened clock.
 	commitStatus *widget.Label
 
+	// refereeWindow - the independent Referee Approval window while it is open;
+	// nil otherwise. Guards against opening a second one and lets the clock close
+	// it on teardown (referee_window.go).
+	refereeWindow fyne.Window
+
 	// AfterClose - optional callback fired once when the clock window closes,
 	// so a finish timer's race tree can pick up saved results.
 	AfterClose func()
@@ -252,6 +257,9 @@ func (c *Clock) OpenRaceClock() {
 
 	// Set up window close handler to clean up the goroutine
 	c.window.SetOnClosed(func() {
+		if c.refereeWindow != nil {
+			c.refereeWindow.Close()
+		}
 		close(c.clockState.stopChan)
 		if c.AfterClose != nil {
 			c.AfterClose()

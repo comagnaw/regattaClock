@@ -18,4 +18,16 @@ const (
 
 	// nextPlace - used by place logic to update laps and results to next sequential place value
 	nextPlace = "Next Place"
+
+	// Referee Approval window (referee_window.go). An independent, movable,
+	// always-light window whose results grid scales its font with the window so
+	// it stays large (referees read it from a distance) yet always fits.
+	refereeCols             = 5
+	refereeWinWidth         = float32(1100)
+	refereeWinHeight        = float32(720)
+	refereeFontDesign       = float32(48) // font at/above this window width
+	refereeFontMin          = float32(28) // font at the narrowest usable width
+	refereeCharWidthDivisor = float32(9)  // school-column width / this ≈ font size; tuned to the widest school names
+	refereeRowHeightFactor  = float32(1.5)
+	refereeMinGridWidth     = float32(640)
 )
