@@ -320,7 +320,7 @@ func (c *Clock) rehydrate() {
 
 	if res.WinningTime != "" {
 		c.winningTime.SetText(res.WinningTime)
-		c.buttons.referee.Enable()
+		c.commitButton().Enable() // Referee Approval for the primary FT, Save for the secondary
 	}
 	if res.Approved {
 		c.buttons.save.Enable()

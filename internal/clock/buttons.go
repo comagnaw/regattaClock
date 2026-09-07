@@ -189,7 +189,10 @@ func (c *Clock) refereeApprovalContent() *fyne.Container {
 // Approval).
 func (c *Clock) initSave() *widget.Button {
 	button := widget.NewButton(common.SaveButtonText, func() {
-		c.persistFinish(true)
+		// Primary FT Save is only reachable after Referee Approval, so it keeps
+		// the result approved. Secondary FT Save is the terminal action and
+		// writes Approved=false (reconciliation.md).
+		c.persistFinish(!c.isSecondaryFinish())
 	})
 	button.Disable()
 	return button

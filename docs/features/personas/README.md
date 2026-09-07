@@ -57,6 +57,7 @@ Primary and secondary are independent ST/FT pairings for the same regatta. Timin
 - **Does:** Load race tree from RD schedule; see ST start times (live updates); open **Time Race**; collect laps / OOF / winning time; save on Referee Approval or Save; reopen a race with prior results restored; when schedule changes under a timed race, review lane/school labels without losing results.
 - **Does not:** Record or clear start times; see **Start Time**; auto-rewrite `finish.json` when the RD publishes scratches or lane moves (attention + label refresh only).
 - **Sees:** Race list, ST start times, own progress (saved / approved), **Time Race**; conflict affordance when schedule diverges from a race already timed.
+- **Secondary FT:** no Referee Approval step — Save is the terminal action and writes results unapproved. The secondary `finish.json` is a backup data source for the primary FT and reconciliation ([reconciliation.md](reconciliation.md)); the primary FT is the only path to an approved result.
 
 ## Shared data constraints
 

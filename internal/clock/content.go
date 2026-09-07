@@ -135,8 +135,13 @@ func (c *Clock) winningTimeInput() *fyne.Container {
 	return container.NewVBox(form, c.winningNote)
 }
 
-// approvalPanel - container with buttons to make the results official.
+// approvalPanel - container with buttons to make the results official. The
+// Secondary Finish Timer has no Referee Approval step (reconciliation.md), so
+// its panel is Save only.
 func (c *Clock) approvalPanel() *fyne.Container {
+	if c.isSecondaryFinish() {
+		return container.NewHBox(layout.NewSpacer(), c.buttons.save, layout.NewSpacer())
+	}
 	return container.NewHBox(
 		layout.NewSpacer(),
 		c.buttons.referee,
