@@ -122,6 +122,10 @@ type Regatta struct {
 	scheduleBanner      *fyne.Container
 	scheduleBannerLabel *widget.Label
 
+	// staleLaneLegend - italic header line explaining common.StaleLaneMapMark,
+	// shown only when a row carries it (persona-plan.md 3c item 4).
+	staleLaneLegend *widget.Label
+
 	// watchedHashes - last-applied content hash per watched file, seeded at
 	// startup so the watcher's initial "current content" event for a file that
 	// has not changed since hydrate is skipped rather than rebuilding the tree.

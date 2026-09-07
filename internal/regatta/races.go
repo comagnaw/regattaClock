@@ -29,9 +29,12 @@ func (r *Regatta) showRaceTree() {
 	} else {
 		header.Add(r.directorHeaderExtras())
 	}
+	header.Add(r.staleLaneLegendWidget())
 
 	// Set the window content
-	r.window.SetContent(container.NewBorder(header, nil, nil, nil, r.raceListBody()))
+	body := r.raceListBody()
+	r.refreshStaleLaneLegend() // rows are realised now; show the legend if any is flagged
+	r.window.SetContent(container.NewBorder(header, nil, nil, nil, body))
 }
 
 // treeTitle - loaded regatta details, with the branding logo tucked into the top

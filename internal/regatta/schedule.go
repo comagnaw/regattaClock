@@ -106,6 +106,21 @@ func scheduleFromRegattaData(rd *reader.RegattaData) *store.Schedule {
 	return sch
 }
 
+// raceLaneMapHash is store.ScheduleRace.LaneMapHash for an in-memory race - the
+// value the clock stamped onto a RaceResult when results were committed, so the
+// RD and FT trees can spot a result that no longer matches the live lane map
+// (persona-plan.md 3c item 4).
+func raceLaneMapHash(rd reader.RaceData) string {
+	sr := store.ScheduleRace{
+		RaceNumber: rd.RaceNumber,
+		Lanes:      make(map[int]store.ScheduleEntry, len(rd.Lanes)),
+	}
+	for lane, e := range rd.Lanes {
+		sr.Lanes[lane] = store.ScheduleEntry{SchoolName: e.SchoolName, AdditionalInfo: e.AdditionalInfo}
+	}
+	return sr.LaneMapHash()
+}
+
 // regattaDataFromSchedule rebuilds the in-memory RegattaData the race tree and
 // clock render from. Result fields (place/split/time/approved) come back zero;
 // they now live only in finish.json.
