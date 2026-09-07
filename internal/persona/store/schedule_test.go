@@ -168,3 +168,51 @@ func TestLaneMapHash(t *testing.T) {
 		})
 	}
 }
+
+func TestContentHash(t *testing.T) {
+	base := sampleSchedule().ContentHash()
+	if len(base) != 16 {
+		t.Fatalf("ContentHash length = %d, want 16", len(base))
+	}
+
+	t.Run("ignores Origin metadata", func(t *testing.T) {
+		s := sampleSchedule()
+		s.Origin = Origin{Type: "api", URI: "https://example.test/x", Hash: "different"}
+		if s.ContentHash() != base {
+			t.Error("ContentHash must not depend on Origin")
+		}
+	})
+
+	t.Run("stable across race slice order", func(t *testing.T) {
+		s := sampleSchedule()
+		s.Races = append(s.Races, ScheduleRace{RaceNumber: 5, BoatClass: "V4", Lanes: map[int]ScheduleEntry{1: {SchoolName: "X"}}})
+		want := s.ContentHash()
+
+		s.Races[0], s.Races[1] = s.Races[1], s.Races[0]
+		if s.ContentHash() != want {
+			t.Error("ContentHash must not depend on Races slice order")
+		}
+	})
+
+	for _, tc := range []struct {
+		name   string
+		mutate func(*Schedule)
+	}{
+		{"lane move", func(s *Schedule) { s.Races[0].Lanes[1] = ScheduleEntry{SchoolName: "Moved"} }},
+		{"scratch", func(s *Schedule) { s.Races[0].Lanes[2] = ScheduleEntry{SchoolName: ""} }},
+		{"class", func(s *Schedule) { s.Races[0].BoatClass = "Junior 8" }},
+		{"flight", func(s *Schedule) { s.Races[0].FlightInfo = "Final" }},
+		{"boat count", func(s *Schedule) { s.Races[0].BoatCount = 6 }},
+		{"race added", func(s *Schedule) { s.Races = append(s.Races, ScheduleRace{RaceNumber: 99}) }},
+		{"name", func(s *Schedule) { s.Name = "Autumn Sprints" }},
+		{"date", func(s *Schedule) { s.Date = "2026-04-13" }},
+	} {
+		t.Run(tc.name+" changes the hash", func(t *testing.T) {
+			s := sampleSchedule()
+			tc.mutate(s)
+			if s.ContentHash() == base {
+				t.Errorf("ContentHash unchanged after %s", tc.name)
+			}
+		})
+	}
+}

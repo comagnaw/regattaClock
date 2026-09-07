@@ -218,13 +218,19 @@ func (r *Regatta) onDirectorTeamChanged(team persona.Team, start *store.StartLog
 func (r *Regatta) directorHeaderExtras() fyne.CanvasObject {
 	r.directorSkew = newDismissibleBanner()
 	r.directorStale = newDismissibleBanner()
+	r.originBanner = newActionBanner(common.ApplyButtonText, r.applyPendingOrigin, r.dismissOrigin)
 	legend := widget.NewLabel(common.SecondaryValueLegend)
 	legend.TextStyle = fyne.TextStyle{Italic: true}
 
 	r.checkDirectorSkew()
 	r.checkDirectorStale()
 
-	return container.NewVBox(r.directorSkew.root, r.directorStale.root, legend)
+	return container.NewVBox(
+		r.originBanner.root,
+		r.directorSkew.root,
+		r.directorStale.root,
+		legend,
+	)
 }
 
 // checkDirectorSkew shows the skew banner when the widest gap between any two
@@ -353,3 +359,30 @@ func (b *dismissibleBanner) show(text string) {
 }
 
 func (b *dismissibleBanner) hide() { b.root.Hide() }
+
+// actionBanner - a hidden-by-default strip with a primary action button and a
+// Dismiss button. Unlike dismissibleBanner, Dismiss only hides it (the caller
+// decides whether the same content should re-show).
+type actionBanner struct {
+	root  *fyne.Container
+	label *widget.Label
+}
+
+func newActionBanner(actionText string, action, dismiss func()) *actionBanner {
+	b := &actionBanner{label: widget.NewLabel(common.EmptyString)}
+	b.label.Wrapping = fyne.TextWrapWord
+	buttons := container.NewHBox(
+		widget.NewButton(actionText, action),
+		widget.NewButton(common.DismissButtonText, dismiss),
+	)
+	b.root = container.NewBorder(nil, nil, nil, buttons, b.label)
+	b.root.Hide()
+	return b
+}
+
+func (b *actionBanner) show(text string) {
+	b.label.SetText(text)
+	b.root.Show()
+}
+
+func (b *actionBanner) hide() { b.root.Hide() }
