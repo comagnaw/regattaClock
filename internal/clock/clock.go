@@ -11,6 +11,8 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/comagnaw/regattaClock/internal/common"
+	"github.com/comagnaw/regattaClock/internal/persona"
+	"github.com/comagnaw/regattaClock/internal/persona/store"
 	"github.com/comagnaw/regattaClock/internal/reader"
 	"github.com/comagnaw/regattaClock/internal/text"
 )
@@ -50,6 +52,17 @@ type Clock struct {
 
 	// App - reference to the fyne.App object that is running
 	App fyne.App
+
+	// session / finishLog - set by WithFinishLog for a finish timer. When both
+	// are present the clock persists to finish.json: an in-progress RaceResult
+	// on Start, the full RaceResult on Save / Referee Approval. Nil for a
+	// director-opened clock, which does not write.
+	session   persona.Session
+	finishLog *store.FinishLog
+
+	// AfterClose - optional callback fired once when the clock window closes,
+	// so a finish timer's race tree can pick up saved results.
+	AfterClose func()
 }
 
 // clockState - object used to determine progress of the clock usage for timing the race
@@ -94,11 +107,30 @@ func NewClock(parent fyne.App, regattaData *reader.RegattaData, race reader.Race
 	return raceClock
 }
 
+// WithFinishLog binds this clock to a finish timer's session and in-memory
+// finish.json mirror, turning on persistence and rehydration. Returns the clock
+// for chaining. A clock without it (director) neither writes nor rehydrates.
+func (c *Clock) WithFinishLog(session persona.Session, log *store.FinishLog) *Clock {
+	c.session = session
+	c.finishLog = log
+	return c
+}
+
+// canPersist reports whether this clock should read from and write to
+// finish.json.
+func (c *Clock) canPersist() bool {
+	return c.finishLog != nil && c.session.Role == persona.RoleFinish
+}
+
 // OpenRaceClock - opens the Clock app so that a race can be timed
 func (c *Clock) OpenRaceClock() {
 
 	c.window.SetContent(c.content())
 	c.window.Resize(fyne.NewSize(clockWidth, clockHeight))
+
+	// Lap widgets exist only after content() runs, so a saved race is restored
+	// here rather than in NewClock.
+	c.rehydrate()
 
 	// Set up keyboard handler for this window
 	c.window.Canvas().SetOnTypedKey(c.setupKeyboardHandler())
@@ -109,6 +141,9 @@ func (c *Clock) OpenRaceClock() {
 	// Set up window close handler to clean up the goroutine
 	c.window.SetOnClosed(func() {
 		close(c.clockState.stopChan)
+		if c.AfterClose != nil {
+			c.AfterClose()
+		}
 	})
 
 	c.window.Show()
