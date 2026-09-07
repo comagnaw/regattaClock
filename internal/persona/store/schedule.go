@@ -2,9 +2,13 @@ package store
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
+	"sort"
+	"strings"
 
 	"github.com/comagnaw/regattaClock/internal/applog"
+	"github.com/comagnaw/regattaClock/internal/filesystem"
 	"github.com/comagnaw/regattaClock/internal/persona"
 )
 
@@ -47,6 +51,32 @@ type ScheduleEntry struct {
 
 // Key returns the RegattaKey for this schedule.
 func (s *Schedule) Key() string { return RegattaKey(s.Name, s.Date) }
+
+// LaneMapHash is a stable fingerprint of one race's lane assignments: the race
+// number plus each lane's school and additional info, in ascending lane order.
+// An empty SchoolName is a scratch, so scratches are covered. BoatClass and
+// FlightInfo are deliberately excluded - they change the race title, not which
+// boat is in which lane, and do not invalidate an approved order of finish.
+//
+// Stamped onto a RaceResult when it is written (RaceResult.LaneMapHash) so a
+// later schedule change to the lane map is detectable after the fact, including
+// across an app restart (persona-plan.md 3c). Mirrors RegattaKey: canonical
+// bytes through filesystem.HashBytes, truncated to 12 hex characters.
+func (r ScheduleRace) LaneMapHash() string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "%d\x1f", r.RaceNumber)
+
+	lanes := make([]int, 0, len(r.Lanes))
+	for lane := range r.Lanes {
+		lanes = append(lanes, lane)
+	}
+	sort.Ints(lanes)
+	for _, lane := range lanes {
+		e := r.Lanes[lane]
+		fmt.Fprintf(&b, "%d\x1e%s\x1e%s\x1f", lane, e.SchoolName, e.AdditionalInfo)
+	}
+	return filesystem.HashBytes([]byte(b.String()))[:12]
+}
 
 // LoadSchedule reads director/regattaSchedule.json. A missing file returns an
 // error satisfying errors.Is(err, fs.ErrNotExist), which the caller treats as a

@@ -98,3 +98,73 @@ func TestScheduleKey(t *testing.T) {
 		t.Fatalf("Key() = %q, want %q", sch.Key(), RegattaKey(sch.Name, sch.Date))
 	}
 }
+
+func TestLaneMapHash(t *testing.T) {
+	base := func() ScheduleRace {
+		return ScheduleRace{
+			RaceNumber: 12,
+			BoatClass:  "Varsity 8",
+			FlightInfo: "Heat 1",
+			Lanes: map[int]ScheduleEntry{
+				1: {SchoolName: "School A"},
+				2: {SchoolName: "School B", AdditionalInfo: "A"},
+				3: {SchoolName: ""}, // a scratch
+			},
+		}
+	}
+	want := base().LaneMapHash()
+
+	if len(want) != 12 {
+		t.Fatalf("LaneMapHash length = %d, want 12", len(want))
+	}
+
+	t.Run("stable across lane insertion order", func(t *testing.T) {
+		shuffled := ScheduleRace{RaceNumber: 12, Lanes: map[int]ScheduleEntry{}}
+		shuffled.Lanes[3] = ScheduleEntry{SchoolName: ""}
+		shuffled.Lanes[1] = ScheduleEntry{SchoolName: "School A"}
+		shuffled.Lanes[2] = ScheduleEntry{SchoolName: "School B", AdditionalInfo: "A"}
+		if got := shuffled.LaneMapHash(); got != want {
+			t.Errorf("hash = %q, want %q - map order must not matter", got, want)
+		}
+	})
+
+	t.Run("unchanged when only class or flight differ", func(t *testing.T) {
+		r := base()
+		r.BoatClass = "Junior 8"
+		r.FlightInfo = "Final"
+		r.BoatCount = 6
+		if got := r.LaneMapHash(); got != want {
+			t.Errorf("hash = %q, want %q - class/flight are out of scope", got, want)
+		}
+	})
+
+	for _, tc := range []struct {
+		name   string
+		mutate func(*ScheduleRace)
+	}{
+		{"school moves lane", func(r *ScheduleRace) {
+			r.Lanes[1] = ScheduleEntry{SchoolName: "School B", AdditionalInfo: "A"}
+			r.Lanes[2] = ScheduleEntry{SchoolName: "School A"}
+		}},
+		{"additional info changes", func(r *ScheduleRace) {
+			r.Lanes[2] = ScheduleEntry{SchoolName: "School B", AdditionalInfo: "B"}
+		}},
+		{"lane scratched", func(r *ScheduleRace) {
+			r.Lanes[1] = ScheduleEntry{SchoolName: ""}
+		}},
+		{"scratch filled", func(r *ScheduleRace) {
+			r.Lanes[3] = ScheduleEntry{SchoolName: "School C"}
+		}},
+		{"race number changes", func(r *ScheduleRace) {
+			r.RaceNumber = 13
+		}},
+	} {
+		t.Run(tc.name+" changes the hash", func(t *testing.T) {
+			r := base()
+			tc.mutate(&r)
+			if got := r.LaneMapHash(); got == want {
+				t.Errorf("hash unchanged (%q) after %s", got, tc.name)
+			}
+		})
+	}
+}

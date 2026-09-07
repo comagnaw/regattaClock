@@ -47,6 +47,7 @@ func (c *Clock) recordFirstFinish() {
 		res.FirstFinishAt = &ff
 		res.FirstFinishClock = ref
 	}
+	res.LaneMapHash = c.currentLaneMapHash()
 	res.UpdatedAt = time.Now().UTC()
 	c.setRace(n, res)
 
@@ -247,6 +248,7 @@ func (c *Clock) persistFinish(approved bool) {
 	res.RaceNumber = n
 	res.WinningTime = c.winningTime.Text
 	res.Rows = c.serializeLapRows()
+	res.LaneMapHash = c.currentLaneMapHash()
 	res.Approved = approved
 	if approved && res.ApprovedAt == nil {
 		res.ApprovedAt = &now

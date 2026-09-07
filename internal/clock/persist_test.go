@@ -9,6 +9,7 @@ import (
 	"github.com/comagnaw/regattaClock/internal/common"
 	"github.com/comagnaw/regattaClock/internal/persona"
 	"github.com/comagnaw/regattaClock/internal/persona/store"
+	"github.com/comagnaw/regattaClock/internal/reader"
 )
 
 func pftSession(t *testing.T) persona.Session {
@@ -84,6 +85,52 @@ func TestClockApprovalWritesFullResult(t *testing.T) {
 	onDisk, _ := store.LoadFinish(s)
 	if onDisk.Races[1].WinningTime != "01:00.0" || !onDisk.Races[1].Approved {
 		t.Errorf("disk result = %+v", onDisk.Races[1])
+	}
+}
+
+func TestClockStampsLaneMapHash(t *testing.T) {
+	s := pftSession(t)
+	log := &store.FinishLog{Races: map[int]store.RaceResult{}}
+	clk := openBoundClock(t, s, log)
+
+	// The hash of the lane map the clock is showing.
+	race := createTestRaceData()
+	sr := store.ScheduleRace{RaceNumber: race.RaceNumber, Lanes: map[int]store.ScheduleEntry{}}
+	for lane, e := range race.Lanes {
+		sr.Lanes[lane] = store.ScheduleEntry{SchoolName: e.SchoolName, AdditionalInfo: e.AdditionalInfo}
+	}
+	want := sr.LaneMapHash()
+	if want == "" {
+		t.Fatal("expected a non-empty lane-map hash for the test race")
+	}
+
+	// In-progress result on Start carries it.
+	clk.buttons.start.OnTapped()
+	if got := log.Races[1].LaneMapHash; got != want {
+		t.Errorf("in-progress LaneMapHash = %q, want %q", got, want)
+	}
+
+	// Approval carries it, and it round-trips through finish.json.
+	clk.winningTime.SetText("01:00.0")
+	clk.refereeApprovalFunc(1)(true)
+	if log.Races[1].LaneMapHash != want {
+		t.Errorf("approved LaneMapHash = %q, want %q", log.Races[1].LaneMapHash, want)
+	}
+	onDisk, err := store.LoadFinish(s)
+	if err != nil {
+		t.Fatalf("LoadFinish: %v", err)
+	}
+	if onDisk.Races[1].LaneMapHash != want {
+		t.Errorf("disk LaneMapHash = %q, want %q", onDisk.Races[1].LaneMapHash, want)
+	}
+
+	// A schedule change to the open clock re-stamps on the next write.
+	moved := createTestRaceData()
+	moved.Lanes[1] = reader.RaceEntry{SchoolName: "Moved Crew"}
+	clk.UpdateSchedule(moved, []int{1})
+	clk.refereeApprovalFunc(1)(true)
+	if log.Races[1].LaneMapHash == want {
+		t.Error("LaneMapHash should change after the lane map changed and the result was re-saved")
 	}
 }
 

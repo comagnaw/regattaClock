@@ -9,6 +9,7 @@ import (
 
 	"github.com/comagnaw/regattaClock/internal/applog"
 	"github.com/comagnaw/regattaClock/internal/common"
+	"github.com/comagnaw/regattaClock/internal/persona/store"
 	"github.com/comagnaw/regattaClock/internal/reader"
 )
 
@@ -70,4 +71,19 @@ func (r results) setSchoolLabels(rd reader.RaceData) {
 	additional := append([]string{""}, rd.AdditionalInfos()...)
 	copy(r[schoolRow], schools)
 	copy(r[additionalRow], additional)
+}
+
+// currentLaneMapHash fingerprints the lane assignments the clock is currently
+// showing (c.raceData, kept in sync by UpdateSchedule). Stamped onto the
+// RaceResult on every finish write so a later lane-map change is detectable
+// after the fact, including across a restart (persona-plan.md 3c).
+func (c *Clock) currentLaneMapHash() string {
+	sr := store.ScheduleRace{
+		RaceNumber: c.raceData.RaceNumber,
+		Lanes:      make(map[int]store.ScheduleEntry, len(c.raceData.Lanes)),
+	}
+	for lane, e := range c.raceData.Lanes {
+		sr.Lanes[lane] = store.ScheduleEntry{SchoolName: e.SchoolName, AdditionalInfo: e.AdditionalInfo}
+	}
+	return sr.LaneMapHash()
 }
