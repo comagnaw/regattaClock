@@ -1,7 +1,9 @@
 package regatta
 
 const (
-	regattaWidth  = float32(800)
+	// regattaWidth is a touch wider than the pre-persona 800 so a start timer
+	// row (title + three buttons + collected time) fits without sideways scroll.
+	regattaWidth  = float32(900)
 	regattaHeight = float32(600)
 
 	// viewMargin - inset keeping view content off the window edge
@@ -11,6 +13,10 @@ const (
 	// regattaHeight: the list shares the window with the title header, so a taller
 	// floor would push the content past the window and force it to grow.
 	raceListMinHeight = float32(120)
+
+	// startTimeColWidth - fixed width of the collected-time cell in a start
+	// timer row, wide enough for "HH:MM:SS.d" plus a little breathing room.
+	startTimeColWidth = float32(110)
 
 	// welcomeBannerWidth, welcomeBannerHeight - banner size on the welcome view,
 	// keeping the source image's 16:9 ratio
