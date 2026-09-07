@@ -145,8 +145,8 @@ func TestSecondaryFinish_RehydrateEnablesSaveOnWinningTime(t *testing.T) {
 	if sec.buttons.save.Disabled() {
 		t.Error("rehydrating a saved (unapproved) secondary race should enable Save")
 	}
-	if !strings.HasPrefix(sec.commitStatus.Text, "Saved ") {
-		t.Errorf("commit status = %q, want a \"Saved …\" line", sec.commitStatus.Text)
+	if !strings.HasPrefix(sec.commitStatus.Text, "Saved at ") {
+		t.Errorf("commit status = %q, want a 'Saved at …' line", sec.commitStatus.Text)
 	}
 	if sec.winningTime.Text != "02:00.0" {
 		t.Errorf("winning time = %q, want 02:00.0", sec.winningTime.Text)

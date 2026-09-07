@@ -188,11 +188,14 @@ const (
 	// FT clock commit-status line, under the approval panel. A race is Pending
 	// until it is persisted: the primary FT reaches Approved via Referee
 	// Approval, the secondary FT reaches Saved via Save and Close. The primary
-	// FT's Close button stays disabled until the line leaves Pending.
+	// FT's Close button stays disabled until the line leaves Pending. The
+	// non-Pending lines are "<state> at <time> by <host>"; args are the local
+	// timestamp then the writing machine's hostname.
 	CommitStatusPending        = "Pending"
-	CommitStatusSavedFormat    = "Saved %s"
-	CommitStatusApprovedFormat = "Approved %s"
-	CommitStatusTimeFormat     = "15:04:05"
+	CommitStatusSavedFormat    = "Saved at %s by %s"
+	CommitStatusApprovedFormat = "Approved at %s by %s"
+	CommitStatusTimeFormat     = "Mon, 02 Jan 2006 15:04:05 MST" // time.RFC1123
+	CommitStatusUnknownHost    = "unknown host"
 
 	// Timer persona startup flow (internal/regatta persona_startup.go).
 	PersonaPickerPrompt           = "Choose your persona and enter its challenge code."
