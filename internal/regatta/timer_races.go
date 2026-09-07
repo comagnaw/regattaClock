@@ -84,9 +84,9 @@ func (r *Regatta) newRaceRow(race reader.RaceData) *raceRow {
 		row.progress = widget.NewLabel(common.EmptyString)
 		row.timeBtn = widget.NewButton(common.TimeRaceButtonText, func() { r.openClock(n) })
 		cluster = container.NewHBox(
+			fixedCell(timeRaceColWidth, row.timeBtn),
 			fixedCell(startTimeColWidth, row.startTime),
 			fixedCell(statusColWidth, row.progress),
-			fixedCell(timeRaceColWidth, row.timeBtn),
 		)
 
 	default: // RoleDirector - read-only progress, no buttons.
@@ -197,13 +197,21 @@ func (r *Regatta) raceLockedByFinish(n int) bool {
 }
 
 func (r *Regatta) refreshFinishRow(row *raceRow) {
-	if rec := r.startLog.Races[row.raceNumber]; rec.StartedAt != nil {
+	res, timed := r.finishLog.Races[row.raceNumber]
+
+	// A saved or approved result with no recorded start time will never get one;
+	// say so rather than leaving the transient "waiting for start…" placeholder.
+	committed := timed && (res.WinningTime != common.EmptyString || res.Approved)
+
+	switch rec := r.startLog.Races[row.raceNumber]; {
+	case rec.StartedAt != nil:
 		row.startTime.SetText(rec.Display)
-	} else {
+	case committed:
+		row.startTime.SetText(common.StartNotCollectedText)
+	default:
 		row.startTime.SetText(common.WaitingForStartText)
 	}
 
-	res, timed := r.finishLog.Races[row.raceNumber]
 	switch {
 	case timed && res.Approved:
 		row.progress.SetText(common.RaceApprovedText)

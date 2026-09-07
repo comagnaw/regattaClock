@@ -9,6 +9,7 @@ import (
 
 	"fyne.io/fyne/v2/test"
 
+	"github.com/comagnaw/regattaClock/internal/common"
 	"github.com/comagnaw/regattaClock/internal/persona"
 	"github.com/comagnaw/regattaClock/internal/persona/store"
 	"github.com/comagnaw/regattaClock/internal/timesync"
@@ -252,6 +253,39 @@ func TestOnPeerStartChangedRefreshesFinishRow(t *testing.T) {
 
 	if r.rows[1].startTime.Text != "10:11:12.3" {
 		t.Errorf("row 1 start label = %q, want the watched peer time", r.rows[1].startTime.Text)
+	}
+}
+
+func TestFinishRowNoStartTimeOnceCommitted(t *testing.T) {
+	cases := []struct {
+		name string
+		res  store.RaceResult
+	}{
+		{"saved", store.RaceResult{RaceNumber: 1, WinningTime: "06:00.0"}},
+		{"approved", store.RaceResult{RaceNumber: 1, WinningTime: "06:00.0", Approved: true}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			app := test.NewTempApp(t)
+			sch := testSchedule()
+			root := seedRegatta(t, sch)
+
+			pft := timerSession(t, "pft", root)
+			finishLog := &store.FinishLog{Races: map[int]store.RaceResult{1: tc.res}}
+			finishLog.RegattaKey = store.RegattaKey(sch.Name, sch.Date)
+			if err := store.SaveFinish(pft, finishLog); err != nil {
+				t.Fatal(err)
+			}
+
+			r := NewTimer(app)
+			stopWatch(t, r)
+			r.startSession(pft, sch)
+
+			if got := r.rows[1].startTime.Text; got != common.StartNotCollectedText {
+				t.Errorf("%s race with no start recorded: start cell = %q, want %q",
+					tc.name, got, common.StartNotCollectedText)
+			}
+		})
 	}
 }
 

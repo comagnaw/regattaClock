@@ -80,9 +80,9 @@ func (r *Regatta) raceListHeader() *fyne.Container {
 		)
 	case persona.RoleFinish:
 		cluster = container.NewHBox(
+			fixedCell(timeRaceColWidth, text.BoldLabel(common.EmptyString)),
 			fixedCell(startTimeColWidth, text.BoldLabel(common.ColStartTime)),
 			fixedCell(statusColWidth, text.BoldLabel(common.ColStatus)),
-			fixedCell(timeRaceColWidth, text.BoldLabel(common.EmptyString)),
 		)
 	default: // RoleDirector
 		cluster = container.NewHBox(
