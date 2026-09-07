@@ -242,7 +242,7 @@ func TestFinishTreeShowsPeerStartAndProgress(t *testing.T) {
 func TestOnPeerStartChangedRefreshesFinishRow(t *testing.T) {
 	r, _, _ := startedTimer(t, "pft")
 
-	if r.rows[1].startTime.Text != "waiting for start…" {
+	if r.rows[1].startTime.Text != common.WaitingForStartText {
 		t.Fatalf("expected the waiting placeholder, got %q", r.rows[1].startTime.Text)
 	}
 

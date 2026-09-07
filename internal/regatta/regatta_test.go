@@ -90,6 +90,12 @@ func TestRegatta_FinishRow_TimeRaceLeadsCluster(t *testing.T) {
 		t.Errorf("finish row leaf order %v: want %q before the start-time cell %q",
 			seq, common.TimeRaceButtonText, common.WaitingForStartText)
 	}
+
+	// The start-time cell must clip rather than bleed onto the Time Race button
+	// now sitting directly to its left.
+	if row.startTime.Truncation != fyne.TextTruncateEllipsis {
+		t.Errorf("start-time label truncation = %v, want ellipsis", row.startTime.Truncation)
+	}
 }
 
 func TestNewDirector(t *testing.T) {

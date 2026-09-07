@@ -97,7 +97,10 @@ func (r *Regatta) raceListHeader() *fyne.Container {
 }
 
 // fixedCell wraps a widget at a fixed column width so headers and row values
-// share one set of column edges.
+// share one set of column edges. A small horizontal inset keeps a column's
+// value off its neighbour to the left (e.g. a right-aligned start time next to
+// the Time Race button).
 func fixedCell(w float32, o fyne.CanvasObject) *fyne.Container {
-	return container.NewGridWrap(fyne.NewSize(w, o.MinSize().Height), o)
+	inset := container.New(layout.NewCustomPaddedLayout(0, 0, colInset, colInset), o)
+	return container.NewGridWrap(fyne.NewSize(w, inset.MinSize().Height), inset)
 }

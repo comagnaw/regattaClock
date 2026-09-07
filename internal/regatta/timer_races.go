@@ -66,9 +66,8 @@ func (r *Regatta) newRaceRow(race reader.RaceData) *raceRow {
 	case persona.RoleStart:
 		// Start / Clear / Restore, then the collected time, then the lock note.
 		// Restore keeps its slot when hidden so the time never shifts.
-		row.startTime = widget.NewLabel(common.NoStartTimeText)
-		row.startTime.Alignment = fyne.TextAlignTrailing
-		row.progress = widget.NewLabel(common.EmptyString) // lock note when the FT is timing this race
+		row.startTime = trailingLabel(common.NoStartTimeText)
+		row.progress = truncatingLabel(common.EmptyString) // lock note when the FT is timing this race
 		row.startBtn = widget.NewButton(common.StartTimeButtonText, func() { r.recordStart(n) })
 		row.clearBtn = widget.NewButton(common.ClearButtonText, func() { r.clearStart(n) })
 		row.restoreBtn = widget.NewButton(common.RestoreButtonText, func() { r.restoreStart(n) })
@@ -79,9 +78,8 @@ func (r *Regatta) newRaceRow(race reader.RaceData) *raceRow {
 		)
 
 	case persona.RoleFinish:
-		row.startTime = widget.NewLabel(common.WaitingForStartText)
-		row.startTime.Alignment = fyne.TextAlignTrailing
-		row.progress = widget.NewLabel(common.EmptyString)
+		row.startTime = trailingLabel(common.WaitingForStartText)
+		row.progress = truncatingLabel(common.EmptyString)
 		row.timeBtn = widget.NewButton(common.TimeRaceButtonText, func() { r.openClock(n) })
 		cluster = container.NewHBox(
 			fixedCell(timeRaceColWidth, row.timeBtn),
@@ -106,8 +104,17 @@ func (r *Regatta) newRaceRow(race reader.RaceData) *raceRow {
 	return row
 }
 
-func trailingLabel(text string) *widget.Label {
+// truncatingLabel is a race-tree cell label that clips with an ellipsis rather
+// than overflowing onto the next column when its text is wider than the fixed
+// column (a start-time placeholder, an ST lock note).
+func truncatingLabel(text string) *widget.Label {
 	l := widget.NewLabel(text)
+	l.Truncation = fyne.TextTruncateEllipsis
+	return l
+}
+
+func trailingLabel(text string) *widget.Label {
+	l := truncatingLabel(text)
 	l.Alignment = fyne.TextAlignTrailing
 	return l
 }
@@ -200,7 +207,7 @@ func (r *Regatta) refreshFinishRow(row *raceRow) {
 	res, timed := r.finishLog.Races[row.raceNumber]
 
 	// A saved or approved result with no recorded start time will never get one;
-	// say so rather than leaving the transient "waiting for start…" placeholder.
+	// say so rather than leaving the transient "awaiting start" placeholder.
 	committed := timed && (res.WinningTime != common.EmptyString || res.Approved)
 
 	switch rec := r.startLog.Races[row.raceNumber]; {

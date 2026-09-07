@@ -120,7 +120,7 @@ const (
 	ClearButtonText          = "Clear"
 	RestoreButtonText        = "Restore"
 	NoStartTimeText          = "—"
-	WaitingForStartText      = "waiting for start…"
+	WaitingForStartText      = "awaiting start"          // FT race-tree Start Time cell before the peer start lands (fits the start-time column)
 	StartNotCollectedText    = "no start time"           // FT race-tree Start Time cell once a result is saved/approved and no start was recorded
 	WaitingForStartTimeText  = "waiting for start time…" // FT clock winning-time placeholder until the ST start lands
 	RaceSavedText            = "saved"
