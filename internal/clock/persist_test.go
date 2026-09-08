@@ -174,8 +174,8 @@ func TestClockRehydratesSavedRace(t *testing.T) {
 	if clk.buttons.close.Disabled() {
 		t.Error("close button should be enabled for an approved race")
 	}
-	if !strings.HasPrefix(clk.commitStatus.Text, "Approved at ") {
-		t.Errorf("commit status = %q, want an \"Approved at …\" line", clk.commitStatus.Text)
+	if !strings.HasPrefix(clk.commitStatus.Text, "Approved on ") {
+		t.Errorf("commit status = %q, want an \"Approved on …\" line", clk.commitStatus.Text)
 	}
 }
 
@@ -195,7 +195,7 @@ func TestCommitStatusLineHasDateAndHost(t *testing.T) {
 	clk := openBoundClock(t, s, restored)
 
 	got := clk.commitStatus.Text
-	want := "Approved at " + approvedAt.Local().Format(common.CommitStatusTimeFormat) + " by bow-line-02"
+	want := "Approved on " + approvedAt.Local().Format(common.CommitStatusTimeFormat) + " by bow-line-02"
 	if got != want {
 		t.Errorf("commit status = %q, want %q", got, want)
 	}

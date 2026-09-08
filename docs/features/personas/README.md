@@ -60,7 +60,7 @@ Primary and secondary are independent ST/FT pairings for the same regatta. Timin
 - **Does not:** Record or clear start times; see **Start Time**; auto-rewrite `finish.json` when the RD publishes scratches or lane moves (attention + label refresh only).
 - **Sees:** Race list, ST start times, own progress (saved / approved), **Time Race**; conflict affordance when schedule diverges from a race already timed.
 - **Primary FT:** no standalone Save — **Referee Approval** is the only commit (`Approved: true`) and it leaves the clock open so a correction can be re-approved. The **Close** button is disabled until the race is approved. A status line shows `Pending` → `Approved on <date> by <host>` (RFC 1123 local time).
-- **Secondary FT:** no Referee Approval step — **Save and Close** is the terminal action: it writes results unapproved (`Approved: false`) and closes the clock. Its status line shows `Pending` → `Saved at <date> by <host>`. The secondary `finish.json` is a backup data source for the primary FT and reconciliation ([reconciliation.md](reconciliation.md)); the primary FT is the only path to an approved result.
+- **Secondary FT:** no Referee Approval step — **Save and Close** is the terminal action: it writes results unapproved (`Approved: false`) and closes the clock. Its status line shows `Pending` → `Saved on <date> by <host>`. The secondary `finish.json` is a backup data source for the primary FT and reconciliation ([reconciliation.md](reconciliation.md)); the primary FT is the only path to an approved result.
 
 ## Shared data constraints
 
