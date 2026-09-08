@@ -41,11 +41,14 @@ results publishing — are planned.
 
 The Finish Timer opens a race clock and selects **Start** when the first boat
 crosses the line, **Lap** as each remaining boat crosses, and **Stop** once the
-course is clear. That captures a split for every boat. The operator then enters
-the referee's **winning time** (the elapsed time of the first-place boat) and the
-**order-of-finish**, placing each lane number in turn. regattaClock calculates
-every boat's finish time from the collected splits. The completed race is reviewed
-and approved, then published as an official result.
+course is clear — capturing a split for every boat. When the Start Timer has
+recorded the race's start time, regattaClock combines it with the finish-line
+**Start** click to pre-fill an initial **winning time** (the elapsed time of the
+first-place boat); the operator overwrites this with the referee's **official**
+time when it is given. regattaClock then calculates every boat's finish time from
+the winning time and the splits. The operator enters the **order-of-finish** —
+each lane number in turn — and the completed race is reviewed, approved, and
+published as an official result.
 
 ![Finish-line clock](docs/img/finish-line-clock.gif)
 
@@ -53,9 +56,12 @@ and approved, then published as an official result.
 
 The schedule input today is an Excel workbook (`.xlsx`, or macro-enabled `.xlsm`),
 because the organization regattaClock was first built for organizes its race
-information in spreadsheets; a structured or API-based input may come later. The
-Regatta Director imports the workbook once into the shared folder; timers read the
-shared schedule, never the workbook itself.
+information in spreadsheets; a structured or API-based input may come later.
+regattaClock reads the worksheet named **Results**, or the first worksheet if the
+workbook has no sheet by that name, and derives the regatta title, date, and
+per-race lane assignments from its layout. The Regatta Director imports the
+workbook once into the shared folder; timers then read the shared schedule, never
+the workbook itself.
 
 ![Example schedule](docs/img/example-schedule.png)
 
@@ -81,16 +87,47 @@ A sample workbook is in [examples/](examples/).
 
 ![Configuration screen](docs/img/configuration.png)
 
-The Configuration screen — and an optional per-organization deployment file —
-cover:
+The Configuration screen covers:
 
 - the shared regatta folder;
 - storage mode: local network share or cloud-synced folder;
-- an optional persona config file: hostname-to-persona assignment and/or your
-  organization's own challenge codes;
+- an optional persona config file (see below);
 - logging and debug output;
 - time-sync (NTP) servers;
 - light or dark theme.
+
+### Persona config file
+
+An organization can point regattaClock at a single JSON file that pre-assigns
+personas and/or sets its own challenge codes. Configuring every operator's machine
+to use the same file keeps roles and codes consistent across the regatta — it is
+recommended but not required. Without it, operators simply pick a persona and
+enter its default challenge each launch.
+
+```json
+{
+  "hosts": {
+    "start-tent-pc": "pst",
+    "finish-tower": "pft",
+    "director-laptop": "rd"
+  },
+  "challenges": {
+    "pst": "spring-start",
+    "pft": "spring-finish",
+    "rd": "spring-director"
+  }
+}
+```
+
+- **`hosts`** maps a computer's hostname to a persona ID (`pst`, `sst`, `pft`,
+  `sft`, `rd`). When the running machine matches, it skips the picker and the
+  challenge entirely and goes straight to that persona.
+- **`challenges`** replaces the built-in challenge code for a persona, so the
+  picker accepts your organization's code instead.
+
+Both sections are optional. If the file is missing or invalid, regattaClock falls
+back to the normal persona picker. Full details are in
+[docs/features/personas/persona-config-file.md](docs/features/personas/persona-config-file.md).
 
 ## Documentation
 
