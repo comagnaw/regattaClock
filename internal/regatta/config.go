@@ -1,16 +1,19 @@
 package regatta
 
 import (
+	"fmt"
 	"path/filepath"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/comagnaw/regattaClock/internal/applog"
 	"github.com/comagnaw/regattaClock/internal/common"
+	"github.com/comagnaw/regattaClock/internal/personacfg"
 	"github.com/comagnaw/regattaClock/internal/watcher"
 )
 
@@ -20,6 +23,7 @@ func (r *Regatta) configContent() *fyne.Container {
 
 	return container.NewVBox(
 		r.regattaDir(),
+		r.personaConfigRow(),
 		widget.NewForm(
 			widget.NewFormItem("Debug:", widget.NewCheckWithData("", binding.BindPreferenceBool(common.PrefDebug, r.App.Preferences()))),
 			widget.NewFormItem("Logging:", widget.NewCheckWithData("", binding.BindPreferenceBool(common.PrefLogging, r.App.Preferences()))),
@@ -75,6 +79,75 @@ func (r *Regatta) regattaDir() *fyne.Container {
 func (r *Regatta) changeButtonFunc() func() {
 	return func() {
 		dialog.ShowFolderOpen(r.changeCallBack(), r.window)
+	}
+}
+
+// personaConfigRow - Configuration entry for the optional deployment persona
+// config (PrefPersonaConfigFile). Mirrors regattaDir(): a bound editable path
+// field with Change / Clear buttons. r.config is built once in newRegatta, so
+// the buttons mutate preferences and r.personaCfg directly and never rebuild it.
+func (r *Regatta) personaConfigRow() *fyne.Container {
+	entry := widget.NewEntryWithData(binding.BindPreferenceString(common.PrefPersonaConfigFile, r.App.Preferences()))
+	buttons := container.NewHBox(
+		widget.NewButton(common.PersonaConfigChangeButtonText, r.personaConfigChangeFunc()),
+		widget.NewButton(common.ClearButtonText, r.clearPersonaConfig),
+	)
+	return container.NewBorder(nil, nil, nil, buttons,
+		widget.NewForm(widget.NewFormItem(common.PersonaConfigRowLabel, entry)),
+	)
+}
+
+// clearPersonaConfig forgets the deployment persona config. Challenge overrides
+// stop applying immediately; a host assignment was only consulted at launch.
+func (r *Regatta) clearPersonaConfig() {
+	r.App.Preferences().SetString(common.PrefPersonaConfigFile, common.EmptyString)
+	r.personaCfg = nil
+	applog.Info("persona config cleared", "component", "config")
+}
+
+func (r *Regatta) personaConfigChangeFunc() func() {
+	return func() {
+		fd := dialog.NewFileOpen(r.personaConfigCallback(), r.window)
+		fd.SetFilter(storage.NewExtensionFileFilter(common.PersonaConfigExtensions))
+		if regattaDir := r.App.Preferences().String(common.PrefRegattaDir); regattaDir != common.EmptyString {
+			if location, err := storage.ListerForURI(storage.NewFileURI(regattaDir)); err == nil {
+				fd.SetLocation(location)
+			}
+		}
+		fd.Show()
+	}
+}
+
+// personaConfigCallback validates the chosen file before it is remembered: the
+// path is persisted (and r.personaCfg swapped in) only when personacfg.Load
+// accepts it, so a broken file can never wedge the next launch. Mirrors
+// loader.go's callback - nil reader is a cancel, the reader is closed, the URI
+// path is brought back to native form.
+func (r *Regatta) personaConfigCallback() func(fyne.URIReadCloser, error) {
+	return func(rc fyne.URIReadCloser, err error) {
+		if err != nil {
+			dialog.ShowError(err, r.window)
+			return
+		}
+		if rc == nil {
+			return
+		}
+		defer rc.Close()
+		path := filepath.FromSlash(rc.URI().Path())
+
+		cfg, err := personacfg.Load(path)
+		if err != nil {
+			applog.Warn("persona config rejected", "component", "config", "path", path, "err", err)
+			dialog.ShowError(fmt.Errorf("%s: %w", common.PersonaConfigInvalidTitle, err), r.window)
+			return
+		}
+		r.App.Preferences().SetString(common.PrefPersonaConfigFile, path)
+		r.personaCfg = cfg
+		applog.Info("persona config loaded", "component", "config", "path", path,
+			"hosts", len(cfg.Hosts), "challenges", len(cfg.Challenges))
+		dialog.ShowInformation(common.PersonaConfigLoadedTitle,
+			fmt.Sprintf(common.PersonaConfigLoadedFormat, len(cfg.Hosts), len(cfg.Challenges)),
+			r.window)
 	}
 }
 

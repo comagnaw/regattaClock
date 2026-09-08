@@ -10,6 +10,7 @@ High-level requirements for multi-persona operation of Regatta Clock.
 - [future-result-driven-persona.md](future-result-driven-persona.md) — assessment: content-publishing personas downstream of results
 - [logging-options.md](logging-options.md) — JSON event logging design
 - [shared-storage-options.md](shared-storage-options.md) — SMB / spare-PC vs cloud sync
+- [persona-config-file.md](persona-config-file.md) — optional deployment JSON: host→persona assignment and challenge-code overrides
 
 ## Goal
 

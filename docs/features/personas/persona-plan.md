@@ -573,7 +573,7 @@ Do **not** add a field named `Persona` on this type (package is already `persona
 
 There is no empty/`TeamNone` team. The RD belongs to **`TeamExecutive`**, which is reserved for non-timing official personas (today only the Director; easy to extend later without inventing a second "no team" sentinel).
 
-Challenge codes are constants in source for now ([README.md](README.md)). Comparison is trimmed and case-insensitive.
+Challenge codes are constants in source for now ([README.md](README.md)). Comparison is trimmed and case-insensitive. An optional deployment config file can replace them per persona and pin a host to a persona so the picker is skipped entirely — see [persona-config-file.md](persona-config-file.md).
 
 A `Session` value is created once at startup and threaded through `Regatta` and `Clock` instead of being consulted from globals:
 
@@ -663,6 +663,8 @@ func (r *Regatta) initRegatta() {
 **One binary** (`cmd/regattaClock`). `regatta.New(app)` shows a single picker that groups the personas into **Timers / Media / Admins** tabs; each persona is a button, and pressing it prompts for that persona's challenge code in a small dialog (`promptPersonaChallenge`) — so selecting a persona is never itself a "wrong challenge" error. Timers holds the four timing personas; Media (Social Media / Streaming / Register Results) and a Developer button under Admins are **disabled placeholders** for personas that do not exist yet — the model still defines only the five real personas. Choosing "Regatta Director" (Admins tab) and entering `rc-rd` rebuilds the menu with the loader items and opens the **Director Setup** view (`startDirectorSetup` → `showDirectorSetup`) — it never auto-restores, so it is the safe way to open a different regatta. The picker's separate "Resume as Regatta Director" shortcut is what reopens the previously configured regatta. The **Load Regatta Data** menu item returns to the same setup view. The loader is unreachable until the Director persona is chosen, so a timing operator cannot reach it. `NewDirector` / `NewTimer` remain as constructors for the test suite.
 
 The **Director Setup** view carries both setup steps on one screen with progress feedback: **Step 1 — load the Excel workbook**, then **Step 2 — choose the save folder**. Each step fills in with a check mark and, once done, the parsed regatta name / date / race count and the full file path (Step 1) or the resolved save path (Step 2), shown in a selectable read-only field. A returning Director opens with Step 2 pre-checked from `PrefRegattaDir` and a **Change…** button. A **Start Regatta** button stays disabled until both steps are done; pressing it runs the RegattaKey guard and writes `regattaSchedule.json`. The Excel import still shows the confirm-metadata dialog (title / date / race count) before Step 1 is marked done; Deny returns to file selection.
+
+**Deployment persona config (optional).** Before the picker, `New` calls `loadPersonaConfig` (reads `PrefPersonaConfigFile`) then `assignedPersona`. When a JSON config pins the running host to a persona, the picker is skipped: a timer lands on a small "Select regatta folder" view, the director on Director Setup. The config can also replace the built-in challenge codes for the picker flow. Every load failure is non-fatal — the picker is the fallback — and **Switch Persona…** on every menu re-opens the picker. See [persona-config-file.md](persona-config-file.md).
 
 ## 9. UI changes by role
 
