@@ -72,15 +72,49 @@ func (r *Regatta) regattaDir() *fyne.Container {
 	)
 }
 
-// regattaDirButton - directory chooser for views that want the action alone,
-// without the editable path the config form exposes.
-func (r *Regatta) regattaDirButton() *widget.Button {
-	return widget.NewButton(common.SetRegattaDirButtonText, r.changeButtonFunc())
-}
-
 func (r *Regatta) changeButtonFunc() func() {
 	return func() {
 		dialog.ShowFolderOpen(r.changeCallBack(), r.window)
+	}
+}
+
+// welcomeDirButton - the save-folder chooser for the director setup view. Unlike
+// regattaDirButton (which drives changeCallBack for the config screen and leaves
+// the current view alone), this re-renders the setup screen after a pick so
+// Step 2 fills in. The label reflects whether a folder is already set.
+func (r *Regatta) welcomeDirButton(dirSet bool) *widget.Button {
+	label := common.SetRegattaDirButtonText
+	if dirSet {
+		label = common.SetupChangeDirButtonText
+	}
+	return widget.NewButton(label, func() {
+		dialog.ShowFolderOpen(r.welcomeFolderCallback(), r.window)
+	})
+}
+
+// welcomeFolderCallback - as changeCallBack (persist PrefRegattaDir, enable the
+// loader, point logging at the new tree), then re-render the director setup view
+// so Step 2 shows its check mark and path and Start Regatta can ungate. Cancel
+// is a no-op that leaves the step incomplete.
+func (r *Regatta) welcomeFolderCallback() func(fyne.ListableURI, error) {
+	return func(dirReader fyne.ListableURI, err error) {
+		if err != nil {
+			dialog.ShowError(err, r.window)
+			return
+		}
+		if dirReader == nil {
+			return
+		}
+
+		regattaDir := filepath.FromSlash(dirReader.Path())
+
+		r.App.Preferences().SetString(common.PrefRegattaDir, regattaDir)
+		r.loadState.loadButton.Enable()
+
+		r.startLogging()
+		applog.Info("regatta directory set", "component", "setup", "path", regattaDir)
+
+		r.showDirectorSetup()
 	}
 }
 

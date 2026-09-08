@@ -66,9 +66,19 @@ const (
 
 	BannerResourceName = "RegattaClockBannerSmall.png"
 
-	// The welcome banner carries the app name, so the steps need no title above them
-	WelcomeSetDirText   = "1. Set the directory for loading and saving regatta data."
-	WelcomeLoadFileText = "2. Load the Excel file holding your regatta schedule."
+	// Regatta Director setup view (internal/regatta regatta.go / config.go). Two
+	// steps on one screen, each filling in with a check mark, the parsed regatta
+	// details and the chosen path; Start Regatta ungates once both are done. The
+	// welcome banner carries the app name, so the steps need no title above them.
+	SetupExcelStepText       = "Step 1  —  Load the Excel workbook that holds your regatta schedule."
+	SetupExcelDoneText       = "Step 1  —  Regatta schedule loaded  ✓"
+	SetupExcelFilePathLabel  = "Loaded from:"
+	SetupSaveDirStepText     = "Step 2  —  Choose the folder where regatta data is saved."
+	SetupSaveDirDoneText     = "Step 2  —  Save location set  ✓"
+	SetupSaveDirPathLabel    = "Regatta data will be saved to:"
+	SetupChangeDirButtonText = "Change…"
+	SetRegattaDirTitle       = "Set regatta directory"
+	SetupNeedSaveDirMessage  = "Choose where regatta data is saved before starting the regatta."
 
 	// ConfirmImportedRegattaMessage - shown to the Regatta Director after an
 	// Excel import, before the schedule is written. Deny returns to file
@@ -240,6 +250,7 @@ const (
 	LoadButtonText          = "Load"
 	LoadExcelButtonText     = "Load Excel File"
 	SetRegattaDirButtonText = "Set Regatta Directory"
+	StartRegattaButtonText  = "Start Regatta"
 	SaveButtonText          = "Save"
 	SaveAndCloseButtonText  = "Save and Close"
 	ShowWindowText          = "Show Window"

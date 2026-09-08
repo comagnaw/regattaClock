@@ -144,6 +144,12 @@ type Regatta struct {
 
 type loadState struct {
 	loadButton *widget.Button
+
+	// excelLoaded - the setup view's Excel step is satisfied: a workbook has been
+	// parsed into r.RegattaData and confirmed by the Regatta Director. It gates
+	// the Start Regatta button alongside PrefRegattaDir and is reset whenever the
+	// director deliberately returns to setup.
+	excelLoaded bool
 }
 
 func (r *Regatta) newLoadState() {
@@ -244,14 +250,12 @@ func (r *Regatta) startDirectorSetup() {
 	r.mode = modeDirector
 	r.window.SetMainMenu(r.makeMenu())
 
-	// A directory is already configured (this laptop has been a director before):
-	// enable Load Excel so the operator can re-import into it, or point Set
-	// Regatta Directory at a different folder first.
-	if r.App.Preferences().String(common.PrefRegattaDir) != common.EmptyString {
-		r.loadState.loadButton.Enable()
-	}
+	// The deliberate "choose a regatta" path never carries a prior import into the
+	// setup view; the Excel step starts empty even if a workbook was loaded
+	// earlier this session.
+	r.loadState.excelLoaded = false
 
-	r.showWelcome()
+	r.showDirectorSetup()
 }
 
 // startDirectorFlow runs the Regatta Director's startup: mark the mode, rebuild
@@ -268,7 +272,7 @@ func (r *Regatta) startDirectorFlow() {
 	}
 
 	if r.App.Preferences().String(common.PrefRegattaDir) == common.EmptyString {
-		r.showWelcome()
+		r.showDirectorSetup()
 		return
 	}
 
@@ -280,8 +284,10 @@ func (r *Regatta) startDirectorFlow() {
 		if !errors.Is(err, fs.ErrNotExist) {
 			r.warnOnStarted(err)
 		}
-		r.loadState.loadButton.Enable()
-		r.showWelcome()
+		// The save folder is already set, so the setup view opens with Step 2
+		// pre-checked and only the Excel step outstanding.
+		r.loadState.excelLoaded = false
+		r.showDirectorSetup()
 		return
 	}
 
@@ -328,18 +334,78 @@ func (r *Regatta) loggingSession() (persona.Session, bool) {
 	return r.directorSession()
 }
 
-// showWelcome - view presented until a regatta has been imported. The two steps
-// are numbered because both buttons open a similar looking file browser, so the
-// labels alone do not make the order obvious.
-func (r *Regatta) showWelcome() {
+// showDirectorSetup - the Regatta Director's setup screen, presented until a
+// regatta has been imported. Both steps live on one screen and fill in with a
+// check mark, the parsed regatta details and the chosen path as they are
+// completed; Start Regatta stays disabled until the workbook is confirmed and a
+// save folder is set. Rebuilt wholesale on every state change, so the gating is
+// just a build-time check and cannot go stale. Called again by markExcelStepDone
+// and welcomeFolderCallback after each selection.
+func (r *Regatta) showDirectorSetup() {
+	// The Excel step is always available now - it is step 1, no longer gated on
+	// the save folder.
+	r.loadState.loadButton.Enable()
+
+	dir := r.App.Preferences().String(common.PrefRegattaDir)
+	dirSet := dir != common.EmptyString
+
+	// Step 1 - Excel workbook.
+	step1 := []fyne.CanvasObject{}
+	step1Text := common.SetupExcelStepText
+	if r.loadState.excelLoaded {
+		step1Text = common.SetupExcelDoneText
+		step1 = append(step1,
+			text.BoldLeading(r.RegattaData.Name),
+			text.BoldLeading(r.RegattaData.Date),
+			text.BoldLeading(fmt.Sprintf(common.NumScheduledRacesTitle, r.RegattaData.ScheduledRaces())),
+			text.BoldLeading(common.SetupExcelFilePathLabel),
+			pathEntry(r.RegattaData.URI),
+		)
+	}
+	// The Load button stays on the view even once the step is done - it doubles
+	// as "load a different workbook" - and keeps a button labelled
+	// LoadExcelButtonText reachable for the tests that probe for the setup view.
+	step1 = append(step1, container.NewHBox(r.loadState.loadButton))
+
+	// Step 2 - save folder.
+	step2 := []fyne.CanvasObject{}
+	step2Text := common.SetupSaveDirStepText
+	if dirSet {
+		step2Text = common.SetupSaveDirDoneText
+		step2 = append(step2,
+			text.BoldLeading(common.SetupSaveDirPathLabel),
+			pathEntry(dir),
+		)
+	}
+	step2 = append(step2, container.NewHBox(r.welcomeDirButton(dirSet)))
+
+	startButton := widget.NewButton(common.StartRegattaButtonText, func() { r.applyImportedRegatta() })
+	if !(r.loadState.excelLoaded && dirSet) {
+		startButton.Disable()
+	}
+
 	r.window.SetContent(container.NewVBox(
 		container.New(
 			layout.NewCustomPaddedLayout(viewMargin, 0, 0, 0),
 			container.NewCenter(banner(welcomeBannerWidth, welcomeBannerHeight)),
 		),
-		welcomeStep(common.WelcomeSetDirText, r.regattaDirButton()),
-		welcomeStep(common.WelcomeLoadFileText, r.loadState.loadButton),
+		setupStep(step1Text, container.NewVBox(step1...)),
+		widget.NewSeparator(),
+		setupStep(step2Text, container.NewVBox(step2...)),
+		container.New(
+			layout.NewCustomPaddedLayout(viewMargin, 0, viewMargin, 0),
+			container.NewHBox(startButton),
+		),
 	))
+}
+
+// pathEntry - a read-only field showing a chosen filesystem path. Disabled so it
+// reads as output, not input, while staying selectable for copy.
+func pathEntry(path string) *widget.Entry {
+	e := widget.NewEntry()
+	e.SetText(path)
+	e.Disable()
+	return e
 }
 
 // banner - branding image at the caller's size. The size is explicit rather than
@@ -355,9 +421,10 @@ func banner(width, height float32) *canvas.Image {
 	return logo
 }
 
-// welcomeStep - instruction above the button that carries it out, both inset
-// from the window edge so they share one left margin.
-func welcomeStep(instruction string, action *widget.Button) *fyne.Container {
+// setupStep - instruction above the widget that carries it out, both inset from
+// the window edge so they share one left margin. The body is any object (a
+// button, or a button under the step's completed summary), not just a button.
+func setupStep(instruction string, body fyne.CanvasObject) *fyne.Container {
 	return container.NewVBox(
 		container.New(
 			layout.NewCustomPaddedLayout(viewMargin, 0, viewMargin, viewMargin),
@@ -365,9 +432,7 @@ func welcomeStep(instruction string, action *widget.Button) *fyne.Container {
 		),
 		container.New(
 			layout.NewCustomPaddedLayout(0, 0, viewMargin, 0),
-			// HBox keeps the button at its natural width instead of stretching it
-			// across the row.
-			container.NewHBox(action),
+			body,
 		),
 	)
 }
