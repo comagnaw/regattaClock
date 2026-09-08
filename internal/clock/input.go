@@ -30,9 +30,10 @@ func (c *Clock) onChangedWinningTimeFunc() func(text string) {
 		}
 
 		// A value that no longer matches the auto-fill is the referee's own; the
-		// "where this came from" note no longer applies.
+		// "where this came from" note no longer applies. Clear its text but keep
+		// the reserved space so the window does not resize.
 		if text != c.derivedWinningTime && c.winningNote != nil {
-			c.winningNote.Hide()
+			c.winningNote.SetText(common.EmptyString)
 		}
 
 		// Try to parse the winning time
