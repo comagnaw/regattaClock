@@ -192,8 +192,8 @@ const (
 	// non-Pending lines are "<state> at <time> by <host>"; args are the local
 	// timestamp then the writing machine's hostname.
 	CommitStatusPending        = "Pending"
-	CommitStatusSavedFormat    = "Saved at %s by %s"
-	CommitStatusApprovedFormat = "Approved at %s by %s"
+	CommitStatusSavedFormat    = "Saved on %s by %s"
+	CommitStatusApprovedFormat = "Approved on %s by %s"
 	CommitStatusTimeFormat     = "Mon, 02 Jan 2006 15:04:05 MST" // time.RFC1123
 	CommitStatusUnknownHost    = "unknown host"
 
