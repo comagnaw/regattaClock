@@ -68,14 +68,16 @@ func (r *Regatta) callback(fromStartup bool) func(fyne.URIReadCloser, error) {
 		r.debugLoader()
 		applog.Info("regatta parsed", "component", "loader",
 			"name", r.RegattaData.Name, "races", r.RegattaData.ScheduledRaces())
-		r.confirmImportedRegatta(fromStartup)
+		r.confirmImportedRegatta(fromStartup, r.markExcelStepDone)
 	}
 }
 
 // confirmImportedRegatta asks the Regatta Director to confirm the metadata of
-// the just-parsed workbook before the schedule is written. Denying returns to
-// file selection, so a wrong workbook never lands.
-func (r *Regatta) confirmImportedRegatta(fromStartup bool) {
+// the just-parsed workbook before it is acted on. Denying returns to file
+// selection, so a wrong workbook never lands. onConfirm is what a Yes runs:
+// markExcelStepDone from the setup view (advance the stepper, no write yet), or
+// applyImportedRegatta from a Reload Schedule (write straight through).
+func (r *Regatta) confirmImportedRegatta(fromStartup bool, onConfirm func()) {
 	dialog.ShowConfirm(
 		common.ConfirmRegattaTitle,
 		fmt.Sprintf(common.ConfirmImportedRegattaMessage,
@@ -85,16 +87,37 @@ func (r *Regatta) confirmImportedRegatta(fromStartup bool) {
 				r.loader(fromStartup)
 				return
 			}
-			r.applyImportedRegatta()
+			onConfirm()
 		},
 		r.window,
 	)
 }
 
+// markExcelStepDone records that the setup view's Excel step is satisfied - the
+// workbook is parsed into r.RegattaData and the Regatta Director has confirmed
+// it - and re-renders the setup view so the check mark, parsed summary and file
+// path appear and Start Regatta ungates once the save folder is also set. It
+// writes nothing to disk; the schedule is written only when Start Regatta runs
+// applyImportedRegatta.
+func (r *Regatta) markExcelStepDone() {
+	r.loadState.excelLoaded = true
+	applog.Info("regatta workbook confirmed", "component", "setup",
+		"name", r.RegattaData.Name, "races", r.RegattaData.ScheduledRaces())
+	r.showDirectorSetup()
+}
+
 // applyImportedRegatta runs the RegattaKey guard (persona-plan.md 3b), writes
 // the schedule when it is clear to do so, and enters/refreshes the director
-// tree. A blocked import shows a dialog and leaves the tree untouched.
+// tree. A blocked import shows a dialog and leaves the tree untouched. Reached
+// from Start Regatta on the setup view (which only enables once a save folder is
+// set) and from Reload Schedule (always from the tree, folder always set); the
+// directorSession check is defence in depth against guardScheduleWrite's silent
+// no-op when no folder is configured.
 func (r *Regatta) applyImportedRegatta() {
+	if _, ok := r.directorSession(); !ok {
+		dialog.ShowInformation(common.SetRegattaDirTitle, common.SetupNeedSaveDirMessage, r.window)
+		return
+	}
 	r.guardScheduleWrite(func() {
 		applog.Info("regatta imported", "component", "loader",
 			"name", r.RegattaData.Name, "races", r.RegattaData.ScheduledRaces())
@@ -126,7 +149,7 @@ func (r *Regatta) reloadSchedule() {
 		dialog.ShowInformation(common.ReloadScheduleTitle, common.OriginUnchangedMessage, r.window)
 		return
 	}
-	r.confirmImportedRegatta(false)
+	r.confirmImportedRegatta(false, r.applyImportedRegatta)
 }
 
 func getFilePath(fileReader fyne.URIReadCloser) (string, error) {

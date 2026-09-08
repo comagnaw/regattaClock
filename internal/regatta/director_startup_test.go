@@ -164,18 +164,64 @@ func TestDirectorImportWritesScheduleOnConfirm(t *testing.T) {
 		Root:       filepath.Join(regattaDir, common.RegattaDataDir),
 	}
 
-	// The parse alone writes nothing; the schedule waits on the confirm.
+	// The parse alone writes nothing; the schedule waits on Start Regatta.
 	if _, err := store.LoadSchedule(dirSession); err == nil {
 		t.Fatal("schedule should not exist before the director confirms")
 	}
 
-	// Accepting writes it and enters the tree.
+	// Start Regatta (here applyImportedRegatta directly) writes it and enters the tree.
 	r.applyImportedRegatta()
 	if _, err := store.LoadSchedule(dirSession); err != nil {
 		t.Fatalf("schedule should exist after confirm: %v", err)
 	}
 	if onWelcome(r) {
 		t.Error("the director should be on the tree after a confirmed import")
+	}
+}
+
+// TestSetupStartButtonRunsImport - the setup view's Start Regatta button is
+// disabled until both steps are done, and tapping it writes the schedule and
+// enters the tree.
+func TestSetupStartButtonRunsImport(t *testing.T) {
+	app := test.NewTempApp(t)
+	regattaDir := t.TempDir()
+
+	r := New(app)
+	r.onPersonaChosen(persona.DirectorDefinition, "rc-rd")
+	r.welcomeFolderCallback()(listerFor(t, regattaDir), nil) // step 2 done
+
+	start := findButtonByLabel(r.window.Content(), common.StartRegattaButtonText)
+	if start == nil || !start.Disabled() {
+		t.Fatal("Start Regatta must be disabled with only the save folder set")
+	}
+
+	xlsx, err := filepath.Abs(filepath.Join("..", "..", "examples", "Example Regatta Input Table.xlsx"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fileReader, err := storage.Reader(storage.NewFileURI(xlsx))
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.callback(false)(fileReader, nil) // parse
+	r.markExcelStepDone()              // stands in for confirming the dialog
+
+	start = findButtonByLabel(r.window.Content(), common.StartRegattaButtonText)
+	if start == nil || start.Disabled() {
+		t.Fatal("Start Regatta must ungate once both steps are done")
+	}
+	start.OnTapped()
+	stopWatch(t, r)
+
+	if onWelcome(r) {
+		t.Error("Start Regatta should enter the director tree")
+	}
+	dirSession := persona.Session{
+		Definition: persona.DirectorDefinition,
+		Root:       filepath.Join(regattaDir, common.RegattaDataDir),
+	}
+	if _, err := store.LoadSchedule(dirSession); err != nil {
+		t.Fatalf("schedule should be written after Start Regatta: %v", err)
 	}
 }
 
