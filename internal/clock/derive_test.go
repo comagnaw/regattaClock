@@ -125,9 +125,8 @@ func TestDeriveTinyValueStillFillsWithNote(t *testing.T) {
 	if clk.winningTime.Text == common.EmptyString {
 		t.Error("a small but real elapsed time should still pre-fill")
 	}
-	if clk.winningNote.Hidden || !strings.Contains(clk.winningNote.Text, "seconds apart") {
-		t.Errorf("note = %q (hidden=%v), want the seconds-apart warning",
-			clk.winningNote.Text, clk.winningNote.Hidden)
+	if !strings.Contains(clk.winningNote.Text, "seconds apart") {
+		t.Errorf("note = %q, want the seconds-apart warning", clk.winningNote.Text)
 	}
 }
 
@@ -152,9 +151,8 @@ func TestDeriveStaleAndNegativeShowNote(t *testing.T) {
 			if clk.winningTime.Text != common.EmptyString {
 				t.Errorf("winning time = %q, want empty for a suppressed derive", clk.winningTime.Text)
 			}
-			if clk.winningNote.Hidden || !strings.Contains(clk.winningNote.Text, tc.want) {
-				t.Errorf("note = %q (hidden=%v), want it to contain %q",
-					clk.winningNote.Text, clk.winningNote.Hidden, tc.want)
+			if !strings.Contains(clk.winningNote.Text, tc.want) {
+				t.Errorf("note = %q, want it to contain %q", clk.winningNote.Text, tc.want)
 			}
 		})
 	}
@@ -167,14 +165,14 @@ func TestDeriveNoteClearedOnManualOverride(t *testing.T) {
 	}}
 	clk := openDerivingClock(t, s, emptyFinish(), start)
 	clk.buttons.start.OnTapped()
-	if clk.winningNote.Hidden {
-		t.Fatal("precondition: derived note visible")
+	if clk.winningNote.Text == common.EmptyString {
+		t.Fatal("precondition: derived note present")
 	}
 
 	clk.winningTime.SetText("05:42.3") // referee types their own time
 
-	if !clk.winningNote.Hidden {
-		t.Error("the derived note should hide once the referee overrides the value")
+	if clk.winningNote.Text != common.EmptyString {
+		t.Error("the derived note should clear once the referee overrides the value")
 	}
 }
 

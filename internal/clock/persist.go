@@ -131,18 +131,14 @@ func (c *Clock) deriveWinningTime() bool {
 	return true
 }
 
-// noteWinningTime shows a helper line under the Winning Time field. An empty
-// message hides it.
+// noteWinningTime sets the helper line under the Winning Time field. An empty
+// message clears it; the line's space is reserved either way, so a note never
+// resizes the clock window (see winningNoteHeight).
 func (c *Clock) noteWinningTime(msg string) {
 	if c.winningNote == nil {
 		return
 	}
 	c.winningNote.SetText(msg)
-	if msg == common.EmptyString {
-		c.winningNote.Hide()
-		return
-	}
-	c.winningNote.Show()
 }
 
 // UpdateStartTime replaces the peer start-time mirror and re-derives the winning

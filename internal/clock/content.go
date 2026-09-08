@@ -130,9 +130,13 @@ func (c *Clock) winningTimeInput() *fyne.Container {
 	c.winningNote = widget.NewLabel(common.EmptyString)
 	c.winningNote.Wrapping = fyne.TextWrapWord
 	c.winningNote.Importance = widget.MediumImportance
-	c.winningNote.Hide()
 
-	return container.NewVBox(form, c.winningNote)
+	// Reserve the note's space up front. It stays in the layout whether or not
+	// there is a message, so the window geometry never changes after Start is
+	// pressed (which would move the Lap button).
+	noteArea := container.NewGridWrap(fyne.NewSize(clockWidth, winningNoteHeight), c.winningNote)
+
+	return container.NewVBox(form, noteArea)
 }
 
 // initCommitStatus - build the status line under the approval panel. It starts

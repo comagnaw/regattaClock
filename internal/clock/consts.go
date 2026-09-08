@@ -10,6 +10,12 @@ const (
 	// resultsHeight - height of results table
 	resultsHeight = float32(240)
 
+	// winningNoteHeight - reserved height (≈ two label lines) for the helper line
+	// under the Winning Time field. The space is always present so showing or
+	// clearing a start-time note never resizes the clock window mid-race and
+	// shifts the Lap button out from under the operator's cursor.
+	winningNoteHeight = float32(52)
+
 	// badLaneNum - used to indicate the lane number text could not be converted to int
 	badLaneNum = -1
 

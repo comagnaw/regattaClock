@@ -2,52 +2,139 @@
 
 ![GitHub Release](https://img.shields.io/github/v/release/comagnaw/regattaClock) ![GitHub License](https://img.shields.io/github/license/comagnaw/regattaClock) ![Go version](https://img.shields.io/github/go-mod/go-version/comagnaw/regattaClock)
 
-**regattaClock** is an open-source project built with the goal of collecting and publishing race times for rowing organizations that hold Regattas and have limited timing resources.  At the time of this writing, **regattaClock** is in alpha development with the focus on delivering the time collection goal.  The publishing aspect is still a work in progress.  
+**regattaClock** is an open-source application for collecting and publishing race
+times at rowing regattas run by organizations with limited timing infrastructure.
+It is written in Go and uses the [fyne.io](https://fyne.io/) toolkit for its user
+interface. The project is in alpha: time collection works; results publishing is a
+work in progress.
 
-The underlying source code is written in Golang and uses the [fyne.io](https://fyne.io/) development toolkit to build the user interface (UI).
+## Why regattaClock exists
 
-## Overview of time collection using regattaClock
+Some rowing organizations do not have a cohesive system for capturing start and
+finish times across the race course. regattaClock is built for that environment.
+It is run at the finish line: operators record when each boat crosses, the referee
+provides the official winning time, and the application back-calculates every
+boat's time and produces a result that officials can review, approve, and publish.
 
-> Due to limited resources, some rowing organizations may be limited in their capability for collecting start and finish times in a cohesive system.  The **regattaClock** application is designed to be run in this type of environment.  What follows is a high-level overview of how **regattaClock** is meant to be run.
+## How a regatta is run
 
-**regattaClock** is run at the finish-line of the race course.  **regattaClock** starts collecting time when the operator selects the `Start` button when the first boat crosses the finish-line and selects the `Lap` button each time another boat crosses the finish-line.  When the race course is clear of boats, the operator selects the `Stop` button.  The operator has collected split times for each boat.  
+Several operators share one regatta folder — on a local network share or a
+cloud-synced folder — and each runs regattaClock as a single **persona**:
 
-Once all the boats have finished the race, the Regatta Referee will provide the finish-line officials the winning time, which is the total time for the first boat to finish the race, from start to finish.  The winning time is input to **regattaClock**, which calculates all boat times based on the split times collected.  
+![Race tree](docs/img/race-tree.png)
 
-The remaining race detail that needs to be collected is the order-of-finish (OOF), meaning which lane on the race course came in 1st, 2nd, 3rd, 4th, etc.  The operator will select the first box in the OOF column and place the lane number for the boat that came in 1st.  Once the operator hits return, the cursor will move to the next OOF box (representing 2nd place) and the operator will place the lane number for the boat that came in 2nd.  The operator will continue this operation until all places have a lane number in the OOF column.  
+- **Regatta Director** — sets up the shared regatta folder, imports and owns the
+  race schedule, watches every team's live progress, and exports lane images. Does
+  not time races.
+- **Start Timer** — records each race's start time. Runs as a primary operator
+  plus an independent **secondary** operator as a backup.
+- **Finish Timer** — runs the finish-line clock and enters the referee's winning
+  time and the order-of-finish. The **primary** Finish Timer's result becomes the
+  official result on **Referee Approval**; the **secondary** Finish Timer keeps an
+  unapproved backup used for reconciliation.
 
-With all of these details collected, the results of a race can be reviewed by officials for approval and then published as an official race result time.
+Every persona reads the one shared schedule and writes only its own file, so the
+teams never overwrite each other's work. Additional personas — for media and
+results publishing — are planned.
 
-## Regatta Data Input
+## The finish-line clock
 
-For better or worse, the only input for Regatta data is in the format of an Microsoft Excel spreadsheet (xlsx only).  Over time, this may change to a better structured input, but at the time of the initial development, the rowing organization that **regattaClock** was develped for used Excel spreadsheets as a means to organize Regatta race informaiton.
+The Finish Timer opens a race clock and selects **Start** when the first boat
+crosses the line, **Lap** as each remaining boat crosses, and **Stop** once the
+course is clear — capturing a split for every boat. When the Start Timer has
+recorded the race's start time, regattaClock combines it with the finish-line
+**Start** click to pre-fill an initial **winning time** (the elapsed time of the
+first-place boat); the operator overwrites this with the referee's **official**
+time when it is given. regattaClock then calculates every boat's finish time from
+the winning time and the splits. The operator enters the **order-of-finish**, one
+lane number per place. Every captured detail — the splits, the winning time, and
+the order-of-finish — stays editable by the Finish Timer after the clock has
+stopped, so the results can be corrected against feedback from the course before
+the race is reviewed, approved, and published as an official result.
 
-Below is a visual of the expected format of the an Excel spreadsheet, which represents all the races in the scheduled regatta.  This format is in a style for what a rowing organization may use to publish the final results of each race.  The data from this format of the spreadsheet is used to load the Regatta title, date, and informaiton for each race.  A copy of the example Excel spreadsheet can be downloaded from the [testdata](testdata) directory and used to build out your Regatta data.
+![Finish-line clock](docs/img/finish-line-clock.gif)
 
-![Example Input](docs/img/0-Example%20Input.png)
+## The race schedule
 
-Below are screenshots for the various steps a operator will expereince when running **regattaClock**:
+The schedule input today is an Excel workbook (`.xlsx`, or macro-enabled `.xlsm`),
+because the organization regattaClock was first built for organizes its race
+information in spreadsheets; a structured or API-based input may come later.
+regattaClock reads the worksheet named **Results**, or the first worksheet if the
+workbook has no sheet by that name, and derives the regatta title, date, and
+per-race lane assignments from its layout. The Regatta Director imports the
+workbook once into the shared folder; timers then read the shared schedule, never
+the workbook itself.
 
-## Initial regattaClock Load
+![Example schedule](docs/img/example-schedule.png)
 
-When the operator starts **regattaClock**, they will be prompted with a loading screen.  The `Load` button will open a screen with a view of the operators file system.  Ensure the operator has access to the Excel spreadsheet described in described in [Regatta Data Input](#regatta-data-input).
+Sample workbooks for both supported formats — `.xlsx` and macro-enabled `.xlsm`
+— are in [examples/](examples/).
 
-![Start-up Dialog](docs/img/1-Start-up%20Dialog.png)
+## Getting started
 
-## Input Selection
+![Persona picker](docs/img/persona-picker.png)
 
-When the operator selects the load button from the previous screen, they will want to navigate to the Excel spreadsheet with Regatta data that matches the format described in [Regatta Data Input](#regatta-data-input). Once the operator has selected the proper excel spreadsheet, select `Open`.
+1. Each operator opens regattaClock pointed at the shared regatta folder — a
+   local network share or a cloud-synced folder (OneDrive, Google Drive).
+2. Choose your persona from the picker and enter its **challenge**, a short access
+   code. The challenge is either regattaClock's built-in default or a value your
+   organization has configured — **confirm it with the Regatta Director or a
+   regatta executive before your first session.**
+3. Alternatively, an organization can assign a specific computer to a persona by
+   hostname. That machine skips the picker and the challenge entirely.
+4. The Regatta Director selects the shared folder and imports the schedule; the
+   timers confirm the regatta and open their race view. A timer is warned first if
+   the regatta's date has already passed.
 
-![Input Selection](docs/img/2-Input%20Selection.png)
+## Configuration
 
-## Successful Load
+![Configuration screen](docs/img/configuration.png)
 
-When the Excel spreadsheet successfully loads, the operator will be presented with a window that has the Regatta title, date, and scheduled races.  This will be the primary window used to navigate collecting times for each race of the Regatta.  The `Time Race` button will be used to collect times for each race.
+The Configuration screen covers:
 
-![Successful Load](docs/img/3-Successful%20Load.png)
+- the shared regatta folder;
+- storage mode: local network share or cloud-synced folder;
+- an optional persona config file (see below);
+- logging and debug output;
+- time-sync (NTP) servers;
+- light or dark theme.
 
-## Start Timing
+### Persona config file
 
-Once the `Time Race` button is selected, a window similar to the one below will be presented to the operator.  The operator will select the `Start` button (or F2) when the first boat crosses the finish-line.  Then the operator will select the `Lap` button (or F4) as each remaining boat crosses the finish-line.  Once all boats have crossed the finish line, the operator will select the `Stop` button to stop the running clock.  Next, the operator will capture the Referee race time in the `Winning Time` box and then the OOF.
+An organization can point regattaClock at a single JSON file that pre-assigns
+personas and/or sets its own challenge codes. Configuring every operator's machine
+to use the same file keeps roles and codes consistent across the regatta — it is
+recommended but not required. Without it, operators simply pick a persona and
+enter its default challenge each launch.
 
-![Start Timing](docs/img/4-Start%20Timing.gif)
+```json
+{
+  "hosts": {
+    "start-tent-pc": "pst",
+    "finish-tower": "pft",
+    "director-laptop": "rd"
+  },
+  "challenges": {
+    "pst": "spring-start",
+    "pft": "spring-finish",
+    "rd": "spring-director"
+  }
+}
+```
+
+- **`hosts`** maps a computer's hostname to a persona ID (`pst`, `sst`, `pft`,
+  `sft`, `rd`). When the running machine matches, it skips the picker and the
+  challenge entirely and goes straight to that persona.
+- **`challenges`** replaces the built-in challenge code for a persona, so the
+  picker accepts your organization's code instead.
+
+Both sections are optional. If the file is missing or invalid, regattaClock falls
+back to the normal persona picker. Full details are in
+[docs/features/personas/persona-config-file.md](docs/features/personas/persona-config-file.md).
+
+## Documentation
+
+Design notes live under [docs/features/](docs/features/); the multi-persona model
+is in [docs/features/personas/](docs/features/personas/). See
+[CONTRIBUTING.md](CONTRIBUTING.md) to build and run from source, and
+[AGENTS.md](AGENTS.md) for AI-agent guidance.
