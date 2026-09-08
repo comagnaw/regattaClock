@@ -26,18 +26,17 @@ import (
 )
 
 // showPersonaPicker is the one startup screen: the personas are grouped into
-// Timers / Media / Admins tabs; the operator types the challenge code and
-// presses their persona's button. Media and Developer are disabled placeholders
-// for personas that do not exist yet. The Regatta Director also gets a "resume"
-// shortcut below the tabs when the last run was as the director and its schedule
-// is still readable.
+// Timers / Media / Admins tabs. Pressing a persona's button asks for its
+// challenge code in a small dialog (promptPersonaChallenge) - so choosing a
+// persona is never itself a "wrong challenge" error. Media and Developer are
+// disabled placeholders for personas that do not exist yet. The Regatta
+// Director also gets a "resume" shortcut below the tabs when the last run was as
+// the director and its schedule is still readable.
 func (r *Regatta) showPersonaPicker() {
-	challenge := widget.NewEntry()
-
 	personaButton := func(id string) *widget.Button {
 		def, _ := persona.ByID(id)
 		return widget.NewButton(def.Label, func() {
-			r.onPersonaChosen(def, challenge.Text)
+			r.promptPersonaChallenge(def)
 		})
 	}
 	placeholderButton := func(label string) *widget.Button {
@@ -57,7 +56,7 @@ func (r *Regatta) showPersonaPicker() {
 	)
 	admins := container.NewVBox(
 		widget.NewButton(persona.DirectorDefinition.Label, func() {
-			r.onPersonaChosen(persona.DirectorDefinition, challenge.Text)
+			r.promptPersonaChallenge(persona.DirectorDefinition)
 		}),
 		placeholderButton(common.PersonaDeveloperLabel),
 	)
@@ -74,8 +73,6 @@ func (r *Regatta) showPersonaPicker() {
 	rows := []fyne.CanvasObject{
 		text.BoldLeading(common.PersonaPickerPrompt),
 		tabs,
-		widget.NewLabel(common.ChallengeFieldLabel),
-		challenge,
 		note,
 	}
 	if resume := r.resumeDirectorButton(); resume != nil {
@@ -115,6 +112,25 @@ func (r *Regatta) resumeDirectorButton() *widget.Button {
 		applog.Info("resume as director", "component", "startup", "regatta", schedule.Name)
 		r.startDirectorFlow()
 	})
+}
+
+// promptPersonaChallenge asks for a persona's challenge code in a small dialog
+// once its button is pressed, so selecting a persona is never itself an error.
+// Cancel dismisses; confirm runs onPersonaChosen with what was typed.
+func (r *Regatta) promptPersonaChallenge(def persona.Definition) {
+	entry := widget.NewEntry()
+	dialog.ShowForm(
+		fmt.Sprintf(common.PersonaChallengeTitle, def.Label),
+		common.ContinueButtonText,
+		common.CancelButtonText,
+		[]*widget.FormItem{widget.NewFormItem(common.ChallengeFieldLabel, entry)},
+		func(ok bool) {
+			if ok {
+				r.onPersonaChosen(def, entry.Text)
+			}
+		},
+		r.window,
+	)
 }
 
 // onPersonaChosen validates the challenge for the pressed persona button, then

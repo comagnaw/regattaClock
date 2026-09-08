@@ -198,10 +198,12 @@ const (
 	CommitStatusUnknownHost    = "unknown host"
 
 	// Persona picker (internal/regatta persona_startup.go). The Welcome screen
-	// groups personas into tabs; a persona is chosen by pressing its button
-	// after typing the challenge code. Media/Developer are disabled placeholders
+	// groups personas into tabs; pressing a persona's button asks for its
+	// challenge code in a small dialog. Media/Developer are disabled placeholders
 	// for personas that do not exist yet.
-	PersonaPickerPrompt         = "Choose your persona and enter its challenge code."
+	PersonaPickerPrompt         = "Choose your persona."
+	PersonaChallengeTitle       = "Challenge for %s"
+	ContinueButtonText          = "Continue"
 	ChallengeFieldLabel         = "Challenge code:"
 	PersonaTabTimers            = "Timers"
 	PersonaTabMedia             = "Media"

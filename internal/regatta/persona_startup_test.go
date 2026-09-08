@@ -154,6 +154,26 @@ func TestPersonaPicker_PlaceholdersDisabled(t *testing.T) {
 	}
 }
 
+func TestPersonaPicker_ButtonOpensChallengePrompt(t *testing.T) {
+	app := test.NewTempApp(t)
+	r := New(app)
+
+	btn := findButtonByLabel(r.window.Content(), "Primary Finish Timer")
+	if btn == nil {
+		t.Fatal("no Primary Finish Timer button on the picker")
+	}
+	btn.OnTapped()
+
+	// Pressing a persona opens a challenge prompt - it must not itself be a
+	// "wrong challenge" error, and no session/flow starts yet.
+	if len(r.window.Canvas().Overlays().List()) == 0 {
+		t.Error("pressing a persona button should open the challenge prompt")
+	}
+	if r.session.Root != "" || r.mode != modeUnset {
+		t.Errorf("no session/mode until the challenge is entered: root=%q mode=%v", r.session.Root, r.mode)
+	}
+}
+
 func TestResolvePersonaRoot(t *testing.T) {
 	// Picking regattaData itself.
 	named := filepath.Join(t.TempDir(), common.RegattaDataDir)
