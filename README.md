@@ -46,9 +46,11 @@ recorded the race's start time, regattaClock combines it with the finish-line
 **Start** click to pre-fill an initial **winning time** (the elapsed time of the
 first-place boat); the operator overwrites this with the referee's **official**
 time when it is given. regattaClock then calculates every boat's finish time from
-the winning time and the splits. The operator enters the **order-of-finish** —
-each lane number in turn — and the completed race is reviewed, approved, and
-published as an official result.
+the winning time and the splits. The operator enters the **order-of-finish**, one
+lane number per place. Every captured detail — the splits, the winning time, and
+the order-of-finish — stays editable by the Finish Timer after the clock has
+stopped, so the results can be corrected against feedback from the course before
+the race is reviewed, approved, and published as an official result.
 
 ![Finish-line clock](docs/img/finish-line-clock.gif)
 
