@@ -93,8 +93,8 @@ result, so its only pre-`approved` states are `none` / `start-recorded` /
 ## Where the authoritative set lives — read-time auto-selection
 
 **No new file. The Regatta Director persists no reconciliation decision.**
-One-writer-per-file stays intact; the only cross-file identity is `RegattaKey`
-+ `RaceNumber` ([schedule-data-model.md](schedule-data-model.md)).
+One-writer-per-file stays intact; the only cross-file identity is `RegattaKey` +
+`RaceNumber` ([schedule-data-model.md](schedule-data-model.md)).
 
 The future results/publish consumer:
 
@@ -180,7 +180,7 @@ Nothing to publish; the RD tree already shows the state.
 
 **Shipped (RD oversight):**
 
-- Per-value primary→secondary fallback in the progress tree with a ` ·2nd`
+- Per-value primary→secondary fallback in the progress tree with a `·2nd`
   marker and legend (8b-2).
 - Clock-skew and staleness banners across the four timing files (8b-2).
 - `†` mark on races whose committed result no longer matches the live lane map

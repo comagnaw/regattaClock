@@ -19,6 +19,7 @@ Document verification in the README:
 # macOS / Linux
 shasum -a 256 -c SHA256SUMS
 ```
+
 ```powershell
 # Windows
 (Get-FileHash .\regattaClock-amd64.exe.zip -Algorithm SHA256).Hash
@@ -63,7 +64,7 @@ gh attestation verify regattaClock-amd64.exe.zip --repo comagnaw/regattaClock
 Today `release.yml` has `build-macos` then `build-windows` (`needs: build-macos`), each doing
 build + publish in one job. Split build from sign/package so signing is isolated and skippable:
 
-```
+```text
 build-windows  (ubuntu-latest, fyne-cross)        → unsigned regattaClock-<arch>.exe  (artifact)
    └─ sign-windows        [if signing configured]  → sign .exe  +  build & sign installer (Inno / WiX)
                                                      ·  self‑signed cert  → osslsigncode + .pfx secret
