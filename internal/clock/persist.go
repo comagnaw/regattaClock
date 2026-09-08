@@ -242,18 +242,22 @@ func (c *Clock) refreshCommitStatus() {
 		return
 	}
 	res := c.finishLog.Races[c.raceData.RaceNumber]
+	host := c.finishLog.Machine
+	if host == common.EmptyString {
+		host = common.CommitStatusUnknownHost
+	}
+	stampText := func(t time.Time) string { return t.Local().Format(common.CommitStatusTimeFormat) }
+
 	switch c.raceCommitState() {
 	case stateApproved:
 		stamp := time.Now()
 		if res.ApprovedAt != nil {
 			stamp = *res.ApprovedAt
 		}
-		c.commitStatus.SetText(fmt.Sprintf(common.CommitStatusApprovedFormat,
-			stamp.Local().Format(common.CommitStatusTimeFormat)))
+		c.commitStatus.SetText(fmt.Sprintf(common.CommitStatusApprovedFormat, stampText(stamp), host))
 		c.buttons.close.Enable()
 	case stateSaved:
-		c.commitStatus.SetText(fmt.Sprintf(common.CommitStatusSavedFormat,
-			res.UpdatedAt.Local().Format(common.CommitStatusTimeFormat)))
+		c.commitStatus.SetText(fmt.Sprintf(common.CommitStatusSavedFormat, stampText(res.UpdatedAt), host))
 		c.buttons.close.Enable()
 	default:
 		c.commitStatus.SetText(common.CommitStatusPending)

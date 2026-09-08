@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"fyne.io/fyne/v2/test"
 
@@ -173,8 +174,35 @@ func TestClockRehydratesSavedRace(t *testing.T) {
 	if clk.buttons.close.Disabled() {
 		t.Error("close button should be enabled for an approved race")
 	}
-	if !strings.HasPrefix(clk.commitStatus.Text, "Approved ") {
-		t.Errorf("commit status = %q, want an \"Approved …\" line", clk.commitStatus.Text)
+	if !strings.HasPrefix(clk.commitStatus.Text, "Approved on ") {
+		t.Errorf("commit status = %q, want an \"Approved on …\" line", clk.commitStatus.Text)
+	}
+}
+
+func TestCommitStatusLineHasDateAndHost(t *testing.T) {
+	s := pftSession(t)
+	approvedAt := time.Date(2026, time.October, 3, 18, 15, 47, 0, time.UTC)
+	seed := &store.FinishLog{
+		Races: map[int]store.RaceResult{
+			1: {RaceNumber: 1, WinningTime: "02:00.0", Approved: true, ApprovedAt: &approvedAt},
+		},
+	}
+	seed.Machine = "bow-line-02"
+	if err := store.SaveFinish(s, seed); err != nil {
+		t.Fatal(err)
+	}
+	restored, _ := store.LoadFinish(s)
+	clk := openBoundClock(t, s, restored)
+
+	got := clk.commitStatus.Text
+	want := "Approved on " + approvedAt.Local().Format(common.CommitStatusTimeFormat) + " by bow-line-02"
+	if got != want {
+		t.Errorf("commit status = %q, want %q", got, want)
+	}
+	for _, part := range []string{"2026", "Oct", " by bow-line-02"} {
+		if !strings.Contains(got, part) {
+			t.Errorf("commit status %q is missing %q", got, part)
+		}
 	}
 }
 

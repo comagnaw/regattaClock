@@ -728,7 +728,7 @@ Three changes to [internal/clock](internal/clock):
 
    The **Secondary Finish Timer** has no Referee Approval step — its panel is a single **Save and Close** button. A valid winning time enables it; it writes the result with `Approved: false` and then closes the window. The secondary team never presents to a referee; its `finish.json` is a backup data source for the primary FT and reconciliation ([reconciliation.md](reconciliation.md)).
 
-   A **status line** under the panel reads `Pending` until the race is persisted, then `Approved HH:MM:SS` (primary) or `Saved HH:MM:SS` (secondary), from `RaceResult.ApprovedAt` / `UpdatedAt`.
+   A **status line** under the panel reads `Pending` until the race is persisted, then `Approved on <date> by <host>` (primary) or `Saved on <date> by <host>` (secondary) — the local timestamp in RFC 1123 form from `RaceResult.ApprovedAt` / `UpdatedAt`, and `FinishLog.Envelope.Machine`.
 
    The clock also writes an **in-progress `RaceResult`** — `FirstFinishAt` / `FirstFinishClock` set, no `WinningTime`, `Approved` false — the moment the FT clicks the clock's **Start** button. This is what makes the ST row lock (see the Start Timer notes above) engage immediately rather than only at commit, and lets the RD progress tree show a race as underway. It is the FT writing its own file, so it stays within the one-writer rule. A failed write is surfaced but never blocks timing.
 3. **Rehydration.** `NewClock` checks `finish.json` for an existing `RaceResult` for this race number and, if found, restores lap rows, OOF assignments, place overrides, winning time, and button enablement before showing the window ([README.md](README.md)).

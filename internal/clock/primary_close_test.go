@@ -45,8 +45,8 @@ func TestPrimaryFinish_CloseDisabledUntilApproved(t *testing.T) {
 	if clk.buttons.close.Disabled() {
 		t.Error("Close should be enabled once the race is approved")
 	}
-	if !strings.HasPrefix(clk.commitStatus.Text, "Approved ") {
-		t.Errorf("commit status = %q, want an \"Approved …\" line", clk.commitStatus.Text)
+	if !strings.HasPrefix(clk.commitStatus.Text, "Approved on ") {
+		t.Errorf("commit status = %q, want an 'Approved on …' line", clk.commitStatus.Text)
 	}
 }
 
