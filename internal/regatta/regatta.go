@@ -153,9 +153,16 @@ type loadState struct {
 
 	// excelLoaded - the setup view's Excel step is satisfied: a workbook has been
 	// parsed into r.RegattaData and confirmed by the Regatta Director. It gates
-	// the Start Regatta button alongside PrefRegattaDir and is reset whenever the
+	// the Start Regatta button alongside dirChosen and is reset whenever the
 	// director deliberately returns to setup.
 	excelLoaded bool
+
+	// dirChosen - the setup view's save-folder step is satisfied: the director
+	// has picked a regatta directory this session (welcomeFolderCallback). Reset
+	// whenever the director returns to setup, so a PrefRegattaDir left over from
+	// a previous regatta never pre-ticks Step 2 - the RD chooses where each
+	// regatta's data goes rather than inheriting the last folder.
+	dirChosen bool
 }
 
 func (r *Regatta) newLoadState() {
@@ -262,10 +269,12 @@ func (r *Regatta) startDirectorSetup() {
 	r.mode = modeDirector
 	r.window.SetMainMenu(r.makeMenu())
 
-	// The deliberate "choose a regatta" path never carries a prior import into the
-	// setup view; the Excel step starts empty even if a workbook was loaded
-	// earlier this session.
+	// The deliberate "choose a regatta" path never carries a prior selection into
+	// the setup view: the Excel step starts empty even if a workbook was loaded
+	// earlier this session, and the save folder starts unchosen even if
+	// PrefRegattaDir points at a previous regatta.
 	r.loadState.excelLoaded = false
+	r.loadState.dirChosen = false
 
 	r.showDirectorSetup()
 }
@@ -284,6 +293,8 @@ func (r *Regatta) startDirectorFlow() {
 	}
 
 	if r.App.Preferences().String(common.PrefRegattaDir) == common.EmptyString {
+		r.loadState.excelLoaded = false
+		r.loadState.dirChosen = false
 		r.showDirectorSetup()
 		return
 	}
@@ -296,9 +307,11 @@ func (r *Regatta) startDirectorFlow() {
 		if !errors.Is(err, fs.ErrNotExist) {
 			r.warnOnStarted(err)
 		}
-		// The save folder is already set, so the setup view opens with Step 2
-		// pre-checked and only the Excel step outstanding.
+		// Both setup steps start unchosen: the director loads a workbook and
+		// reaffirms where this regatta's data is saved rather than inheriting the
+		// folder a previous regatta used.
 		r.loadState.excelLoaded = false
+		r.loadState.dirChosen = false
 		r.showDirectorSetup()
 		return
 	}
@@ -358,8 +371,11 @@ func (r *Regatta) showDirectorSetup() {
 	// the save folder.
 	r.loadState.loadButton.Enable()
 
+	// Step 2 is "done" only once the director has picked a folder this session -
+	// never just because PrefRegattaDir carries over from a previous regatta. The
+	// pref string is still read, but only to show the path once dirChosen is set.
 	dir := r.App.Preferences().String(common.PrefRegattaDir)
-	dirSet := dir != common.EmptyString
+	dirSet := r.loadState.dirChosen
 
 	// Step 1 - Excel workbook.
 	step1 := []fyne.CanvasObject{}

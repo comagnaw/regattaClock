@@ -78,8 +78,9 @@ func TestStartup_NoPreferences(t *testing.T) {
 }
 
 // TestStartup_DirectorySetWithoutHistory - a configured directory holding no
-// saved regatta is a normal first run, not an error, so the setup view stays up
-// with step 2 pre-checked; Start Regatta still waits on the workbook.
+// saved regatta is a normal first run, not an error, so the setup view stays up.
+// Step 2 is NOT pre-checked from the leftover preference - the director still
+// picks where this regatta's data goes - and Start Regatta waits on both steps.
 func TestStartup_DirectorySetWithoutHistory(t *testing.T) {
 	app := test.NewTempApp(t)
 	app.Preferences().SetString(common.PrefRegattaDir, t.TempDir())
@@ -94,9 +95,56 @@ func TestStartup_DirectorySetWithoutHistory(t *testing.T) {
 		t.Error("import should be enabled once a regatta directory is set")
 	}
 
+	if r.loadState.dirChosen {
+		t.Error("the save-folder step must not be pre-satisfied by a leftover preference")
+	}
+	if findButtonByLabel(r.window.Content(), common.SetRegattaDirButtonText) == nil {
+		t.Errorf("expected the unset 'Set Regatta Directory' button; buttons %v", buttonLabels(r.window.Content()))
+	}
+	if findButtonByLabel(r.window.Content(), common.SetupChangeDirButtonText) != nil {
+		t.Error("the 'Change…' button (step 2 done) must not show before a folder is picked")
+	}
+
 	start := findButtonByLabel(r.window.Content(), common.StartRegattaButtonText)
 	if start == nil || !start.Disabled() {
-		t.Error("Start Regatta must stay disabled until a workbook is loaded")
+		t.Error("Start Regatta must stay disabled until both steps are done")
+	}
+}
+
+// TestStartup_DirectorSetupDoesNotPrecheckSaveDir - deliberately choosing
+// "Regatta Director" while PrefRegattaDir still points at a previous regatta
+// opens the setup view with the save folder unchosen; picking one this session
+// is what completes step 2.
+func TestStartup_DirectorSetupDoesNotPrecheckSaveDir(t *testing.T) {
+	app := test.NewTempApp(t)
+	app.Preferences().SetString(common.PrefRegattaDir, t.TempDir())
+
+	r := New(app)
+	r.onPersonaChosen(persona.DirectorDefinition, "rc-rd")
+
+	if !onWelcome(r) {
+		t.Fatalf("expected the setup view, got buttons %v", buttonLabels(r.window.Content()))
+	}
+	if r.loadState.dirChosen {
+		t.Fatal("step 2 must start unchosen despite the configured directory")
+	}
+	if findButtonByLabel(r.window.Content(), common.SetupChangeDirButtonText) != nil {
+		t.Error("the 'Change…' button must not show before a folder is picked this session")
+	}
+	if start := findButtonByLabel(r.window.Content(), common.StartRegattaButtonText); start == nil || !start.Disabled() {
+		t.Error("Start Regatta must be disabled while step 2 is unchosen")
+	}
+
+	r.welcomeFolderCallback()(listerFor(t, t.TempDir()), nil)
+
+	if !r.loadState.dirChosen {
+		t.Error("picking a folder should complete step 2")
+	}
+	if findButtonByLabel(r.window.Content(), common.SetupChangeDirButtonText) == nil {
+		t.Error("step 2 should now show the 'Change…' button")
+	}
+	if start := findButtonByLabel(r.window.Content(), common.StartRegattaButtonText); start == nil || !start.Disabled() {
+		t.Error("Start Regatta stays disabled until the workbook step is also done")
 	}
 }
 

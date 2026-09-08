@@ -183,6 +183,7 @@ func (r *Regatta) welcomeFolderCallback() func(fyne.ListableURI, error) {
 
 		r.App.Preferences().SetString(common.PrefRegattaDir, regattaDir)
 		r.loadState.loadButton.Enable()
+		r.loadState.dirChosen = true
 
 		r.startLogging()
 		applog.Info("regatta directory set", "component", "setup", "path", regattaDir)
