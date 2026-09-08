@@ -137,7 +137,7 @@ func (r *Regatta) promptPersonaChallenge(def persona.Definition) {
 // routes to the director flow or the timer folder dialog. A failure keeps the
 // picker on screen.
 func (r *Regatta) onPersonaChosen(def persona.Definition, challengeInput string) {
-	if !def.MatchesChallenge(challengeInput) {
+	if !r.matchesChallenge(def, challengeInput) {
 		applog.Info("persona challenge rejected", "component", "startup", "persona_id", def.ID)
 		dialog.ShowError(errors.New(common.ChallengeMismatchMessage), r.window)
 		return
@@ -268,7 +268,7 @@ func (r *Regatta) startSession(session persona.Session, schedule *store.Schedule
 
 	key := store.RegattaKey(schedule.Name, schedule.Date)
 	r.regattaKey = key
-	host, _ := os.Hostname()
+	host := hostName()
 
 	switch session.Role {
 	case persona.RoleStart:

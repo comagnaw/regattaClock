@@ -17,6 +17,7 @@ func (r *Regatta) makeMenu() *fyne.MainMenu {
 	items = append(items,
 		r.showWindowItem(),
 		fyne.NewMenuItemSeparator(),
+		r.switchPersonaItem(),
 		r.configItem(),
 		r.exitItem(),
 	)

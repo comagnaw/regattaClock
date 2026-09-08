@@ -21,6 +21,7 @@ import (
 	"github.com/comagnaw/regattaClock/internal/filesystem"
 	"github.com/comagnaw/regattaClock/internal/persona"
 	"github.com/comagnaw/regattaClock/internal/persona/store"
+	"github.com/comagnaw/regattaClock/internal/personacfg"
 	"github.com/comagnaw/regattaClock/internal/reader"
 	"github.com/comagnaw/regattaClock/internal/text"
 )
@@ -55,6 +56,11 @@ type Regatta struct {
 	lastView fyne.CanvasObject
 
 	config *fyne.Container
+
+	// personaCfg - parsed deployment persona config (PrefPersonaConfigFile), or
+	// nil when unset or unreadable. Pins this host to a persona and/or overrides
+	// challenge codes; nil means the normal persona picker.
+	personaCfg *personacfg.Config
 
 	// persona - race-tree header line naming the operator's role, e.g.
 	// "Role: Primary Start Timer". Empty until a session is bound.
@@ -164,9 +170,15 @@ func (r *Regatta) newLoadState() {
 
 // New - the single application entry point. It shows one persona picker listing
 // every persona (Regatta Director + the four timers); the challenge code is what
-// keeps a timing operator out of the loader.
+// keeps a timing operator out of the loader. A deployment persona config
+// (PrefPersonaConfigFile) can pin this host to a persona and skip the picker.
 func New(app fyne.App) *Regatta {
 	r := newRegatta(app)
+	r.loadPersonaConfig()
+	if def, ok := r.assignedPersona(); ok {
+		r.startAssignedPersona(def)
+		return r
+	}
 	r.showPersonaPicker()
 	return r
 }
@@ -314,7 +326,7 @@ func (r *Regatta) startLogging() {
 		return
 	}
 
-	host, _ := os.Hostname()
+	host := hostName()
 	applog.SetIdentity(session.ID, string(session.Team), string(session.Role), host)
 
 	name := string(session.Role) + "-" + filesystem.SanitizeForFilename(host) + ".log"

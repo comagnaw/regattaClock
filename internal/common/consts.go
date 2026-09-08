@@ -18,6 +18,12 @@ const (
 	// always re-pick.
 	PrefLastPersonaID = "LastPersonaID"
 
+	// PrefPersonaConfigFile - absolute path to an optional deployment JSON
+	// (internal/personacfg) that pins this host to a persona (skipping the
+	// picker) and/or replaces the built-in challenge codes. Chosen on the
+	// Configuration screen; blank means the normal persona picker.
+	PrefPersonaConfigFile = "PersonaConfigFile"
+
 	// StorageModeCloud / StorageModeSMB are the PrefStorageMode values. They
 	// must stay equal to watcher.ModeCloud / watcher.ModeSMB (asserted by a test
 	// in the watcher package); common stays a leaf and cannot import watcher.
@@ -231,6 +237,24 @@ const (
 	ConfirmRegattaTitle         = "Confirm regatta"
 	ConfirmRegattaMessage       = "%s\n%s\nScheduled races: %d\n\nTime this regatta?"
 
+	// Deployment persona config (internal/personacfg + internal/regatta
+	// persona_config.go). An organisation points the app at a JSON file on the
+	// Configuration screen; it can pin a host to a persona (skipping the picker)
+	// and/or replace the challenge codes. Every load failure is non-fatal - the
+	// picker is the fallback - and "Switch Persona" on every menu re-opens it.
+	PersonaConfigRowLabel                 = "Persona Config:"
+	PersonaConfigChangeButtonText         = "Change Persona Config"
+	PersonaConfigLoadFailedFormat         = "The deployment persona config could not be loaded, so the normal persona picker is being used.\n\n%s"
+	PersonaConfigLoadedTitle              = "Persona config loaded"
+	PersonaConfigLoadedFormat             = "Loaded - %d host assignment(s), %d challenge override(s).\n\nA host assignment applies at the next launch or via Switch Persona."
+	PersonaConfigInvalidTitle             = "Persona config not loaded"
+	SwitchPersonaMenuLabel                = "Switch Persona..."
+	SwitchPersonaConfirmTitle             = "Switch persona?"
+	SwitchPersonaConfirmMessage           = "The current session will close and the persona picker will re-open. Open race-clock windows are left as they are."
+	AssignedPersonaBannerFormat           = "You are set up as %s on this computer."
+	AssignedPersonaSelectFolderButtonText = "Select regatta folder"
+	AssignedPersonaSwitchNote             = "Wrong role for this machine? Use the " + AppTitle + " menu -> Switch Persona to choose a different one."
+
 	// Past-regatta gate (internal/regatta date_guard.go). Shown to a timer when
 	// the schedule's date is before the host's current local date - the
 	// "already-run regatta" mistake. An empty or unparseable date skips it.
@@ -263,3 +287,7 @@ const (
 // RegattaFileExtensions - spreadsheet extensions the reader can parse, shared by
 // the file dialog filter so it cannot drift from what the loader accepts.
 var RegattaFileExtensions = []string{".xlsx", ".xlsm"}
+
+// PersonaConfigExtensions - the file-dialog filter for the optional deployment
+// persona config picked on the Configuration screen.
+var PersonaConfigExtensions = []string{".json"}
