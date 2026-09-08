@@ -67,7 +67,8 @@ the workbook itself.
 
 ![Example schedule](docs/img/example-schedule.png)
 
-A sample workbook is in [examples/](examples/).
+Sample workbooks for both supported formats — `.xlsx` and macro-enabled `.xlsm`
+— are in [examples/](examples/).
 
 ## Getting started
 

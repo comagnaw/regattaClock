@@ -36,8 +36,6 @@ func ReadExcelFile(filePath string) (*RegattaData, error) {
 
 	load(excel)
 
-	debugReadExcelFile(*excel.RegattaData)
-
 	return excel.RegattaData, nil
 }
 
@@ -190,35 +188,4 @@ func getRowNumber(cellRef string) int {
 		}
 	}
 	return row
-}
-
-func debugReadExcelFile(data RegattaData) {
-	// Print the races in order
-	fmt.Println("\nRaces in sequential order:")
-	for _, race := range data.Races {
-		fmt.Printf("\nRace %d:\n", race.RaceNumber)
-		fmt.Printf("\nBoatClass %s:\n", race.BoatClass)
-		fmt.Printf("\nFlight %s:\n", race.FlightInfo)
-		// Print lanes in order
-		for lane := 1; lane <= 6; lane++ {
-			if entry, exists := race.Lanes[lane]; exists {
-				fmt.Printf("  Lane %d:\n", lane)
-				fmt.Printf("    School: %s\n", entry.SchoolName)
-				fmt.Printf("    Additional Info: %s\n", entry.AdditionalInfo)
-				fmt.Printf("    Place: %s\n", entry.Place)
-				fmt.Printf("    Split: %s\n", entry.Split)
-				fmt.Printf("    Time: %s\n", entry.Time)
-			}
-		}
-
-		// Print RawData
-		fmt.Println("\n  Raw Data (Columns C through I):")
-		for row := 0; row < len(race.RawData); row++ {
-			fmt.Printf("    Row %d: ", row+1)
-			for col := 0; col < len(race.RawData[row]); col++ {
-				fmt.Printf("[%s] ", race.RawData[row][col])
-			}
-			fmt.Println()
-		}
-	}
 }

@@ -67,459 +67,449 @@ func TestFindRaceSheet(t *testing.T) {
 	}
 }
 
-func TestReadExcelFile(t *testing.T) {
-	testFile := "testdata/Example Regatta Input Table.xlsx"
+// raceFixture is the expected shape of one scheduled race - a race that carries
+// lane data on the Results worksheet.
+type raceFixture struct {
+	number int
+	boats  int
+	class  string
+	flight string
+}
 
-	// Verify test file exists
-	if _, err := os.Stat(testFile); os.IsNotExist(err) {
-		t.Fatalf("Test file not found: %s", testFile)
+// workbookFixtures are the sample regattas under testdata/, one per supported
+// Excel extension. Both files carry a "Results" worksheet; the reader tests
+// exercise only that sheet's contents - the regatta title and date and the races
+// that have lane data. The .xlsm additionally holds macros and formulas, which
+// the reader ignores and which are not tested here.
+var workbookFixtures = []struct {
+	name        string // subtest label
+	path        string
+	regattaName string
+	regattaDate string
+	totalRaces  int
+	scheduled   int
+	races       []raceFixture // the scheduled races, in race-number order
+}{
+	{
+		name:        "xlsx",
+		path:        "testdata/Example Regatta Input Table.xlsx",
+		regattaName: "Test Name",
+		regattaDate: "March 13, 2025",
+		totalRaces:  65,
+		scheduled:   4,
+		races: []raceFixture{
+			{number: 1, boats: 4, flight: "M-1x"},
+			{number: 2, boats: 5, flight: "W-JR-1x"},
+			{number: 3, boats: 6, flight: "M-2x"},
+			{number: 4, boats: 5, flight: "W-2x"},
+		},
+	},
+	{
+		name:        "xlsm",
+		path:        "testdata/Example Heat Sheets and Results With Macros.xlsm",
+		regattaName: "Charlie Brown Classic",
+		regattaDate: "Saturday, May 01, 2027",
+		totalRaces:  120,
+		scheduled:   2,
+		races: []raceFixture{
+			{number: 1, boats: 4, class: "M-1x"},
+			{number: 2, boats: 5, class: "M-Jr-4+", flight: "Heat 1"},
+		},
+	},
+}
+
+func mustReadWorkbook(t *testing.T, path string) *RegattaData {
+	t.Helper()
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("fixture not found: %s", path)
 	}
-
-	data, err := ReadExcelFile(testFile)
+	data, err := ReadExcelFile(path)
 	if err != nil {
-		t.Fatalf("Failed to read Excel file: %v", err)
+		t.Fatalf("ReadExcelFile(%s): %v", path, err)
 	}
-
 	if data == nil {
-		t.Fatal("ReadExcelFile returned nil data")
+		t.Fatalf("ReadExcelFile(%s) returned nil", path)
 	}
+	return data
+}
 
-	// Verify regatta name and date were loaded
-	if data.Name == "" {
-		t.Error("Regatta name should not be empty")
+func raceByNumber(races []RaceData, n int) (RaceData, bool) {
+	for _, r := range races {
+		if r.RaceNumber == n {
+			return r, true
+		}
 	}
+	return RaceData{}, false
+}
 
-	if data.Date == "" {
-		t.Error("Regatta date should not be empty")
-	}
-
-	// Verify races were loaded
-	if len(data.Races) == 0 {
-		t.Fatal("No races were loaded")
-	}
-
-	t.Logf("Loaded regatta: %s on %s", data.Name, data.Date)
-	t.Logf("Number of races: %d", len(data.Races))
-
-	// Verify races are sorted by race number
-	for i := 1; i < len(data.Races); i++ {
-		if data.Races[i].RaceNumber <= data.Races[i-1].RaceNumber {
-			t.Errorf("Races are not sorted: Race %d comes after Race %d",
-				data.Races[i].RaceNumber, data.Races[i-1].RaceNumber)
+func assertSortedByRaceNumber(t *testing.T, races []RaceData) {
+	t.Helper()
+	for i := 1; i < len(races); i++ {
+		if races[i].RaceNumber <= races[i-1].RaceNumber {
+			t.Errorf("races not sorted: race %d follows race %d",
+				races[i].RaceNumber, races[i-1].RaceNumber)
 		}
 	}
 }
 
-func TestReadExcelFile_InvalidPath(t *testing.T) {
-	_, err := ReadExcelFile("nonexistent_file.xlsx")
-	if err == nil {
-		t.Error("Expected error for nonexistent file, got nil")
+func TestReadExcelFile(t *testing.T) {
+	for _, wb := range workbookFixtures {
+		t.Run(wb.name, func(t *testing.T) {
+			data := mustReadWorkbook(t, wb.path)
+
+			if data.Name != wb.regattaName {
+				t.Errorf("Name = %q, want %q", data.Name, wb.regattaName)
+			}
+			if data.Date != wb.regattaDate {
+				t.Errorf("Date = %q, want %q", data.Date, wb.regattaDate)
+			}
+			if len(data.Races) != wb.totalRaces {
+				t.Errorf("race count = %d, want %d", len(data.Races), wb.totalRaces)
+			}
+			if got := data.ScheduledRaces(); got != wb.scheduled {
+				t.Errorf("ScheduledRaces() = %d, want %d", got, wb.scheduled)
+			}
+			assertSortedByRaceNumber(t, data.Races)
+		})
 	}
 }
 
-func TestReadExcelFile_InvalidFile(t *testing.T) {
-	// Create a temporary non-Excel file
-	tmpFile := "testdata/invalid.txt"
-	err := os.WriteFile(tmpFile, []byte("not an excel file"), 0644)
-	if err != nil {
-		t.Fatalf("Failed to create test file: %v", err)
-	}
-	defer os.Remove(tmpFile)
+// TestReadExcelFile_ScheduledRaceContents is the focus of the fixture coverage:
+// for each workbook, the races that carry lane data on the Results worksheet
+// parse into the expected boat count, class, flight, and lane assignments.
+func TestReadExcelFile_ScheduledRaceContents(t *testing.T) {
+	for _, wb := range workbookFixtures {
+		t.Run(wb.name, func(t *testing.T) {
+			data := mustReadWorkbook(t, wb.path)
 
-	_, err = ReadExcelFile(tmpFile)
-	if err == nil {
-		t.Error("Expected error for invalid Excel file, got nil")
+			if len(wb.races) != wb.scheduled {
+				t.Fatalf("fixture lists %d scheduled races but scheduled = %d", len(wb.races), wb.scheduled)
+			}
+
+			for _, want := range wb.races {
+				race, ok := raceByNumber(data.Races, want.number)
+				if !ok {
+					t.Fatalf("race %d not found", want.number)
+				}
+				if race.BoatCount != want.boats {
+					t.Errorf("race %d: BoatCount = %d, want %d", want.number, race.BoatCount, want.boats)
+				}
+				if race.BoatClass != want.class {
+					t.Errorf("race %d: BoatClass = %q, want %q", want.number, race.BoatClass, want.class)
+				}
+				if race.FlightInfo != want.flight {
+					t.Errorf("race %d: FlightInfo = %q, want %q", want.number, race.FlightInfo, want.flight)
+				}
+				if len(race.Lanes) != want.boats {
+					t.Errorf("race %d: %d lanes, want %d", want.number, len(race.Lanes), want.boats)
+				}
+				for lane, entry := range race.Lanes {
+					if lane < 1 || lane > 6 {
+						t.Errorf("race %d: invalid lane %d", want.number, lane)
+					}
+					if entry.SchoolName == "" {
+						t.Errorf("race %d, lane %d: empty school name", want.number, lane)
+					}
+				}
+				if !race.HasBoats() {
+					t.Errorf("race %d: HasBoats() = false", want.number)
+				}
+			}
+		})
 	}
 }
 
 func TestReadExcelFile_RaceData(t *testing.T) {
-	testFile := "testdata/Example Regatta Input Table.xlsx"
+	for _, wb := range workbookFixtures {
+		t.Run(wb.name, func(t *testing.T) {
+			data := mustReadWorkbook(t, wb.path)
+			if len(data.Races) == 0 {
+				t.Fatal("no races loaded")
+			}
 
-	data, err := ReadExcelFile(testFile)
-	if err != nil {
-		t.Fatalf("Failed to read Excel file: %v", err)
-	}
-
-	if len(data.Races) == 0 {
-		t.Fatal("No races loaded")
-	}
-
-	// Test first race in detail
-	firstRace := data.Races[0]
-
-	// Verify basic race properties
-	if firstRace.RaceNumber == 0 {
-		t.Error("Race number should not be zero")
-	}
-
-	// Verify RawData structure
-	if firstRace.RawData == nil {
-		t.Fatal("RawData should not be nil")
-	}
-
-	if len(firstRace.RawData) != 5 {
-		t.Errorf("Expected 5 rows in RawData, got %d", len(firstRace.RawData))
-	}
-
-	for i, row := range firstRace.RawData {
-		if len(row) != 7 {
-			t.Errorf("Expected 7 columns in row %d, got %d", i, len(row))
-		}
-	}
-
-	// Verify lanes map is populated correctly
-	if firstRace.Lanes == nil {
-		t.Fatal("Lanes map should not be nil")
-	}
-
-	t.Logf("First race: Race %d with %d boats", firstRace.RaceNumber, firstRace.BoatCount)
-	if firstRace.BoatClass != "" {
-		t.Logf("  Boat class: %s", firstRace.BoatClass)
-	}
-	if firstRace.FlightInfo != "" {
-		t.Logf("  Flight info: %s", firstRace.FlightInfo)
-	}
-
-	// Verify boat count matches actual lanes
-	actualBoats := len(firstRace.Lanes)
-	if firstRace.BoatCount != actualBoats {
-		t.Errorf("BoatCount (%d) doesn't match actual lanes (%d)", firstRace.BoatCount, actualBoats)
-	}
-
-	// Verify lane entries
-	for lane, entry := range firstRace.Lanes {
-		if lane < 1 || lane > 6 {
-			t.Errorf("Invalid lane number: %d", lane)
-		}
-
-		if entry.SchoolName == "" {
-			t.Errorf("Lane %d has empty school name", lane)
-		}
-
-		t.Logf("  Lane %d: %s", lane, entry.SchoolName)
+			first := data.Races[0]
+			if first.RaceNumber == 0 {
+				t.Error("race number should not be zero")
+			}
+			if first.RawData == nil {
+				t.Fatal("RawData should not be nil")
+			}
+			if len(first.RawData) != 5 {
+				t.Errorf("RawData rows = %d, want 5", len(first.RawData))
+			}
+			for i, row := range first.RawData {
+				if len(row) != 7 {
+					t.Errorf("RawData row %d has %d columns, want 7", i, len(row))
+				}
+			}
+			if first.Lanes == nil {
+				t.Fatal("Lanes map should not be nil")
+			}
+			if first.BoatCount != len(first.Lanes) {
+				t.Errorf("BoatCount (%d) != lanes (%d)", first.BoatCount, len(first.Lanes))
+			}
+			for lane, entry := range first.Lanes {
+				if lane < 1 || lane > 6 {
+					t.Errorf("invalid lane number: %d", lane)
+				}
+				if entry.SchoolName == "" {
+					t.Errorf("lane %d has empty school name", lane)
+				}
+			}
+		})
 	}
 }
 
 func TestReadExcelFile_MultipleRaces(t *testing.T) {
-	testFile := "testdata/Example Regatta Input Table.xlsx"
-
-	data, err := ReadExcelFile(testFile)
-	if err != nil {
-		t.Fatalf("Failed to read Excel file: %v", err)
-	}
-
-	// Test that multiple races can be read
-	if len(data.Races) < 2 {
-		t.Skip("Test file needs at least 2 races for this test")
-	}
-
-	// Verify each race has unique race number
-	raceNumbers := make(map[int]bool)
-	for _, race := range data.Races {
-		if raceNumbers[race.RaceNumber] {
-			t.Errorf("Duplicate race number found: %d", race.RaceNumber)
-		}
-		raceNumbers[race.RaceNumber] = true
-	}
-
-	// Test each race
-	for _, race := range data.Races {
-		t.Run("Race_"+string(rune(race.RaceNumber+'0')), func(t *testing.T) {
-			// Verify basic properties
-			if race.Lanes == nil {
-				t.Error("Lanes map should be initialized")
+	for _, wb := range workbookFixtures {
+		t.Run(wb.name, func(t *testing.T) {
+			data := mustReadWorkbook(t, wb.path)
+			if len(data.Races) < 2 {
+				t.Fatalf("fixture %s has %d races, expected at least 2", wb.name, len(data.Races))
 			}
 
-			if race.RawData == nil {
-				t.Error("RawData should be initialized")
-			}
-
-			// If race has boats, verify lanes are valid
-			if race.BoatCount > 0 {
-				if len(race.Lanes) == 0 {
-					t.Error("Race has BoatCount > 0 but no lanes")
+			seen := make(map[int]bool)
+			for _, race := range data.Races {
+				if seen[race.RaceNumber] {
+					t.Errorf("duplicate race number: %d", race.RaceNumber)
 				}
+				seen[race.RaceNumber] = true
 
+				if race.Lanes == nil {
+					t.Errorf("race %d: Lanes map should be initialized", race.RaceNumber)
+				}
+				if race.RawData == nil {
+					t.Errorf("race %d: RawData should be initialized", race.RaceNumber)
+				}
+				if race.BoatCount > 0 && len(race.Lanes) == 0 {
+					t.Errorf("race %d: BoatCount > 0 but no lanes", race.RaceNumber)
+				}
+				if race.BoatCount != len(race.Lanes) {
+					t.Errorf("race %d: BoatCount (%d) != lanes (%d)",
+						race.RaceNumber, race.BoatCount, len(race.Lanes))
+				}
 				for lane, entry := range race.Lanes {
 					if lane < 1 || lane > 6 {
-						t.Errorf("Invalid lane number: %d", lane)
+						t.Errorf("race %d: invalid lane number: %d", race.RaceNumber, lane)
 					}
-
 					if entry.SchoolName == "" {
-						t.Errorf("Lane %d has empty school name", lane)
+						t.Errorf("race %d, lane %d: empty school name", race.RaceNumber, lane)
 					}
 				}
-			}
-
-			// Verify BoatCount consistency
-			if race.BoatCount != len(race.Lanes) {
-				t.Errorf("BoatCount (%d) doesn't match lanes count (%d)",
-					race.BoatCount, len(race.Lanes))
 			}
 		})
 	}
 }
 
 func TestReadExcelFile_RaceTitle(t *testing.T) {
-	testFile := "testdata/Example Regatta Input Table.xlsx"
-
-	data, err := ReadExcelFile(testFile)
-	if err != nil {
-		t.Fatalf("Failed to read Excel file: %v", err)
-	}
-
-	for _, race := range data.Races {
-		title := race.RaceTitle()
-		if title == "" {
-			t.Errorf("Race %d has empty title", race.RaceNumber)
-		}
-
-		// Title should at least contain the race number
-		if len(title) < 6 {
-			t.Errorf("Race %d has suspiciously short title: %q", race.RaceNumber, title)
-		}
-
-		t.Logf("Race %d title: %s", race.RaceNumber, title)
+	for _, wb := range workbookFixtures {
+		t.Run(wb.name, func(t *testing.T) {
+			data := mustReadWorkbook(t, wb.path)
+			for _, race := range data.Races {
+				title := race.RaceTitle()
+				if title == "" {
+					t.Errorf("race %d has empty title", race.RaceNumber)
+				}
+				if len(title) < len("Race 1") {
+					t.Errorf("race %d has suspiciously short title: %q", race.RaceNumber, title)
+				}
+			}
+		})
 	}
 }
 
 func TestReadExcelFile_ScheduledRaces(t *testing.T) {
-	testFile := "testdata/Example Regatta Input Table.xlsx"
+	for _, wb := range workbookFixtures {
+		t.Run(wb.name, func(t *testing.T) {
+			data := mustReadWorkbook(t, wb.path)
 
-	data, err := ReadExcelFile(testFile)
-	if err != nil {
-		t.Fatalf("Failed to read Excel file: %v", err)
-	}
+			scheduled := data.ScheduledRaces()
+			if scheduled < 0 {
+				t.Error("scheduled race count should not be negative")
+			}
+			if scheduled > len(data.Races) {
+				t.Errorf("scheduled (%d) exceeds total (%d)", scheduled, len(data.Races))
+			}
 
-	scheduled := data.ScheduledRaces()
-	total := len(data.Races)
-
-	if scheduled < 0 {
-		t.Error("Scheduled races count should not be negative")
-	}
-
-	if scheduled > total {
-		t.Errorf("Scheduled races (%d) exceeds total races (%d)", scheduled, total)
-	}
-
-	t.Logf("Scheduled races: %d out of %d total", scheduled, total)
-
-	// Verify scheduled count matches races with boats
-	racesWithBoats := 0
-	for _, race := range data.Races {
-		if len(race.Lanes) > 0 {
-			racesWithBoats++
-		}
-	}
-
-	if scheduled != racesWithBoats {
-		t.Errorf("ScheduledRaces() returned %d but counted %d races with boats",
-			scheduled, racesWithBoats)
+			withBoats := 0
+			for _, race := range data.Races {
+				if len(race.Lanes) > 0 {
+					withBoats++
+				}
+			}
+			if scheduled != withBoats {
+				t.Errorf("ScheduledRaces() = %d, counted %d races with boats", scheduled, withBoats)
+			}
+		})
 	}
 }
 
 func TestReadExcelFile_SchoolNames(t *testing.T) {
-	testFile := "testdata/Example Regatta Input Table.xlsx"
-
-	data, err := ReadExcelFile(testFile)
-	if err != nil {
-		t.Fatalf("Failed to read Excel file: %v", err)
-	}
-
-	for _, race := range data.Races {
-		if race.BoatCount == 0 {
-			continue
-		}
-
-		names := race.SchoolNames()
-		if len(names) != 6 {
-			t.Errorf("Race %d: Expected 6 school names, got %d", race.RaceNumber, len(names))
-		}
-
-		// Count non-empty names
-		nonEmpty := 0
-		for _, name := range names {
-			if name != "" {
-				nonEmpty++
+	for _, wb := range workbookFixtures {
+		t.Run(wb.name, func(t *testing.T) {
+			data := mustReadWorkbook(t, wb.path)
+			for _, race := range data.Races {
+				if race.BoatCount == 0 {
+					continue
+				}
+				names := race.SchoolNames()
+				if len(names) != 6 {
+					t.Errorf("race %d: %d school names, want 6", race.RaceNumber, len(names))
+				}
+				nonEmpty := 0
+				for _, name := range names {
+					if name != "" {
+						nonEmpty++
+					}
+				}
+				if nonEmpty != race.BoatCount {
+					t.Errorf("race %d: BoatCount %d, %d non-empty school names",
+						race.RaceNumber, race.BoatCount, nonEmpty)
+				}
 			}
-		}
-
-		if nonEmpty != race.BoatCount {
-			t.Errorf("Race %d: BoatCount is %d but found %d non-empty school names",
-				race.RaceNumber, race.BoatCount, nonEmpty)
-		}
+		})
 	}
 }
 
 func TestReadExcelFile_AdditionalInfos(t *testing.T) {
-	testFile := "testdata/Example Regatta Input Table.xlsx"
-
-	data, err := ReadExcelFile(testFile)
-	if err != nil {
-		t.Fatalf("Failed to read Excel file: %v", err)
-	}
-
-	for _, race := range data.Races {
-		if race.BoatCount == 0 {
-			continue
-		}
-
-		infos := race.AdditionalInfos()
-		if len(infos) != 6 {
-			t.Errorf("Race %d: Expected 6 additional infos, got %d", race.RaceNumber, len(infos))
-		}
+	for _, wb := range workbookFixtures {
+		t.Run(wb.name, func(t *testing.T) {
+			data := mustReadWorkbook(t, wb.path)
+			for _, race := range data.Races {
+				if race.BoatCount == 0 {
+					continue
+				}
+				if infos := race.AdditionalInfos(); len(infos) != 6 {
+					t.Errorf("race %d: %d additional infos, want 6", race.RaceNumber, len(infos))
+				}
+			}
+		})
 	}
 }
 
 func TestReadExcelFile_ApprovalWorkflow(t *testing.T) {
-	testFile := "testdata/Example Regatta Input Table.xlsx"
-
-	data, err := ReadExcelFile(testFile)
-	if err != nil {
-		t.Fatalf("Failed to read Excel file: %v", err)
-	}
-
-	if len(data.Races) == 0 {
-		t.Fatal("No races loaded")
-	}
-
-	// Verify all races start as unapproved
-	for _, race := range data.Races {
-		if race.Approved {
-			t.Errorf("Race %d should start as unapproved", race.RaceNumber)
-		}
-	}
-
-	// Test approval
-	firstRaceNum := data.Races[0].RaceNumber
-	data.ApproveRace(firstRaceNum)
-
-	// Verify only the first race is approved
-	for _, race := range data.Races {
-		if race.RaceNumber == firstRaceNum {
-			if !race.Approved {
-				t.Errorf("Race %d should be approved", firstRaceNum)
+	for _, wb := range workbookFixtures {
+		t.Run(wb.name, func(t *testing.T) {
+			data := mustReadWorkbook(t, wb.path)
+			if len(data.Races) == 0 {
+				t.Fatal("no races loaded")
 			}
-		} else {
-			if race.Approved {
-				t.Errorf("Race %d should not be approved", race.RaceNumber)
+
+			for _, race := range data.Races {
+				if race.Approved {
+					t.Errorf("race %d should start unapproved", race.RaceNumber)
+				}
 			}
-		}
+
+			first := data.Races[0].RaceNumber
+			data.ApproveRace(first)
+			for _, race := range data.Races {
+				want := race.RaceNumber == first
+				if race.Approved != want {
+					t.Errorf("race %d: Approved = %v, want %v", race.RaceNumber, race.Approved, want)
+				}
+			}
+		})
 	}
 }
 
 func TestReadExcelFile_SavedStatus(t *testing.T) {
-	testFile := "testdata/Example Regatta Input Table.xlsx"
-
-	data, err := ReadExcelFile(testFile)
-	if err != nil {
-		t.Fatalf("Failed to read Excel file: %v", err)
-	}
-
-	// Verify all races start as not saved
-	for _, race := range data.Races {
-		if race.Saved {
-			t.Errorf("Race %d should start as not saved", race.RaceNumber)
-		}
+	for _, wb := range workbookFixtures {
+		t.Run(wb.name, func(t *testing.T) {
+			data := mustReadWorkbook(t, wb.path)
+			for _, race := range data.Races {
+				if race.Saved {
+					t.Errorf("race %d should start not saved", race.RaceNumber)
+				}
+			}
+		})
 	}
 }
 
 func TestReadExcelFile_EmptyLanes(t *testing.T) {
-	testFile := "testdata/Example Regatta Input Table.xlsx"
-
-	data, err := ReadExcelFile(testFile)
-	if err != nil {
-		t.Fatalf("Failed to read Excel file: %v", err)
-	}
-
-	// Verify that empty lanes are not included
-	for _, race := range data.Races {
-		for lane, entry := range race.Lanes {
-			if entry.SchoolName == "" {
-				t.Errorf("Race %d, Lane %d: Empty entry should not be in Lanes map",
-					race.RaceNumber, lane)
+	for _, wb := range workbookFixtures {
+		t.Run(wb.name, func(t *testing.T) {
+			data := mustReadWorkbook(t, wb.path)
+			for _, race := range data.Races {
+				for lane, entry := range race.Lanes {
+					if entry.SchoolName == "" {
+						t.Errorf("race %d, lane %d: empty entry should not be in Lanes",
+							race.RaceNumber, lane)
+					}
+				}
 			}
-		}
+		})
 	}
 }
 
 func TestReadExcelFile_RawDataIntegrity(t *testing.T) {
-	testFile := "testdata/Example Regatta Input Table.xlsx"
-
-	data, err := ReadExcelFile(testFile)
-	if err != nil {
-		t.Fatalf("Failed to read Excel file: %v", err)
-	}
-
-	for _, race := range data.Races {
-		// Verify RawData structure
-		if len(race.RawData) != 5 {
-			t.Errorf("Race %d: Expected 5 rows in RawData, got %d", race.RaceNumber, len(race.RawData))
-			continue
-		}
-
-		// Verify each row has 7 columns
-		for rowIdx, row := range race.RawData {
-			if len(row) != 7 {
-				t.Errorf("Race %d, Row %d: Expected 7 columns, got %d",
-					race.RaceNumber, rowIdx, len(row))
+	for _, wb := range workbookFixtures {
+		t.Run(wb.name, func(t *testing.T) {
+			data := mustReadWorkbook(t, wb.path)
+			for _, race := range data.Races {
+				if len(race.RawData) != 5 {
+					t.Errorf("race %d: RawData rows = %d, want 5", race.RaceNumber, len(race.RawData))
+					continue
+				}
+				for rowIdx, row := range race.RawData {
+					if len(row) != 7 {
+						t.Errorf("race %d, row %d: %d columns, want 7", race.RaceNumber, rowIdx, len(row))
+					}
+				}
+				if race.BoatClass != race.RawData.getBoatClass() {
+					t.Errorf("race %d: BoatClass %q != RawData %q",
+						race.RaceNumber, race.BoatClass, race.RawData.getBoatClass())
+				}
+				if race.FlightInfo != race.RawData.getFlightInfo() {
+					t.Errorf("race %d: FlightInfo %q != RawData %q",
+						race.RaceNumber, race.FlightInfo, race.RawData.getFlightInfo())
+				}
 			}
-		}
-
-		// Verify boat class matches RawData
-		if race.BoatClass != race.RawData.getBoatClass() {
-			t.Errorf("Race %d: BoatClass mismatch: %q vs %q",
-				race.RaceNumber, race.BoatClass, race.RawData.getBoatClass())
-		}
-
-		// Verify flight info matches RawData
-		if race.FlightInfo != race.RawData.getFlightInfo() {
-			t.Errorf("Race %d: FlightInfo mismatch: %q vs %q",
-				race.RaceNumber, race.FlightInfo, race.RawData.getFlightInfo())
-		}
+		})
 	}
 }
 
 func TestReadExcelFile_HasBoats(t *testing.T) {
-	testFile := "testdata/Example Regatta Input Table.xlsx"
-
-	data, err := ReadExcelFile(testFile)
-	if err != nil {
-		t.Fatalf("Failed to read Excel file: %v", err)
-	}
-
-	for _, race := range data.Races {
-		hasBoats := race.HasBoats()
-		expectedHasBoats := race.BoatCount > 0
-
-		if hasBoats != expectedHasBoats {
-			t.Errorf("Race %d: HasBoats() = %v, but BoatCount = %d",
-				race.RaceNumber, hasBoats, race.BoatCount)
-		}
+	for _, wb := range workbookFixtures {
+		t.Run(wb.name, func(t *testing.T) {
+			data := mustReadWorkbook(t, wb.path)
+			for _, race := range data.Races {
+				if race.HasBoats() != (race.BoatCount > 0) {
+					t.Errorf("race %d: HasBoats() = %v, BoatCount = %d",
+						race.RaceNumber, race.HasBoats(), race.BoatCount)
+				}
+			}
+		})
 	}
 }
 
 func TestReadExcelFile_SortedRaces(t *testing.T) {
-	testFile := "testdata/Example Regatta Input Table.xlsx"
-
-	data, err := ReadExcelFile(testFile)
-	if err != nil {
-		t.Fatalf("Failed to read Excel file: %v", err)
+	for _, wb := range workbookFixtures {
+		t.Run(wb.name, func(t *testing.T) {
+			data := mustReadWorkbook(t, wb.path)
+			sorted := data.SortedRaces()
+			if len(sorted) != len(data.Races) {
+				t.Errorf("SortedRaces length %d != Races length %d", len(sorted), len(data.Races))
+			}
+			assertSortedByRaceNumber(t, sorted)
+		})
 	}
+}
 
-	sorted := data.SortedRaces()
-
-	// Verify length matches
-	if len(sorted) != len(data.Races) {
-		t.Errorf("SortedRaces length (%d) doesn't match Races length (%d)",
-			len(sorted), len(data.Races))
+func TestReadExcelFile_InvalidPath(t *testing.T) {
+	if _, err := ReadExcelFile("nonexistent_file.xlsx"); err == nil {
+		t.Error("expected an error for a nonexistent file, got nil")
 	}
+}
 
-	// Verify sorting
-	for i := 1; i < len(sorted); i++ {
-		if sorted[i].RaceNumber <= sorted[i-1].RaceNumber {
-			t.Errorf("SortedRaces not properly sorted at index %d: %d follows %d",
-				i, sorted[i].RaceNumber, sorted[i-1].RaceNumber)
-		}
+func TestReadExcelFile_InvalidFile(t *testing.T) {
+	tmpFile := "testdata/invalid.txt"
+	if err := os.WriteFile(tmpFile, []byte("not an excel file"), 0644); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+	defer os.Remove(tmpFile)
+
+	if _, err := ReadExcelFile(tmpFile); err == nil {
+		t.Error("expected an error for an invalid Excel file, got nil")
 	}
 }
