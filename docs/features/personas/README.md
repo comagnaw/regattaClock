@@ -11,6 +11,7 @@ High-level requirements for multi-persona operation of Regatta Clock.
 - [logging-options.md](logging-options.md) — JSON event logging design
 - [shared-storage-options.md](shared-storage-options.md) — SMB / spare-PC vs cloud sync
 - [persona-config-file.md](persona-config-file.md) — optional deployment JSON: host→persona assignment and challenge-code overrides
+- [sidecar-personas.md](sidecar-personas.md) — publishing sub-tasks attached to a lead persona (social post, register results); Lead / Standalone / Sidecar classification
 
 ## Goal
 
