@@ -197,18 +197,29 @@ const (
 	CommitStatusTimeFormat     = "Mon, 02 Jan 2006 15:04:05 MST" // time.RFC1123
 	CommitStatusUnknownHost    = "unknown host"
 
-	// Timer persona startup flow (internal/regatta persona_startup.go).
-	PersonaPickerPrompt           = "Choose your persona and enter its challenge code."
-	ChallengeFieldLabel           = "Challenge code:"
-	SelectRegattaFolderButtonText = "Select Regatta Folder"
-	SelectRegattaFolderTitle      = "Select the shared regatta folder"
-	UseThisFolderText             = "Use This Folder"
-	NoPersonaSelectedMessage      = "Select a persona before continuing."
-	ChallengeMismatchMessage      = "That challenge code does not match the selected persona."
-	NotRegattaDataDirMessage      = "Choose the shared regatta folder - the one that contains a regattaData folder (or regattaData itself)."
-	ScheduleUnreadableMessage     = "Could not read the regatta schedule in that directory"
-	ConfirmRegattaTitle           = "Confirm regatta"
-	ConfirmRegattaMessage         = "%s\n%s\nScheduled races: %d\n\nTime this regatta?"
+	// Persona picker (internal/regatta persona_startup.go). The Welcome screen
+	// groups personas into tabs; pressing a persona's button asks for its
+	// challenge code in a small dialog. Media/Developer are disabled placeholders
+	// for personas that do not exist yet.
+	PersonaPickerPrompt         = "Choose your persona."
+	PersonaChallengeTitle       = "Challenge for %s"
+	ContinueButtonText          = "Continue"
+	ChallengeFieldLabel         = "Challenge code:"
+	PersonaTabTimers            = "Timers"
+	PersonaTabMedia             = "Media"
+	PersonaTabAdmins            = "Admins"
+	PersonaPlaceholderNote      = "Greyed-out personas are planned for a future release."
+	PersonaSocialMediaLabel     = "Social Media"
+	PersonaStreamingLabel       = "Streaming"
+	PersonaRegisterResultsLabel = "Register Results"
+	PersonaDeveloperLabel       = "Developer"
+	SelectRegattaFolderTitle    = "Select the shared regatta folder"
+	UseThisFolderText           = "Use This Folder"
+	ChallengeMismatchMessage    = "That challenge code does not match the selected persona."
+	NotRegattaDataDirMessage    = "Choose the shared regatta folder - the one that contains a regattaData folder (or regattaData itself)."
+	ScheduleUnreadableMessage   = "Could not read the regatta schedule in that directory"
+	ConfirmRegattaTitle         = "Confirm regatta"
+	ConfirmRegattaMessage       = "%s\n%s\nScheduled races: %d\n\nTime this regatta?"
 
 	// Past-regatta gate (internal/regatta date_guard.go). Shown to a timer when
 	// the schedule's date is before the host's current local date - the

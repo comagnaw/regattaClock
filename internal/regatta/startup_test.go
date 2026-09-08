@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/test"
 	"fyne.io/fyne/v2/widget"
@@ -13,12 +14,17 @@ import (
 	"github.com/comagnaw/regattaClock/internal/persona"
 )
 
-// buttonLabels - collect the button text of the view currently on screen
+// buttonLabels - collect the button text of the view currently on screen,
+// descending into AppTabs (every tab's content, not just the selected one).
 func buttonLabels(o fyne.CanvasObject) []string {
 	labels := []string{}
 	switch t := o.(type) {
 	case *widget.Button:
 		labels = append(labels, t.Text)
+	case *container.AppTabs:
+		for _, item := range t.Items {
+			labels = append(labels, buttonLabels(item.Content)...)
+		}
 	case *fyne.Container:
 		for _, c := range t.Objects {
 			labels = append(labels, buttonLabels(c)...)
