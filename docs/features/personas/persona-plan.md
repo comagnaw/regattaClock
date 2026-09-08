@@ -57,13 +57,13 @@ The clock cannot block on a missing start time either way. Design consequence: t
 
 ## 3. Directory layout and ownership
 
-```
+```text
 <shared root>/regattaData/
 ```
 
 The shared root is either a cloud-synced local folder on each laptop (OneDrive, Google Drive for Desktop, etc.) or a UNC path such as `\\timing-pc\regatta\regattaData` served by the spare Windows PC. The tree under `regattaData/` is identical in both modes:
 
-```
+```text
 regattaData/
 ├── director/
 │   └── regattaSchedule.json   # race program from Excel       [RD writes]
@@ -656,6 +656,7 @@ func (r *Regatta) initRegatta() {
 ```
 
   For a timing persona this is replaced entirely by the persona flow. For the Regatta Director, `PrefRegattaDir` is still where the schedule save location is remembered, and `PrefLastPersonaID == "rd"` turns it into a **"Resume as Regatta Director — &lt;name&gt;"** shortcut on the picker (skips the challenge, since it is the same machine and operator). That shortcut is the **only** path that auto-restores the last regatta: deliberately choosing "Regatta Director" from the picker always opens the Director Setup view, so the RD can switch to a different regatta without restarting the app. A timing persona always re-picks.
+
 - **`setupStartupDialog` dead code** was removed with the phase-5 startup rework.
 
 ### Regatta Director entry point
@@ -752,7 +753,7 @@ Each phase compiles, passes tests, and leaves the app usable.
 7. **Clock integration** — derived winning time, save on approve/save (plus an in-progress `RaceResult` on the clock's Start click), rehydration, skew warnings; log clock actions and ERROR on save failure; schedule-conflict label refresh while clock open (section 3c), and a per-race `LaneMapHash` stamped on every `RaceResult` write (section 3c item 4). **Start Timer lock** — the ST mirrors `finish.json` read-only and disables `Start Time` / `Clear` / `Restore` for any race the FT has begun timing (section 9).
 8. **Regatta Director** — sliced:
    - **8a. One binary + unified picker.** Delete `cmd/regattaDirector`; the Director is a persona on `regatta.New`'s picker, gated by `rc-rd`; `PrefLastPersonaID` drives a resume shortcut; Excel import gains a confirm-metadata step; the `Time Race` button comes off the Director row. *(done)*
-   - **8b. Read-only progress tree** — *(done)* **8b-1**: shared column grammar + a per-column header row for all three trees; RD tree on the `raceRow` map with the four metric columns. **8b-2**: the Director hydrates both teams' `start.json` + `finish.json`, watches all five files, and renders Restarts / Start Time / Winning Time / approval primary-first with a per-value secondary fallback (` ·2nd` suffix + legend); dismissible clock-skew banner (offsets across the four envelopes, section 2.1) and staleness banner (freshest write older than 10 min, section 9). Executive-team log path already lands with 8a.
+   - **8b. Read-only progress tree** — *(done)* **8b-1**: shared column grammar + a per-column header row for all three trees; RD tree on the `raceRow` map with the four metric columns. **8b-2**: the Director hydrates both teams' `start.json` + `finish.json`, watches all five files, and renders Restarts / Start Time / Winning Time / approval primary-first with a per-value secondary fallback (`·2nd` suffix + legend); dismissible clock-skew banner (offsets across the four envelopes, section 2.1) and staleness banner (freshest write older than 10 min, section 9). Executive-team log path already lands with 8a.
    - **8c. Schedule origin refresh** (section 3b). **8c-1** *(done)*: the **RegattaKey-mismatch guard** on the RD import/reload path — same key writes; a different key with no timing data confirms and keeps the old file as `regattaSchedule.<oldKey>.json`; a different key *with* timing data is refused (the RD archives/clears the folder or points at a fresh one); an unreadable on-disk schedule is refused too. Plus a **Reload Schedule** menu item that re-reads the recorded workbook through the same confirm + guard. **8c-2** *(done)*: a 45s background poll re-hashes the source workbook; on a change it re-reads and compares `Schedule.ContentHash()` (name + date + per-race number/class/flight/count + ordered lane map, Origin excluded) to the live schedule. Unchanged content just clears the banner (DEBUG log, no write); a real change raises a dismissible `Apply` / `Dismiss` banner on the RD tree, Apply routing the candidate through the 8c-1 guard. Reload Schedule now also compares and no-ops when the workbook has not changed the schedule.
    - **8d. Consume `RaceResult.LaneMapHash`** *(done)* (section 3c item 4): `staleLaneMap(n)` compares a committed result's stored hash (winning time or approval present; a pre-8d result with no stamp is never flagged) against `raceLaneMapHash(live race n)`. A mismatch prefixes the row title with `common.StaleLaneMapMark` ("† ") in the FT tree (own `finish.json`) and the RD tree (either team's), with an italic header legend shown only while a row is flagged. Survives a restart because the hashes are on disk; clears when the race is reopened and re-Saved.
    - **8e. Reconciliation model** *(design captured; no code)* — [reconciliation.md](reconciliation.md): the two teams' `finish.json` files are combined by **read-time auto-selection**, primary then secondary per race, each published race carrying a provenance tag (`primary` / `secondary` / `disputed`), with gaps the primary missed closed by the primary FT re-entering the secondary's numbers. The RD persists no reconciliation decision. The consumer — a per-race verdict column, a disputed-race resolution screen, and the export/publish with places and times — lands with a future results/publish persona.

@@ -39,7 +39,7 @@ Both would:
 Target artifact (both personas render this same content, one as text, one as an
 image):
 
-```
+```text
 Race 1: W-N-4+ Heat 1 Results
 1 - Robinson 07:26.8
 2 - Gloucester 07:29.9

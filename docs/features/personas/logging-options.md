@@ -70,7 +70,7 @@ Your gut — under `regattaData` — is right for **troubleshooting a shared reg
 
 ### Proposed layout
 
-```
+```text
 regattaData/
 ├── director/                  # schedule owned by RoleDirector (TeamExecutive)
 │   └── regattaSchedule.json
