@@ -8,21 +8,21 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/test"
-	"fyne.io/fyne/v2/widget"
 
 	"github.com/comagnaw/regattaClock/internal/common"
 	"github.com/comagnaw/regattaClock/internal/persona"
 	"github.com/comagnaw/regattaClock/internal/persona/store"
 )
 
-func findRadioGroup(o fyne.CanvasObject) *widget.RadioGroup {
+func findAppTabs(o fyne.CanvasObject) *container.AppTabs {
 	switch v := o.(type) {
-	case *widget.RadioGroup:
+	case *container.AppTabs:
 		return v
 	case *fyne.Container:
 		for _, child := range v.Objects {
-			if got := findRadioGroup(child); got != nil {
+			if got := findAppTabs(child); got != nil {
 				return got
 			}
 		}
@@ -86,28 +86,71 @@ func TestTimerShowsPersonaPicker(t *testing.T) {
 	app := test.NewTempApp(t)
 	r := NewTimer(app)
 
-	rg := findRadioGroup(r.window.Content())
-	if rg == nil {
-		t.Fatal("persona picker has no radio group")
+	tabs := findAppTabs(r.window.Content())
+	if tabs == nil {
+		t.Fatal("persona picker has no tabs")
 	}
-	// The one picker lists every persona now - the four timers and the director.
-	if len(rg.Options) != len(persona.All()) {
-		t.Fatalf("picker options = %v, want %d", rg.Options, len(persona.All()))
+	gotTabs := make([]string, len(tabs.Items))
+	for i, it := range tabs.Items {
+		gotTabs[i] = it.Text
 	}
-	if !slices.Contains(rg.Options, persona.DirectorDefinition.Label) {
-		t.Errorf("picker options = %v, want the Regatta Director included", rg.Options)
+	wantTabs := []string{common.PersonaTabTimers, common.PersonaTabMedia, common.PersonaTabAdmins}
+	if !slices.Equal(gotTabs, wantTabs) {
+		t.Fatalf("tabs = %v, want %v", gotTabs, wantTabs)
 	}
+
+	labels := buttonLabels(r.window.Content())
+	for _, want := range []string{
+		"Primary Start Timer", "Primary Finish Timer", "Secondary Start Timer", "Secondary Finish Timer",
+		persona.DirectorDefinition.Label,
+		common.PersonaSocialMediaLabel, common.PersonaStreamingLabel,
+		common.PersonaRegisterResultsLabel, common.PersonaDeveloperLabel,
+	} {
+		if !slices.Contains(labels, want) {
+			t.Errorf("picker %v is missing %q", labels, want)
+		}
+	}
+
 	if r.session.Root != "" {
 		t.Error("session should not be bound before the picker completes")
 	}
 }
 
-func TestPersonaByLabel(t *testing.T) {
-	if d, ok := personaByLabel("Primary Start Timer"); !ok || d.ID != "pst" {
-		t.Errorf("personaByLabel(Primary Start Timer) = %+v, %v", d, ok)
+func TestPersonaPicker_PlaceholdersDisabled(t *testing.T) {
+	app := test.NewTempApp(t)
+	r := NewTimer(app)
+	content := r.window.Content()
+
+	for _, label := range []string{
+		common.PersonaSocialMediaLabel, common.PersonaStreamingLabel,
+		common.PersonaRegisterResultsLabel, common.PersonaDeveloperLabel,
+	} {
+		b := findButtonByLabel(content, label)
+		if b == nil {
+			t.Errorf("placeholder %q not on the picker", label)
+			continue
+		}
+		if !b.Disabled() {
+			t.Errorf("placeholder %q should be disabled", label)
+		}
+		if b.OnTapped != nil {
+			t.Errorf("placeholder %q should have no action", label)
+		}
 	}
-	if _, ok := personaByLabel("Nobody"); ok {
-		t.Error("personaByLabel(Nobody) reported ok")
+
+	for _, label := range []string{
+		"Primary Start Timer", "Primary Finish Timer",
+		"Secondary Start Timer", "Secondary Finish Timer",
+		persona.DirectorDefinition.Label,
+	} {
+		b := findButtonByLabel(content, label)
+		if b == nil || b.Disabled() {
+			t.Errorf("real persona %q should be an enabled button (got %v)", label, b)
+		}
+	}
+
+	if r.session.Root != "" {
+		t.Error("no session before a real persona is pressed")
 	}
 }
 
@@ -187,7 +230,7 @@ func TestStartSessionStartTimerHydratesOwnStart(t *testing.T) {
 	if len(r.RegattaData.Races) != 2 {
 		t.Fatalf("schedule not hydrated: %d races", len(r.RegattaData.Races))
 	}
-	if findRadioGroup(r.window.Content()) != nil {
+	if findAppTabs(r.window.Content()) != nil {
 		t.Error("still on the persona picker after starting the session")
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/test"
 	"fyne.io/fyne/v2/widget"
@@ -21,6 +22,12 @@ func findButtonByLabel(o fyne.CanvasObject, label string) *widget.Button {
 		if v.Text == label {
 			return v
 		}
+	case *container.AppTabs:
+		for _, item := range v.Items {
+			if b := findButtonByLabel(item.Content, label); b != nil {
+				return b
+			}
+		}
 	case *fyne.Container:
 		for _, c := range v.Objects {
 			if b := findButtonByLabel(c, label); b != nil {
@@ -35,15 +42,13 @@ func TestNew_ShowsUnifiedPicker(t *testing.T) {
 	app := test.NewTempApp(t)
 	r := New(app)
 
-	rg := findRadioGroup(r.window.Content())
-	if rg == nil {
-		t.Fatal("startup has no persona radio group")
+	tabs := findAppTabs(r.window.Content())
+	if tabs == nil {
+		t.Fatal("startup has no persona tabs")
 	}
-	if len(rg.Options) != len(persona.All()) {
-		t.Errorf("picker options = %v, want %d personas", rg.Options, len(persona.All()))
-	}
-	if !slices.Contains(rg.Options, persona.DirectorDefinition.Label) {
-		t.Error("picker is missing the Regatta Director")
+	labels := buttonLabels(r.window.Content())
+	if !slices.Contains(labels, persona.DirectorDefinition.Label) {
+		t.Errorf("picker %v is missing the Regatta Director", labels)
 	}
 	if r.mode != modeUnset || r.session.Root != "" {
 		t.Error("no mode or session should be bound before a persona is chosen")
@@ -57,7 +62,7 @@ func TestOnPersonaChosen_DirectorEntersDirectorFlow(t *testing.T) {
 	app := test.NewTempApp(t)
 	r := New(app)
 
-	r.onPersonaChosen(persona.DirectorDefinition.Label, "rc-rd")
+	r.onPersonaChosen(persona.DirectorDefinition, "rc-rd")
 
 	if r.mode != modeDirector {
 		t.Fatalf("mode = %v, want modeDirector", r.mode)
@@ -74,12 +79,12 @@ func TestOnPersonaChosen_DirectorWrongChallengeStays(t *testing.T) {
 	app := test.NewTempApp(t)
 	r := New(app)
 
-	r.onPersonaChosen(persona.DirectorDefinition.Label, "nope")
+	r.onPersonaChosen(persona.DirectorDefinition, "nope")
 
 	if r.mode != modeUnset {
 		t.Error("a rejected challenge must not enter any flow")
 	}
-	if findRadioGroup(r.window.Content()) == nil {
+	if findAppTabs(r.window.Content()) == nil {
 		t.Error("the picker should still be on screen after a rejected challenge")
 	}
 }
@@ -91,7 +96,7 @@ func TestOnPersonaChosen_DirectorAlwaysStartsAtSetup(t *testing.T) {
 	app.Preferences().SetString(common.PrefRegattaDir, filepath.Dir(root))
 
 	r := New(app)
-	r.onPersonaChosen(persona.DirectorDefinition.Label, "rc-rd")
+	r.onPersonaChosen(persona.DirectorDefinition, "rc-rd")
 
 	// Deliberately choosing "Regatta Director" must open the Set Directory /
 	// Load Excel view even when a regatta is already configured - only the
@@ -138,7 +143,7 @@ func TestDirectorImportWritesScheduleOnConfirm(t *testing.T) {
 	regattaDir := t.TempDir()
 
 	r := New(app)
-	r.onPersonaChosen(persona.DirectorDefinition.Label, "rc-rd")
+	r.onPersonaChosen(persona.DirectorDefinition, "rc-rd")
 	r.changeCallBack()(listerFor(t, regattaDir), nil)
 
 	xlsx, err := filepath.Abs(filepath.Join("..", "..", "examples", "Example Regatta Input Table.xlsx"))

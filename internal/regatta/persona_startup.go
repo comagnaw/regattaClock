@@ -25,30 +25,58 @@ import (
 	"github.com/comagnaw/regattaClock/internal/watcher"
 )
 
-// showPersonaPicker is the one startup screen: pick a persona - Regatta Director
-// or one of the four timers - and type its challenge code. The Regatta Director
-// also gets a "resume" shortcut when the last run was as the director and its
-// schedule is still readable.
+// showPersonaPicker is the one startup screen: the personas are grouped into
+// Timers / Media / Admins tabs; the operator types the challenge code and
+// presses their persona's button. Media and Developer are disabled placeholders
+// for personas that do not exist yet. The Regatta Director also gets a "resume"
+// shortcut below the tabs when the last run was as the director and its schedule
+// is still readable.
 func (r *Regatta) showPersonaPicker() {
-	defs := persona.All()
-	labels := make([]string, len(defs))
-	for i, d := range defs {
-		labels[i] = d.Label
-	}
-	picker := widget.NewRadioGroup(labels, nil)
-
 	challenge := widget.NewEntry()
 
-	cont := widget.NewButton(common.SelectRegattaFolderButtonText, func() {
-		r.onPersonaChosen(picker.Selected, challenge.Text)
-	})
+	personaButton := func(id string) *widget.Button {
+		def, _ := persona.ByID(id)
+		return widget.NewButton(def.Label, func() {
+			r.onPersonaChosen(def, challenge.Text)
+		})
+	}
+	placeholderButton := func(label string) *widget.Button {
+		b := widget.NewButton(label, nil)
+		b.Disable()
+		return b
+	}
+
+	timers := container.NewVBox(
+		personaButton("pst"), personaButton("pft"),
+		personaButton("sst"), personaButton("sft"),
+	)
+	media := container.NewVBox(
+		placeholderButton(common.PersonaSocialMediaLabel),
+		placeholderButton(common.PersonaStreamingLabel),
+		placeholderButton(common.PersonaRegisterResultsLabel),
+	)
+	admins := container.NewVBox(
+		widget.NewButton(persona.DirectorDefinition.Label, func() {
+			r.onPersonaChosen(persona.DirectorDefinition, challenge.Text)
+		}),
+		placeholderButton(common.PersonaDeveloperLabel),
+	)
+
+	tabs := container.NewAppTabs(
+		container.NewTabItem(common.PersonaTabTimers, timers),
+		container.NewTabItem(common.PersonaTabMedia, media),
+		container.NewTabItem(common.PersonaTabAdmins, admins),
+	)
+	tabs.SetTabLocation(container.TabLocationTop)
+
+	note := widget.NewLabelWithStyle(common.PersonaPlaceholderNote, fyne.TextAlignLeading, fyne.TextStyle{Italic: true})
 
 	rows := []fyne.CanvasObject{
 		text.BoldLeading(common.PersonaPickerPrompt),
-		picker,
+		tabs,
 		widget.NewLabel(common.ChallengeFieldLabel),
 		challenge,
-		container.NewHBox(cont),
+		note,
 	}
 	if resume := r.resumeDirectorButton(); resume != nil {
 		rows = append(rows, widget.NewSeparator(), container.NewHBox(resume))
@@ -89,23 +117,10 @@ func (r *Regatta) resumeDirectorButton() *widget.Button {
 	})
 }
 
-func personaByLabel(label string) (persona.Definition, bool) {
-	for _, d := range persona.All() {
-		if d.Label == label {
-			return d, true
-		}
-	}
-	return persona.Definition{}, false
-}
-
-// onPersonaChosen validates the challenge, then routes to the director flow or
-// the timer folder dialog. A failure keeps the picker on screen.
-func (r *Regatta) onPersonaChosen(label, challengeInput string) {
-	def, ok := personaByLabel(label)
-	if !ok {
-		dialog.ShowError(errors.New(common.NoPersonaSelectedMessage), r.window)
-		return
-	}
+// onPersonaChosen validates the challenge for the pressed persona button, then
+// routes to the director flow or the timer folder dialog. A failure keeps the
+// picker on screen.
+func (r *Regatta) onPersonaChosen(def persona.Definition, challengeInput string) {
 	if !def.MatchesChallenge(challengeInput) {
 		applog.Info("persona challenge rejected", "component", "startup", "persona_id", def.ID)
 		dialog.ShowError(errors.New(common.ChallengeMismatchMessage), r.window)
