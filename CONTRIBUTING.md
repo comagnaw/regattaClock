@@ -9,7 +9,10 @@ read [AGENTS.md](AGENTS.md).
 - **A C toolchain and OpenGL/X11 development libraries.** fyne links GLFW via
   CGO, so these are required to build or run:
   - **Linux:** `libgl-dev libxcursor-dev libxinerama-dev libxrandr-dev libxi-dev
-    libxxf86vm-dev` (package names vary by distro).
+    libxxf86vm-dev libwayland-dev libxkbcommon-dev wayland-protocols libegl-dev`
+    (package names vary by distro). Testing `./internal/...` needs only the X11
+    set; building the binary (GLFW compiles an X11 and a Wayland backend) needs
+    the Wayland and EGL packages too.
   - **Windows:** MinGW gcc.
   - **macOS:** the Xcode command-line tools (`xcode-select --install`).
 

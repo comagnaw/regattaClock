@@ -32,7 +32,9 @@ jobs:
       - name: Install OpenGL development libraries
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgl-dev libxcursor-dev libxinerama-dev libxrandr-dev libxi-dev libxxf86vm-dev
+          sudo apt-get install -y \
+            libgl-dev libxcursor-dev libxinerama-dev libxrandr-dev libxi-dev libxxf86vm-dev \
+            libwayland-dev libxkbcommon-dev wayland-protocols libegl-dev
 
       # go test ./internal/... never compiles ./cmd; build and vet the whole
       # module so a stale main.go (a changed regatta.New / Bootstrap signature)
