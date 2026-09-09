@@ -10,9 +10,15 @@ Companion to [windows-internal-pki.md](windows-internal-pki.md) and
 
 [`release.yml`](../../../.github/workflows/release.yml) runs
 `fyne-cross windows -arch amd64,386` and publishes `regattaClock-<arch>.exe.zip` — a bare
-executable, no installer. There is **no `FyneApp.toml`** in the repo, so the exe's embedded
-version resource is whatever `fyne`/`fyne-cross` defaults to; nothing feeds the git tag into
-it.
+executable, no installer. Two version surfaces, only one of them fed:
+
+- **Go level** — the git tag *is* compiled into the binary via `-ldflags -X` on
+  `internal/version` (`regattaClock -v`; see [`AGENTS.md`](../../../AGENTS.md)
+  "Releases").
+- **Win32 `VERSIONINFO`** — the version Explorer shows under right‑click →
+  Properties → **Details**. There is still **no `FyneApp.toml`** in the repo, so
+  this is whatever `fyne`/`fyne-cross` defaults to; the tag does **not** reach it
+  yet (see [Version metadata](#version-metadata) below).
 
 Consequences of portable‑only:
 
