@@ -8,6 +8,8 @@ persona feature is built on.
 
 - [integration-testing.md](integration-testing.md) — the proposed integration /
   functional test lane: scenarios, mechanics, and a CI job that is not built yet
+- [known-issues.md](known-issues.md) — upstream bugs that shape how tests are
+  written, and the rules that keep the suite from hitting them
 
 ## Where things stand
 

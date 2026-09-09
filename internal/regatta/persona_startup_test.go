@@ -77,9 +77,38 @@ func seedRegatta(t *testing.T, sch *store.Schedule) string {
 func stopWatch(t *testing.T, r *Regatta) {
 	t.Cleanup(func() {
 		if r.stopWatcher != nil {
-			r.stopWatcher()
+			stopWithTimeout(t, r.stopWatcher)
 		}
 	})
+}
+
+// stopWithTimeout runs stop() with a deadline so a wedged watcher shutdown fails
+// one test in seconds instead of hanging until go test's 10-minute package
+// timeout. See docs/features/testing/known-issues.md.
+func stopWithTimeout(t *testing.T, stop func()) {
+	t.Helper()
+	done := make(chan struct{})
+	go func() { stop(); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Error("watcher shutdown did not complete within 10s")
+	}
+}
+
+// quiesceWatcher stops r's watcher (and its consumer goroutine) now, so a
+// background watch event cannot drive a Fyne render concurrently with the test
+// goroutine - Fyne's test driver runs fyne.Do inline and its global text shaper
+// is not goroutine-safe (see docs/features/testing/known-issues.md). Use it in
+// any test that starts a director/timer with PrefRegattaDir set and then drives
+// a foreground render (showRaceTree / refreshContent / refreshAllRows /
+// applyPendingOrigin / a schedule-guard proceed()).
+func quiesceWatcher(t *testing.T, r *Regatta) {
+	t.Helper()
+	if r.stopWatcher != nil {
+		stopWithTimeout(t, r.stopWatcher)
+		r.stopWatcher = nil
+	}
 }
 
 func TestTimerShowsPersonaPicker(t *testing.T) {

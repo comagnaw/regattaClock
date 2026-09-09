@@ -15,12 +15,16 @@ import (
 )
 
 // directorAt binds a director to filepath.Dir(root) as its PrefRegattaDir and
-// returns it with the watcher stopped.
+// returns it with the watcher stopped. quiesceWatcher stops the watcher NewDirector
+// started so a background schedule event cannot drive a render concurrently with
+// the test goroutine; stopWatch then tears down any watcher a later
+// applyPendingOrigin / startDirectorFlow starts.
 func directorAt(t *testing.T, root string) *Regatta {
 	t.Helper()
 	app := test.NewTempApp(t)
 	app.Preferences().SetString(common.PrefRegattaDir, filepath.Dir(root))
 	r := NewDirector(app)
+	quiesceWatcher(t, r)
 	stopWatch(t, r)
 	return r
 }
