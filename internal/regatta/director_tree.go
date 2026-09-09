@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 
@@ -204,14 +205,14 @@ func (r *Regatta) onDirectorTeamChanged(team persona.Team, start *store.StartLog
 
 // --- banners ------------------------------------------------------------
 
-// directorHeaderExtras is the RD-only header block under the column headers: an
-// origin-change action banner, a dismissible clock-skew banner, a dismissible
-// staleness banner, and the dismissible secondary-value legend. All four are
-// hidden until they apply, so the header stays compact.
+// directorHeaderExtras is the RD-only block under the column headers: an
+// origin-change action banner, a dismissible clock-skew banner and a dismissible
+// staleness banner. All three are hidden until they apply, so the header stays
+// compact. The secondary-value legend sits above the column header instead
+// (showRaceTree), styled as a caution strip.
 func (r *Regatta) directorHeaderExtras() fyne.CanvasObject {
 	r.directorSkew = newDismissibleBanner()
 	r.directorStale = newDismissibleBanner()
-	r.secondaryLegend = newDismissibleBanner()
 	r.originBanner = newActionBanner(common.ApplyButtonText, r.applyPendingOrigin, r.dismissOrigin)
 
 	r.checkDirectorSkew()
@@ -221,7 +222,6 @@ func (r *Regatta) directorHeaderExtras() fyne.CanvasObject {
 		r.originBanner.root,
 		r.directorSkew.root,
 		r.directorStale.root,
-		r.secondaryLegend.root,
 	)
 }
 
@@ -340,23 +340,38 @@ func (r *Regatta) staleTicker(stop <-chan struct{}) {
 	}
 }
 
-// dismissibleBanner - a hidden-by-default warning strip with a Dismiss button
+// bannerRoot - the one styling path for every notice strip in the race-tree
+// header (dismissibleBanner, actionBanner, the timer schedule banner): an amber
+// caution fill with the light palette forced over the inner widgets, so the
+// label and buttons read dark on the tint on both app themes. Routing every
+// banner through here keeps them from drifting apart cosmetically. Returned
+// hidden, like the strips it wraps.
+func bannerRoot(inner fyne.CanvasObject) *fyne.Container {
+	root := container.NewStack(
+		canvas.NewRectangle(bannerAmber),
+		container.NewThemeOverride(inner, bannerTintTheme),
+	)
+	root.Hide()
+	return root
+}
+
+// dismissibleBanner - a hidden-by-default caution strip with a Dismiss button
 // that hides it for good.
 type dismissibleBanner struct {
 	root      *fyne.Container
 	label     *widget.Label
+	dismiss   *widget.Button
 	dismissed bool
 }
 
 func newDismissibleBanner() *dismissibleBanner {
 	b := &dismissibleBanner{label: widget.NewLabel(common.EmptyString)}
 	b.label.Wrapping = fyne.TextWrapWord
-	dismiss := widget.NewButton(common.DismissButtonText, func() {
+	b.dismiss = widget.NewButton(common.DismissButtonText, func() {
 		b.dismissed = true
 		b.root.Hide()
 	})
-	b.root = container.NewBorder(nil, nil, nil, dismiss, b.label)
-	b.root.Hide()
+	b.root = bannerRoot(container.NewBorder(nil, nil, nil, b.dismiss, b.label))
 	return b
 }
 
@@ -370,9 +385,9 @@ func (b *dismissibleBanner) show(text string) {
 
 func (b *dismissibleBanner) hide() { b.root.Hide() }
 
-// actionBanner - a hidden-by-default strip with a primary action button and a
-// Dismiss button. Unlike dismissibleBanner, Dismiss only hides it (the caller
-// decides whether the same content should re-show).
+// actionBanner - a hidden-by-default caution strip with a primary action button
+// and a Dismiss button. Unlike dismissibleBanner, Dismiss only hides it (the
+// caller decides whether the same content should re-show).
 type actionBanner struct {
 	root  *fyne.Container
 	label *widget.Label
@@ -385,8 +400,7 @@ func newActionBanner(actionText string, action, dismiss func()) *actionBanner {
 		widget.NewButton(actionText, action),
 		widget.NewButton(common.DismissButtonText, dismiss),
 	)
-	b.root = container.NewBorder(nil, nil, nil, buttons, b.label)
-	b.root.Hide()
+	b.root = bannerRoot(container.NewBorder(nil, nil, nil, buttons, b.label))
 	return b
 }
 

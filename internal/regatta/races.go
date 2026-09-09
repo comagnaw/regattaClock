@@ -29,14 +29,19 @@ func (r *Regatta) showRaceTree() {
 		),
 		fullBleed(canvasRule(treeRuleThickness, theme.ColorNameForeground)),
 		r.treeTitle(),
-		r.headerBand(r.raceListHeader()),
 	)
+	// Every notice banner sits above the column header, so it never pushes into
+	// the race list. All are hidden until they apply.
 	if r.mode == modeTimer {
 		header.Add(r.scheduleBannerWidget())
 	} else {
 		header.Add(r.directorHeaderExtras())
+		r.secondaryLegend = newDismissibleBanner()
+		header.Add(r.secondaryLegend.root)
 	}
-	header.Add(r.staleLaneLegendWidget())
+	r.staleLaneLegend = newDismissibleBanner()
+	header.Add(r.staleLaneLegend.root)
+	header.Add(r.headerBand(r.raceListHeader()))
 
 	// Set the window content
 	body := r.raceListBody()
@@ -143,12 +148,12 @@ func (r *Regatta) raceListHeader() *fyne.Container {
 			fixedCell(startTimeColWidth, text.BoldLabel(common.ColStartTime)),
 			fixedCell(statusColWidth, text.BoldLabel(common.ColStatus)),
 		)
-	default: // RoleDirector
+	default: // RoleDirector - centred to sit over the centred read-only cells.
 		cluster = container.NewHBox(
-			fixedCell(restartsColWidth, text.BoldLabel(common.ColRestarts)),
-			fixedCell(startTimeColWidth, text.BoldLabel(common.ColStartTime)),
-			fixedCell(winTimeColWidth, text.BoldLabel(common.ColWinningTime)),
-			fixedCell(statusColWidth, text.BoldLabel(common.ColStatus)),
+			fixedCell(restartsColWidth, text.BoldLabelCenter(common.ColRestarts)),
+			fixedCell(startTimeColWidth, text.BoldLabelCenter(common.ColStartTime)),
+			fixedCell(winTimeColWidth, text.BoldLabelCenter(common.ColWinningTime)),
+			fixedCell(statusColWidth, text.BoldLabelCenter(common.ColStatus)),
 		)
 	}
 

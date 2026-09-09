@@ -17,6 +17,37 @@ func BoldLabel(t string) *widget.Label {
 	return l
 }
 
+// BoldLabelCenter - a BoldLabel centred in its cell, for a column header that
+// should sit over centred values.
+func BoldLabelCenter(t string) *widget.Label {
+	l := BoldLabel(t)
+	l.Alignment = fyne.TextAlignCenter
+	return l
+}
+
+// Truncating - a widget.Label that clips with an ellipsis rather than
+// overflowing its container, for fixed-width table / list cells.
+func Truncating(t string) *widget.Label {
+	l := widget.NewLabel(t)
+	l.Truncation = fyne.TextTruncateEllipsis
+	return l
+}
+
+// TruncatingTrailing - a Truncating label aligned to the trailing edge, for a
+// value that should sit against the right of its column.
+func TruncatingTrailing(t string) *widget.Label {
+	l := Truncating(t)
+	l.Alignment = fyne.TextAlignTrailing
+	return l
+}
+
+// TruncatingCenter - a Truncating label centred in its column.
+func TruncatingCenter(t string) *widget.Label {
+	l := Truncating(t)
+	l.Alignment = fyne.TextAlignCenter
+	return l
+}
+
 // Header1 - returns title format of fyne Text
 func Header1(t string) *canvas.Text {
 	return newText(t, false, true, fyne.TextAlignCenter, 48)

@@ -27,7 +27,16 @@ var (
 	// logoWaterBlue - the mid tone that covered most of the water in the original
 	// banner artwork, kept as the accent color.
 	logoWaterBlue = color.NRGBA{R: 0x05, G: 0x69, B: 0xA6, A: 0xFF}
+
+	// bannerAmber - caution fill for the RD "·2nd value" strip, so it stands out
+	// above the race-list column header. Paired with bannerTintTheme for dark
+	// text on both app themes.
+	bannerAmber = color.NRGBA{R: 0xF2, G: 0xC7, B: 0x44, A: 0xFF}
 )
+
+// bannerTintTheme forces the light palette so a tinted banner's label and
+// Dismiss button render dark on the amber fill regardless of the app's theme.
+var bannerTintTheme fyne.Theme = &colorTheme{Theme: theme.DefaultTheme(), variant: theme.VariantLight}
 
 // darkSurfaces - every color the default dark theme draws as a neutral grey,
 // restated as a shade of brandNavy. The offsets preserve Fyne's own ordering, so

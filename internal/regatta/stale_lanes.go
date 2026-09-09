@@ -1,9 +1,6 @@
 package regatta
 
 import (
-	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/widget"
-
 	"github.com/comagnaw/regattaClock/internal/common"
 	"github.com/comagnaw/regattaClock/internal/persona"
 	"github.com/comagnaw/regattaClock/internal/persona/store"
@@ -46,25 +43,18 @@ func finishResultStale(log *store.FinishLog, n int, liveHash string) bool {
 	return res.LaneMapHash != liveHash
 }
 
-// staleLaneLegendWidget - the italic legend under the column headers explaining
-// the StaleLaneMapMark. Hidden until at least one row is flagged.
-func (r *Regatta) staleLaneLegendWidget() fyne.CanvasObject {
-	r.staleLaneLegend = widget.NewLabel(common.StaleLaneMapLegend)
-	r.staleLaneLegend.TextStyle = fyne.TextStyle{Italic: true}
-	r.staleLaneLegend.Hide()
-	return r.staleLaneLegend
-}
-
-// refreshStaleLaneLegend shows the legend when any visible row carries the mark.
+// refreshStaleLaneLegend shows the caution strip when any visible row carries
+// the mark, unless the operator has dismissed it (mirrors
+// refreshSecondaryValueLegend). The strip is created in showRaceTree.
 func (r *Regatta) refreshStaleLaneLegend() {
 	if r.staleLaneLegend == nil {
 		return
 	}
 	for n := range r.rows {
 		if race, ok := r.raceByNumber(n); ok && r.staleLaneMap(n, race) {
-			r.staleLaneLegend.Show()
+			r.staleLaneLegend.show(common.StaleLaneMapLegend)
 			return
 		}
 	}
-	r.staleLaneLegend.Hide()
+	r.staleLaneLegend.hide()
 }

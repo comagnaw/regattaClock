@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2/test"
-	"fyne.io/fyne/v2/widget"
 
 	"github.com/comagnaw/regattaClock/internal/common"
 	"github.com/comagnaw/regattaClock/internal/persona"
@@ -176,14 +175,7 @@ func TestDirectorTeamChangeRefreshesRow(t *testing.T) {
 
 func bannerVisible(b *dismissibleBanner) bool { return b != nil && !b.root.Hidden }
 
-func bannerDismiss(b *dismissibleBanner) {
-	for _, o := range b.root.Objects {
-		if btn, ok := o.(*widget.Button); ok {
-			btn.OnTapped()
-			return
-		}
-	}
-}
+func bannerDismiss(b *dismissibleBanner) { b.dismiss.OnTapped() }
 
 func envWithOffset(machine string, off time.Duration) store.Envelope {
 	return store.Envelope{Machine: machine, Clock: timesync.ClockRef{Offset: off, Source: "ntp:test"}}
@@ -260,8 +252,8 @@ func TestDirectorSecondaryValueLegend(t *testing.T) {
 		{RaceNumber: 1, BoatCount: 4, Lanes: map[int]reader.RaceEntry{1: {SchoolName: "A"}}},
 		{RaceNumber: 2, BoatCount: 4, Lanes: map[int]reader.RaceEntry{1: {SchoolName: "B"}}},
 	})
-	r.raceListBody()         // realises r.rows
-	r.directorHeaderExtras() // creates r.secondaryLegend, hidden
+	r.raceListBody()                           // realises r.rows
+	r.secondaryLegend = newDismissibleBanner() // showRaceTree does this for the director tree
 
 	// Nothing timed yet: no row carries the ·2nd mark, so the note stays hidden.
 	r.teamLogs = map[persona.Team]*teamTiming{persona.TeamPrimary: {}, persona.TeamSecondary: {}}

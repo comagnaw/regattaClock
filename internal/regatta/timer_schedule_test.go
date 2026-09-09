@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/comagnaw/regattaClock/internal/common"
@@ -28,10 +29,19 @@ func cloneSchedule(sch *store.Schedule) *store.Schedule {
 	return &out
 }
 
-func bannerDismissButton(c *fyne.Container) *widget.Button {
-	for _, o := range c.Objects {
-		if b, ok := o.(*widget.Button); ok {
-			return b
+// bannerDismissButton finds the first button under o, descending through the
+// bannerRoot styling wrappers (Stack + ThemeOverride) that wrap the strip.
+func bannerDismissButton(o fyne.CanvasObject) *widget.Button {
+	switch v := o.(type) {
+	case *widget.Button:
+		return v
+	case *container.ThemeOverride:
+		return bannerDismissButton(v.Content)
+	case *fyne.Container:
+		for _, c := range v.Objects {
+			if b := bannerDismissButton(c); b != nil {
+				return b
+			}
 		}
 	}
 	return nil
