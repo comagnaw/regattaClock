@@ -5,6 +5,11 @@ on:
     tags:
       - 'v*'
 
+# softprops/action-gh-release creates the release and uploads assets with the
+# built-in GITHUB_TOKEN; that needs contents: write (the repo default is read).
+permissions:
+  contents: write
+
 jobs:
   build-macos:
     runs-on: macos-latest
@@ -57,8 +62,6 @@ jobs:
     - name: Create Release
       id: create_release
       uses: softprops/action-gh-release@v2
-      env:
-        GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
       with:
         tag_name: ${{ github.ref_name }}
         name: Release ${{ github.ref_name }}
@@ -102,8 +105,6 @@ jobs:
         mv fyne-cross/dist/windows-386/regattaClock.exe.zip fyne-cross/dist/windows-386/regattaClock-386.exe.zip
     - name: Upload Windows Release Asset
       uses: softprops/action-gh-release@v2
-      env:
-        GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
       with:
         files: |
           fyne-cross/dist/windows-amd64/regattaClock-amd64.exe.zip
