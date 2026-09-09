@@ -2,5 +2,7 @@ package assets
 
 import _ "embed"
 
-//go:embed VerdanaBold.ttf
+// VerdanaBoldFont - the typeface the exporter renders race images with.
+//
+//go:embed fonts/VerdanaBold.ttf
 var VerdanaBoldFont []byte
