@@ -27,7 +27,7 @@ func (r *Regatta) showRaceTree() {
 			layout.NewCustomPaddedLayout(viewMargin, 0, 0, 0),
 			container.NewCenter(banner(treeWordmarkWidth, treeWordmarkHeight)),
 		),
-		canvasRule(treeRuleThickness, theme.ColorNameForeground),
+		fullBleed(canvasRule(treeRuleThickness, theme.ColorNameForeground)),
 		r.treeTitle(),
 		r.headerBand(r.raceListHeader()),
 	)
@@ -79,7 +79,7 @@ func (r *Regatta) treeTitle() *fyne.Container {
 	)
 	panel := container.NewStack(canvas.NewRectangle(card), body)
 
-	return container.New(layout.NewCustomPaddedLayout(0, 0, viewMargin, viewMargin), panel)
+	return fullBleed(panel)
 }
 
 // canvasRule - a full-width horizontal rule h pixels tall in a theme surface
@@ -91,6 +91,15 @@ func canvasRule(h float32, name fyne.ThemeColorName) fyne.CanvasObject {
 	return rule
 }
 
+// fullBleed - stretch o out to the window edges. The window canvas insets all
+// content by theme.Padding() on every side (glCanvas is created padded), so a
+// coloured band otherwise stops a few pixels short and leaks the window colour
+// down each edge; a matching negative horizontal margin cancels that.
+func fullBleed(o fyne.CanvasObject) *fyne.Container {
+	pad := theme.Padding()
+	return container.New(layout.NewCustomPaddedLayout(0, 0, -pad, -pad), o)
+}
+
 // headerBandTheme forces the dark palette for the column-header labels so they
 // render light on the blue band regardless of the app's theme choice (a
 // ThemeOverride re-themes widgets, which the labels are).
@@ -98,16 +107,18 @@ var headerBandTheme fyne.Theme = &colorTheme{Theme: theme.DefaultTheme(), varian
 
 // headerBand - put the race-list column-header row on a solid accent band so it
 // reads as a table head between the details card and the scrolling rows, with
-// real contrast against the window in both themes. Vertical padding only: any
-// horizontal inset here would shift the column headers off the data rows below.
+// real contrast against the window in both themes. The band bleeds to the window
+// edges; the row inside is re-inset by theme.Padding() so its columns still line
+// up exactly with the (non-bled) data rows below.
 func (r *Regatta) headerBand(row fyne.CanvasObject) fyne.CanvasObject {
-	return container.NewStack(
+	pad := theme.Padding()
+	return fullBleed(container.NewStack(
 		canvas.NewRectangle(logoWaterBlue),
 		container.New(
-			layout.NewCustomPaddedLayout(headerBandVPad, headerBandVPad, 0, 0),
+			layout.NewCustomPaddedLayout(headerBandVPad, headerBandVPad, pad, pad),
 			container.NewThemeOverride(row, headerBandTheme),
 		),
-	)
+	))
 }
 
 // raceListHeader is the bold column-header row above the race list. It uses the
