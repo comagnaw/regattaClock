@@ -14,8 +14,8 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 
-	"github.com/comagnaw/regattaClock/assets"
 	"github.com/comagnaw/regattaClock/internal/applog"
+	"github.com/comagnaw/regattaClock/internal/assets"
 	"github.com/comagnaw/regattaClock/internal/clock"
 	"github.com/comagnaw/regattaClock/internal/common"
 	"github.com/comagnaw/regattaClock/internal/filesystem"
