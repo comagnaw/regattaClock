@@ -34,6 +34,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libgl-dev libxcursor-dev libxinerama-dev libxrandr-dev libxi-dev libxxf86vm-dev
 
+      # go test ./internal/... never compiles ./cmd; build and vet the whole
+      # module so a stale main.go (a changed regatta.New / Bootstrap signature)
+      # fails here instead of at release time.
+      - name: Build and vet
+        run: |
+          go build ./...
+          go vet ./...
+
       - name: Generate Go test coverage
         run: go test ./internal/... -coverprofile=coverage.out -covermode=atomic
 

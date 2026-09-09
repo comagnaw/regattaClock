@@ -14,8 +14,9 @@ persona feature is built on.
 Everything is a single-process unit test. The `internal/**` suite runs on a
 `t.TempDir()`, the pure-Go Fyne `test` driver, and dependency-injected NTP and
 clock seams. `.github/workflows/test.yml` gates every pull request on Linux
-(`coverage`, with a 60% line-coverage floor) and Windows (`test-windows`), and
-runs a full native-Windows job after each merge.
+(`coverage` — `go build ./...` and `go vet ./...` for the whole module, then
+`go test ./internal/...` with a 60% line-coverage floor) and Windows
+(`test-windows`), and runs a full native-Windows job after each merge.
 
 | Layer | Scope | Where it runs |
 |---|---|---|

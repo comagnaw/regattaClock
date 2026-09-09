@@ -49,9 +49,10 @@ shared-folder, multi-operator behaviour is not yet exercised end to end (see
 
 `.github/workflows/test.yml` gates each PR with two jobs:
 
-- **`coverage`** (`ubuntu-latest`) — `go test ./internal/...` with coverage,
-  posts a PR comment, and fails if line coverage drops below 60%. This is the
-  fast feedback loop.
+- **`coverage`** (`ubuntu-latest`) — `go build ./...` and `go vet ./...` (so
+  `cmd/` is compile-checked, which `go test ./internal/...` never does), then
+  `go test ./internal/...` with coverage. Posts a PR comment and fails if line
+  coverage drops below 60%. This is the fast feedback loop.
 - **`test-windows`** (`windows-latest`) — `CGO_ENABLED=0 go test` over the
   OS-portable packages only, with no MinGW. It runs on Windows because
   `internal/filesystem` and `internal/watcher` have real Windows-vs-POSIX
