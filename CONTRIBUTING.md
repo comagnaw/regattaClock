@@ -136,3 +136,35 @@ app menu) shows the attributes compiled into a given build — version, branch,
 commit, build time, source link. A build past its release tag reports
 `full: <version>+<N>.g<sha>` (the release line plus commits-since-tag); a bare
 `go run` build reports `version: dev`.
+
+### The `RELEASE_TOKEN` secret
+
+`release.yml` publishes the GitHub release and uploads the artifacts with
+`softprops/action-gh-release`, authenticated by the repo Actions secret
+**`RELEASE_TOKEN`** (both the `build-macos` and `build-windows` jobs pass it as
+`GITHUB_TOKEN`). It must be a token that can create releases on this repo:
+
+- **Fine-grained PAT** — Resource owner `comagnaw`; Repository access must
+  include `comagnaw/regattaClock`; Repository permissions →
+  **Contents: Read and write** (this is what grants the Releases API — creating
+  the release and uploading assets). `Metadata: Read-only` comes along
+  automatically. No other permission is needed.
+- **Classic PAT** — the `repo` scope.
+
+Fine-grained PATs expire, so this breaks periodically. Rotate it under
+**Settings → Secrets and variables → Actions → `RELEASE_TOKEN`** (or
+`gh secret set RELEASE_TOKEN`), then re-run the failed release run — secrets are
+read at run time, so a re-run picks up the new value with no re-tag.
+
+Failure signatures in the `Create Release` / `Upload … Release Asset` step:
+
+- `Bad credentials` (HTTP 401) — the token is expired, revoked, or the secret
+  value is wrong.
+- `GitHub release failed with status: 403` → `Too many retries` — the token
+  authenticates but lacks `Contents: write` (or `comagnaw/regattaClock` is not
+  in its repository-access list).
+
+An alternative that removes the rotation burden entirely: give the workflow
+`permissions: contents: write` and use the built-in `${{ secrets.GITHUB_TOKEN }}`
+instead — nothing consumes the `release` event, so the built-in token is
+sufficient.
