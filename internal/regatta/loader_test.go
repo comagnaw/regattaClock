@@ -137,7 +137,7 @@ func TestRegatta_SetRegattaData_ValidFile(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 
 	// Use the test file from reader package
 	testFile := "../reader/testdata/Example Regatta Input Table.xlsx"
@@ -165,7 +165,7 @@ func TestRegatta_SetRegattaData_InvalidFile(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 
 	err := regatta.setRegattaData("nonexistent_file.xlsx")
 
@@ -180,7 +180,7 @@ func TestRegatta_SetRegattaData_EmptyPath(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 
 	err := regatta.setRegattaData("")
 
@@ -193,7 +193,7 @@ func TestRegatta_Callback_WithError(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 
 	callback := regatta.callback(false)
 
@@ -209,7 +209,7 @@ func TestRegatta_Callback_NilFileReader_FromStartup(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 
 	callback := regatta.callback(true)
 
@@ -224,7 +224,7 @@ func TestRegatta_Callback_NilFileReader_NotFromStartup(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 
 	callback := regatta.callback(false)
 
@@ -239,7 +239,7 @@ func TestRegatta_Callback_ValidFile(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 
 	// Pre-load RegattaData to prevent nil pointer issues in debugLoader
 	// The actual callback flow has a bug where it calls debugLoader even on error
@@ -283,7 +283,7 @@ func TestRegatta_Callback_InvalidExtension(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 
 	// Pre-set RegattaData and window content to prevent panic in callback flow
 	// The callback has a bug where it calls debugLoader/refreshContent even on error
@@ -320,7 +320,7 @@ func TestRegatta_DebugLoader(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 
 	regatta.RegattaData = &reader.RegattaData{
 		Name: "Test Regatta",
@@ -347,7 +347,7 @@ func TestRegatta_DebugLoader_NilRegattaData(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 	regatta.RegattaData = nil
 
 	// This will panic if RegattaData is nil, but that's expected
@@ -368,7 +368,7 @@ func TestRegatta_DebugLoader_EmptyRaces(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 
 	regatta.RegattaData = &reader.RegattaData{
 		Name:  "Empty Regatta",
@@ -438,7 +438,7 @@ func TestRegatta_Loader_Integration(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 
 	// Test that loader doesn't panic
 	// Note: This will show a file dialog which we can't interact with in tests

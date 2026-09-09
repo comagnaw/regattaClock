@@ -3,10 +3,6 @@ package clock
 import (
 	"strconv"
 
-	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/widget"
-
 	"github.com/comagnaw/regattaClock/internal/common"
 	"github.com/comagnaw/regattaClock/internal/reader"
 )
@@ -110,28 +106,6 @@ func (r results) isPlace(lane int) bool {
 // isNextPlace - with provided lane, see if place string value matches "Next Place"
 func (r results) isNextPlace(lane int) bool {
 	return r.place(lane) == nextPlace
-}
-
-// resultsContainer - container with table that presents race results
-func (r results) resultsContainer() *fyne.Container {
-
-	list := widget.NewTable(
-		func() (int, int) {
-			return len(r), len(r[0])
-		},
-		func() fyne.CanvasObject {
-			label := widget.NewLabel("wide wide wide content")
-			label.Alignment = fyne.TextAlignCenter
-			return label
-		},
-		func(i widget.TableCellID, o fyne.CanvasObject) {
-			o.(*widget.Label).SetText(r[i.Row][i.Col])
-		})
-
-	return container.NewGridWrap(
-		fyne.Size{Width: clockWidth, Height: resultsHeight},
-		container.NewStack(list),
-	)
 }
 
 // asApprovals - with provided oofLanes, return results as approvals

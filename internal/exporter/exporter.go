@@ -5,13 +5,14 @@ import (
 	"image"
 	"image/color"
 	"image/png"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/comagnaw/regattaClock/internal/applog"
 	"github.com/comagnaw/regattaClock/internal/assets"
 	"github.com/comagnaw/regattaClock/internal/common"
+	"github.com/comagnaw/regattaClock/internal/filesystem"
 	"github.com/comagnaw/regattaClock/internal/reader"
 
 	"github.com/golang/freetype"
@@ -46,7 +47,7 @@ func (r ExportResult) HasErrors() bool {
 // with no boats (BoatCount == 0) are skipped. Returns an ExportResult summarizing
 // how many files succeeded and failed, along with any errors encountered.
 func Export(regattaData reader.RegattaData, outputDir string) ExportResult {
-	regattaName := strings.ReplaceAll(regattaData.Name, " ", "_")
+	regattaName := filesystem.SanitizeForFilename(strings.ReplaceAll(regattaData.Name, " ", "_"))
 	result := ExportResult{}
 
 	for _, raceData := range regattaData.Races {
@@ -58,21 +59,21 @@ func Export(regattaData reader.RegattaData, outputDir string) ExportResult {
 		text := buildRaceText(raceData)
 		img, err := renderImage(text)
 		if err != nil {
-			log.Printf("Error rendering race %d: %v", raceData.RaceNumber, err)
+			applog.Error("race image render failed", "component", "exporter", "race", raceData.RaceNumber, "err", err)
 			result.Failed++
 			result.Errors = append(result.Errors, fmt.Errorf("race %d: %w", raceData.RaceNumber, err))
 			continue
 		}
 
 		if err := saveImage(img, fileName); err != nil {
-			log.Printf("Error saving race %d to %s: %v", raceData.RaceNumber, fileName, err)
+			applog.Error("race image save failed", "component", "exporter", "race", raceData.RaceNumber, "file", fileName, "err", err)
 			result.Failed++
 			result.Errors = append(result.Errors, fmt.Errorf("race %d: %w", raceData.RaceNumber, err))
 			continue
 		}
 
 		result.Succeeded++
-		fmt.Printf("Image generated successfully as %s\n", fileName)
+		applog.Info("race image exported", "component", "exporter", "race", raceData.RaceNumber, "file", fileName)
 	}
 
 	return result

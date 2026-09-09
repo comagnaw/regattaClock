@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -11,6 +12,8 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/comagnaw/regattaClock/internal/common"
+	"github.com/comagnaw/regattaClock/internal/persona"
+	"github.com/comagnaw/regattaClock/internal/persona/store"
 	"github.com/comagnaw/regattaClock/internal/reader"
 	"github.com/comagnaw/regattaClock/internal/text"
 )
@@ -50,6 +53,111 @@ type Clock struct {
 
 	// App - reference to the fyne.App object that is running
 	App fyne.App
+
+	// session / finishLog - set by WithFinishLog for a finish timer. When both
+	// are present the clock persists to finish.json: an in-progress RaceResult
+	// on Start, the full RaceResult on Save / Referee Approval. Nil for a
+	// director-opened clock, which does not write.
+	session   persona.Session
+	finishLog *store.FinishLog
+
+	// startLog - the start timer's start.json, mirrored read-only, set by
+	// WithStartLog. The winning time is derived from the ST start time for this
+	// race; UpdateStartTime replaces this when the watcher delivers a fresh one.
+	startLog *store.StartLog
+
+	// derivedWinningTime - the value last auto-filled into winningTime from the
+	// ST start time. A referee edit makes winningTime.Text differ from this, and
+	// a reactive recompute then leaves the manual value alone (persona-plan.md
+	// 2.1: the manual entry is an always-available override).
+	derivedWinningTime string
+
+	// awaitingStart - Start was clicked with no ST start time for this race yet;
+	// the winning time recomputes when one arrives (persona-plan.md 2.2).
+	awaitingStart bool
+
+	// winningNote - helper line under the Winning Time field saying where the
+	// pre-filled value came from, or why there is none (persona-plan.md 2.1).
+	winningNote *widget.Label
+
+	// skew banner (persona-plan.md 2.1) - shown when the two machines' offsets
+	// disagree by more than timesync.SkewWarnThreshold. Dismissible; once
+	// dismissed it stays hidden for the life of the window.
+	skewBanner    *fyne.Container
+	skewLabel     *widget.Label
+	skewDismissed bool
+
+	// schedule-conflict refresh (persona-plan.md 3c). When the watched
+	// schedule changes while this clock is open, UpdateSchedule refreshes the
+	// lane labels without touching lap rows / OOF / winning time, highlights the
+	// lanes that moved, and shows the notice banner.
+	raceTitle      *canvas.Text
+	resultsTable   *widget.Table
+	changedLanes   map[int]bool
+	scheduleBanner *fyne.Container
+	scheduleLabel  *widget.Label
+
+	// commitStatus - line under the approval panel: Pending until the race is
+	// persisted, then "Saved HH:MM:SS" (secondary FT) or "Approved HH:MM:SS"
+	// (primary FT). Nil for a director-opened clock.
+	commitStatus *widget.Label
+
+	// refereeWindow - the independent Referee Approval window while it is open;
+	// nil otherwise. Guards against opening a second one and lets the clock close
+	// it on teardown (referee_window.go).
+	refereeWindow fyne.Window
+
+	// clockClosed - set when the clock window's own close handler runs, so the
+	// referee window's close handler knows not to restore or re-raise a clock
+	// that is going away.
+	clockClosed bool
+
+	// AfterClose - optional callback fired once when the clock window closes,
+	// so a finish timer's race tree can pick up saved results.
+	AfterClose func()
+
+	// closeOnce makes closeWindow idempotent, so a Save and Close tap (which
+	// closes the window itself) followed by the parent tearing the window down
+	// does not drive the fyne close path twice.
+	closeOnce sync.Once
+}
+
+// closeWindow closes the clock window at most once. Use it for every
+// programmatic close (Save and Close, the primary FT's Close button) so a
+// later teardown is a no-op rather than a double close.
+func (c *Clock) closeWindow() {
+	c.closeOnce.Do(func() { c.window.Close() })
+}
+
+// commitState is how far a race has been persisted to finish.json. The primary
+// FT moves statePending -> stateApproved (Referee Approval); the secondary FT
+// moves statePending -> stateSaved (Save and Close). An in-progress record
+// (Start clicked, no winning time) is still statePending.
+type commitState int
+
+const (
+	statePending commitState = iota
+	stateSaved
+	stateApproved
+)
+
+// raceCommitState reports the persisted state of this clock's race from the
+// in-memory finish.json mirror.
+func (c *Clock) raceCommitState() commitState {
+	if c.finishLog == nil {
+		return statePending
+	}
+	res, ok := c.finishLog.Races[c.raceData.RaceNumber]
+	switch {
+	case !ok:
+		return statePending
+	case res.Approved:
+		return stateApproved
+	case res.WinningTime != common.EmptyString:
+		return stateSaved
+	default:
+		return statePending
+	}
 }
 
 // clockState - object used to determine progress of the clock usage for timing the race
@@ -90,8 +198,50 @@ func NewClock(parent fyne.App, regattaData *reader.RegattaData, race reader.Race
 
 	raceClock.initButtons()
 	raceClock.initWinningTime()
+	raceClock.initCommitStatus()
 
 	return raceClock
+}
+
+// WithFinishLog binds this clock to a finish timer's session and in-memory
+// finish.json mirror, turning on persistence and rehydration. Returns the clock
+// for chaining. A clock without it (director) neither writes nor rehydrates.
+func (c *Clock) WithFinishLog(session persona.Session, log *store.FinishLog) *Clock {
+	c.session = session
+	c.finishLog = log
+	return c
+}
+
+// WithStartLog binds the start timer's start.json mirror, the source of the
+// derived winning time. Safe to pass an empty log; safe to omit entirely for a
+// director-opened clock, which does not derive.
+func (c *Clock) WithStartLog(log *store.StartLog) *Clock {
+	c.startLog = log
+	return c
+}
+
+// canPersist reports whether this clock should read from and write to
+// finish.json.
+func (c *Clock) canPersist() bool {
+	return c.finishLog != nil && c.session.Role == persona.RoleFinish
+}
+
+// isSecondaryFinish reports whether this clock belongs to the Secondary Finish
+// Timer. Its results are a backup data source for the primary FT and for
+// reconciliation, never presented to a referee, so it has no Referee Approval
+// step: Save is the terminal action and it writes RaceResult.Approved = false
+// (docs/features/personas/reconciliation.md).
+func (c *Clock) isSecondaryFinish() bool {
+	return c.session.Role == persona.RoleFinish && c.session.Team == persona.TeamSecondary
+}
+
+// commitButton is the button a valid winning time enables: Referee Approval for
+// the primary FT (which then gates Save), or Save directly for the secondary FT.
+func (c *Clock) commitButton() *widget.Button {
+	if c.isSecondaryFinish() {
+		return c.buttons.save
+	}
+	return c.buttons.referee
 }
 
 // OpenRaceClock - opens the Clock app so that a race can be timed
@@ -99,6 +249,10 @@ func (c *Clock) OpenRaceClock() {
 
 	c.window.SetContent(c.content())
 	c.window.Resize(fyne.NewSize(clockWidth, clockHeight))
+
+	// Lap widgets exist only after content() runs, so a saved race is restored
+	// here rather than in NewClock.
+	c.rehydrate()
 
 	// Set up keyboard handler for this window
 	c.window.Canvas().SetOnTypedKey(c.setupKeyboardHandler())
@@ -108,7 +262,14 @@ func (c *Clock) OpenRaceClock() {
 
 	// Set up window close handler to clean up the goroutine
 	c.window.SetOnClosed(func() {
+		c.clockClosed = true
+		if c.refereeWindow != nil {
+			c.refereeWindow.Close()
+		}
 		close(c.clockState.stopChan)
+		if c.AfterClose != nil {
+			c.AfterClose()
+		}
 	})
 
 	c.window.Show()

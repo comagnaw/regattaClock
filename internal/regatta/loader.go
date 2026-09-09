@@ -7,6 +7,7 @@ import (
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/storage"
 
+	"github.com/comagnaw/regattaClock/internal/applog"
 	"github.com/comagnaw/regattaClock/internal/common"
 	"github.com/comagnaw/regattaClock/internal/reader"
 )
@@ -53,24 +54,102 @@ func (r *Regatta) callback(fromStartup bool) func(fyne.URIReadCloser, error) {
 
 		filePath, err := getFilePath(fileReader)
 		if err != nil {
+			applog.Error("regatta import failed", "component", "loader", "err", err)
 			dialog.ShowError(err, r.window)
 			return
 		}
 
 		if err = r.setRegattaData(filePath); err != nil {
+			applog.Error("regatta import failed", "component", "loader", "path", filePath, "err", err)
 			dialog.ShowError(err, r.window)
 			return
 		}
 
-		r.saveRegattaData()
-
 		r.debugLoader()
-		r.refreshContent()
-
-		dialog.ShowInformation("Import", "Successfully read Excel file", r.window)
-
-		r.showRaceTree()
+		applog.Info("regatta parsed", "component", "loader",
+			"name", r.RegattaData.Name, "races", r.RegattaData.ScheduledRaces())
+		r.confirmImportedRegatta(fromStartup, r.markExcelStepDone)
 	}
+}
+
+// confirmImportedRegatta asks the Regatta Director to confirm the metadata of
+// the just-parsed workbook before it is acted on. Denying returns to file
+// selection, so a wrong workbook never lands. onConfirm is what a Yes runs:
+// markExcelStepDone from the setup view (advance the stepper, no write yet), or
+// applyImportedRegatta from a Reload Schedule (write straight through).
+func (r *Regatta) confirmImportedRegatta(fromStartup bool, onConfirm func()) {
+	dialog.ShowConfirm(
+		common.ConfirmRegattaTitle,
+		fmt.Sprintf(common.ConfirmImportedRegattaMessage,
+			r.RegattaData.Name, r.RegattaData.Date, r.RegattaData.ScheduledRaces()),
+		func(yes bool) {
+			if !yes {
+				r.loader(fromStartup)
+				return
+			}
+			onConfirm()
+		},
+		r.window,
+	)
+}
+
+// markExcelStepDone records that the setup view's Excel step is satisfied - the
+// workbook is parsed into r.RegattaData and the Regatta Director has confirmed
+// it - and re-renders the setup view so the check mark, parsed summary and file
+// path appear and Start Regatta ungates once the save folder is also set. It
+// writes nothing to disk; the schedule is written only when Start Regatta runs
+// applyImportedRegatta.
+func (r *Regatta) markExcelStepDone() {
+	r.loadState.excelLoaded = true
+	applog.Info("regatta workbook confirmed", "component", "setup",
+		"name", r.RegattaData.Name, "races", r.RegattaData.ScheduledRaces())
+	r.showDirectorSetup()
+}
+
+// applyImportedRegatta runs the RegattaKey guard (persona-plan.md 3b), writes
+// the schedule when it is clear to do so, and enters/refreshes the director
+// tree. A blocked import shows a dialog and leaves the tree untouched. Reached
+// from Start Regatta on the setup view (which only enables once a save folder is
+// set) and from Reload Schedule (always from the tree, folder always set); the
+// directorSession check is defence in depth against guardScheduleWrite's silent
+// no-op when no folder is configured.
+func (r *Regatta) applyImportedRegatta() {
+	if _, ok := r.directorSession(); !ok {
+		dialog.ShowInformation(common.SetRegattaDirTitle, common.SetupNeedSaveDirMessage, r.window)
+		return
+	}
+	r.guardScheduleWrite(func() {
+		applog.Info("regatta imported", "component", "loader",
+			"name", r.RegattaData.Name, "races", r.RegattaData.ScheduledRaces())
+		r.startDirectorFlow()
+	})
+}
+
+// reloadSchedule re-reads the workbook the current schedule was imported from
+// and runs it back through the confirm + guard path. Used by the Reload
+// Schedule menu item (persona-plan.md 3b: a manual reload runs the same checks).
+func (r *Regatta) reloadSchedule() {
+	uri := r.RegattaData.URI
+	if uri == common.EmptyString {
+		dialog.ShowInformation(common.ReloadScheduleTitle, common.NoOriginRecordedMessage, r.window)
+		return
+	}
+	before := scheduleFromRegattaData(r.RegattaData).ContentHash()
+	if err := r.setRegattaData(uri); err != nil {
+		applog.Error("schedule reload failed", "component", "loader", "path", uri, "err", err)
+		dialog.ShowError(fmt.Errorf("%s: %w", common.ReloadFailedMessage, err), r.window)
+		return
+	}
+	r.debugLoader()
+
+	// persona-plan.md 3b step 4/7: a reload that does not change the schedule
+	// content must not rewrite regattaSchedule.json.
+	if scheduleFromRegattaData(r.RegattaData).ContentHash() == before {
+		applog.Info("reload: workbook has not changed the schedule", "component", "loader")
+		dialog.ShowInformation(common.ReloadScheduleTitle, common.OriginUnchangedMessage, r.window)
+		return
+	}
+	r.confirmImportedRegatta(false, r.applyImportedRegatta)
 }
 
 func getFilePath(fileReader fyne.URIReadCloser) (string, error) {
@@ -92,11 +171,14 @@ func (r *Regatta) setRegattaData(filePath string) error {
 	return nil
 }
 
-// debugLoader - console debug messages for loader method
+// debugLoader - verbose dump of what was just parsed, emitted only when the
+// Debug preference is on (applog drops it otherwise).
 func (r *Regatta) debugLoader() {
-	fmt.Printf("Debug: Successfully loaded regatta data - %d total races, %d scheduled races\n",
-		len(r.RegattaData.Races), r.RegattaData.ScheduledRaces())
-	fmt.Printf("Debug: Regatta Name: %s\n", r.RegattaData.Name)
-	fmt.Printf("Debug: Regatta Date: %s\n", r.RegattaData.Date)
-	fmt.Printf("Debug: Regatta Source Info: %v\n", r.RegattaData.SourceInfo)
+	applog.Debug("regatta data parsed", "component", "loader",
+		"races_total", len(r.RegattaData.Races),
+		"races_scheduled", r.RegattaData.ScheduledRaces(),
+		"name", r.RegattaData.Name,
+		"date", r.RegattaData.Date,
+		"source", fmt.Sprintf("%v", r.RegattaData.SourceInfo),
+	)
 }

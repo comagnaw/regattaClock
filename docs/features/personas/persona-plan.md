@@ -9,7 +9,7 @@ These answers shape everything below.
 - **Sharing model: configurable between cloud-synced folder and local SMB.** The preferred race-day path is a spare Windows PC on the venue LAN that shares `regattaData` over SMB and also runs a local NTP service. When course-wide networking is unavailable, fall back to a **cloud-synced local folder**. The app never calls a cloud vendor API — it only reads and writes ordinary paths. `PrefStorageMode` is therefore `cloud` | `smb`, not `onedrive` | `google` | …. OneDrive and Google Drive for Desktop are both consumers of `cloud` mode; switching vendors is an ops change, not a code change. Background on the SMB option lives in [shared-storage-options.md](shared-storage-options.md); storage modes are in sections 6 and 12.
 - **File granularity: one file per team + persona.** Every file has exactly one writer. Everyone else opens it read-only. There is no lock contention to manage because there is no shared write target.
 - **Timer click path is sacred.** Recording a time from a button click must not block on watchers, schedule diffs, logging, NTP, or disk/cloud I/O. Stated for implementers in [README.md](README.md#timer-priority-implementers); apply throughout timer UI and store write-through.
-- **Regatta Director: a separate entry point.** Timers get a binary that cannot reach RD functions at all.
+- **Regatta Director: one binary, gated by challenge.** There is a single executable. The Director is a persona on the startup picker like the four timers; picking it requires the `rc-rd` challenge code, which is what keeps a timing operator out of Excel import (the split into two binaries, tried in phase 8, added a second distributable for no separation the challenge code did not already give). The loader menu items appear only once the Director persona is chosen.
 - **Event logging is foundational.** Wire `PrefLogging` / `PrefDebug` early via `internal/applog` so every later phase can emit structured JSON logs as it lands, rather than retrofitting call sites at the end. Full design in section 6c; deeper rationale in [logging-options.md](logging-options.md).
 
 ## 2. Two problems the requirements do not mention
@@ -57,13 +57,13 @@ The clock cannot block on a missing start time either way. Design consequence: t
 
 ## 3. Directory layout and ownership
 
-```
+```text
 <shared root>/regattaData/
 ```
 
 The shared root is either a cloud-synced local folder on each laptop (OneDrive, Google Drive for Desktop, etc.) or a UNC path such as `\\timing-pc\regatta\regattaData` served by the spare Windows PC. The tree under `regattaData/` is identical in both modes:
 
-```
+```text
 regattaData/
 ├── director/
 │   └── regattaSchedule.json   # race program from Excel       [RD writes]
@@ -89,7 +89,7 @@ Ownership, stated as a rule the code enforces rather than a convention:
 - **Primary/Secondary Start Timer** writes only `timing/<team>/start.json`. Reads `director/regattaSchedule.json`.
 - **Primary/Secondary Finish Timer** writes only `timing/<team>/finish.json`, which *is* the race results file. Reads `director/regattaSchedule.json` and `timing/<team>/start.json`.
 
-The Director never writes results. Results are produced by the Finish Timer and written when the FT clicks **Referee Approval** or **Save** — both perform the identical write ([README.md](README.md) Finish Timer privileges). The RD is a consumer of results, not a producer: it reads both teams' `finish.json` to reconcile and export.
+The Director never writes results. Results are produced by the Finish Timer: the primary FT writes on **Referee Approval** (`Approved: true`), the secondary FT writes on **Save and Close** (`Approved: false`) ([README.md](README.md) Finish Timer privileges). The RD is a consumer of results, not a producer: it reads both teams' `finish.json` to reconcile and export.
 
 Two changes to what exists today:
 
@@ -119,6 +119,20 @@ An Excel (or API) fingerprint change is a **hint that the origin was touched**, 
 7. **Always keep manual “Reload schedule”** that runs the same load → compare → write-only-if-changed path (or force-write if the RD insists on refreshing `SourceInfo`).
 
 RD Apply already warns when changing races that have timing data. Timers still follow section 3c only when the schedule file’s **payload** actually changes.
+
+### A different regatta is not a schedule change
+
+The flow above assumes the workbook still describes *this* regatta. It does **not** cover the RD opening an unrelated workbook — a different event — while still pointed at a `regattaData/` that already holds a schedule, and possibly `timing/<team>/*.json`, for the current one. Applied as a normal schedule change, that overwrites `regattaSchedule.json` and silently orphans every timing file, whose records are keyed by `RaceNumber` against the schedule that just vanished. The single-operator app has this hole today: `saveRegattaData` rewrites the schedule on every import with no check.
+
+Guard on the **RegattaKey** before writing — `store.RegattaKey(Name, Date)` of the imported candidate vs the on-disk schedule:
+
+- **Keys match** → the detect → compare → Apply/Dismiss flow above.
+- **Keys differ** → this is a new regatta, not an edit. Never a one-click Apply.
+  - If any `timing/<team>/start.json` or `finish.json` exists, refuse the in-place replace. The RD either points at a fresh `regattaData/` directory, or explicitly archives the current one (move `director/` + `timing/` under `archive/<old-RegattaKey>/` or a timestamped sibling) first.
+  - If no timing data exists, one confirmation is enough; keep the outgoing file as `regattaSchedule.<old-RegattaKey>.json` rather than deleting it.
+- Manual “Reload schedule” runs the same key check.
+
+This is the RD-side mirror of the timer-side “reject data from a different regatta” rule in section 8; both compare the same key.
 
 ### Keep Excel out of the long-term core: origin adapter
 
@@ -177,7 +191,7 @@ When a schedule update touches a race that has finish data, or while that race�
 1. **Banner (not a blocking modal):** “Schedule changed for race N (scratch / lane reassignment). Review results.”
 2. **Race tree:** mark the row (e.g. warning affordance) until acknowledged.
 3. **Open clock window:** refresh school/additional labels from the new schedule **without clearing** lap rows, OOF, splits, or winning time. Highlight lanes whose `SchoolName` / scratch state changed vs the schedule snapshot used when the clock was opened (or vs last acknowledged schedule).
-4. **Persisted `finish.json`:** leave results as-is. Optionally store a `ScheduleFingerprint` or per-race `ScheduleHash` on `RaceResult` at save time so the UI can detect “results were approved against an older lane map” after the fact — nice-to-have, not required for v1 if the in-session diff is enough.
+4. **Persisted `finish.json`:** leave results as-is. Every write **does stamp** a per-race lane-map fingerprint on the `RaceResult` (`RaceResult.LaneMapHash`, `store.ScheduleRace.LaneMapHash()` — `RaceNumber` plus each lane’s school and additional info in lane order; class and flight excluded, since they change the title, not which boat is in which lane). This is written as of phase 7 so the data exists; **consuming it** — comparing the stored hash against the live schedule to surface a persistent “approved against an older lane map” mark that survives an app restart, in the FT race tree, the RD progress tree, and [export reconciliation](reconciliation.md) — is deferred to phase 8. The in-session diff (§3c items 1–3) is the only stale-map signal until then, and it does not cover a restart across a change.
 5. **Do not auto-clear OOF** when a lane is scratched in the schedule; prompt the FT to review. Auto-clearing mid-review is more dangerous than a stale label with a warning.
 
 If the FT has **not** yet opened/saved that race, only the tree labels change — same as untimed.
@@ -211,7 +225,7 @@ onScheduleWatcherEvent:
 
 - Untimed race lane change → tree updates, no banner.
 - ST has start for race N, school in lane 2 changes → ST row notice, `start.json` unchanged on disk until ST acts.
-- FT has saved/approved race N, lane 2 school changes → FT banner + row mark; reopen clock shows new labels, prior OOF/times intact; `finish.json` unchanged until FT Save.
+- FT has saved/approved race N, lane 2 school changes → FT banner + row mark; reopen clock shows new labels, prior OOF/times intact; `finish.json` unchanged until the FT next commits the race.
 - FT clock open for race N when schedule arrives → labels refresh, times preserved, conflict highlight; no forced close.
 
 **Schedule vs timing ownership is assessed in [schedule-data-model.md](schedule-data-model.md).** In short: `regattaSchedule.json` keeps only regatta meta + `RaceNumber` + class/flight + lane school assignments. `Place` / `Split` / `Time` / `Saved` / `Approved` leave the schedule file; FT owns them in `finish.json`. Join key across files: regatta identity + `RaceNumber`.
@@ -357,7 +371,7 @@ When the ST records (or clears/restores) race 12:
 2. Atomically write the **whole** `StartLog` (every race already collected, plus 12) via `SaveJSONFileAtomic`.
 3. Bump `Envelope.Sequence` / `WrittenAt` on that full write.
 
-Same pattern for FT Save / Referee Approval on `FinishLog`.
+Same pattern for the FT's Referee Approval (primary) / Save and Close (secondary) on `FinishLog`.
 
 **Forbidden:** constructing a new `StartLog`/`FinishLog` that contains solely `{12: …}` and replacing the file with that. That would erase every other race’s times. Tests must cover “save race 5 then save race 6 → file still contains both.”
 
@@ -549,7 +563,7 @@ var Registry = []Definition{
 	{ID: "sft", Role: RoleFinish, Team: TeamSecondary, Label: "Secondary Finish Timer", Challenge: "rc-sft", File: "finish.json"},
 }
 
-// DirectorDefinition - used by the separate director binary; not offered on the timer picker.
+// DirectorDefinition - the Regatta Director; offered on the startup picker with the timing personas (persona.All), gated by its challenge.
 var DirectorDefinition = Definition{
 	ID: "rd", Role: RoleDirector, Team: TeamExecutive, Label: "Regatta Director", Challenge: "rc-rd", File: "",
 }
@@ -559,7 +573,7 @@ Do **not** add a field named `Persona` on this type (package is already `persona
 
 There is no empty/`TeamNone` team. The RD belongs to **`TeamExecutive`**, which is reserved for non-timing official personas (today only the Director; easy to extend later without inventing a second "no team" sentinel).
 
-Challenge codes are constants in source for now ([README.md](README.md)). Comparison is trimmed and case-insensitive.
+Challenge codes are constants in source for now ([README.md](README.md)). Comparison is trimmed and case-insensitive. An optional deployment config file can replace them per persona and pin a host to a persona so the picker is skipped entirely — see [persona-config-file.md](persona-config-file.md).
 
 A `Session` value is created once at startup and threaded through `Regatta` and `Clock` instead of being consulted from globals:
 
@@ -641,14 +655,17 @@ func (r *Regatta) initRegatta() {
 }
 ```
 
-  For the timer binary this is replaced entirely by the persona flow. `PrefRegattaDir` is no longer read to auto-load; at most it seeds the folder dialog's starting location as a convenience. The RD binary keeps it, since the RD is the persona that "establishes the regattaData save location".
-- **`setupStartupDialog` at [internal/regatta/regatta.go](internal/regatta/regatta.go) lines 103-128 is dead code** and should be deleted as part of this work rather than carried forward.
+  For a timing persona this is replaced entirely by the persona flow. For the Regatta Director, `PrefRegattaDir` is still where the schedule save location is remembered, and `PrefLastPersonaID == "rd"` turns it into a **"Resume as Regatta Director — &lt;name&gt;"** shortcut on the picker (skips the challenge, since it is the same machine and operator). That shortcut is the **only** path that auto-restores the last regatta: deliberately choosing "Regatta Director" from the picker always opens the Director Setup view, so the RD can switch to a different regatta without restarting the app. A timing persona always re-picks.
+
+- **`setupStartupDialog` dead code** was removed with the phase-5 startup rework.
 
 ### Regatta Director entry point
 
-A second binary, `cmd/regattaDirector/main.go`, sharing `internal/regatta` via a mode flag on construction (`NewDirector` / `NewTimer`). The timer binary contains no path to the Excel loader, so timers cannot reach RD functions even accidentally. [.github/workflows/release.yml](.github/workflows/release.yml) gains parallel `fyne package -src ./cmd/regattaDirector/` steps for macOS and Windows.
+**One binary** (`cmd/regattaClock`). `regatta.New(app)` shows a single picker that groups the personas into **Timers / Media / Admins** tabs; each persona is a button, and pressing it prompts for that persona's challenge code in a small dialog (`promptPersonaChallenge`) — so selecting a persona is never itself a "wrong challenge" error. Timers holds the four timing personas; Media (Social Media / Streaming / Register Results) and a Developer button under Admins are **disabled placeholders** for personas that do not exist yet — the model still defines only the five real personas. Choosing "Regatta Director" (Admins tab) and entering `rc-rd` rebuilds the menu with the loader items and opens the **Director Setup** view (`startDirectorSetup` → `showDirectorSetup`) — it never auto-restores, so it is the safe way to open a different regatta. The picker's separate "Resume as Regatta Director" shortcut is what reopens the previously configured regatta. The **Load Regatta Data** menu item returns to the same setup view. The loader is unreachable until the Director persona is chosen, so a timing operator cannot reach it. `NewDirector` / `NewTimer` remain as constructors for the test suite.
 
-Lower-effort alternative if two distributables prove annoying: one binary with a `--director` flag. Same code structure, weaker separation.
+The **Director Setup** view carries both setup steps on one screen with progress feedback: **Step 1 — load the Excel workbook**, then **Step 2 — choose the save folder**. Each step fills in with a check mark and, once done, the parsed regatta name / date / race count and the full file path (Step 1) or the resolved save path (Step 2), shown in a selectable read-only field. Step 2 always starts unchosen — a `PrefRegattaDir` left over from a previous regatta never pre-ticks it, so the Director picks where each regatta's data goes rather than inheriting the last folder. A **Start Regatta** button stays disabled until both steps are done; pressing it runs the RegattaKey guard and writes `regattaSchedule.json`. The Excel import still shows the confirm-metadata dialog (title / date / race count) before Step 1 is marked done; Deny returns to file selection.
+
+**Deployment persona config (optional).** Before the picker, `New` calls `loadPersonaConfig` (reads `PrefPersonaConfigFile`) then `assignedPersona`. When a JSON config pins the running host to a persona, the picker is skipped: a timer lands on a small "Select regatta folder" view, the director on Director Setup. The config can also replace the built-in challenge codes for the picker flow. Every load failure is non-fatal — the picker is the fallback — and **Switch Persona…** on every menu re-opens the picker. See [persona-config-file.md](persona-config-file.md).
 
 ## 9. UI changes by role
 
@@ -686,14 +703,16 @@ It becomes role-driven:
   `Restore` is visible only when the race has a non-empty `Cleared` history. In the common case — the ST clears by mistake and the row goes blank — it simply appears next to `Start Time`, needing no menu. If a new time has since been recorded, restoring would overwrite good data, so that case prompts for confirmation the way `Clear` does.
 
   This changes nothing for the Finish Timer, which reads only `StartedAt` and recomputes reactively when the watcher reports the change. A clear followed by a restore looks to the FT like any other update.
+
+  **The ST row locks once the FT begins timing that race.** As soon as a `RaceResult` exists for the race in the team's `finish.json` — written from the FT's clock **Start** click onward (see the Finish Timer clock notes below) — the ST's `Start Time` / `Clear` / `Restore` buttons for that race are disabled and the mutators no-op. The rationale is section 2.1: after the FT's Start click the winning time is being computed as `FT Start − ST start time`, so a later change to the start time silently corrupts a result in progress. The ST observes this by **mirroring `finish.json` read-only** (a read, like the FT reading `start.json`); it never writes `finish.json`. The lock releases if the FT abandons the race before saving. The Status cell carries the shared race-progress word — "timing in progress", then "saved", then "approved" — the same vocabulary the FT and Director trees use; the disabled buttons, not the wording, carry the "locked" meaning. There is deliberately no explicit ST lock control — a lock the ST must remember to set has the same human-error failure mode it exists to prevent.
 - **Finish Timer**: title, start-time label (read-only, watcher-updated), an indicator of the FT's own saved progress for that race, and the `Time Race` button. No `Start Time` button. As schedule updates arrive, refresh labels; if the race already has finish data or an open clock, show a non-blocking conflict banner (section 3c) — never auto-edit `finish.json` for scratches/lane moves.
 
-  The progress indicator exists so the restart case in section 8 actually restores something visible: an FT returning after a crash needs to see at a glance which races they have already timed and approved, not just which ones have start times. It reads `WinningTime` and `Approved` from their own `finish.json`.
+  The progress indicator exists so the restart case in section 8 actually restores something visible: an FT returning after a crash needs to see at a glance which races they have already timed and committed (Pending / Saved / Approved), not just which ones have start times. It reads `WinningTime` and `Approved` from their own `finish.json`.
 - **Director**: read-only. No buttons on any row. Each row carries the race title plus four values that together show how far the regatta has progressed: **Restarts**, **Start Time**, **Winning Time**, and an **approval indicator**.
 
   Sources are `len(StartRecord.Cleared)` for restarts, `StartRecord.Display` for the start time, and `RaceResult.WinningTime` and `RaceResult.Approved` from the finish log.
 
-  **Primary team first, falling back to secondary per value.** The fallback is per value rather than per row, because the failure modes are independent: the primary ST can be recording while the primary FT's machine is offline, which should show a primary start time next to a secondary winning time rather than dropping the whole row to secondary. Any value sourced from the secondary team is marked as such — an RD who reads a secondary time as though it were primary has been given worse information than a blank cell.
+  **Primary team first, falling back to secondary per value.** The fallback is per value rather than per row, because the failure modes are independent: the primary ST can be recording while the primary FT's machine is offline, which should show a primary start time next to a secondary winning time rather than dropping the whole row to secondary. Any value sourced from the secondary team is marked as such — an RD who reads a secondary time as though it were primary has been given worse information than a blank cell. This tree is **oversight**, not the published result set; how the two teams' `finish.json` files are combined into what gets published is specified in [reconciliation.md](reconciliation.md).
 
   This makes the Director the one person who can see the regatta stalling, so it is where the staleness indicator and the clock-skew banner from section 2.1 matter most.
 
@@ -706,19 +725,15 @@ It becomes role-driven:
 Three changes to [internal/clock](internal/clock):
 
 1. **Auto-filled winning time.** On `Start`, look up the ST record for this race. If present and sane, pre-fill `winningTime` with `ClockStart - StartedAt` and mark it as derived; the field stays editable. If absent, show `waiting for start time...` and recompute when the watcher delivers it. The existing `Time = Split + WinningTime` math in `adjustTime` is unchanged — only the source of `WinningTime` changes.
-2. **Save on approve and on Save.** `refereeApprovalFunc` currently only flips an in-memory flag, and `initSave` is a stub that does nothing:
+2. **Persisting the result — one commit per team.** The approval panel serializes the lap rows into a `RaceResult` and atomically rewrites `finish.json` ([README.md](README.md) FT privileges); each FT persona has exactly one control that does it.
 
-```181:189:internal/clock/buttons.go
-func (c *Clock) initSave() *widget.Button {
-	button := widget.NewButton(common.SaveButtonText, func() {
-		// Save logic will be implemented later
-	})
-	button.Disable()
-	return button
-}
-```
+   The **Primary Finish Timer** panel is **Referee Approval** + **Close**. A valid winning time enables Referee Approval; approving writes the result with `Approved: true` / `ApprovedAt` stamped and **leaves the window open** so a later correction can be re-presented. There is no standalone Save — **Close** is disabled until the race is approved, then it just closes the clock (it persists nothing). So a primary `finish.json` entry that carries a `WinningTime` and `Rows` always has `Approved: true`.
 
-   Both now serialize the lap rows into a `RaceResult` and atomically rewrite `finish.json` ([README.md](README.md) FT privileges).
+   The **Secondary Finish Timer** has no Referee Approval step — its panel is a single **Save and Close** button. A valid winning time enables it; it writes the result with `Approved: false` and then closes the window. The secondary team never presents to a referee; its `finish.json` is a backup data source for the primary FT and reconciliation ([reconciliation.md](reconciliation.md)).
+
+   A **status line** under the panel reads `Pending` until the race is persisted, then `Approved on <date> by <host>` (primary) or `Saved on <date> by <host>` (secondary) — the local timestamp in RFC 1123 form from `RaceResult.ApprovedAt` / `UpdatedAt`, and `FinishLog.Envelope.Machine`.
+
+   The clock also writes an **in-progress `RaceResult`** — `FirstFinishAt` / `FirstFinishClock` set, no `WinningTime`, `Approved` false — the moment the FT clicks the clock's **Start** button. This is what makes the ST row lock (see the Start Timer notes above) engage immediately rather than only at commit, and lets the RD progress tree show a race as underway. It is the FT writing its own file, so it stays within the one-writer rule. A failed write is surfaced but never blocks timing.
 3. **Rehydration.** `NewClock` checks `finish.json` for an existing `RaceResult` for this race number and, if found, restores lap rows, OOF assignments, place overrides, winning time, and button enablement before showing the window ([README.md](README.md)).
 
 ## 10. Suggested phasing
@@ -735,8 +750,15 @@ Each phase compiles, passes tests, and leaves the app usable.
 4b. **Storage mode preferences** — `PrefStorageMode` (`cloud` \| `smb`) and `PrefNTPServers` on the config screen; wire them into watcher construction and timesync.
 5. **Timer startup flow** — picker, challenge, directory validation, confirmation, hydration; `applog.SetOutput` + `SetIdentity` once session root is known. Delete `setupStartupDialog`.
 6. **Role-aware race tree** — Start Time / Clear / Restore for ST, progress indicators for FT and RD, in-place watcher refresh; log button actions at INFO.
-7. **Clock integration** — derived winning time, save on approve/save, rehydration, skew warnings; log clock actions and ERROR on save failure; schedule-conflict label refresh while clock open (section 3c).
-8. **Director binary** — `cmd/regattaDirector`, read-only progress tree, **schedule origin fingerprint poll + Apply/Reload** (section 3b), release packaging, and primary-vs-secondary reconciliation for export; executive-team log path. Timer-side schedule-diff notices (section 3c) ship with race tree / clock phases 6–7.
+7. **Clock integration** — derived winning time, save on approve/save (plus an in-progress `RaceResult` on the clock's Start click), rehydration, skew warnings; log clock actions and ERROR on save failure; schedule-conflict label refresh while clock open (section 3c), and a per-race `LaneMapHash` stamped on every `RaceResult` write (section 3c item 4). **Start Timer lock** — the ST mirrors `finish.json` read-only and disables `Start Time` / `Clear` / `Restore` for any race the FT has begun timing (section 9).
+8. **Regatta Director** — sliced:
+   - **8a. One binary + unified picker.** Delete `cmd/regattaDirector`; the Director is a persona on `regatta.New`'s picker, gated by `rc-rd`; `PrefLastPersonaID` drives a resume shortcut; Excel import gains a confirm-metadata step; the `Time Race` button comes off the Director row. *(done)*
+   - **8b. Read-only progress tree** — *(done)* **8b-1**: shared column grammar + a per-column header row for all three trees; RD tree on the `raceRow` map with the four metric columns. **8b-2**: the Director hydrates both teams' `start.json` + `finish.json`, watches all five files, and renders Restarts / Start Time / Winning Time / approval primary-first with a per-value secondary fallback (`·2nd` suffix + legend); dismissible clock-skew banner (offsets across the four envelopes, section 2.1) and staleness banner (freshest write older than 10 min, section 9). Executive-team log path already lands with 8a.
+   - **8c. Schedule origin refresh** (section 3b). **8c-1** *(done)*: the **RegattaKey-mismatch guard** on the RD import/reload path — same key writes; a different key with no timing data confirms and keeps the old file as `regattaSchedule.<oldKey>.json`; a different key *with* timing data is refused (the RD archives/clears the folder or points at a fresh one); an unreadable on-disk schedule is refused too. Plus a **Reload Schedule** menu item that re-reads the recorded workbook through the same confirm + guard. **8c-2** *(done)*: a 45s background poll re-hashes the source workbook; on a change it re-reads and compares `Schedule.ContentHash()` (name + date + per-race number/class/flight/count + ordered lane map, Origin excluded) to the live schedule. Unchanged content just clears the banner (DEBUG log, no write); a real change raises a dismissible `Apply` / `Dismiss` banner on the RD tree, Apply routing the candidate through the 8c-1 guard. Reload Schedule now also compares and no-ops when the workbook has not changed the schedule.
+   - **8d. Consume `RaceResult.LaneMapHash`** *(done)* (section 3c item 4): `staleLaneMap(n)` compares a committed result's stored hash (winning time or approval present; a pre-8d result with no stamp is never flagged) against `raceLaneMapHash(live race n)`. A mismatch prefixes the row title with `common.StaleLaneMapMark` ("† ") in the FT tree (own `finish.json`) and the RD tree (either team's), with an italic header legend shown only while a row is flagged. Survives a restart because the hashes are on disk; clears when the race is reopened and re-Saved.
+   - **8e. Reconciliation model** *(design captured; no code)* — [reconciliation.md](reconciliation.md): the two teams' `finish.json` files are combined by **read-time auto-selection**, primary then secondary per race, each published race carrying a provenance tag (`primary` / `secondary` / `disputed`), with gaps the primary missed closed by the primary FT re-entering the secondary's numbers. The RD persists no reconciliation decision. The consumer — a per-race verdict column, a disputed-race resolution screen, and the export/publish with places and times — lands with a future results/publish persona.
+
+   Timer-side schedule-diff notices (section 3c) shipped with race tree / clock phases 6–7.
 
 ## 11. Testing
 
@@ -806,7 +828,10 @@ The app supports two **transport** modes, not two cloud vendors. Prefer the spar
 ## 13. Open items
 
 - **Cross-team fallback.** If the primary ST never records a start time, should the primary FT be able to fall back to the secondary team's `start.json`? Useful in practice, but it silently crosses the primary/secondary boundary, so it likely needs an explicit user confirmation rather than an automatic fallback.
-- **Reconciliation.** When both teams time the same regatta, the RD needs a way to compare primary and secondary results and choose the authoritative set before export. Scoped into phase 8, but the UI for it is undesigned.
+- **Reconciliation.** When both teams time the same regatta, primary and secondary results are combined into the published set by **read-time auto-selection with a provenance tag** — model in [reconciliation.md](reconciliation.md) (phase 8e, design only). The consumer (a per-race verdict column, a disputed-race resolution screen, and the export/publish itself) is future work with a results/publish persona; the RD's progress tree already provides the oversight (per-value primary→secondary fallback, skew / staleness banners, stale-lane-map mark).
+- **Result-driven content personas.** Downstream of the results/publish persona: read-only operators that turn one approved race into published content (a social-media text table, the same as a PNG). [future-result-driven-persona.md](future-result-driven-persona.md) assesses whether Referee Approval should materialize a per-race file — recommendation is to defer and keep `finish.json` the only source of truth, reserving `regattaData/results/` (the name freed by the stage-3 cleanup) for a future single-writer materialized view carrying a per-race `revision` for re-publish detection. [sidecar-personas.md](sidecar-personas.md) refines this into a **sidecar capability** attached to a lead persona (Director / Timer) rather than a standalone persona — with a Lead / Standalone / Sidecar classification, a render-for-a-human first version, and a phased build plan.
+- **RD opens an unrelated workbook.** The origin-refresh flow (section 3b) assumes the workbook still describes the current regatta; opening a different event's workbook without changing the `regattaData/` directory would overwrite `regattaSchedule.json` and orphan the timing files keyed to it. Fix: a `RegattaKey` mismatch check on import / reload with archive-or-cancel handling (section 3b, "A different regatta is not a schedule change"). Lands with the Director in phase 8. The single-operator import path has the hole now; phases 5–7 must not make the in-place overwrite easier, and if phase 8 slips, a minimal mismatch confirm should be pulled forward once timers start writing `timing/<team>/*.json` (phases 6–7), which is when orphaning turns destructive.
+- **ST locked on the wrong race.** The Start Timer lock (section 9) keys off any `RaceResult` in the team's `finish.json`. If the FT starts — or worse, saves — the *wrong* race, the ST cannot correct that race's start time until the FT reopens or clears it. Acceptable for v1 (the FT is the one who engages and releases the lock); a deliberate RD override could be added with the Director progress tree in phase 8.
 - **Challenge codes in source.** Fine for now per the requirements. If the codes ever need to change without a release, they move to a file the RD writes into `regattaData/director/`, which stays consistent with the one-writer-per-file rule.
 - **Schedule API origin.** HTTP `ScheduleOrigin` with URI + API key for the RD. Fingerprint via ETag/version; same detect → Apply UX as Excel. Not part of the first persona ship; keep `SourceInfo` / fingerprint fields ready.
 - **Local write-ahead journal.** [shared-storage-options.md](shared-storage-options.md) recommends journaling collected values locally before writing to the shared path, so an SMB outage (or cloud sync stall) does not block collection. Valuable for both modes; not required for the first ship of personas.

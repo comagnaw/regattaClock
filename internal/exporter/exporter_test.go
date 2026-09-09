@@ -119,6 +119,39 @@ func TestExport_ReplacesSpacesInName(t *testing.T) {
 	}
 }
 
+func TestExport_SanitizesReservedCharactersInName(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	regattaData := reader.RegattaData{
+		Name: "Regatta: Heat?",
+		Races: []reader.RaceData{
+			{
+				RaceNumber: 1,
+				BoatCount:  1,
+				Lanes: map[int]reader.RaceEntry{
+					1: {SchoolName: "School A"},
+				},
+			},
+		},
+	}
+
+	result := Export(regattaData, tmpDir)
+	if result.HasErrors() {
+		t.Fatalf("Export reported errors: %v", result.Errors)
+	}
+
+	expectedFile := filepath.Join(tmpDir, "race_01_Regatta__Heat_.png")
+	file, err := os.Open(expectedFile)
+	if err != nil {
+		t.Fatalf("Expected sanitized filename %s could not be opened: %v", expectedFile, err)
+	}
+	defer file.Close()
+
+	if _, err := png.Decode(file); err != nil {
+		t.Errorf("Exported file %s is not a valid PNG: %v", expectedFile, err)
+	}
+}
+
 func TestExport_CreatesValidPNG(t *testing.T) {
 	tmpDir := t.TempDir()
 

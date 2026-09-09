@@ -44,6 +44,20 @@ func createTestRaceData() reader.RaceData {
 	}
 }
 
+// stopClockTicker stops the 100ms startClockUpdate goroutine (idempotently) so
+// it cannot drive a Fyne render concurrently with the test goroutine. Fyne's
+// test driver runs fyne.Do inline and its global text shaper is not
+// goroutine-safe (see docs/features/testing/known-issues.md). Call it after
+// OpenRaceClock + Start when the test then measures / refreshes text itself.
+func stopClockTicker(t *testing.T, c *Clock) {
+	t.Helper()
+	select {
+	case <-c.clockState.stopChan: // already closed
+	default:
+		close(c.clockState.stopChan)
+	}
+}
+
 func TestNewClock(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()

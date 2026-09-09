@@ -6,8 +6,12 @@ High-level requirements for multi-persona operation of Regatta Clock.
 
 - [persona-plan.md](persona-plan.md) — implementation plan
 - [schedule-data-model.md](schedule-data-model.md) — slim `regattaSchedule.json` vs start/finish SoT
+- [reconciliation.md](reconciliation.md) — combining the two finish teams into one published set
+- [future-result-driven-persona.md](future-result-driven-persona.md) — assessment: content-publishing personas downstream of results
 - [logging-options.md](logging-options.md) — JSON event logging design
 - [shared-storage-options.md](shared-storage-options.md) — SMB / spare-PC vs cloud sync
+- [persona-config-file.md](persona-config-file.md) — optional deployment JSON: host→persona assignment and challenge-code overrides
+- [sidecar-personas.md](sidecar-personas.md) — publishing sub-tasks attached to a lead persona (social post, register results); Lead / Standalone / Sidecar classification
 
 ## Goal
 
@@ -23,7 +27,7 @@ Background routines that are not the running race clock (or the direct recording
 
 | Team | Code | Who |
 |------|------|-----|
-| Executive | `executive` | Regatta Director (and future non-timing officials) |
+| Executive | `executive` | Regatta Director (and future non-timing officials — e.g. the result-publishing personas assessed in [future-result-driven-persona.md](future-result-driven-persona.md)) |
 | Primary | `primary` | Primary Start Timer + Primary Finish Timer |
 | Secondary | `secondary` | Secondary Start Timer + Secondary Finish Timer |
 
@@ -43,7 +47,7 @@ Primary and secondary are independent ST/FT pairings for the same regatta. Timin
 
 - **Does:** Load / refresh schedule from an **origin** (Excel today; future web API) into `regattaSchedule.json` **only when normalized schedule content actually changes**; establish `regattaData`; notice origin fingerprint changes, ignore no-op workbook saves; Apply meaningful updates on confirmation; view live progress; export; read all timing data.
 - **Does not:** Time races; write start times or finish results; silently overwrite the schedule without confirmation while racing is underway.
-- **Entry:** Separate director entry point (not the timer picker).
+- **Entry:** A persona on the one startup picker, gated by the `rc-rd` challenge — choosing it opens the Set Regatta Directory / Load Excel File view and never auto-restores. A separate "resume as director" shortcut appears when the last run was the director and reopens that regatta directly. The **Load Regatta Data** menu returns to the same setup view, so the RD can switch regattas without restarting. Excel import confirms the parsed metadata before writing the schedule.
 - **Constraint:** Timers consume only `regattaSchedule.json`, never the origin. That keeps a future Excel → API pivot inside the RD/reader layer.
 
 ### Start Timer (ST)
@@ -54,9 +58,11 @@ Primary and secondary are independent ST/FT pairings for the same regatta. Timin
 
 ### Finish Timer (FT)
 
-- **Does:** Load race tree from RD schedule; see ST start times (live updates); open **Time Race**; collect laps / OOF / winning time; save on Referee Approval or Save; reopen a race with prior results restored; when schedule changes under a timed race, review lane/school labels without losing results.
+- **Does:** Load race tree from RD schedule; see ST start times (live updates); open **Time Race**; collect laps / OOF / winning time; commit the result — the primary FT on Referee Approval, the secondary FT on Save and Close; reopen a race with prior results restored; when schedule changes under a timed race, review lane/school labels without losing results.
 - **Does not:** Record or clear start times; see **Start Time**; auto-rewrite `finish.json` when the RD publishes scratches or lane moves (attention + label refresh only).
 - **Sees:** Race list, ST start times, own progress (saved / approved), **Time Race**; conflict affordance when schedule diverges from a race already timed.
+- **Primary FT:** no standalone Save — **Referee Approval** is the only commit (`Approved: true`) and it leaves the clock open so a correction can be re-approved. The **Close** button is disabled until the race is approved. A status line shows `Pending` → `Approved on <date> by <host>` (RFC 1123 local time).
+- **Secondary FT:** no Referee Approval step — **Save and Close** is the terminal action: it writes results unapproved (`Approved: false`) and closes the clock. Its status line shows `Pending` → `Saved on <date> by <host>`. The secondary `finish.json` is a backup data source for the primary FT and reconciliation ([reconciliation.md](reconciliation.md)); the primary FT is the only path to an approved result.
 
 ## Shared data constraints
 
@@ -64,13 +70,13 @@ Primary and secondary are independent ST/FT pairings for the same regatta. Timin
 - **One writer per file** — no shared write targets across personas.
 - Watch shared timing files and refresh UI when they change.
 - On restart, hydrate each persona’s view from its already-saved data.
-- Do not auto-restore the last session from preferences alone; choose persona (timers) and confirm the regatta directory each launch.
+- Do not auto-restore the last session from preferences alone; choose a persona and confirm the regatta each launch. The one exception is the Regatta Director's opt-in "resume" shortcut.
 
-## Timer startup (high level)
+## Startup (high level)
 
-1. Choose persona (primary/secondary × start/finish).
-2. Pass that persona’s simple challenge code (or return to step 1).
-3. Select `regattaData` and confirm title / date / schedule.
+1. On the one picker, press your persona's button and enter its challenge code in the prompt. Personas are grouped into **Timers** (the four timing personas), **Media**, and **Admins** (the `executive` team) tabs. Media (Social Media / Streaming / Register Results) and Developer are greyed-out placeholders for personas not built yet. The Director may instead take the "resume as director" shortcut below the tabs when it was the last persona used.
+2. Select `regattaData` and confirm title / date / schedule. Choosing "Regatta Director" always lands on Set Regatta Directory / Load Excel File (it does not auto-restore); the Director points at a directory and imports Excel, confirming the parsed metadata before the schedule is written. Only the "resume as director" shortcut reopens the previous regatta directly.
+3. **Timers only:** if the schedule's date is already in the past (read in the host's timezone), a second confirmation warns that this is an already-run regatta before the session starts. An empty or unrecognised date skips this check.
 4. Show the role-specific race tree.
 
 ## Privilege summary

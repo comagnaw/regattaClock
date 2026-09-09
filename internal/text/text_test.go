@@ -5,7 +5,97 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/widget"
 )
+
+func TestBoldLabel(t *testing.T) {
+	l := BoldLabel("Header")
+	if l == nil {
+		t.Fatal("BoldLabel returned nil")
+	}
+	if l.Text != "Header" {
+		t.Errorf("Text = %q, want %q", l.Text, "Header")
+	}
+	if !l.TextStyle.Bold {
+		t.Error("BoldLabel should be bold")
+	}
+}
+
+func TestBoldLabelCenter(t *testing.T) {
+	l := BoldLabelCenter("Header")
+	if l == nil {
+		t.Fatal("BoldLabelCenter returned nil")
+	}
+	if !l.TextStyle.Bold {
+		t.Error("BoldLabelCenter should be bold")
+	}
+	if l.Alignment != fyne.TextAlignCenter {
+		t.Errorf("Alignment = %v, want Center", l.Alignment)
+	}
+}
+
+func TestTruncatingLabels(t *testing.T) {
+	cases := []struct {
+		name  string
+		got   *widget.Label
+		align fyne.TextAlign
+	}{
+		{"Truncating", Truncating("x"), fyne.TextAlignLeading},
+		{"TruncatingTrailing", TruncatingTrailing("x"), fyne.TextAlignTrailing},
+		{"TruncatingCenter", TruncatingCenter("x"), fyne.TextAlignCenter},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if c.got == nil {
+				t.Fatalf("%s returned nil", c.name)
+			}
+			if c.got.Text != "x" {
+				t.Errorf("Text = %q, want %q", c.got.Text, "x")
+			}
+			if c.got.Truncation != fyne.TextTruncateEllipsis {
+				t.Errorf("Truncation = %v, want ellipsis", c.got.Truncation)
+			}
+			if c.got.Alignment != c.align {
+				t.Errorf("Alignment = %v, want %v", c.got.Alignment, c.align)
+			}
+		})
+	}
+}
+
+func TestNote(t *testing.T) {
+	l := Note("aside")
+	if l == nil {
+		t.Fatal("Note returned nil")
+	}
+	if l.Text != "aside" {
+		t.Errorf("Text = %q, want %q", l.Text, "aside")
+	}
+	if !l.TextStyle.Italic {
+		t.Error("Note should be italic")
+	}
+	if l.TextStyle.Bold {
+		t.Error("Note should not be bold")
+	}
+	if l.Alignment != fyne.TextAlignLeading {
+		t.Errorf("Alignment = %v, want Leading", l.Alignment)
+	}
+}
+
+func TestWrapping(t *testing.T) {
+	l := Wrapping("some long message")
+	if l == nil {
+		t.Fatal("Wrapping returned nil")
+	}
+	if l.Text != "some long message" {
+		t.Errorf("Text = %q, want %q", l.Text, "some long message")
+	}
+	if l.Wrapping != fyne.TextWrapWord {
+		t.Errorf("Wrapping = %v, want TextWrapWord", l.Wrapping)
+	}
+	if l.TextStyle.Bold || l.TextStyle.Italic {
+		t.Error("Wrapping should not set TextStyle flags")
+	}
+}
 
 func TestHeader1(t *testing.T) {
 	testText := "Test Header 1"

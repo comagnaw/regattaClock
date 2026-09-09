@@ -1,21 +1,108 @@
 package regatta
 
 import (
+	"path/filepath"
+	"slices"
 	"testing"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/test"
+	"fyne.io/fyne/v2/widget"
 
 	"github.com/comagnaw/regattaClock/internal/common"
+	"github.com/comagnaw/regattaClock/internal/persona"
 	"github.com/comagnaw/regattaClock/internal/reader"
 )
 
-func TestNewRegatta(t *testing.T) {
+// labelTexts collects the text of every widget.Label anywhere under o.
+func labelTexts(o fyne.CanvasObject) []string {
+	var out []string
+	switch v := o.(type) {
+	case *widget.Label:
+		out = append(out, v.Text)
+	case *fyne.Container:
+		for _, c := range v.Objects {
+			out = append(out, labelTexts(c)...)
+		}
+	}
+	return out
+}
+
+// leafTexts collects label and button text under o in visual (tree) order, so a
+// test can assert one column sits ahead of another.
+func leafTexts(o fyne.CanvasObject) []string {
+	switch v := o.(type) {
+	case *widget.Button:
+		return []string{v.Text}
+	case *widget.Label:
+		return []string{v.Text}
+	case *fyne.Container:
+		var out []string
+		for _, c := range v.Objects {
+			out = append(out, leafTexts(c)...)
+		}
+		return out
+	}
+	return nil
+}
+
+// ftRegatta is a NewTimer bound to a Primary Finish Timer session, enough for
+// the pure layout helpers (raceListHeader, newRaceRow).
+func ftRegatta(t *testing.T) *Regatta {
+	t.Helper()
+	app := test.NewApp()
+	t.Cleanup(app.Quit)
+
+	r := NewTimer(app)
+	def, ok := persona.ByID("pft")
+	if !ok {
+		t.Fatal("no pft persona")
+	}
+	r.session = persona.Session{Definition: def}
+	return r
+}
+
+func TestRegatta_RaceListHeader_Finish(t *testing.T) {
+	texts := labelTexts(ftRegatta(t).raceListHeader())
+
+	for _, want := range []string{common.ScheduledRacesTile, common.ColStartTime, common.ColStatus} {
+		if !slices.Contains(texts, want) {
+			t.Errorf("finish header %v is missing %q", texts, want)
+		}
+	}
+	if i, j := slices.Index(texts, common.ColStartTime), slices.Index(texts, common.ColStatus); i < 0 || j < 0 || i > j {
+		t.Errorf("finish header %v: want %q before %q", texts, common.ColStartTime, common.ColStatus)
+	}
+}
+
+func TestRegatta_FinishRow_TimeRaceLeadsCluster(t *testing.T) {
+	r := ftRegatta(t)
+	row := r.newRaceRow(reader.RaceData{
+		RaceNumber: 1, BoatCount: 2,
+		Lanes: map[int]reader.RaceEntry{1: {SchoolName: "A"}, 2: {SchoolName: "B"}},
+	})
+
+	seq := leafTexts(row.root)
+	btn := slices.Index(seq, common.TimeRaceButtonText)
+	start := slices.Index(seq, common.WaitingForStartText)
+	if btn < 0 || start < 0 || btn > start {
+		t.Errorf("finish row leaf order %v: want %q before the start-time cell %q",
+			seq, common.TimeRaceButtonText, common.WaitingForStartText)
+	}
+
+	// The start-time cell must clip rather than bleed onto the Time Race button
+	// now sitting directly to its left.
+	if row.startTime.Truncation != fyne.TextTruncateEllipsis {
+		t.Errorf("start-time label truncation = %v, want ellipsis", row.startTime.Truncation)
+	}
+}
+
+func TestNewDirector(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 
 	if regatta == nil {
 		t.Fatal("NewRegatta returned nil")
@@ -73,7 +160,7 @@ func TestRegatta_RefreshContent(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 
 	// Create mock regatta data
 	regatta.RegattaData = &reader.RegattaData{
@@ -97,12 +184,12 @@ func TestRegatta_RefreshContent(t *testing.T) {
 	regatta.showRaceTree()
 	regatta.refreshContent()
 
-	expectedTitle := "Test Regatta"
+	expectedTitle := "Regatta: Test Regatta"
 	if regatta.title.Text != expectedTitle {
 		t.Errorf("Expected title %q, got %q", expectedTitle, regatta.title.Text)
 	}
 
-	expectedDate := "2024-01-15"
+	expectedDate := "Date: 2024-01-15"
 	if regatta.date.Text != expectedDate {
 		t.Errorf("Expected date %q, got %q", expectedDate, regatta.date.Text)
 	}
@@ -117,7 +204,7 @@ func TestRegatta_RefreshContent_NoRaces(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 
 	regatta.RegattaData = &reader.RegattaData{
 		Name:  "Empty Regatta",
@@ -128,8 +215,8 @@ func TestRegatta_RefreshContent_NoRaces(t *testing.T) {
 	regatta.showRaceTree()
 	regatta.refreshContent()
 
-	if regatta.title.Text != "Empty Regatta" {
-		t.Errorf("Expected title 'Empty Regatta', got %q", regatta.title.Text)
+	if regatta.title.Text != "Regatta: Empty Regatta" {
+		t.Errorf("Expected title 'Regatta: Empty Regatta', got %q", regatta.title.Text)
 	}
 
 	expectedSubtitle := "Scheduled Races: 0"
@@ -142,7 +229,7 @@ func TestRegatta_RefreshContent_SomeEmptyRaces(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 
 	regatta.RegattaData = &reader.RegattaData{
 		Name: "Partial Regatta",
@@ -180,7 +267,7 @@ func TestRegatta_ShowRaceTree_NilRegattaData(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 	regatta.RegattaData = nil
 
 	// Should not panic with nil RegattaData
@@ -197,7 +284,7 @@ func TestRegatta_ShowRaceTree_WithData(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 
 	regatta.RegattaData = &reader.RegattaData{
 		Name: "Test Regatta",
@@ -236,7 +323,7 @@ func TestRegatta_TreeTitle(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 	regatta.title.Text = "Test Title"
 	regatta.subtitle.Text = "Test Subtitle"
 	regatta.date.Text = "Test Date"
@@ -248,15 +335,64 @@ func TestRegatta_TreeTitle(t *testing.T) {
 	}
 
 	// Assert on what the row holds rather than its nesting, so wrapping it in a
-	// different layout does not break the test.
+	// different layout does not break the test. The wordmark is a sibling row in
+	// showRaceTree now, not part of treeTitle.
 	images, texts := countObjects(titleRow)
 
-	if images != 1 {
-		t.Errorf("Expected the branding logo in the tree title, got %d images", images)
+	if images != 0 {
+		t.Errorf("treeTitle should carry no image, got %d", images)
 	}
 
-	if texts != 3 {
-		t.Errorf("Expected the title, subtitle and date, got %d text objects", texts)
+	// regatta / scheduled races / date / role - four cells, always present
+	// (the role cell is an empty *canvas.Text when no session is bound).
+	if texts != 4 {
+		t.Errorf("Expected the four Key: Value fields, got %d text objects", texts)
+	}
+}
+
+func TestRegatta_TreeHeaderHasWordmark(t *testing.T) {
+	app := test.NewApp()
+	defer app.Quit()
+
+	sch := testSchedule()
+	root := seedRegatta(t, sch)
+	app.Preferences().SetString(common.PrefRegattaDir, filepath.Dir(root))
+
+	r := NewDirector(app)
+	stopWatch(t, r)
+
+	if onWelcome(r) {
+		t.Fatal("precondition: NewDirector should restore into the race tree")
+	}
+	if images, _ := countObjects(r.window.Content()); images < 1 {
+		t.Error("the race-tree header should show the branding wordmark")
+	}
+}
+
+func TestRegatta_TreeTitleWithRole(t *testing.T) {
+	app := test.NewApp()
+	defer app.Quit()
+
+	regatta := NewDirector(app)
+	regatta.persona.Text = "Role: Whatever"
+
+	if _, texts := countObjects(regatta.treeTitle()); texts != 4 {
+		t.Errorf("Expected the role line plus title, subtitle and date, got %d text objects", texts)
+	}
+}
+
+func TestDirector_ShowsRoleAfterRestore(t *testing.T) {
+	app := test.NewTempApp(t)
+	root := seedRegatta(t, testSchedule())
+	app.Preferences().SetString(common.PrefRegattaDir, filepath.Dir(root))
+
+	r := NewDirector(app)
+
+	if r.persona.Text != "Role: Regatta Director" {
+		t.Errorf("header role line = %q, want %q", r.persona.Text, "Role: Regatta Director")
+	}
+	if got := r.window.Title(); got != "Regatta Clock — Regatta Director" {
+		t.Errorf("window title = %q, want %q", got, "Regatta Clock — Regatta Director")
 	}
 }
 
@@ -277,185 +413,85 @@ func countObjects(o fyne.CanvasObject) (images, texts int) {
 	return images, texts
 }
 
-func TestRegatta_ListTitle(t *testing.T) {
+func TestRegatta_RaceListHeader_Director(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
-
-	label := regatta.listTitle()
-
-	if label == nil {
-		t.Fatal("listTitle returned nil")
+	regatta := NewDirector(app)
+	header := regatta.raceListHeader()
+	if header == nil {
+		t.Fatal("raceListHeader returned nil")
 	}
 
-	if label.Text != common.ScheduledRacesTile {
-		t.Errorf("Expected label text %q, got %q", common.ScheduledRacesTile, label.Text)
-	}
-
-	if !label.TextStyle.Bold {
-		t.Error("List title should be bold")
+	texts := labelTexts(header)
+	for _, want := range []string{
+		common.ScheduledRacesTile, common.ColRestarts, common.ColStartTime,
+		common.ColWinningTime, common.ColStatus,
+	} {
+		if !slices.Contains(texts, want) {
+			t.Errorf("director header %v is missing %q", texts, want)
+		}
 	}
 }
 
-func TestRegatta_RaceList_Empty(t *testing.T) {
+func directorWithRaces(t *testing.T, races []reader.RaceData) *Regatta {
+	t.Helper()
 	app := test.NewApp()
-	defer app.Quit()
+	t.Cleanup(app.Quit)
 
-	regatta := NewRegatta(app)
-	regatta.RegattaData = &reader.RegattaData{
-		Name:  "Empty Regatta",
-		Date:  "2024-01-01",
-		Races: []reader.RaceData{},
-	}
+	r := NewDirector(app)
+	r.session = persona.Session{Definition: persona.DirectorDefinition}
+	r.RegattaData = &reader.RegattaData{Name: "Test", Date: "2026-10-02", Races: races}
+	return r
+}
 
-	scroll := regatta.raceList()
+func TestRegatta_DirectorRaceList(t *testing.T) {
+	r := directorWithRaces(t, []reader.RaceData{
+		{RaceNumber: 1, BoatCount: 4, Lanes: map[int]reader.RaceEntry{1: {SchoolName: "A"}}},
+		{RaceNumber: 2, BoatCount: 0, Lanes: map[int]reader.RaceEntry{}}, // skipped
+		{RaceNumber: 3, BoatCount: 3, Lanes: map[int]reader.RaceEntry{1: {SchoolName: "C"}}},
+	})
 
+	scroll := r.raceListBody()
 	if scroll == nil {
-		t.Fatal("raceList returned nil")
+		t.Fatal("directorRaceList returned nil")
+	}
+	if h := scroll.MinSize().Height; h < raceListMinHeight || h >= regattaHeight {
+		t.Errorf("scroll min height %f outside [%f, %f)", h, raceListMinHeight, regattaHeight)
 	}
 
-	// The list keeps a height floor so it never collapses, but must stay well short
-	// of the window height: it shares the window with the title header, so demanding
-	// the full height would push the content past the window and force it to grow.
-	minSize := scroll.MinSize()
-	if minSize.Height < raceListMinHeight {
-		t.Errorf("Expected min height of at least %f, got %f", raceListMinHeight, minSize.Height)
+	if len(r.rows) != 2 {
+		t.Fatalf("rows = %d, want 2 (race 2 has no boats)", len(r.rows))
 	}
-
-	if minSize.Height >= regattaHeight {
-		t.Errorf("Min height %f leaves no room for the header within the %f window",
-			minSize.Height, regattaHeight)
+	if _, skipped := r.rows[2]; skipped {
+		t.Error("a race with no boats should not get a row")
 	}
 }
 
-func TestRegatta_RaceList_WithRaces(t *testing.T) {
-	app := test.NewApp()
-	defer app.Quit()
+func TestRegatta_DirectorRow_LayoutAndPlaceholders(t *testing.T) {
+	r := directorWithRaces(t, []reader.RaceData{
+		{RaceNumber: 5, BoatCount: 4, BoatClass: "Varsity 8", FlightInfo: "Heat 1",
+			Lanes: map[int]reader.RaceEntry{1: {SchoolName: "School A"}}},
+	})
+	r.raceListBody()
 
-	regatta := NewRegatta(app)
-	regatta.RegattaData = &reader.RegattaData{
-		Name: "Test Regatta",
-		Date: "2024-01-15",
-		Races: []reader.RaceData{
-			{
-				RaceNumber: 1,
-				BoatCount:  4,
-				Lanes:      map[int]reader.RaceEntry{1: {SchoolName: "School A"}},
-			},
-			{
-				RaceNumber: 2,
-				BoatCount:  3,
-				Lanes:      map[int]reader.RaceEntry{1: {SchoolName: "School B"}},
-			},
-		},
+	row := r.rows[5]
+	if row == nil {
+		t.Fatal("no row for race 5")
 	}
-
-	scroll := regatta.raceList()
-
-	if scroll == nil {
-		t.Fatal("raceList returned nil")
+	if row.title.Alignment != fyne.TextAlignTrailing {
+		t.Error("the race title should be right-justified")
 	}
-}
-
-func TestRegatta_RaceList_SkipsEmptyRaces(t *testing.T) {
-	app := test.NewApp()
-	defer app.Quit()
-
-	regatta := NewRegatta(app)
-	regatta.RegattaData = &reader.RegattaData{
-		Name: "Mixed Regatta",
-		Date: "2024-01-15",
-		Races: []reader.RaceData{
-			{
-				RaceNumber: 1,
-				BoatCount:  4,
-				Lanes:      map[int]reader.RaceEntry{1: {SchoolName: "School A"}},
-			},
-			{
-				RaceNumber: 2,
-				BoatCount:  0,
-				Lanes:      map[int]reader.RaceEntry{}, // Empty race
-			},
-			{
-				RaceNumber: 3,
-				BoatCount:  3,
-				Lanes:      map[int]reader.RaceEntry{1: {SchoolName: "School C"}},
-			},
-		},
+	if row.startBtn != nil || row.timeBtn != nil {
+		t.Error("a director row has no buttons")
 	}
-
-	scroll := regatta.raceList()
-
-	if scroll == nil {
-		t.Fatal("raceList returned nil")
-	}
-
-	// The scroll container should exist but we can't easily count entries
-	// Just verify it was created successfully
-}
-
-func TestRegatta_TimeButton(t *testing.T) {
-	app := test.NewApp()
-	defer app.Quit()
-
-	regatta := NewRegatta(app)
-	regatta.RegattaData = &reader.RegattaData{
-		Name:  "Test Regatta",
-		Date:  "2024-01-15",
-		Races: []reader.RaceData{},
-	}
-
-	race := reader.RaceData{
-		RaceNumber: 1,
-		BoatCount:  4,
-		BoatClass:  "Varsity 8",
-		Lanes:      map[int]reader.RaceEntry{1: {SchoolName: "School A"}},
-	}
-
-	button := regatta.timeButton(race)
-
-	if button == nil {
-		t.Fatal("timeButton returned nil")
-	}
-
-	if button.Text != common.TimeRaceButtonText {
-		t.Errorf("Expected button text %q, got %q", common.TimeRaceButtonText, button.Text)
-	}
-
-	// Verify button has an action
-	if button.OnTapped == nil {
-		t.Error("Button should have OnTapped action")
-	}
-}
-
-func TestRegatta_RaceEntry(t *testing.T) {
-	app := test.NewApp()
-	defer app.Quit()
-
-	regatta := NewRegatta(app)
-	regatta.RegattaData = &reader.RegattaData{
-		Name:  "Test Regatta",
-		Date:  "2024-01-15",
-		Races: []reader.RaceData{},
-	}
-
-	race := reader.RaceData{
-		RaceNumber: 5,
-		BoatCount:  4,
-		BoatClass:  "Varsity 8",
-		FlightInfo: "Heat 1",
-		Lanes:      map[int]reader.RaceEntry{1: {SchoolName: "School A"}},
-	}
-
-	container := regatta.raceEntry(race)
-
-	if container == nil {
-		t.Fatal("raceEntry returned nil")
-	}
-
-	if len(container.Objects) < 2 {
-		t.Errorf("Expected at least 2 objects in race entry container, got %d", len(container.Objects))
+	// No timing logs bound yet: every metric cell shows its placeholder.
+	if row.restarts.Text != common.NoStartTimeText ||
+		row.startTime.Text != common.NoStartTimeText ||
+		row.winTime.Text != common.NoStartTimeText ||
+		row.approved.Text != common.EmptyString {
+		t.Errorf("placeholder cells wrong: restarts=%q start=%q win=%q status=%q",
+			row.restarts.Text, row.startTime.Text, row.winTime.Text, row.approved.Text)
 	}
 }
 
@@ -463,7 +499,7 @@ func TestRegatta_MakeMenu(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 
 	menu := regatta.makeMenu()
 
@@ -490,7 +526,7 @@ func TestRegatta_ImportItem(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 
 	item := regatta.importItem()
 
@@ -511,7 +547,7 @@ func TestRegatta_ShowWindowItem(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 
 	item := regatta.showWindowItem()
 
@@ -532,7 +568,7 @@ func TestRegatta_ExitItem(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 
 	item := regatta.exitItem()
 
@@ -553,7 +589,7 @@ func TestRegatta_InitialWindowSize(t *testing.T) {
 	app := test.NewApp()
 	defer app.Quit()
 
-	regatta := NewRegatta(app)
+	regatta := NewDirector(app)
 
 	size := regatta.window.Canvas().Size()
 	if size.Width != regattaWidth || size.Height != regattaHeight {

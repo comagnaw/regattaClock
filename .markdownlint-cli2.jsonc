@@ -1,0 +1,26 @@
+// markdownlint-cli2 configuration for repo Markdown (docs/, README.md, ...).
+// Run:  npx -y markdownlint-cli2 "docs/**/*.md" "*.md"
+// See AGENTS.md "Markdown".
+{
+  "config": {
+    "default": true,
+
+    // Prose is not hard-wrapped in this repo; tables and reference links run wide.
+    "MD013": false,
+
+    // Table cell padding is not consistent across docs and is purely cosmetic.
+    "MD060": false,
+
+    // Go samples in fenced code blocks are tab-indented (gofmt); only flag
+    // hard tabs outside code.
+    "MD010": { "code_blocks": false },
+
+    // Repeated section names under different parents are intentional
+    // (e.g. several "### Tests to require").
+    "MD024": { "siblings_only": true },
+
+    // Bold lead-in lines like "**Status:**" / "**Related docs in this directory**"
+    // are a house pattern, not headings.
+    "MD036": false
+  }
+}
