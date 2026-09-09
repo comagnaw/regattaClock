@@ -146,9 +146,10 @@ type Regatta struct {
 	scheduleBanner      *fyne.Container
 	scheduleBannerLabel *widget.Label
 
-	// staleLaneLegend - italic header line explaining common.StaleLaneMapMark,
-	// shown only when a row carries it (persona-plan.md 3c item 4).
-	staleLaneLegend *widget.Label
+	// staleLaneLegend - caution strip explaining common.StaleLaneMapMark, shown
+	// only when a visible row carries it (persona-plan.md 3c item 4). Same
+	// dismissible banner as directorSkew et al., sitting above the column header.
+	staleLaneLegend *dismissibleBanner
 
 	// watchedHashes - last-applied content hash per watched file, seeded at
 	// startup so the watcher's initial "current content" event for a file that

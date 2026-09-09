@@ -5,6 +5,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/widget"
 )
 
 func TestBoldLabel(t *testing.T) {
@@ -17,6 +18,47 @@ func TestBoldLabel(t *testing.T) {
 	}
 	if !l.TextStyle.Bold {
 		t.Error("BoldLabel should be bold")
+	}
+}
+
+func TestBoldLabelCenter(t *testing.T) {
+	l := BoldLabelCenter("Header")
+	if l == nil {
+		t.Fatal("BoldLabelCenter returned nil")
+	}
+	if !l.TextStyle.Bold {
+		t.Error("BoldLabelCenter should be bold")
+	}
+	if l.Alignment != fyne.TextAlignCenter {
+		t.Errorf("Alignment = %v, want Center", l.Alignment)
+	}
+}
+
+func TestTruncatingLabels(t *testing.T) {
+	cases := []struct {
+		name  string
+		got   *widget.Label
+		align fyne.TextAlign
+	}{
+		{"Truncating", Truncating("x"), fyne.TextAlignLeading},
+		{"TruncatingTrailing", TruncatingTrailing("x"), fyne.TextAlignTrailing},
+		{"TruncatingCenter", TruncatingCenter("x"), fyne.TextAlignCenter},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if c.got == nil {
+				t.Fatalf("%s returned nil", c.name)
+			}
+			if c.got.Text != "x" {
+				t.Errorf("Text = %q, want %q", c.got.Text, "x")
+			}
+			if c.got.Truncation != fyne.TextTruncateEllipsis {
+				t.Errorf("Truncation = %v, want ellipsis", c.got.Truncation)
+			}
+			if c.got.Alignment != c.align {
+				t.Errorf("Alignment = %v, want %v", c.got.Alignment, c.align)
+			}
+		})
 	}
 }
 

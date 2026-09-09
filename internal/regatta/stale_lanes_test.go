@@ -32,7 +32,7 @@ func TestFinishTree_StaleLaneMapMark(t *testing.T) {
 	if !strings.HasPrefix(r.rows[1].title.Text, common.StaleLaneMapMark) {
 		t.Errorf("row 1 title = %q, want the stale-lane mark", r.rows[1].title.Text)
 	}
-	if r.staleLaneLegend.Hidden {
+	if !bannerVisible(r.staleLaneLegend) {
 		t.Error("the legend should show when a row is flagged")
 	}
 
@@ -45,7 +45,7 @@ func TestFinishTree_StaleLaneMapMark(t *testing.T) {
 	if strings.HasPrefix(r.rows[1].title.Text, common.StaleLaneMapMark) {
 		t.Errorf("row 1 title = %q, want the mark cleared", r.rows[1].title.Text)
 	}
-	if !r.staleLaneLegend.Hidden {
+	if bannerVisible(r.staleLaneLegend) {
 		t.Error("the legend should hide once no row is flagged")
 	}
 }

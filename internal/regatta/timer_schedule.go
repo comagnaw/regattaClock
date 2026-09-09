@@ -90,13 +90,13 @@ func (r *Regatta) pushScheduleToOpenClocks(changed map[int]scheduleChange) {
 func (r *Regatta) scheduleBannerWidget() *fyne.Container {
 	r.scheduleBannerLabel = widget.NewLabel(common.EmptyString)
 	r.scheduleBannerLabel.Wrapping = fyne.TextWrapWord
-	r.scheduleBannerLabel.Importance = widget.WarningImportance
 	dismiss := widget.NewButton(common.CloseButtonText, func() {
 		r.scheduleConflicts = map[int]scheduleChange{}
 		r.refreshAllRows()
 		r.scheduleBanner.Hide()
 	})
-	r.scheduleBanner = container.NewBorder(nil, nil, nil, dismiss, r.scheduleBannerLabel)
+	// Same caution styling as the RD banners (bannerRoot), returned hidden.
+	r.scheduleBanner = bannerRoot(container.NewBorder(nil, nil, nil, dismiss, r.scheduleBannerLabel))
 	r.refreshScheduleBanner()
 	return r.scheduleBanner
 }
