@@ -48,6 +48,22 @@ func TruncatingCenter(t string) *widget.Label {
 	return l
 }
 
+// Note - a leading italic widget.Label, for a small explanatory aside beneath a
+// control or view (widget.Label is already leading-aligned by default).
+func Note(t string) *widget.Label {
+	l := widget.NewLabel(t)
+	l.TextStyle = fyne.TextStyle{Italic: true}
+	return l
+}
+
+// Wrapping - a widget.Label that word-wraps instead of clipping, for banner and
+// message text that can run long. The caller may still set Importance.
+func Wrapping(t string) *widget.Label {
+	l := widget.NewLabel(t)
+	l.Wrapping = fyne.TextWrapWord
+	return l
+}
+
 // Header1 - returns title format of fyne Text
 func Header1(t string) *canvas.Text {
 	return newText(t, false, true, fyne.TextAlignCenter, 48)

@@ -13,6 +13,7 @@ import (
 	"github.com/comagnaw/regattaClock/internal/applog"
 	"github.com/comagnaw/regattaClock/internal/common"
 	"github.com/comagnaw/regattaClock/internal/persona"
+	"github.com/comagnaw/regattaClock/internal/text"
 )
 
 // applyScheduleConflicts records which changed races need the operator's
@@ -88,8 +89,7 @@ func (r *Regatta) pushScheduleToOpenClocks(changed map[int]scheduleChange) {
 // with the tree; refreshScheduleBanner drives its text and visibility from
 // r.scheduleConflicts.
 func (r *Regatta) scheduleBannerWidget() *fyne.Container {
-	r.scheduleBannerLabel = widget.NewLabel(common.EmptyString)
-	r.scheduleBannerLabel.Wrapping = fyne.TextWrapWord
+	r.scheduleBannerLabel = text.Wrapping(common.EmptyString)
 	dismiss := widget.NewButton(common.CloseButtonText, func() {
 		r.scheduleConflicts = map[int]scheduleChange{}
 		r.refreshAllRows()

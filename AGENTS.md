@@ -21,6 +21,25 @@ or open a PR.
   rule change. Changing `.markdownlint-cli2.jsonc` is a deliberate, explained edit.
 - `docs/features/**/*.md` is expected to lint clean; keep it that way.
 
+## Text styling
+
+`internal/text` is the single home for UI type styling. Every `widget.Label` or
+`canvas.Text` that sets `TextStyle`, `Alignment`, `Truncation`, `Wrapping`, or
+`TextSize` — `widget.NewLabelWithStyle` included — comes from a factory there
+(`BoldLabel`, `Header3`, `Truncating`, `Note`, `Wrapping`, …), so the app keeps
+one consistent fit and finish and one place to change a given style.
+
+- Do not hand-roll a styled label or text in a feature package
+  (`internal/regatta`, `internal/clock`, …), and do not add a local
+  `*widget.Label`-returning helper. If `internal/text` lacks the style you need,
+  add the factory there — with a test, following the existing `Header*` /
+  `*Label` / `Truncating*` naming — then call it.
+- A bare `widget.NewLabel(text)` with no styling is fine inline; the rule is
+  about *styled* text. Setting `Importance` on a label is also fine inline —
+  importance is per-use, not type styling.
+- Keep the user-facing string itself in `internal/common` and pass it to the
+  factory; `internal/text` never hard-codes copy.
+
 ## Releases
 
 A **release** is a point-in-time compiled version of regattaClock, announced by an

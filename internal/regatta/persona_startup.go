@@ -68,7 +68,7 @@ func (r *Regatta) showPersonaPicker() {
 	)
 	tabs.SetTabLocation(container.TabLocationTop)
 
-	note := widget.NewLabelWithStyle(common.PersonaPlaceholderNote, fyne.TextAlignLeading, fyne.TextStyle{Italic: true})
+	note := text.Note(common.PersonaPlaceholderNote)
 
 	rows := []fyne.CanvasObject{
 		text.BoldLeading(common.PersonaPickerPrompt),

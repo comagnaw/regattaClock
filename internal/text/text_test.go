@@ -62,6 +62,41 @@ func TestTruncatingLabels(t *testing.T) {
 	}
 }
 
+func TestNote(t *testing.T) {
+	l := Note("aside")
+	if l == nil {
+		t.Fatal("Note returned nil")
+	}
+	if l.Text != "aside" {
+		t.Errorf("Text = %q, want %q", l.Text, "aside")
+	}
+	if !l.TextStyle.Italic {
+		t.Error("Note should be italic")
+	}
+	if l.TextStyle.Bold {
+		t.Error("Note should not be bold")
+	}
+	if l.Alignment != fyne.TextAlignLeading {
+		t.Errorf("Alignment = %v, want Leading", l.Alignment)
+	}
+}
+
+func TestWrapping(t *testing.T) {
+	l := Wrapping("some long message")
+	if l == nil {
+		t.Fatal("Wrapping returned nil")
+	}
+	if l.Text != "some long message" {
+		t.Errorf("Text = %q, want %q", l.Text, "some long message")
+	}
+	if l.Wrapping != fyne.TextWrapWord {
+		t.Errorf("Wrapping = %v, want TextWrapWord", l.Wrapping)
+	}
+	if l.TextStyle.Bold || l.TextStyle.Italic {
+		t.Error("Wrapping should not set TextStyle flags")
+	}
+}
+
 func TestHeader1(t *testing.T) {
 	testText := "Test Header 1"
 	result := Header1(testText)
