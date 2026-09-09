@@ -9,7 +9,10 @@ read [AGENTS.md](AGENTS.md).
 - **A C toolchain and OpenGL/X11 development libraries.** fyne links GLFW via
   CGO, so these are required to build or run:
   - **Linux:** `libgl-dev libxcursor-dev libxinerama-dev libxrandr-dev libxi-dev
-    libxxf86vm-dev` (package names vary by distro).
+    libxxf86vm-dev libwayland-dev libxkbcommon-dev wayland-protocols libegl-dev`
+    (package names vary by distro). Testing `./internal/...` needs only the X11
+    set; building the binary (GLFW compiles an X11 and a Wayland backend) needs
+    the Wayland and EGL packages too.
   - **Windows:** MinGW gcc.
   - **macOS:** the Xcode command-line tools (`xcode-select --install`).
 
@@ -30,8 +33,50 @@ Run a single test:
 go test ./internal/regatta/ -run TestStartup_RestoresHistory -v
 ```
 
-CI (`.github/workflows/test.yml`) runs `go test ./internal/...` on Linux and
-Windows on every pull request and fails if line coverage drops below 60%.
+## Testing strategy
+
+The suite is unit tests only — one process, a `t.TempDir()`, the pure-Go Fyne
+`test` driver, and injected NTP/clock. That covers most of the code; the
+shared-folder, multi-operator behaviour is not yet exercised end to end (see
+**Not covered yet** below).
+
+### Before a pull request
+
+- `go build ./...`, `go vet ./...`, and `go test ./internal/...` must pass.
+- `go test -race ./internal/<pkg>/` for anything touching concurrency —
+  `filesystem`, `watcher`, `persona/store`, `timesync`.
+- `gofmt -l internal/` is clean, and markdownlint passes on any Markdown you
+  changed (`npx -y markdownlint-cli2 "<files>"`).
+
+### What CI runs on every pull request
+
+`.github/workflows/test.yml` gates each PR with two jobs:
+
+- **`coverage`** (`ubuntu-latest`) — `go build ./...` and `go vet ./...` (so
+  `cmd/` is compile-checked, which `go test ./internal/...` never does), then
+  `go test ./internal/...` with coverage. Posts a PR comment and fails if line
+  coverage drops below 60%. This is the fast feedback loop.
+- **`test-windows`** (`windows-latest`) — `CGO_ENABLED=0 go test` over the
+  OS-portable packages only, with no MinGW. It runs on Windows because
+  `internal/filesystem` and `internal/watcher` have real Windows-vs-POSIX
+  behaviour: the `os.Rename` sharing-violation retry and its `//go:build
+  windows` test, and `fsnotify`'s `ReadDirectoryChangesW` backend. The Fyne GUI
+  packages (`clock`, `regatta`, `text`) are platform-agnostic through the
+  `test` driver, so they do not gate PRs.
+
+### What CI runs after a merge
+
+- **`test-windows-full`** (`windows-latest`) — MinGW plus the full
+  `go test ./internal/...`, including the Fyne packages. It runs on merge to
+  `develop`/`main` and on demand via **Actions → Run workflow**. It is
+  detection insurance for a Windows-only Fyne or CGO regression, not a PR gate.
+
+### Not covered yet
+
+There are no cross-process or real-shared-folder integration tests: two
+operators writing into one `regattaData` tree, an atomic rename racing a sync
+client's file lock, a watcher round-trip across two personas. The plan for that
+lane is in [docs/features/testing/](docs/features/testing/README.md).
 
 ## Project layout
 

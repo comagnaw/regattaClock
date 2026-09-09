@@ -5,6 +5,16 @@ on:
     branches:
       - main
       - develop
+  push:
+    branches:
+      - develop
+      - main
+  workflow_dispatch:
+
+# Cancel superseded runs on a PR branch; never cancel a post-merge full run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   coverage:
@@ -22,7 +32,17 @@ jobs:
       - name: Install OpenGL development libraries
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgl-dev libxcursor-dev libxinerama-dev libxrandr-dev libxi-dev libxxf86vm-dev
+          sudo apt-get install -y \
+            libgl-dev libxcursor-dev libxinerama-dev libxrandr-dev libxi-dev libxxf86vm-dev \
+            libwayland-dev libxkbcommon-dev wayland-protocols libegl-dev
+
+      # go test ./internal/... never compiles ./cmd; build and vet the whole
+      # module so a stale main.go (a changed regatta.New / Bootstrap signature)
+      # fails here instead of at release time.
+      - name: Build and vet
+        run: |
+          go build ./...
+          go vet ./...
 
       - name: Generate Go test coverage
         run: go test ./internal/... -coverprofile=coverage.out -covermode=atomic
@@ -51,9 +71,44 @@ jobs:
           recreate: true
           path: code-coverage-results.md
 
-  # Persona phase 0: verify on the race-day host OS before later phases land.
+  # Fast Windows gate on every PR. The only genuinely OS-divergent code
+  # (internal/filesystem rename-retry + its //go:build windows test,
+  # internal/watcher / fsnotify ReadDirectoryChangesW) is pure Go, so this runs
+  # CGO_ENABLED=0 with no MinGW. clock / regatta / text need CGO+GLFW and run
+  # through Fyne's platform-agnostic test driver, so they are covered by
+  # test-windows-full (post-merge) rather than blocking every PR.
   test-windows:
     runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.1'
+
+      # Add a new pure-Go internal package here when one gains tests. Cue: does
+      # it import fyne.io/fyne/v2? If not, it belongs on this list.
+      - name: Test OS-portable packages
+        env:
+          CGO_ENABLED: '0'
+        run: |
+          go test `
+            ./internal/applog/... `
+            ./internal/exporter/... `
+            ./internal/filesystem/... `
+            ./internal/persona/... `
+            ./internal/personacfg/... `
+            ./internal/reader/... `
+            ./internal/timesync/... `
+            ./internal/watcher/...
+
+  # Full native-Windows run: MinGW + the Fyne GUI packages. Detection insurance
+  # against a Windows-only Fyne/CGO regression. Runs on merge to develop/main and
+  # via workflow_dispatch - not on PRs.
+  test-windows-full:
+    runs-on: windows-latest
+    if: github.event_name != 'pull_request'
     permissions:
       contents: read
     steps:
