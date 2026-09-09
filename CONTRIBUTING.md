@@ -124,3 +124,9 @@ Releases are cut from `main`. Pushing a `v*` tag triggers
 `.exe.zip` artifacts and publishes a GitHub release. The full step-by-step
 procedure — version choice, pre-release handling, and the release notes — is in
 [AGENTS.md](AGENTS.md) under **Releases**.
+
+The version string lives in the repo-root `version` file and is bumped **only**
+in the PR that merges `develop` → `main`; that value feeds both the git tag
+(`v` + `VERSION`) and the release notes. `regattaClock -v` (or **Version** in the
+app menu) shows the attributes compiled into a given build — version, branch,
+commit, build time, source link; a plain `go run` build reports `version: dev`.

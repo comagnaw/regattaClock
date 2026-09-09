@@ -1,0 +1,38 @@
+#!/bin/bash
+
+source scripts/common
+
+function main () {
+    checkCmd "go"
+    checkVar BINARIES
+    checkVar LD_IMPORTPATH
+    checkVar REPO_URL
+    checkVar VERSION
+
+    for b in ${BINARIES}; do
+        logIt "Compiling ${b}"
+        compile ${b}
+    done
+}
+
+function compile () {
+  local exe=${1}
+  local timestamp=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
+  # -X uses the '=' form so the same flag string is reusable verbatim in
+  # release.yml (via GOFLAGS, which drops space-separated -X args).
+  go build \
+    -trimpath \
+    -ldflags="
+    -X=${LD_IMPORTPATH}.Project=${REPO}
+    -X=${LD_IMPORTPATH}.ExeName=${exe}
+    -X=${LD_IMPORTPATH}.BuildBranch=${CHANGE_BRANCH}
+    -X=${LD_IMPORTPATH}.BuildDate=${timestamp}
+    -X=${LD_IMPORTPATH}.BuildCommit=${GIT_COMMIT}
+    -X=${LD_IMPORTPATH}.BuildUser=${USER}
+    -X=${LD_IMPORTPATH}.Version=${VERSION}
+    -X=${LD_IMPORTPATH}.RepoURL=${REPO_URL}" \
+    -o ${BIN_DIR}/${exe} \
+    "./cmd/${exe}" || failIt "${FUNCNAME} failed go build"
+}
+
+main

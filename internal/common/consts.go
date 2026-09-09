@@ -129,6 +129,8 @@ const (
 	ConfigTitle           = "Configuration"
 	LoadDataTitle         = "Load Regatta Data"
 	CreateLaneImagesTitle = "Create Lane Images"
+	// VersionTitle is both the menu label and the title of the build-info window.
+	VersionTitle = "Version"
 
 	// Race-tree column headers (internal/regatta races.go / timer_races.go). The
 	// race column reuses ScheduledRacesTile.

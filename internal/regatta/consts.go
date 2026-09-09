@@ -83,4 +83,9 @@ const (
 	// band. Horizontal padding stays 0 so the header columns line up exactly
 	// with the data rows below.
 	headerBandVPad = float32(4)
+
+	// versionWinWidth / versionWinHeight - the build-info window. Small: seven
+	// short Key: Value rows, a source link, and a Close button.
+	versionWinWidth  = float32(420)
+	versionWinHeight = float32(320)
 )

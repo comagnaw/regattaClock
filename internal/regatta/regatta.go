@@ -63,6 +63,11 @@ type Regatta struct {
 
 	config *fyne.Container
 
+	// versionWindow - the independent build-info window (menu > Version), or nil
+	// when it is closed. Kept so a second menu click focuses it rather than
+	// opening a duplicate.
+	versionWindow fyne.Window
+
 	// personaCfg - parsed deployment persona config (PrefPersonaConfigFile), or
 	// nil when unset or unreadable. Pins this host to a persona and/or overrides
 	// challenge codes; nil means the normal persona picker.

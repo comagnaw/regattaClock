@@ -1,0 +1,63 @@
+#!/bin/bash
+
+##
+## Common functions used in bash scripts
+##
+
+# Expose DEBUG envvar to enable trace of bash script
+if [[ -n ${DEBUG} ]]; then
+  set -x
+fi
+
+# repoRoot - return the absolute path to the git repo root
+repoRoot () {
+  git rev-parse --show-toplevel || failIt "${FUNCNAME}: could not perform 'git rev-parse'"
+}
+
+# gitCommit - return short SHA hash for current commit
+gitCommit () {
+  git rev-parse --short HEAD || failIt "${FUNCNAME}: could not perform 'git rev-parse'"
+}
+
+# gitCommitTime - return epoch format for current commit
+gitCommitTime () {
+  git show -s --format=%ct || failIt "${FUNCNAME}: could not perform 'git show'"
+}
+
+# currentBranch - return the branch name currently being worked on
+currentBranch () {
+  git rev-parse --abbrev-ref HEAD || failIt "${FUNCNAME}: could not perform 'git rev-parse'"
+}
+
+# lastTag - return the most recent tag value on the repo
+lastTag () {
+  git describe --tags --abbrev=0 || failIt "${FUNCNAME}: could not perform 'git describe'"
+}
+
+# checkVar checks if a variable is empty.
+# args: string variable name, no '$', e.g. "VARNAME"
+checkVar() {
+  local value=$(eval "printf -- \"\$${1}\"")
+  if [[ -z "${value}" ]]; then
+    failIt "env var cannot be empty: ${1}"
+  fi
+}
+
+# checkCmd - checks if provided command can be found on the system
+checkCmd() {
+  if ! command -v ${1} &> /dev/null; then
+      failIt "${FUNCNAME}: ${1} executable could not be be found"
+  fi
+}
+
+# logIt - prints messages to stdout
+logIt () {
+  printf "## %s\n" "${1}"
+}
+
+# failIt - print message that is prepended with FAILED and exit with non-zero value
+# Prints to stderr so the message is not captured by VAR=$(command) when command calls failIt
+failIt () {
+  printf "\nFAILED: %s\n" "${1}" >&2
+  exit 1
+}

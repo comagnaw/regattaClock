@@ -43,8 +43,21 @@ one consistent fit and finish and one place to change a given style.
 ## Releases
 
 A **release** is a point-in-time compiled version of regattaClock, announced by an
-annotated git **tag** (semantic version) and a **GitHub release**. The git tag is the
-only version marker — nothing in the repo or the binary carries a version string today.
+annotated git **tag** (semantic version) and a **GitHub release**.
+
+The version string lives in the repo-root **`version`** file
+(`export VERSION=<x.y.z[-pre]>`) — the single source of truth. It is:
+
+- read by the `Makefile` (`include version`) and `scripts/compile`, which compile
+  it into the binary via `go build -ldflags -X` alongside the build branch,
+  commit, timestamp, and the source URL (assembled from `GH_HOST`/`ORG`/`REPO`);
+- shown by `regattaClock -v` / `-version` (indented JSON of `internal/version`'s
+  `Current` struct) and by the app menu's **Version** item (a `key: value` window
+  with a "View on GitHub" link to the built commit);
+- `dev` for every attribute in a plain `go run` / `go build` — the `-ldflags` are
+  only applied by `scripts/compile` and `release.yml`.
+
+The git **tag** is `v` + the `version` file's `VERSION`; the two must match.
 
 Releases are cut from **`main`**. When asked to generate a release:
 
@@ -66,6 +79,11 @@ Releases are cut from **`main`**. When asked to generate a release:
      since the last tag. The usual bump.
    - **Patch** (`v0.4.1` → `v0.4.2`) — only bug fixes, docs, chore, tests, or CI since
      the last tag; no user-facing change.
+   - The chosen `x.y.z[-pre]` (no `v`) is written to the repo-root `version` file
+     **only in the `develop` → `main` promotion PR** — nowhere else does that
+     file change. `main`'s `version` therefore always equals the newest release;
+     `develop` keeps the last released value until the next promotion, so a dev
+     build's `-v` shows that version with a newer `commit`/`branch`.
 
 4. **Choose the pre-release suffix.** If the previous tag ends in `-alpha` or `-beta`,
    ask the team whether the new tag keeps that suffix, advances it (`-alpha` → `-beta`),
@@ -86,11 +104,14 @@ Releases are cut from **`main`**. When asked to generate a release:
 
    ```sh
    git checkout main && git pull origin main
+   . ./version && [ "v$VERSION" = "<version>" ] || { echo "version file != tag"; exit 1; }
    git tag -a <version> -m "<one-line summary>"
    git push origin <version>
    ```
 
-   A published tag is not moved; a wrong version means a new tag.
+   The `version`-file check guards against tagging before the `develop` → `main`
+   promotion PR bumped the file. A published tag is not moved; a wrong version
+   means a new tag.
 
 8. **Let `release.yml` run** (it triggers on the `v*` tag push):
    `gh run watch` / `gh run list --workflow=release.yml`. It builds
@@ -110,5 +131,6 @@ Releases are cut from **`main`**. When asked to generate a release:
 
 `test.yml` does not run on tags, so make sure `main` is green before tagging. If a
 `FyneApp.toml` / `-app-version` is added later (see
-`docs/features/trusted-distribution/windows-packaging.md`), the tag still drives the
-version — derive it from the tag, never hand-edit it.
+`docs/features/trusted-distribution/windows-packaging.md`), it is a separate
+OS-level version resource — derive it from the `version` file too, never
+hand-edit it independently.
