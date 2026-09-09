@@ -2,6 +2,13 @@
 
 ![GitHub Release](https://img.shields.io/github/v/release/comagnaw/regattaClock) ![GitHub License](https://img.shields.io/github/license/comagnaw/regattaClock) ![Go version](https://img.shields.io/github/go-mod/go-version/comagnaw/regattaClock)
 
+<!-- markdownlint-disable MD033 -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="internal/assets/images/RegattaClockBanner.svg">
+  <img alt="Regatta Clock" src="internal/assets/images/RegattaClockBanner-onlight.svg" width="520">
+</picture>
+<!-- markdownlint-enable MD033 -->
+
 **regattaClock** is an open-source application for collecting and publishing race
 times at rowing regattas run by organizations with limited timing infrastructure.
 It is written in Go and uses the [fyne.io](https://fyne.io/) toolkit for its user

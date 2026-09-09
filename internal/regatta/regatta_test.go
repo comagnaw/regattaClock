@@ -184,12 +184,12 @@ func TestRegatta_RefreshContent(t *testing.T) {
 	regatta.showRaceTree()
 	regatta.refreshContent()
 
-	expectedTitle := "Test Regatta"
+	expectedTitle := "Regatta: Test Regatta"
 	if regatta.title.Text != expectedTitle {
 		t.Errorf("Expected title %q, got %q", expectedTitle, regatta.title.Text)
 	}
 
-	expectedDate := "2024-01-15"
+	expectedDate := "Date: 2024-01-15"
 	if regatta.date.Text != expectedDate {
 		t.Errorf("Expected date %q, got %q", expectedDate, regatta.date.Text)
 	}
@@ -215,8 +215,8 @@ func TestRegatta_RefreshContent_NoRaces(t *testing.T) {
 	regatta.showRaceTree()
 	regatta.refreshContent()
 
-	if regatta.title.Text != "Empty Regatta" {
-		t.Errorf("Expected title 'Empty Regatta', got %q", regatta.title.Text)
+	if regatta.title.Text != "Regatta: Empty Regatta" {
+		t.Errorf("Expected title 'Regatta: Empty Regatta', got %q", regatta.title.Text)
 	}
 
 	expectedSubtitle := "Scheduled Races: 0"
@@ -335,15 +335,37 @@ func TestRegatta_TreeTitle(t *testing.T) {
 	}
 
 	// Assert on what the row holds rather than its nesting, so wrapping it in a
-	// different layout does not break the test.
+	// different layout does not break the test. The wordmark is a sibling row in
+	// showRaceTree now, not part of treeTitle.
 	images, texts := countObjects(titleRow)
 
-	if images != 1 {
-		t.Errorf("Expected the branding logo in the tree title, got %d images", images)
+	if images != 0 {
+		t.Errorf("treeTitle should carry no image, got %d", images)
 	}
 
-	if texts != 3 {
-		t.Errorf("Expected the title, subtitle and date, got %d text objects", texts)
+	// regatta / scheduled races / date / role - four cells, always present
+	// (the role cell is an empty *canvas.Text when no session is bound).
+	if texts != 4 {
+		t.Errorf("Expected the four Key: Value fields, got %d text objects", texts)
+	}
+}
+
+func TestRegatta_TreeHeaderHasWordmark(t *testing.T) {
+	app := test.NewApp()
+	defer app.Quit()
+
+	sch := testSchedule()
+	root := seedRegatta(t, sch)
+	app.Preferences().SetString(common.PrefRegattaDir, filepath.Dir(root))
+
+	r := NewDirector(app)
+	stopWatch(t, r)
+
+	if onWelcome(r) {
+		t.Fatal("precondition: NewDirector should restore into the race tree")
+	}
+	if images, _ := countObjects(r.window.Content()); images < 1 {
+		t.Error("the race-tree header should show the branding wordmark")
 	}
 }
 

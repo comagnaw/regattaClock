@@ -62,14 +62,15 @@ const (
 	// plus the inset).
 	timeRaceColWidth = float32(120)
 
-	// welcomeBannerWidth, welcomeBannerHeight - banner size on the welcome view,
-	// keeping the source image's 16:9 ratio
-	welcomeBannerWidth  = float32(320)
-	welcomeBannerHeight = float32(180)
+	// welcomeBannerWidth, welcomeBannerHeight - the wordmark as a prominent
+	// centered header on the welcome-family views. ~6.5:1 to match the SVG's
+	// viewBox so ImageFillContain leaves no letterbox gap.
+	welcomeBannerWidth  = float32(600)
+	welcomeBannerHeight = float32(92)
 
-	// treeBannerWidth, treeBannerHeight - banner size beside the regatta title on
-	// the race list. Kept under the three line title block's height so the logo
-	// never drives the row taller and shifts the list down.
-	treeBannerWidth  = float32(150)
-	treeBannerHeight = float32(84)
+	// treeWordmarkWidth, treeWordmarkHeight - the wordmark on its own full-width
+	// centered row above the race-tree metadata grid. Same ~6.5:1 ratio, sized
+	// down for a working screen.
+	treeWordmarkWidth  = float32(380)
+	treeWordmarkHeight = float32(58)
 )

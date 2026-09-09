@@ -12,6 +12,7 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/comagnaw/regattaClock/internal/applog"
@@ -216,10 +217,14 @@ func newRegatta(app fyne.App) *Regatta {
 		window:      app.NewWindow(common.AppTitle),
 		App:         app,
 		persona:     text.Header3(common.EmptyString),
-		title:       text.Header2(common.EmptyString),
+		title:       text.Header3(common.EmptyString),
 		subtitle:    text.Header3(common.EmptyString),
 		date:        text.Header3(common.EmptyString),
 		RegattaData: reader.NewRegattaData(),
+	}
+	// The four race-tree header fields sit in a left-aligned 2x2 grid.
+	for _, t := range []*canvas.Text{regattaApp.persona, regattaApp.title, regattaApp.subtitle, regattaApp.date} {
+		t.Alignment = fyne.TextAlignLeading
 	}
 	regattaApp.setTheme(regattaApp.App.Preferences().String(common.PrefTheme))
 	regattaApp.window.SetMaster()
@@ -243,9 +248,9 @@ func (r *Regatta) refreshContent() {
 		r.session, _ = r.directorSession()
 	}
 
-	r.title.Text = r.RegattaData.Name
+	r.title.Text = fmt.Sprintf(common.TreeRegattaLabel, r.RegattaData.Name)
 	r.subtitle.Text = fmt.Sprintf(common.NumScheduledRacesTitle, r.RegattaData.ScheduledRaces())
-	r.date.Text = r.RegattaData.Date
+	r.date.Text = fmt.Sprintf(common.TreeDateLabel, r.RegattaData.Date)
 
 	if r.session.Label != common.EmptyString {
 		r.persona.Text = fmt.Sprintf(common.PersonaHeaderFormat, r.session.Label)
@@ -436,13 +441,13 @@ func pathEntry(path string) *widget.Entry {
 	return e
 }
 
-// banner - branding image at the caller's size. The size is explicit rather than
-// taken from the source file so swapping in the full resolution artwork cannot
-// change any layout.
+// banner - the branding wordmark at the caller's size. The SVG is a single-fill
+// path wrapped in a themed resource, so it takes the current theme's foreground
+// color (readable on both the light and dark themes). The size is explicit so it
+// never depends on the source viewBox.
 func banner(width, height float32) *canvas.Image {
-	logo := canvas.NewImageFromResource(
-		fyne.NewStaticResource(common.BannerResourceName, assets.RegattaClockBannerSmall),
-	)
+	res := fyne.NewStaticResource(common.BannerResourceName, assets.RegattaClockBanner)
+	logo := canvas.NewImageFromResource(theme.NewThemedResource(res))
 	logo.FillMode = canvas.ImageFillContain
 	logo.SetMinSize(fyne.NewSize(width, height))
 

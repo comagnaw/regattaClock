@@ -20,6 +20,11 @@ func (r *Regatta) showRaceTree() {
 	// after the header. In a VBox the list would report its own minimum on top of
 	// the header's, forcing the window taller than regattaHeight.
 	header := container.NewVBox(
+		container.New(
+			layout.NewCustomPaddedLayout(viewMargin, 0, 0, 0),
+			container.NewCenter(banner(treeWordmarkWidth, treeWordmarkHeight)),
+		),
+		widget.NewSeparator(),
 		r.treeTitle(),
 		widget.NewSeparator(),
 		r.raceListHeader(),
@@ -37,29 +42,18 @@ func (r *Regatta) showRaceTree() {
 	r.window.SetContent(container.NewBorder(header, nil, nil, nil, body))
 }
 
-// treeTitle - loaded regatta details, with the branding logo tucked into the top
-// left corner beside them. The operator's role sits above the regatta name when
-// a session is bound.
+// treeTitle - the loaded regatta's details as a 2x2 grid of left-aligned
+// "Key: Value" lines (Regatta / Scheduled Races on the first row, Date / Role on
+// the second). The branding wordmark sits on its own row above this, added by
+// showRaceTree.
 func (r *Regatta) treeTitle() *fyne.Container {
-	lines := make([]fyne.CanvasObject, 0, 4)
-	if r.persona != nil && r.persona.Text != common.EmptyString {
-		lines = append(lines, container.NewCenter(r.persona))
+	cell := func(o fyne.CanvasObject) fyne.CanvasObject {
+		return container.New(layout.NewCustomPaddedLayout(0, 0, viewMargin, viewMargin), o)
 	}
-	lines = append(lines,
-		container.NewCenter(r.title),
-		container.NewCenter(r.subtitle),
-		container.NewCenter(r.date),
+	return container.NewGridWithColumns(2,
+		cell(r.title), cell(r.subtitle),
+		cell(r.date), cell(r.persona),
 	)
-	details := container.NewVBox(lines...)
-
-	// Border hands the left slot the full height of the details block, and
-	// ImageFillContain keeps the logo at its aspect ratio centred within it.
-	logo := container.New(
-		layout.NewCustomPaddedLayout(0, 0, viewMargin, 0),
-		banner(treeBannerWidth, treeBannerHeight),
-	)
-
-	return container.NewBorder(nil, nil, logo, nil, details)
 }
 
 // raceListHeader is the bold column-header row above the race list. It uses the
