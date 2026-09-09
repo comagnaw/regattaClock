@@ -23,6 +23,17 @@ jobs:
     - name: Build
       run: |
         mkdir -p build
+        # Stamp the git tag (v-stripped), commit, and build metadata into the
+        # binary via internal/version. The fyne CLI only picks ldflags up from
+        # GOFLAGS, and `go` re-splits GOFLAGS on spaces, so every -X needs its
+        # own -ldflags= token (values themselves are space-free).
+        LDPKG=github.com/comagnaw/regattaClock/internal/version
+        VER=${GITHUB_REF_NAME#v}
+        BUILT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        REPO_URL=${{ github.server_url }}/${{ github.repository }}
+        # A tag build is on the tag and the CI tree is clean by construction, so
+        # BuildCount is 0 (no +build suffix) and BuildDirty is false.
+        export GOFLAGS="-ldflags=-X=${LDPKG}.Version=${VER} -ldflags=-X=${LDPKG}.BuildCommit=${{ github.sha }} -ldflags=-X=${LDPKG}.BuildDate=${BUILT} -ldflags=-X=${LDPKG}.BuildBranch=main -ldflags=-X=${LDPKG}.BuildUser=github-actions -ldflags=-X=${LDPKG}.Project=regattaClock -ldflags=-X=${LDPKG}.ExeName=regattaClock -ldflags=-X=${LDPKG}.RepoURL=${REPO_URL} -ldflags=-X=${LDPKG}.BuildCount=0 -ldflags=-X=${LDPKG}.BuildDirty=false"
         # Build for both architectures
         GOARCH=amd64 fyne package -os darwin -app-id com.github.comagnaw.regattaClock -release -src ./cmd/regattaClock/
         mv regattaClock.app build/regattaClock-intel.app
@@ -74,7 +85,15 @@ jobs:
 
     - name: Build Windows executable
       run: |
-        fyne-cross windows -arch amd64,386 -app-id com.github.comagnaw.regattaClock ./cmd/regattaClock
+        # Same build stamp as the macOS job. fyne-cross takes an explicit
+        # -ldflags string, so a single space-separated list of -X= is fine here.
+        LDPKG=github.com/comagnaw/regattaClock/internal/version
+        VER=${GITHUB_REF_NAME#v}
+        BUILT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        REPO_URL=${{ github.server_url }}/${{ github.repository }}
+        fyne-cross windows -arch amd64,386 -app-id com.github.comagnaw.regattaClock \
+          -ldflags "-X=${LDPKG}.Version=${VER} -X=${LDPKG}.BuildCommit=${{ github.sha }} -X=${LDPKG}.BuildDate=${BUILT} -X=${LDPKG}.BuildBranch=main -X=${LDPKG}.BuildUser=github-actions -X=${LDPKG}.Project=regattaClock -X=${LDPKG}.ExeName=regattaClock -X=${LDPKG}.RepoURL=${REPO_URL} -X=${LDPKG}.BuildCount=0 -X=${LDPKG}.BuildDirty=false" \
+          ./cmd/regattaClock
         mv fyne-cross/dist/windows-amd64/regattaClock.exe.zip fyne-cross/dist/windows-amd64/regattaClock-amd64.exe.zip
         mv fyne-cross/dist/windows-386/regattaClock.exe.zip fyne-cross/dist/windows-386/regattaClock-386.exe.zip
     - name: Upload Windows Release Asset

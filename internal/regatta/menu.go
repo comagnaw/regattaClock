@@ -19,6 +19,7 @@ func (r *Regatta) makeMenu() *fyne.MainMenu {
 		fyne.NewMenuItemSeparator(),
 		r.switchPersonaItem(),
 		r.configItem(),
+		r.versionItem(),
 		r.exitItem(),
 	)
 
@@ -64,6 +65,11 @@ func (r *Regatta) showWindowItem() *fyne.MenuItem {
 	return fyne.NewMenuItem(common.ShowWindowText, func() {
 		r.window.Show()
 	})
+}
+
+// versionItem - opens the build-info window (see version_window.go).
+func (r *Regatta) versionItem() *fyne.MenuItem {
+	return fyne.NewMenuItem(common.VersionTitle, r.showVersionWindow)
 }
 
 // exitItem - menu to exit the main app
