@@ -24,9 +24,8 @@ var (
 	// so the background matches the artwork instead of merely approximating it.
 	brandNavy = color.NRGBA{R: 33, G: 53, B: 76, A: 0xFF}
 
-	// logoWaterBlue - the mid tone covering most of the water in the original
-	// banner artwork (internal/assets/images/RegattaClockBanner.png), used as the
-	// accent
+	// logoWaterBlue - the mid tone that covered most of the water in the original
+	// banner artwork, kept as the accent color.
 	logoWaterBlue = color.NRGBA{R: 0x05, G: 0x69, B: 0xA6, A: 0xFF}
 )
 
