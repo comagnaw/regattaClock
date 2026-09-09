@@ -11,6 +11,7 @@ import (
 	"github.com/comagnaw/regattaClock/internal/common"
 	"github.com/comagnaw/regattaClock/internal/persona/store"
 	"github.com/comagnaw/regattaClock/internal/reader"
+	"github.com/comagnaw/regattaClock/internal/text"
 )
 
 // results table row indices (see initResults): the school and additional-info
@@ -24,8 +25,7 @@ const (
 // for the clock. UpdateSchedule fills it; Dismiss hides it until the next
 // schedule change (persona-plan.md 3c).
 func (c *Clock) scheduleBannerWidget() fyne.CanvasObject {
-	c.scheduleLabel = widget.NewLabel(common.EmptyString)
-	c.scheduleLabel.Wrapping = fyne.TextWrapWord
+	c.scheduleLabel = text.Wrapping(common.EmptyString)
 	c.scheduleLabel.Importance = widget.WarningImportance
 	dismiss := widget.NewButton(common.CloseButtonText, func() { c.scheduleBanner.Hide() })
 	c.scheduleBanner = container.NewBorder(nil, nil, nil, dismiss, c.scheduleLabel)

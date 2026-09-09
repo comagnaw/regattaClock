@@ -16,6 +16,7 @@ import (
 	"github.com/comagnaw/regattaClock/internal/common"
 	"github.com/comagnaw/regattaClock/internal/persona"
 	"github.com/comagnaw/regattaClock/internal/persona/store"
+	"github.com/comagnaw/regattaClock/internal/text"
 	"github.com/comagnaw/regattaClock/internal/timesync"
 	"github.com/comagnaw/regattaClock/internal/watcher"
 )
@@ -365,8 +366,7 @@ type dismissibleBanner struct {
 }
 
 func newDismissibleBanner() *dismissibleBanner {
-	b := &dismissibleBanner{label: widget.NewLabel(common.EmptyString)}
-	b.label.Wrapping = fyne.TextWrapWord
+	b := &dismissibleBanner{label: text.Wrapping(common.EmptyString)}
 	b.dismiss = widget.NewButton(common.DismissButtonText, func() {
 		b.dismissed = true
 		b.root.Hide()
@@ -394,8 +394,7 @@ type actionBanner struct {
 }
 
 func newActionBanner(actionText string, action, dismiss func()) *actionBanner {
-	b := &actionBanner{label: widget.NewLabel(common.EmptyString)}
-	b.label.Wrapping = fyne.TextWrapWord
+	b := &actionBanner{label: text.Wrapping(common.EmptyString)}
 	buttons := container.NewHBox(
 		widget.NewButton(actionText, action),
 		widget.NewButton(common.DismissButtonText, dismiss),

@@ -63,8 +63,7 @@ func (c *Clock) resultsPanel() *fyne.Container {
 // fills the label and shows it; the Dismiss button hides it for good
 // (persona-plan.md 2.1).
 func (c *Clock) skewBannerWidget() fyne.CanvasObject {
-	c.skewLabel = widget.NewLabel(common.EmptyString)
-	c.skewLabel.Wrapping = fyne.TextWrapWord
+	c.skewLabel = text.Wrapping(common.EmptyString)
 	dismiss := widget.NewButton(common.DismissButtonText, func() {
 		c.skewDismissed = true
 		c.skewBanner.Hide()
@@ -127,8 +126,7 @@ func (c *Clock) winningTimeInput() *fyne.Container {
 		),
 	)
 
-	c.winningNote = widget.NewLabel(common.EmptyString)
-	c.winningNote.Wrapping = fyne.TextWrapWord
+	c.winningNote = text.Wrapping(common.EmptyString)
 	c.winningNote.Importance = widget.MediumImportance
 
 	// Reserve the note's space up front. It stays in the layout whether or not

@@ -79,8 +79,7 @@ func (r *Regatta) showAssignedPersona(def persona.Definition) {
 	selectBtn := widget.NewButton(common.AssignedPersonaSelectFolderButtonText, func() {
 		r.pickPersonaDirectory(def)
 	})
-	note := widget.NewLabelWithStyle(common.AssignedPersonaSwitchNote,
-		fyne.TextAlignLeading, fyne.TextStyle{Italic: true})
+	note := text.Note(common.AssignedPersonaSwitchNote)
 
 	body := container.New(
 		layout.NewCustomPaddedLayout(0, 0, viewMargin, viewMargin),
