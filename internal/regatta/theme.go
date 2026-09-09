@@ -24,8 +24,8 @@ var (
 	// so the background matches the artwork instead of merely approximating it.
 	brandNavy = color.NRGBA{R: 33, G: 53, B: 76, A: 0xFF}
 
-	// logoWaterBlue - the mid tone covering most of the water in
-	// assets/images/RegattaClockBannerSmall.png, used as the accent
+	// logoWaterBlue - the mid tone that covered most of the water in the original
+	// banner artwork, kept as the accent color.
 	logoWaterBlue = color.NRGBA{R: 0x05, G: 0x69, B: 0xA6, A: 0xFF}
 )
 
@@ -134,12 +134,23 @@ func (f *colorTheme) Color(name fyne.ThemeColorName, _ fyne.ThemeVariant) color.
 	return f.Theme.Color(name, f.variant)
 }
 
+// themeColor resolves a semantic theme colour against the live theme and its
+// current variant, for the raw canvas.Rectangle fills in the race-tree header
+// (a Rectangle does not re-theme itself; showRaceTree rebuilds the header on
+// every navigation, so the fill is re-resolved then).
+func themeColor(name fyne.ThemeColorName) color.Color {
+	s := fyne.CurrentApp().Settings()
+	return s.Theme().Color(name, s.ThemeVariant())
+}
+
 func (r *Regatta) setTheme(name string) {
 	if name == common.PrefLight {
+		r.themeVariant = theme.VariantLight
 		r.App.Settings().SetTheme(&colorTheme{Theme: theme.DefaultTheme(), variant: theme.VariantLight})
 		r.App.Preferences().SetString(common.PrefTheme, name)
 		return
 	}
+	r.themeVariant = theme.VariantDark
 	r.App.Settings().SetTheme(&colorTheme{Theme: theme.DefaultTheme(), variant: theme.VariantDark})
 	r.App.Preferences().SetString(common.PrefTheme, common.PrefDark)
 }

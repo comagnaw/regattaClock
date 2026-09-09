@@ -12,6 +12,7 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/comagnaw/regattaClock/internal/applog"
@@ -55,6 +56,11 @@ type Regatta struct {
 
 	lastView fyne.CanvasObject
 
+	// treeContent - the race-tree Border set by showRaceTree, kept so the config
+	// screen can recognise it was the last view and rebuild it (a theme change
+	// does not repaint the header's reverse-contrast raw canvas objects).
+	treeContent fyne.CanvasObject
+
 	config *fyne.Container
 
 	// personaCfg - parsed deployment persona config (PrefPersonaConfigFile), or
@@ -74,6 +80,12 @@ type Regatta struct {
 
 	// subtitle - text field that represents imported number of races from RegattaData
 	subtitle *canvas.Text
+
+	// themeVariant - the app's chosen theme (VariantLight / VariantDark), set by
+	// setTheme. The race-tree details card is painted in reverse contrast off
+	// this, rather than off Fyne's builtin palette, which follows the OS
+	// appearance and can disagree with the in-app choice.
+	themeVariant fyne.ThemeVariant
 
 	// RegattaData - reference to loaded RegattaData
 	RegattaData *reader.RegattaData
@@ -98,6 +110,12 @@ type Regatta struct {
 	// no timing file has been written for a while (persona-plan.md 9).
 	directorSkew  *dismissibleBanner
 	directorStale *dismissibleBanner
+
+	// secondaryLegend - dismissible RD-tree note explaining the "·2nd" cell
+	// suffix. Shown only while a visible row actually carries the mark
+	// (refreshSecondaryValueLegend), so it does not pad the header the rest of
+	// the time.
+	secondaryLegend *dismissibleBanner
 
 	// origin-refresh (persona-plan.md 3b): a background poll notices the source
 	// workbook changed; originBanner offers Apply/Dismiss for the parsed
@@ -216,10 +234,14 @@ func newRegatta(app fyne.App) *Regatta {
 		window:      app.NewWindow(common.AppTitle),
 		App:         app,
 		persona:     text.Header3(common.EmptyString),
-		title:       text.Header2(common.EmptyString),
+		title:       text.Header3(common.EmptyString),
 		subtitle:    text.Header3(common.EmptyString),
 		date:        text.Header3(common.EmptyString),
 		RegattaData: reader.NewRegattaData(),
+	}
+	// The four race-tree details fields sit in a left-aligned 2x2 grid.
+	for _, t := range []*canvas.Text{regattaApp.persona, regattaApp.title, regattaApp.subtitle, regattaApp.date} {
+		t.Alignment = fyne.TextAlignLeading
 	}
 	regattaApp.setTheme(regattaApp.App.Preferences().String(common.PrefTheme))
 	regattaApp.window.SetMaster()
@@ -243,9 +265,9 @@ func (r *Regatta) refreshContent() {
 		r.session, _ = r.directorSession()
 	}
 
-	r.title.Text = r.RegattaData.Name
+	r.title.Text = fmt.Sprintf(common.TreeRegattaLabel, r.RegattaData.Name)
 	r.subtitle.Text = fmt.Sprintf(common.NumScheduledRacesTitle, r.RegattaData.ScheduledRaces())
-	r.date.Text = r.RegattaData.Date
+	r.date.Text = fmt.Sprintf(common.TreeDateLabel, r.RegattaData.Date)
 
 	if r.session.Label != common.EmptyString {
 		r.persona.Text = fmt.Sprintf(common.PersonaHeaderFormat, r.session.Label)
@@ -436,13 +458,13 @@ func pathEntry(path string) *widget.Entry {
 	return e
 }
 
-// banner - branding image at the caller's size. The size is explicit rather than
-// taken from the source file so swapping in the full resolution artwork cannot
-// change any layout.
+// banner - the branding wordmark at the caller's size. The SVG is a single-fill
+// path wrapped in a themed resource, so it takes the current theme's foreground
+// color (readable on both the light and dark themes). The size is explicit so it
+// never depends on the source viewBox.
 func banner(width, height float32) *canvas.Image {
-	logo := canvas.NewImageFromResource(
-		fyne.NewStaticResource(common.BannerResourceName, assets.RegattaClockBannerSmall),
-	)
+	res := fyne.NewStaticResource(common.BannerResourceName, assets.RegattaClockBanner)
+	logo := canvas.NewImageFromResource(theme.NewThemedResource(res))
 	logo.FillMode = canvas.ImageFillContain
 	logo.SetMinSize(fyne.NewSize(width, height))
 

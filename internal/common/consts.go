@@ -70,7 +70,7 @@ const (
 	SaveSkippedTitle   = "Save Skipped"
 	SaveSkippedMessage = "Regatta data could not be saved, so this session will not be restored on the next start.\n\n%s"
 
-	BannerResourceName = "RegattaClockBannerSmall.png"
+	BannerResourceName = "RegattaClockBanner.svg"
 
 	// Regatta Director setup view (internal/regatta regatta.go / config.go). Two
 	// steps on one screen, each filling in with a check mark, the parsed regatta
@@ -115,6 +115,12 @@ const (
 
 	NumScheduledRacesTitle = "Scheduled Races: %d"
 	ScheduledRacesTile     = "Scheduled Races"
+
+	// TreeRegattaLabel / TreeDateLabel - the race-tree details panel shows the
+	// regatta name and date in the same "Key: Value" form as PersonaHeaderFormat
+	// and NumScheduledRacesTitle, so the four fields read as one 2x2 block.
+	TreeRegattaLabel = "Regatta: %s"
+	TreeDateLabel    = "Date: %s"
 
 	// PersonaHeaderFormat labels the race-tree header with the operator's role;
 	// WindowTitleFormat puts it in the OS title bar next to the app name.

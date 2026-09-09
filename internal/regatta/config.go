@@ -41,7 +41,13 @@ func (r *Regatta) configContent() *fyne.Container {
 				r.startLogging()
 
 				r.config.Hide()
-				r.window.SetContent(r.lastView)
+				// Rebuild the race tree rather than restoring the snapshot, so a
+				// theme change made here repaints its reverse-contrast header.
+				if r.lastView != nil && r.lastView == r.treeContent {
+					r.showRaceTree()
+				} else {
+					r.window.SetContent(r.lastView)
+				}
 			}),
 		),
 	)

@@ -1,10 +1,13 @@
 package regatta
 
 import (
+	"image/color"
+
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/layout"
-	"fyne.io/fyne/v2/widget"
+	"fyne.io/fyne/v2/theme"
 
 	"github.com/comagnaw/regattaClock/internal/common"
 	"github.com/comagnaw/regattaClock/internal/persona"
@@ -20,9 +23,13 @@ func (r *Regatta) showRaceTree() {
 	// after the header. In a VBox the list would report its own minimum on top of
 	// the header's, forcing the window taller than regattaHeight.
 	header := container.NewVBox(
+		container.New(
+			layout.NewCustomPaddedLayout(viewMargin, 0, 0, 0),
+			container.NewCenter(banner(treeWordmarkWidth, treeWordmarkHeight)),
+		),
+		canvasRule(treeRuleThickness, theme.ColorNameForeground),
 		r.treeTitle(),
-		widget.NewSeparator(),
-		r.raceListHeader(),
+		r.headerBand(r.raceListHeader()),
 	)
 	if r.mode == modeTimer {
 		header.Add(r.scheduleBannerWidget())
@@ -34,32 +41,73 @@ func (r *Regatta) showRaceTree() {
 	// Set the window content
 	body := r.raceListBody()
 	r.refreshStaleLaneLegend() // rows are realised now; show the legend if any is flagged
-	r.window.SetContent(container.NewBorder(header, nil, nil, nil, body))
+	r.refreshSecondaryValueLegend()
+
+	// Keep the reference so the config screen can tell it left the tree and
+	// rebuild it (the header's reverse-contrast colours are raw canvas objects
+	// that a theme change does not repaint on its own).
+	r.treeContent = container.NewBorder(header, nil, nil, nil, body)
+	r.window.SetContent(r.treeContent)
 }
 
-// treeTitle - loaded regatta details, with the branding logo tucked into the top
-// left corner beside them. The operator's role sits above the regatta name when
-// a session is bound.
+// treeTitle - the loaded regatta's details as a framed card: a 2x2 grid of
+// left-aligned "Key: Value" lines (Regatta / Scheduled Races on the first row,
+// Date / Role on the second). The card is painted in reverse contrast against
+// the window - a white card with brand-navy text on the dark theme, a brand-navy
+// card with white text on the light theme - so it stands clearly apart from the
+// wordmark above and the race list below. The colours key off the in-app theme
+// choice (r.themeVariant), not Fyne's builtin palette, which tracks the OS
+// appearance and can disagree; they are re-applied on every build so a theme
+// switch followed by a navigation picks up the change.
 func (r *Regatta) treeTitle() *fyne.Container {
-	lines := make([]fyne.CanvasObject, 0, 4)
-	if r.persona != nil && r.persona.Text != common.EmptyString {
-		lines = append(lines, container.NewCenter(r.persona))
+	white := color.NRGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xff}
+	card, ink := white, brandNavy
+	if r.themeVariant == theme.VariantLight {
+		card, ink = brandNavy, white
 	}
-	lines = append(lines,
-		container.NewCenter(r.title),
-		container.NewCenter(r.subtitle),
-		container.NewCenter(r.date),
-	)
-	details := container.NewVBox(lines...)
+	for _, t := range []*canvas.Text{r.title, r.subtitle, r.date, r.persona} {
+		t.Color = ink
+	}
 
-	// Border hands the left slot the full height of the details block, and
-	// ImageFillContain keeps the logo at its aspect ratio centred within it.
-	logo := container.New(
-		layout.NewCustomPaddedLayout(0, 0, viewMargin, 0),
-		banner(treeBannerWidth, treeBannerHeight),
+	grid := container.NewGridWithColumns(2,
+		r.title, r.subtitle,
+		r.date, r.persona,
 	)
+	body := container.New(
+		layout.NewCustomPaddedLayout(viewMargin, viewMargin, viewMargin, viewMargin),
+		grid,
+	)
+	panel := container.NewStack(canvas.NewRectangle(card), body)
 
-	return container.NewBorder(nil, nil, logo, nil, details)
+	return container.New(layout.NewCustomPaddedLayout(0, 0, viewMargin, viewMargin), panel)
+}
+
+// canvasRule - a full-width horizontal rule h pixels tall in a theme surface
+// colour, heavier than widget.NewSeparator()'s 1px hairline.
+func canvasRule(h float32, name fyne.ThemeColorName) fyne.CanvasObject {
+	rule := canvas.NewRectangle(themeColor(name))
+	rule.SetMinSize(fyne.NewSize(0, h))
+
+	return rule
+}
+
+// headerBandTheme forces the dark palette for the column-header labels so they
+// render light on the blue band regardless of the app's theme choice (a
+// ThemeOverride re-themes widgets, which the labels are).
+var headerBandTheme fyne.Theme = &colorTheme{Theme: theme.DefaultTheme(), variant: theme.VariantDark}
+
+// headerBand - put the race-list column-header row on a solid accent band so it
+// reads as a table head between the details card and the scrolling rows, with
+// real contrast against the window in both themes. Vertical padding only: any
+// horizontal inset here would shift the column headers off the data rows below.
+func (r *Regatta) headerBand(row fyne.CanvasObject) fyne.CanvasObject {
+	return container.NewStack(
+		canvas.NewRectangle(logoWaterBlue),
+		container.New(
+			layout.NewCustomPaddedLayout(headerBandVPad, headerBandVPad, 0, 0),
+			container.NewThemeOverride(row, headerBandTheme),
+		),
+	)
 }
 
 // raceListHeader is the bold column-header row above the race list. It uses the

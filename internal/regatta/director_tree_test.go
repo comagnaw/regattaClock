@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/test"
 	"fyne.io/fyne/v2/widget"
 
@@ -256,25 +255,43 @@ func TestDirectorStaleBanner(t *testing.T) {
 	}
 }
 
-func TestDirectorHeaderExtrasHasLegend(t *testing.T) {
-	r := directorWithRaces(t, nil)
-	r.teamLogs = map[persona.Team]*teamTiming{}
-	extras := r.directorHeaderExtras()
-	if !hasLabelText(extras, common.SecondaryValueLegend) {
-		t.Error("director header is missing the secondary-value legend")
-	}
-}
+func TestDirectorSecondaryValueLegend(t *testing.T) {
+	r := directorWithRaces(t, []reader.RaceData{
+		{RaceNumber: 1, BoatCount: 4, Lanes: map[int]reader.RaceEntry{1: {SchoolName: "A"}}},
+		{RaceNumber: 2, BoatCount: 4, Lanes: map[int]reader.RaceEntry{1: {SchoolName: "B"}}},
+	})
+	r.raceListBody()         // realises r.rows
+	r.directorHeaderExtras() // creates r.secondaryLegend, hidden
 
-func hasLabelText(o fyne.CanvasObject, want string) bool {
-	switch v := o.(type) {
-	case *widget.Label:
-		return v.Text == want
-	case *fyne.Container:
-		for _, c := range v.Objects {
-			if hasLabelText(c, want) {
-				return true
-			}
-		}
+	// Nothing timed yet: no row carries the ·2nd mark, so the note stays hidden.
+	r.teamLogs = map[persona.Team]*teamTiming{persona.TeamPrimary: {}, persona.TeamSecondary: {}}
+	r.refreshAllRows()
+	if bannerVisible(r.secondaryLegend) {
+		t.Error("legend should be hidden while no row carries the secondary mark")
 	}
-	return false
+
+	// Race 2 exists only for the secondary team, so its row falls back and is
+	// marked - the note appears.
+	r.teamLogs = map[persona.Team]*teamTiming{
+		persona.TeamPrimary: {},
+		persona.TeamSecondary: {
+			start: startLogWith(map[int]store.StartRecord{
+				2: {RaceNumber: 2, StartedAt: tm(-3), Display: "10:30:00.0"},
+			}),
+		},
+	}
+	r.refreshAllRows()
+	if !bannerVisible(r.secondaryLegend) {
+		t.Fatal("legend should show once a row carries the secondary mark")
+	}
+	if r.secondaryLegend.label.Text != common.SecondaryValueLegend {
+		t.Errorf("legend text = %q, want %q", r.secondaryLegend.label.Text, common.SecondaryValueLegend)
+	}
+
+	// Once dismissed it stays gone even though the mark is still on screen.
+	bannerDismiss(r.secondaryLegend)
+	r.refreshAllRows()
+	if bannerVisible(r.secondaryLegend) {
+		t.Error("legend must stay hidden after the director dismisses it")
+	}
 }
