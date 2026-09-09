@@ -17,6 +17,70 @@ func TestGetDefaults(t *testing.T) {
 	if c.Source != dev {
 		t.Errorf("Source = %q, want %q when nothing is linked in", c.Source, dev)
 	}
+	if c.Full != dev {
+		t.Errorf("Full = %q, want %q for an un-linked build", c.Full, dev)
+	}
+	if c.Build != "" {
+		t.Errorf("Build = %q, want empty for an un-linked build", c.Build)
+	}
+	if c.Dirty {
+		t.Error("Dirty = true for an un-linked build")
+	}
+}
+
+func TestBuildMetadata(t *testing.T) {
+	restore := stub(t)
+	defer restore()
+	Version, BuildCommit, BuildCount, BuildDirty = "0.4.1-alpha", "c0ffee1", "127", "false"
+
+	c := Get()
+	if c.Build != "127.gc0ffee1" {
+		t.Errorf("Build = %q, want %q", c.Build, "127.gc0ffee1")
+	}
+	if c.Full != "0.4.1-alpha+127.gc0ffee1" {
+		t.Errorf("Full = %q, want %q", c.Full, "0.4.1-alpha+127.gc0ffee1")
+	}
+	if c.Version != "0.4.1-alpha" {
+		t.Errorf("Version = %q, want the bare release line %q", c.Version, "0.4.1-alpha")
+	}
+}
+
+func TestBuildExactTag(t *testing.T) {
+	restore := stub(t)
+	defer restore()
+	Version, BuildCommit, BuildCount, BuildDirty = "0.4.1-alpha", "c0ffee1", "0", "false"
+
+	c := Get()
+	if c.Build != "" {
+		t.Errorf("Build = %q, want empty on an exact tag", c.Build)
+	}
+	if c.Full != "0.4.1-alpha" {
+		t.Errorf("Full = %q, want %q on an exact clean tag", c.Full, "0.4.1-alpha")
+	}
+}
+
+func TestBuildDirty(t *testing.T) {
+	restore := stub(t)
+	defer restore()
+
+	Version, BuildCommit, BuildCount, BuildDirty = "0.4.1-alpha", "c0ffee1", "0", "true"
+	if got := Get().Full; got != "0.4.1-alpha+dirty" {
+		t.Errorf("Full = %q, want %q for a dirty build on an exact tag", got, "0.4.1-alpha+dirty")
+	}
+
+	BuildCount = "5"
+	if got := Get().Full; got != "0.4.1-alpha+5.gc0ffee1.dirty" {
+		t.Errorf("Full = %q, want %q for a dirty build past a tag", got, "0.4.1-alpha+5.gc0ffee1.dirty")
+	}
+}
+
+// stub saves the link-time vars this file rewrites and returns a func that puts
+// them back. Every metadata test flips several at once, so a single helper beats
+// per-test t.Cleanup closures.
+func stub(t *testing.T) func() {
+	t.Helper()
+	v, c, n, d := Version, BuildCommit, BuildCount, BuildDirty
+	return func() { Version, BuildCommit, BuildCount, BuildDirty = v, c, n, d }
 }
 
 func TestGetSourceUsesCommit(t *testing.T) {

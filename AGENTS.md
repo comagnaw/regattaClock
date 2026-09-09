@@ -50,16 +50,23 @@ The version string lives in the repo-root **`version`** file
 
 - read by the `Makefile` (`include version`) and `scripts/compile`, which compile
   it into the binary via `go build -ldflags -X` alongside the build branch,
-  commit, timestamp, and the source URL (assembled from `GH_HOST`/`ORG`/`REPO`);
+  commit, timestamp, and the source URL (derived from the `go.mod` module path
+  and the `origin` remote);
 - shown by `regattaClock -v` / `-version` (indented JSON of `internal/version`'s
   `Current` struct) and by the app menu's **Version** item (a `key: value` window
-  with a "View on GitHub" link to the built commit);
+  with a "View on GitHub" link to the built commit). The `full` field is the
+  headline string: for a build past its tag it carries semver `+build` metadata
+  (`0.4.1-alpha+127.gc0ffee`, `+…​.dirty` for an unclean tree); `version` alone
+  is the release line it sits on;
 - `dev` for every attribute in a plain `go run` / `go build` — the `-ldflags` are
   only applied by `scripts/compile` and `release.yml`.
 
 The git **tag** is `v` + the `version` file's `VERSION`; the two must match.
+See [`docs/features/releases.md`](docs/features/releases.md) for the branching
+and versioning rationale behind the steps below.
 
-Releases are cut from **`main`**. When asked to generate a release:
+Releases are cut from the release branch for the active line — today always
+**`main`**. When asked to generate a release:
 
 1. **Confirm the release point.** `git fetch origin`, then
    `git log --first-parent --oneline origin/main..origin/develop`. If `main` is behind
@@ -128,6 +135,20 @@ Releases are cut from **`main`**. When asked to generate a release:
 
 10. **Report** the tag, the reason for that bump, the pre-release status, and the
     release URL.
+
+### Version bumps & maintained lines
+
+- Pre-1.0 (`0.x`), the bump rule is step 3: minor for any user-facing change
+  (feature *or* breaking — call breaking out in the notes), patch for
+  fixes/docs/chore/tests/CI only. The choice is made ad-hoc at promotion time
+  from the merged-PR titles since the last tag.
+- Declaring **1.0** is a deliberate future decision, not triggered by branching;
+  criteria are TBD (see `docs/features/releases.md`).
+- There is one `develop` and one `main` today. If an older major line ever needs
+  continued fixes after `main` has moved on, cut a **`release/v<N>`** branch from
+  that line's last tag and tag its patch releases from there — never a second
+  long-lived `develop`. Not in use today; rationale in
+  [`docs/features/releases.md`](docs/features/releases.md).
 
 `test.yml` does not run on tags, so make sure `main` is green before tagging. If a
 `FyneApp.toml` / `-app-version` is added later (see

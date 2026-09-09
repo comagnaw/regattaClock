@@ -103,6 +103,9 @@ lane is in [docs/features/testing/](docs/features/testing/README.md).
 - Branch off `develop`; open pull requests against `develop`.
 - `main` is the release branch — `develop` is merged into `main` when a release is
   cut.
+- One `develop` and one `main` today. Keeping an older major line alive for fixes
+  would use a `release/v<N>` branch, never a second long-lived `develop` — see
+  [docs/features/releases.md](docs/features/releases.md).
 - Keep pull requests focused. Before opening one, `go build ./...`,
   `go vet ./...`, and `go test ./internal/...` must pass; run
   `go test -race ./internal/<pkg>/` for anything that touches concurrency.
@@ -123,10 +126,13 @@ Releases are cut from `main`. Pushing a `v*` tag triggers
 `.github/workflows/release.yml`, which builds the macOS `.dmg` and Windows
 `.exe.zip` artifacts and publishes a GitHub release. The full step-by-step
 procedure — version choice, pre-release handling, and the release notes — is in
-[AGENTS.md](AGENTS.md) under **Releases**.
+[AGENTS.md](AGENTS.md) under **Releases**; the branching and versioning rationale
+is in [docs/features/releases.md](docs/features/releases.md).
 
 The version string lives in the repo-root `version` file and is bumped **only**
 in the PR that merges `develop` → `main`; that value feeds both the git tag
 (`v` + `VERSION`) and the release notes. `regattaClock -v` (or **Version** in the
 app menu) shows the attributes compiled into a given build — version, branch,
-commit, build time, source link; a plain `go run` build reports `version: dev`.
+commit, build time, source link. A build past its release tag reports
+`full: <version>+<N>.g<sha>` (the release line plus commits-since-tag); a bare
+`go run` build reports `version: dev`.

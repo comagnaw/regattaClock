@@ -34,6 +34,21 @@ lastTag () {
   git describe --tags --abbrev=0 || failIt "${FUNCNAME}: could not perform 'git describe'"
 }
 
+# commitsSinceTag - number of commits between the most recent tag and HEAD.
+# Prints 0 on a tagged commit and 0 when the checkout has no tags fetched.
+commitsSinceTag () {
+  local tag
+  tag=$(git describe --tags --abbrev=0 2>/dev/null) || { echo 0; return; }
+  git rev-list --count "${tag}..HEAD"
+}
+
+# treeDirty - "true" when tracked files differ from HEAD, else "false".
+# Untracked files are ignored (-uno): a scratch file next to the source - the
+# repo's own CLAUDE.md, an editor dotfile - does not change what gets built.
+treeDirty () {
+  [[ -n "$(git status --porcelain --untracked-files=no 2>/dev/null)" ]] && echo true || echo false
+}
+
 # checkVar checks if a variable is empty.
 # args: string variable name, no '$', e.g. "VARNAME"
 checkVar() {

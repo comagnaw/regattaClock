@@ -30,7 +30,9 @@ function compile () {
     -X=${LD_IMPORTPATH}.BuildCommit=${GIT_COMMIT}
     -X=${LD_IMPORTPATH}.BuildUser=${USER}
     -X=${LD_IMPORTPATH}.Version=${VERSION}
-    -X=${LD_IMPORTPATH}.RepoURL=${REPO_URL}" \
+    -X=${LD_IMPORTPATH}.RepoURL=${REPO_URL}
+    -X=${LD_IMPORTPATH}.BuildCount=$(commitsSinceTag)
+    -X=${LD_IMPORTPATH}.BuildDirty=$(treeDirty)" \
     -o ${BIN_DIR}/${exe} \
     "./cmd/${exe}" || failIt "${FUNCNAME} failed go build"
 }
