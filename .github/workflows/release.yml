@@ -9,10 +9,10 @@ jobs:
   build-macos:
     runs-on: macos-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v5
 
     - name: Set up Go
-      uses: actions/setup-go@v3
+      uses: actions/setup-go@v6
       with:
         go-version: '1.27.1'
 
@@ -56,7 +56,7 @@ jobs:
 
     - name: Create Release
       id: create_release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       env:
         GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
       with:
@@ -71,10 +71,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-macos
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v5
 
     - name: Set up Go
-      uses: actions/setup-go@v3
+      uses: actions/setup-go@v6
       with:
         go-version: '1.25.3'
 
@@ -97,7 +97,7 @@ jobs:
         mv fyne-cross/dist/windows-amd64/regattaClock.exe.zip fyne-cross/dist/windows-amd64/regattaClock-amd64.exe.zip
         mv fyne-cross/dist/windows-386/regattaClock.exe.zip fyne-cross/dist/windows-386/regattaClock-386.exe.zip
     - name: Upload Windows Release Asset
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       env:
         GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
       with:
