@@ -9,10 +9,10 @@ jobs:
   build-macos:
     runs-on: macos-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v5
 
     - name: Set up Go
-      uses: actions/setup-go@v3
+      uses: actions/setup-go@v6
       with:
         go-version: '1.27.1'
 
@@ -56,7 +56,7 @@ jobs:
 
     - name: Create Release
       id: create_release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       env:
         GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
       with:
@@ -71,12 +71,12 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-macos
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v5
 
     - name: Set up Go
-      uses: actions/setup-go@v3
+      uses: actions/setup-go@v6
       with:
-        go-version: '1.25.3'
+        go-version: '1.27.1'
 
     - name: Install Fyne
       run: |
@@ -87,17 +87,21 @@ jobs:
       run: |
         # Same build stamp as the macOS job. fyne-cross takes an explicit
         # -ldflags string, so a single space-separated list of -X= is fine here.
+        # -env GOTOOLCHAIN=auto: the fyne-cross Docker image pins an older Go with
+        # GOTOOLCHAIN=local, which refuses to build a module whose go directive is
+        # newer (go.mod says go 1.26.0). auto lets the container fetch it.
         LDPKG=github.com/comagnaw/regattaClock/internal/version
         VER=${GITHUB_REF_NAME#v}
         BUILT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
         REPO_URL=${{ github.server_url }}/${{ github.repository }}
         fyne-cross windows -arch amd64,386 -app-id com.github.comagnaw.regattaClock \
+          -env GOTOOLCHAIN=auto \
           -ldflags "-X=${LDPKG}.Version=${VER} -X=${LDPKG}.BuildCommit=${{ github.sha }} -X=${LDPKG}.BuildDate=${BUILT} -X=${LDPKG}.BuildBranch=main -X=${LDPKG}.BuildUser=github-actions -X=${LDPKG}.Project=regattaClock -X=${LDPKG}.ExeName=regattaClock -X=${LDPKG}.RepoURL=${REPO_URL} -X=${LDPKG}.BuildCount=0 -X=${LDPKG}.BuildDirty=false" \
           ./cmd/regattaClock
         mv fyne-cross/dist/windows-amd64/regattaClock.exe.zip fyne-cross/dist/windows-amd64/regattaClock-amd64.exe.zip
         mv fyne-cross/dist/windows-386/regattaClock.exe.zip fyne-cross/dist/windows-386/regattaClock-386.exe.zip
     - name: Upload Windows Release Asset
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       env:
         GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
       with:
