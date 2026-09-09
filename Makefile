@@ -1,8 +1,12 @@
 include version
 
-export GH_HOST = github.com
-export ORG = comagnaw
-export REPO = regattaClock
+# Repo identity is derived, not hard-coded, so a fork or repo move needs no edit
+# here. MODULE is the go.mod module path - the real source of truth for the -X
+# symbol prefix (if LD_IMPORTPATH drifts from the linked package path the -X
+# flags silently no-op). REPO is its last element, passed as the Project
+# attribute by scripts/compile.
+MODULE := $(shell awk '/^module /{print $$2}' go.mod)
+export REPO = $(notdir $(MODULE))
 export REPO_ROOT := $(shell git rev-parse --show-toplevel)
 # where we download dependencies and create artifacts
 export BUILD_DIR = ${REPO_ROOT}/.build
@@ -10,10 +14,13 @@ export BIN_DIR = $(BUILD_DIR)/bin
 
 export GIT_COMMIT = $(shell git rev-parse --short HEAD)
 export CHANGE_BRANCH = $(shell git rev-parse --abbrev-ref HEAD)
-export LD_IMPORTPATH = ${GH_HOST}/${ORG}/${REPO}/internal/version
-# Canonical source location, assembled here (not hard-coded in version.go) so a
-# repo move is a one-line edit. Compiled in as internal/version.RepoURL.
-export REPO_URL = https://${GH_HOST}/${ORG}/${REPO}
+export LD_IMPORTPATH = $(MODULE)/internal/version
+# Canonical source location, compiled in as internal/version.RepoURL. Taken from
+# the origin remote (normalised to https://host/org/repo) so it tracks a move;
+# falls back to https:// + module path for a checkout with no remote.
+ORIGIN_URL := $(shell git config --get remote.origin.url 2>/dev/null)
+export REPO_URL := $(shell echo "$(or $(ORIGIN_URL),https://$(MODULE))" | \
+	sed -E 's|^git@([^:]+):|https://\1/|; s|^ssh://git@|https://|; s|^git://|https://|; s|\.git$$||; s|/$$||')
 
 export BINARIES = regattaClock
 
