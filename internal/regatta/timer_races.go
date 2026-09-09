@@ -245,6 +245,7 @@ func (r *Regatta) refreshAllRows() {
 		r.refreshRow(n)
 	}
 	r.refreshStaleLaneLegend()
+	r.refreshSecondaryValueLegend()
 }
 
 func (r *Regatta) raceByNumber(n int) (reader.RaceData, bool) {

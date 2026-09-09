@@ -116,9 +116,9 @@ const (
 	NumScheduledRacesTitle = "Scheduled Races: %d"
 	ScheduledRacesTile     = "Scheduled Races"
 
-	// TreeRegattaLabel / TreeDateLabel - the race-tree header shows the regatta
-	// name and date in the same "Key: Value" form as PersonaHeaderFormat and
-	// NumScheduledRacesTitle, so the four fields read as one block.
+	// TreeRegattaLabel / TreeDateLabel - the race-tree details panel shows the
+	// regatta name and date in the same "Key: Value" form as PersonaHeaderFormat
+	// and NumScheduledRacesTitle, so the four fields read as one 2x2 block.
 	TreeRegattaLabel = "Regatta: %s"
 	TreeDateLabel    = "Date: %s"
 

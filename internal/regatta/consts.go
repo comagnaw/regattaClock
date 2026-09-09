@@ -73,4 +73,14 @@ const (
 	// down for a working screen.
 	treeWordmarkWidth  = float32(380)
 	treeWordmarkHeight = float32(58)
+
+	// treeRuleThickness - the rule under the wordmark, deliberately heavier than
+	// widget.NewSeparator()'s 1px hairline so the wordmark, the details panel and
+	// the race list read as three distinct zones.
+	treeRuleThickness = float32(2)
+
+	// headerBandVPad - vertical breathing room inside the filled column-header
+	// band. Horizontal padding stays 0 so the header columns line up exactly
+	// with the data rows below.
+	headerBandVPad = float32(4)
 )

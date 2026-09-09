@@ -56,6 +56,11 @@ type Regatta struct {
 
 	lastView fyne.CanvasObject
 
+	// treeContent - the race-tree Border set by showRaceTree, kept so the config
+	// screen can recognise it was the last view and rebuild it (a theme change
+	// does not repaint the header's reverse-contrast raw canvas objects).
+	treeContent fyne.CanvasObject
+
 	config *fyne.Container
 
 	// personaCfg - parsed deployment persona config (PrefPersonaConfigFile), or
@@ -75,6 +80,12 @@ type Regatta struct {
 
 	// subtitle - text field that represents imported number of races from RegattaData
 	subtitle *canvas.Text
+
+	// themeVariant - the app's chosen theme (VariantLight / VariantDark), set by
+	// setTheme. The race-tree details card is painted in reverse contrast off
+	// this, rather than off Fyne's builtin palette, which follows the OS
+	// appearance and can disagree with the in-app choice.
+	themeVariant fyne.ThemeVariant
 
 	// RegattaData - reference to loaded RegattaData
 	RegattaData *reader.RegattaData
@@ -99,6 +110,12 @@ type Regatta struct {
 	// no timing file has been written for a while (persona-plan.md 9).
 	directorSkew  *dismissibleBanner
 	directorStale *dismissibleBanner
+
+	// secondaryLegend - dismissible RD-tree note explaining the "·2nd" cell
+	// suffix. Shown only while a visible row actually carries the mark
+	// (refreshSecondaryValueLegend), so it does not pad the header the rest of
+	// the time.
+	secondaryLegend *dismissibleBanner
 
 	// origin-refresh (persona-plan.md 3b): a background poll notices the source
 	// workbook changed; originBanner offers Apply/Dismiss for the parsed
@@ -222,7 +239,7 @@ func newRegatta(app fyne.App) *Regatta {
 		date:        text.Header3(common.EmptyString),
 		RegattaData: reader.NewRegattaData(),
 	}
-	// The four race-tree header fields sit in a left-aligned 2x2 grid.
+	// The four race-tree details fields sit in a left-aligned 2x2 grid.
 	for _, t := range []*canvas.Text{regattaApp.persona, regattaApp.title, regattaApp.subtitle, regattaApp.date} {
 		t.Alignment = fyne.TextAlignLeading
 	}

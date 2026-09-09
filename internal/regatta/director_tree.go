@@ -204,15 +204,15 @@ func (r *Regatta) onDirectorTeamChanged(team persona.Team, start *store.StartLog
 
 // --- banners ------------------------------------------------------------
 
-// directorHeaderExtras is the RD-only header block under the column headers: a
-// dismissible clock-skew banner, a dismissible staleness banner, and the
-// secondary-value legend.
+// directorHeaderExtras is the RD-only header block under the column headers: an
+// origin-change action banner, a dismissible clock-skew banner, a dismissible
+// staleness banner, and the dismissible secondary-value legend. All four are
+// hidden until they apply, so the header stays compact.
 func (r *Regatta) directorHeaderExtras() fyne.CanvasObject {
 	r.directorSkew = newDismissibleBanner()
 	r.directorStale = newDismissibleBanner()
+	r.secondaryLegend = newDismissibleBanner()
 	r.originBanner = newActionBanner(common.ApplyButtonText, r.applyPendingOrigin, r.dismissOrigin)
-	legend := widget.NewLabel(common.SecondaryValueLegend)
-	legend.TextStyle = fyne.TextStyle{Italic: true}
 
 	r.checkDirectorSkew()
 	r.checkDirectorStale()
@@ -221,8 +221,26 @@ func (r *Regatta) directorHeaderExtras() fyne.CanvasObject {
 		r.originBanner.root,
 		r.directorSkew.root,
 		r.directorStale.root,
-		legend,
+		r.secondaryLegend.root,
 	)
+}
+
+// refreshSecondaryValueLegend shows the "·2nd value from the secondary team"
+// note only while a visible director row actually carries the mark - the same
+// on-demand pattern as refreshStaleLaneLegend - unless the RD dismissed it.
+func (r *Regatta) refreshSecondaryValueLegend() {
+	if r.secondaryLegend == nil {
+		return
+	}
+	for _, row := range r.rows {
+		for _, c := range []*widget.Label{row.restarts, row.startTime, row.winTime, row.approved} {
+			if strings.Contains(c.Text, common.SecondaryValueMark) {
+				r.secondaryLegend.show(common.SecondaryValueLegend)
+				return
+			}
+		}
+	}
+	r.secondaryLegend.hide()
 }
 
 // checkDirectorSkew shows the skew banner when the widest gap between any two
