@@ -157,8 +157,10 @@ Releases are cut from the release branch for the active line — today always
   long-lived `develop`. Not in use today; rationale in
   [`docs/features/releases.md`](docs/features/releases.md).
 
-`test.yml` does not run on tags, so make sure `main` is green before tagging. If a
-`FyneApp.toml` / `-app-version` is added later (see
-`docs/features/trusted-distribution/windows-packaging.md`), it is a separate
-OS-level version resource — derive it from the `version` file too, never
-hand-edit it independently.
+`test.yml` does not run on tags, so make sure `main` is green before tagging.
+
+`cmd/regattaClock/FyneApp.toml` + `-app-version` (fed from the `version` file in
+CI, pre-release suffix stripped) is a separate OS-level version resource — the
+Windows `VERSIONINFO` and the macOS `CFBundleShortVersionString`. It is derived,
+never hand-edited. See
+`docs/features/trusted-distribution/windows-packaging.md`.
