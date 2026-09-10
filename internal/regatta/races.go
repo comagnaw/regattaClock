@@ -36,8 +36,6 @@ func (r *Regatta) showRaceTree() {
 		header.Add(r.scheduleBannerWidget())
 	} else {
 		header.Add(r.directorHeaderExtras())
-		r.secondaryLegend = newDismissibleBanner()
-		header.Add(r.secondaryLegend.root)
 	}
 	r.staleLaneLegend = newDismissibleBanner()
 	header.Add(r.staleLaneLegend.root)
@@ -46,7 +44,6 @@ func (r *Regatta) showRaceTree() {
 	// Set the window content
 	body := r.raceListBody()
 	r.refreshStaleLaneLegend() // rows are realised now; show the legend if any is flagged
-	r.refreshSecondaryValueLegend()
 
 	// Keep the reference so the config screen can tell it left the tree and
 	// rebuild it (the header's reverse-contrast colours are raw canvas objects

@@ -17,19 +17,17 @@ import (
 
 func tm(min int) *time.Time { u := time.Now().UTC().Add(time.Duration(min) * time.Minute); return &u }
 
-// directorWithTeamLogs builds a director bound to a two-race regatta with its
-// rows realised, ready for the caller to poke r.teamLogs and refresh.
-func directorWithTeamLogs(t *testing.T, primary, secondary *teamTiming) *Regatta {
+// directorWithPrimaryLog builds a director bound to a two-race regatta with its
+// rows realised, ready for the caller to poke r.teamLogs and refresh. The RD
+// tree reads primary-team values only.
+func directorWithPrimaryLog(t *testing.T, primary *teamTiming) *Regatta {
 	t.Helper()
 	r := directorWithRaces(t, []reader.RaceData{
 		{RaceNumber: 1, BoatCount: 4, Lanes: map[int]reader.RaceEntry{1: {SchoolName: "A"}}},
 		{RaceNumber: 2, BoatCount: 4, Lanes: map[int]reader.RaceEntry{1: {SchoolName: "B"}}},
 	})
 	r.raceListBody() // realises r.rows
-	r.teamLogs = map[persona.Team]*teamTiming{
-		persona.TeamPrimary:   primary,
-		persona.TeamSecondary: secondary,
-	}
+	r.teamLogs = map[persona.Team]*teamTiming{persona.TeamPrimary: primary}
 	r.refreshAllRows()
 	return r
 }
@@ -42,7 +40,7 @@ func finishLogWith(recs map[int]store.RaceResult) *store.FinishLog {
 }
 
 func TestDirectorRow_PrimaryValues(t *testing.T) {
-	r := directorWithTeamLogs(t,
+	r := directorWithPrimaryLog(t,
 		&teamTiming{
 			start: startLogWith(map[int]store.StartRecord{
 				1: {RaceNumber: 1, StartedAt: tm(-8), Display: "09:00:00.0", Cleared: []store.ClearedStart{{}, {}}},
@@ -51,7 +49,6 @@ func TestDirectorRow_PrimaryValues(t *testing.T) {
 				1: {RaceNumber: 1, WinningTime: "06:00.0", Approved: true},
 			}),
 		},
-		&teamTiming{},
 	)
 
 	row := r.rows[1]
@@ -67,45 +64,39 @@ func TestDirectorRow_PrimaryValues(t *testing.T) {
 	if row.approved.Text != common.RaceApprovedText {
 		t.Errorf("status = %q, want %q", row.approved.Text, common.RaceApprovedText)
 	}
-	if strings.Contains(row.startTime.Text+row.winTime.Text, common.SecondaryValueMark) {
-		t.Error("primary values must not carry the secondary marker")
-	}
 }
 
-func TestDirectorRow_SecondaryFallbackMarked(t *testing.T) {
-	r := directorWithTeamLogs(t,
+// TestDirectorRow_NoSecondaryFallback - a race only the secondary pair timed
+// shows placeholders on the RD tree, not the secondary's values. The PFT
+// reconciles those numbers into the primary finish.json (reconciliation.md).
+func TestDirectorRow_NoSecondaryFallback(t *testing.T) {
+	r := directorWithPrimaryLog(t,
 		// primary has race 1 only
 		&teamTiming{
 			start:  startLogWith(map[int]store.StartRecord{1: {RaceNumber: 1, StartedAt: tm(-5), Display: "10:00:00.0"}}),
 			finish: finishLogWith(map[int]store.RaceResult{1: {RaceNumber: 1, WinningTime: "05:00.0"}}),
 		},
-		// secondary has race 2
-		&teamTiming{
-			start:  startLogWith(map[int]store.StartRecord{2: {RaceNumber: 2, StartedAt: tm(-3), Display: "10:30:00.0"}}),
-			finish: finishLogWith(map[int]store.RaceResult{2: {RaceNumber: 2, WinningTime: "05:30.0", Approved: true}}),
-		},
 	)
 
 	if got := r.rows[1].winTime.Text; got != "05:00.0" {
-		t.Errorf("race 1 winning time = %q, want the primary value unmarked", got)
+		t.Errorf("race 1 winning time = %q, want the primary value", got)
 	}
-	if got := r.rows[2].startTime.Text; got != "10:30:00.0"+common.SecondaryValueMark {
-		t.Errorf("race 2 start = %q, want the secondary value marked", got)
+	if got := r.rows[2].startTime.Text; got != common.NoStartTimeText {
+		t.Errorf("race 2 start = %q, want a placeholder", got)
 	}
-	if got := r.rows[2].winTime.Text; got != "05:30.0"+common.SecondaryValueMark {
-		t.Errorf("race 2 winning time = %q, want the secondary value marked", got)
+	if got := r.rows[2].winTime.Text; got != common.NoStartTimeText {
+		t.Errorf("race 2 winning time = %q, want a placeholder", got)
 	}
-	if got := r.rows[2].approved.Text; got != common.RaceApprovedText+common.SecondaryValueMark {
-		t.Errorf("race 2 status = %q", got)
+	if got := r.rows[2].approved.Text; got != common.EmptyString {
+		t.Errorf("race 2 status = %q, want empty", got)
 	}
 }
 
 func TestDirectorRow_InProgressStatus(t *testing.T) {
-	r := directorWithTeamLogs(t,
+	r := directorWithPrimaryLog(t,
 		&teamTiming{finish: finishLogWith(map[int]store.RaceResult{
 			1: {RaceNumber: 1, FirstFinishAt: tm(-1)}, // started, nothing saved
 		})},
-		&teamTiming{},
 	)
 	if got := r.rows[1].approved.Text; got != common.RaceInProgressText {
 		t.Errorf("in-progress status = %q, want %q", got, common.RaceInProgressText)
@@ -113,7 +104,7 @@ func TestDirectorRow_InProgressStatus(t *testing.T) {
 }
 
 func TestDirectorRow_Placeholders(t *testing.T) {
-	r := directorWithTeamLogs(t, &teamTiming{}, &teamTiming{})
+	r := directorWithPrimaryLog(t, &teamTiming{})
 	row := r.rows[1]
 	if row.restarts.Text != common.NoStartTimeText || row.startTime.Text != common.NoStartTimeText ||
 		row.winTime.Text != common.NoStartTimeText || row.approved.Text != common.EmptyString {
@@ -122,7 +113,9 @@ func TestDirectorRow_Placeholders(t *testing.T) {
 	}
 }
 
-func TestDirectorHydratesBothTeams(t *testing.T) {
+// TestDirectorHydratesPrimary - the RD mirrors the primary team's timing files
+// and ignores the secondary pair's; a secondary-only race stays a placeholder.
+func TestDirectorHydratesPrimary(t *testing.T) {
 	app := test.NewTempApp(t)
 	sch := twoRaceSchedule()
 	root := seedRegatta(t, sch)
@@ -148,19 +141,19 @@ func TestDirectorHydratesBothTeams(t *testing.T) {
 	if tt := r.teamLogs[persona.TeamPrimary]; tt == nil || tt.start.Races[1].StartedAt == nil {
 		t.Fatal("primary start.json not hydrated")
 	}
-	if tt := r.teamLogs[persona.TeamSecondary]; tt == nil || tt.finish.Races[2].WinningTime != "07:00.0" {
-		t.Fatal("secondary finish.json not hydrated")
+	if _, ok := r.teamLogs[persona.TeamSecondary]; ok {
+		t.Error("the RD tree must not mirror the secondary team")
 	}
 	if r.rows[1].startTime.Text != "08:00:00.0" {
 		t.Errorf("race 1 start = %q", r.rows[1].startTime.Text)
 	}
-	if r.rows[2].winTime.Text != "07:00.0"+common.SecondaryValueMark {
-		t.Errorf("race 2 winning time = %q, want the secondary value marked", r.rows[2].winTime.Text)
+	if r.rows[2].winTime.Text != common.NoStartTimeText {
+		t.Errorf("race 2 winning time = %q, want a placeholder (secondary-only race)", r.rows[2].winTime.Text)
 	}
 }
 
 func TestDirectorTeamChangeRefreshesRow(t *testing.T) {
-	r := directorWithTeamLogs(t, &teamTiming{}, &teamTiming{})
+	r := directorWithPrimaryLog(t, &teamTiming{})
 	if r.rows[1].startTime.Text != common.NoStartTimeText {
 		t.Fatal("precondition")
 	}
@@ -182,7 +175,7 @@ func envWithOffset(machine string, off time.Duration) store.Envelope {
 }
 
 func TestDirectorSkewBanner(t *testing.T) {
-	r := directorWithTeamLogs(t, &teamTiming{}, &teamTiming{})
+	r := directorWithPrimaryLog(t, &teamTiming{})
 	r.directorSkew = newDismissibleBanner()
 
 	ps := &store.StartLog{}
@@ -210,7 +203,7 @@ func TestDirectorSkewBanner(t *testing.T) {
 }
 
 func TestDirectorSkewBannerHiddenWhenAligned(t *testing.T) {
-	r := directorWithTeamLogs(t, &teamTiming{}, &teamTiming{})
+	r := directorWithPrimaryLog(t, &teamTiming{})
 	r.directorSkew = newDismissibleBanner()
 
 	ps := &store.StartLog{}
@@ -226,7 +219,7 @@ func TestDirectorSkewBannerHiddenWhenAligned(t *testing.T) {
 }
 
 func TestDirectorStaleBanner(t *testing.T) {
-	r := directorWithTeamLogs(t, &teamTiming{}, &teamTiming{})
+	r := directorWithPrimaryLog(t, &teamTiming{})
 	r.directorStale = newDismissibleBanner()
 
 	old := &store.StartLog{}
@@ -244,46 +237,5 @@ func TestDirectorStaleBanner(t *testing.T) {
 	r.checkDirectorStale()
 	if bannerVisible(r.directorStale) {
 		t.Error("stale banner should clear once a fresh write lands")
-	}
-}
-
-func TestDirectorSecondaryValueLegend(t *testing.T) {
-	r := directorWithRaces(t, []reader.RaceData{
-		{RaceNumber: 1, BoatCount: 4, Lanes: map[int]reader.RaceEntry{1: {SchoolName: "A"}}},
-		{RaceNumber: 2, BoatCount: 4, Lanes: map[int]reader.RaceEntry{1: {SchoolName: "B"}}},
-	})
-	r.raceListBody()                           // realises r.rows
-	r.secondaryLegend = newDismissibleBanner() // showRaceTree does this for the director tree
-
-	// Nothing timed yet: no row carries the ·2nd mark, so the note stays hidden.
-	r.teamLogs = map[persona.Team]*teamTiming{persona.TeamPrimary: {}, persona.TeamSecondary: {}}
-	r.refreshAllRows()
-	if bannerVisible(r.secondaryLegend) {
-		t.Error("legend should be hidden while no row carries the secondary mark")
-	}
-
-	// Race 2 exists only for the secondary team, so its row falls back and is
-	// marked - the note appears.
-	r.teamLogs = map[persona.Team]*teamTiming{
-		persona.TeamPrimary: {},
-		persona.TeamSecondary: {
-			start: startLogWith(map[int]store.StartRecord{
-				2: {RaceNumber: 2, StartedAt: tm(-3), Display: "10:30:00.0"},
-			}),
-		},
-	}
-	r.refreshAllRows()
-	if !bannerVisible(r.secondaryLegend) {
-		t.Fatal("legend should show once a row carries the secondary mark")
-	}
-	if r.secondaryLegend.label.Text != common.SecondaryValueLegend {
-		t.Errorf("legend text = %q, want %q", r.secondaryLegend.label.Text, common.SecondaryValueLegend)
-	}
-
-	// Once dismissed it stays gone even though the mark is still on screen.
-	bannerDismiss(r.secondaryLegend)
-	r.refreshAllRows()
-	if bannerVisible(r.secondaryLegend) {
-		t.Error("legend must stay hidden after the director dismisses it")
 	}
 }

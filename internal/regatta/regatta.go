@@ -105,22 +105,17 @@ type Regatta struct {
 	startLog  *store.StartLog
 	finishLog *store.FinishLog
 
-	// teamLogs - the Regatta Director's read-only mirror of both teams'
-	// start.json + finish.json, keyed by team. The progress tree reads the
-	// primary and falls back to the secondary per value (persona-plan.md 9).
+	// teamLogs - the Regatta Director's read-only mirror of the primary team's
+	// start.json + finish.json, keyed by team. The progress tree reads primary
+	// values only; the secondary pair reconciles into the primary finish.json
+	// via the PFT (reconciliation.md).
 	teamLogs map[persona.Team]*teamTiming
 
 	// directorSkew / directorStale - dismissible RD-tree banners: measured clock
-	// offsets across the four timing files disagree (persona-plan.md 2.1), and
-	// no timing file has been written for a while (persona-plan.md 9).
+	// offsets across the primary team's timing files disagree (persona-plan.md
+	// 2.1), and no timing file has been written for a while (persona-plan.md 9).
 	directorSkew  *dismissibleBanner
 	directorStale *dismissibleBanner
-
-	// secondaryLegend - dismissible RD-tree note explaining the "·2nd" cell
-	// suffix. Shown only while a visible row actually carries the mark
-	// (refreshSecondaryValueLegend), so it does not pad the header the rest of
-	// the time.
-	secondaryLegend *dismissibleBanner
 
 	// origin-refresh (persona-plan.md 3b): a background poll notices the source
 	// workbook changed; originBanner offers Apply/Dismiss for the parsed
