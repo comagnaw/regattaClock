@@ -93,7 +93,7 @@ jobs:
           rm -rf regattaClock-intel.app regattaClock-arm.app
           hdiutil create -volname "Regatta Clock" -srcfolder regattaClock.app -ov -format UDZO \
             "dist/regattaClock-${VER}-macos-universal.dmg"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dist-macos-dmg
           path: dist/*.dmg
@@ -157,17 +157,17 @@ jobs:
           & $iscc /Q /O"dist" "/DMyAppVersion=$ver" "/DMyAppVersionNumeric=$appVer" "/DMySrcExe=regattaClock.exe" packaging/windows/regattaClock.iss
           Get-ChildItem dist
       - name: Upload bare exe (for the signing job)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: win-exe-unsigned
           path: regattaClock.exe
           if-no-files-found: error
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dist-windows-portable
           path: dist/*-portable.zip
           if-no-files-found: error
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dist-windows-setup
           path: dist/*-setup.exe
@@ -185,7 +185,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: win-exe-unsigned
       - name: Sign exe, rebuild + sign installer
@@ -213,12 +213,12 @@ jobs:
           & $signtool sign /f signing.pfx /p $env:PFX_PASSWORD /fd SHA256 /tr $tsa /td SHA256 (Get-Item dist/*-setup.exe).FullName
 
           Remove-Item signing.pfx
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dist-windows-portable
           path: dist/*-portable.zip
           overwrite: true
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dist-windows-setup
           path: dist/*-setup.exe
@@ -242,7 +242,7 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: dist-*
           merge-multiple: true
@@ -253,13 +253,13 @@ jobs:
           ls -la
           sha256sum * > SHA256SUMS
           cat SHA256SUMS
-      - uses: actions/attest-build-provenance@v2
+      - uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
             dist/*.dmg
             dist/*.zip
             dist/*.exe
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/*
@@ -277,7 +277,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist
