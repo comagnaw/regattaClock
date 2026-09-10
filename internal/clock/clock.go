@@ -212,7 +212,7 @@ func NewClock(parent fyne.App, regattaData *reader.RegattaData, race reader.Race
 		},
 		RegattaData: regattaData,
 		raceData:    race,
-		window:      parent.NewWindow(fmt.Sprintf("Race %d Clock", race.RaceNumber)),
+		window:      parent.NewWindow(fmt.Sprintf(common.ClockWindowTitleFormat, race.RaceNumber)),
 		App:         parent,
 	}
 
@@ -264,6 +264,18 @@ func (c *Clock) UpdateSecondaryFinish(log *store.FinishLog) {
 	}
 }
 
+// applyWindowTitle puts the race number and, once the persona is bound, the
+// operator's role in the window's OS title bar - the same "<what> — <role>"
+// shape the main window uses (regatta.go). A director-opened clock has no
+// persona label and keeps the plain "Race N Clock".
+func (c *Clock) applyWindowTitle() {
+	title := fmt.Sprintf(common.ClockWindowTitleFormat, c.raceData.RaceNumber)
+	if c.session.Label != common.EmptyString {
+		title = fmt.Sprintf(common.WindowTitleFormat, title, c.session.Label)
+	}
+	c.window.SetTitle(title)
+}
+
 // isPrimaryFinish reports whether this clock belongs to the Primary Finish
 // Timer - the only persona that reviews the secondary team's data.
 func (c *Clock) isPrimaryFinish() bool {
@@ -297,6 +309,7 @@ func (c *Clock) commitButton() *widget.Button {
 // OpenRaceClock - opens the Clock app so that a race can be timed
 func (c *Clock) OpenRaceClock() {
 
+	c.applyWindowTitle()
 	c.window.SetContent(c.content())
 	c.window.Resize(fyne.NewSize(clockWidth, clockHeight))
 

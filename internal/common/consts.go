@@ -143,12 +143,18 @@ const (
 	TreeDateLabel    = "Date: %s"
 
 	// PersonaHeaderFormat labels the race-tree header with the operator's role;
-	// WindowTitleFormat puts it in the OS title bar next to the app name.
-	PersonaHeaderFormat   = "Role: %s"
-	WindowTitleFormat     = "%s — %s"
-	ConfigTitle           = "Configuration"
-	LoadDataTitle         = "Load Regatta Data"
-	CreateLaneImagesTitle = "Create Lane Images"
+	// WindowTitleFormat puts it in the OS title bar next to the app name, and is
+	// reused for the race-clock window ("Race N Clock — <role>").
+	PersonaHeaderFormat = "Role: %s"
+	WindowTitleFormat   = "%s — %s"
+
+	// ClockWindowTitleFormat - the race-clock window's OS title bar before the
+	// persona is known. Once it is, the role is appended via WindowTitleFormat.
+	// Arg: race number.
+	ClockWindowTitleFormat = "Race %d Clock"
+	ConfigTitle            = "Configuration"
+	LoadDataTitle          = "Load Regatta Data"
+	CreateLaneImagesTitle  = "Create Lane Images"
 	// VersionTitle is both the menu label and the title of the build-info window.
 	VersionTitle = "Version"
 

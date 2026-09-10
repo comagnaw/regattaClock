@@ -66,6 +66,27 @@ func TestSecondaryFinish_NoRefereeButton(t *testing.T) {
 	}
 }
 
+func TestClockWindowTitle_CarriesPersonaRole(t *testing.T) {
+	pri := openBoundClock(t, pftSession(t), &store.FinishLog{Races: map[int]store.RaceResult{}})
+	if got := pri.window.Title(); !strings.Contains(got, "Primary Finish Timer") || !strings.Contains(got, "Race 1") {
+		t.Errorf("PFT clock title = %q, want it to name Race 1 and the role", got)
+	}
+
+	sec := openSecondaryClock(t, sftSession(t), &store.FinishLog{Races: map[int]store.RaceResult{}})
+	if got := sec.window.Title(); !strings.Contains(got, "Secondary Finish Timer") {
+		t.Errorf("SFT clock title = %q, want it to name the role", got)
+	}
+
+	// A director-style clock (no persona bound) keeps the plain title.
+	app := test.NewTempApp(t)
+	dir := NewClock(app, createTestRegattaData(), createTestRaceData())
+	dir.OpenRaceClock()
+	t.Cleanup(dir.closeWindow)
+	if got := dir.window.Title(); strings.Contains(got, " — ") {
+		t.Errorf("director-opened clock title = %q, want no role suffix", got)
+	}
+}
+
 func TestSecondaryFinish_WinningTimeEnablesSaveDirectly(t *testing.T) {
 	sec := openSecondaryClock(t, sftSession(t), &store.FinishLog{Races: map[int]store.RaceResult{}})
 
