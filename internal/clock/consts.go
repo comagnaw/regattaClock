@@ -39,7 +39,7 @@ const (
 	// band phrase. bandLogoAspect is its SVG viewBox ratio (2793 / 430) so the
 	// width follows; bandLogoGap is the space between the wordmark and the
 	// "timing for ..." text.
-	bandLogoHeight = float32(26)
+	bandLogoHeight = float32(33)
 	bandLogoAspect = float32(2793) / float32(430)
 	bandLogoGap    = float32(12)
 
