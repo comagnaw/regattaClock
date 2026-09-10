@@ -16,12 +16,14 @@ import (
 	"github.com/comagnaw/regattaClock/internal/uitheme"
 )
 
-// Compare Secondary is the primary finish timer's read-only, side-by-side view
-// of the SECONDARY team's committed result for the same race. It is a visual aid
-// only: the PFT reconciles by editing its OWN data, and this pane never writes
-// the secondary file. The clock keeps working while it is open - unlike the
-// Referee Approval window it does not block. See
-// docs/features/personas/reconciliation.md.
+// Compare Secondary is the primary finish timer's read-only view of the
+// SECONDARY team's committed result for the same race, in an independent window
+// the operator places beside the clock. It is a visual aid only: the PFT
+// reconciles by editing its OWN data, this window never writes the secondary
+// file, and - unlike the Referee Approval window - it does not block the clock.
+// See docs/features/personas/reconciliation.md.
+
+func (c *Clock) compareIsOpen() bool { return c.compareWindow != nil }
 
 // comparableSecondaryResult returns the secondary team's RaceResult for race n
 // when there is one worth showing (a committed winning time), and whether there
@@ -49,7 +51,7 @@ func (c *Clock) refreshCompareButton() {
 	if c.buttons.compare == nil {
 		return
 	}
-	if c.compareOpen {
+	if c.compareIsOpen() {
 		c.buttons.compare.SetText(common.CompareSecondaryHideText)
 		c.buttons.compare.Enable()
 		return
@@ -62,9 +64,10 @@ func (c *Clock) refreshCompareButton() {
 	}
 }
 
-// toggleCompareSecondary reveals or hides the read-only secondary pane.
+// toggleCompareSecondary opens the compare window or, if it is already up,
+// closes it.
 func (c *Clock) toggleCompareSecondary() {
-	if c.compareOpen {
+	if c.compareIsOpen() {
 		c.closeCompareSecondary()
 		return
 	}
@@ -72,36 +75,32 @@ func (c *Clock) toggleCompareSecondary() {
 }
 
 func (c *Clock) openCompareSecondary() {
+	if c.compareWindow != nil {
+		c.compareWindow.RequestFocus()
+		return
+	}
 	res, ok := c.comparableSecondaryResult(c.raceData.RaceNumber)
-	if !ok || c.contentRoot == nil {
+	if !ok {
 		return
 	}
 
-	split := container.NewHSplit(c.contentRoot, c.compareBody(res))
-	split.SetOffset(float64(clockWidth / (clockWidth + comparePaneWidth)))
+	w := c.App.NewWindow(fmt.Sprintf(common.CompareWindowTitle, c.raceData.RaceNumber))
+	w.SetContent(c.compareBody(res))
+	w.Resize(fyne.NewSize(comparePaneWidth, comparePaneHeight))
+	w.SetOnClosed(func() {
+		c.compareWindow = nil
+		c.refreshCompareButton()
+	})
 
-	// The read-only pane can be taller than the clock (a skew note, no run
-	// controls), so grow the window to whichever side needs more height.
-	h := clockHeight
-	if ph := split.MinSize().Height; ph > h {
-		h = ph
-	}
-
-	c.comparePane = split
-	c.compareOpen = true
-	c.window.SetContent(split)
-	c.window.Resize(fyne.NewSize(clockWidth+comparePaneWidth, h))
+	c.compareWindow = w
+	w.Show()
 	c.refreshCompareButton()
 }
 
 func (c *Clock) closeCompareSecondary() {
-	c.compareOpen = false
-	c.comparePane = nil
-	if c.contentRoot != nil {
-		c.window.SetContent(c.contentRoot)
+	if c.compareWindow != nil {
+		c.compareWindow.Close() // its SetOnClosed clears the field and the button
 	}
-	c.window.Resize(fyne.NewSize(clockWidth, clockHeight))
-	c.refreshCompareButton()
 }
 
 // compareBody is the read-only mirror of the secondary team's result, laid out

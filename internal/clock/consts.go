@@ -47,11 +47,12 @@ const (
 	// Clear buttons so the rapid-tap targets are not crowded together.
 	controlGap = float32(24)
 
-	// comparePaneWidth - the read-only Compare Secondary pane, revealed to the
-	// right of the clock in an HSplit when the PFT opens it. Wide enough for the
-	// same six-lane results table; the clock keeps its own width, so the window
-	// grows by roughly this much while the pane is open.
-	comparePaneWidth = float32(860)
+	// comparePaneWidth / comparePaneHeight - the independent, non-blocking
+	// Compare Secondary window the PFT opens beside the clock. Width matches the
+	// clock so the two read as one surface; height leaves room for the skew
+	// caution.
+	comparePaneWidth  = float32(880)
+	comparePaneHeight = float32(1000)
 
 	// winningEntryWidth - the Winning Time entry is a fixed narrow field beside
 	// its label, not a full-width form row.

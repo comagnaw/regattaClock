@@ -135,8 +135,9 @@ func (c *Clock) initClear() *widget.Button {
 
 			c.clockState.isRunning = false
 			c.clockState.isCleared = true
-			c.compareOpen = false // content() below returns to the single-pane clock
-			c.comparePane = nil
+			if c.compareWindow != nil {
+				c.compareWindow.Close() // this race is being started over
+			}
 
 			c.clock.Text = common.ZeroTime
 
@@ -151,7 +152,6 @@ func (c *Clock) initClear() *widget.Button {
 			c.initCommitStatus()
 
 			c.window.SetContent(c.content())
-			c.window.Resize(fyne.NewSize(clockWidth, clockHeight))
 
 			c.window.Content().Refresh()
 

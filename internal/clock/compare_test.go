@@ -58,8 +58,6 @@ func countEntries(o fyne.CanvasObject) (entries, enabledButtons int) {
 			entries += e
 			enabledButtons += b
 		}
-	case *container.Split:
-		return countEntries(v.Trailing)
 	case *container.ThemeOverride:
 		return countEntries(v.Content)
 	}
@@ -75,9 +73,6 @@ func labelTexts(o fyne.CanvasObject) []string {
 		for _, c := range v.Objects {
 			out = append(out, labelTexts(c)...)
 		}
-	case *container.Split:
-		out = append(out, labelTexts(v.Leading)...)
-		out = append(out, labelTexts(v.Trailing)...)
 	case *container.ThemeOverride:
 		out = append(out, labelTexts(v.Content)...)
 	}
@@ -122,21 +117,24 @@ func TestCompareButton_EnabledOnlyWithCommittedSecondaryResult(t *testing.T) {
 	}
 }
 
+// comparePane returns the content of the open Compare Secondary window.
+func comparePane(t *testing.T, c *Clock) fyne.CanvasObject {
+	t.Helper()
+	if c.compareWindow == nil {
+		t.Fatal("compare window is not open")
+	}
+	return c.compareWindow.Content()
+}
+
 func TestCompareView_OpensReadOnlyPane(t *testing.T) {
 	pft := openPFTWithSecondary(t, emptyFinish(), secResult("05:00.0"))
 	stopClockTicker(t, pft)
 
 	pft.toggleCompareSecondary()
-	if !pft.compareOpen {
-		t.Fatal("toggle should open the compare pane")
-	}
-	split, ok := pft.window.Content().(*container.Split)
-	if !ok {
-		t.Fatalf("window content = %T, want *container.Split", pft.window.Content())
-	}
+	pane := comparePane(t, pft)
 
 	// The pane shows the secondary's numbers.
-	texts := strings.Join(labelTexts(split.Trailing), " ")
+	texts := strings.Join(labelTexts(pane), " ")
 	for _, want := range []string{"05:00.0", "1", "2"} {
 		if !strings.Contains(texts, want) {
 			t.Errorf("compare pane is missing %q; got %q", want, texts)
@@ -144,7 +142,7 @@ func TestCompareView_OpensReadOnlyPane(t *testing.T) {
 	}
 
 	// ...and carries no editable inputs or live controls.
-	entries, enabled := countEntries(split.Trailing)
+	entries, enabled := countEntries(pane)
 	if entries != 0 {
 		t.Errorf("compare pane has %d editable entries, want 0", entries)
 	}
@@ -156,7 +154,7 @@ func TestCompareView_OpensReadOnlyPane(t *testing.T) {
 		common.RefereeButtonText, common.CloseButtonText, common.SaveAndCloseButtonText,
 		common.CompareSecondaryButtonText,
 	} {
-		if slices.Contains(buttonLabels(split.Trailing), banned) {
+		if slices.Contains(buttonLabels(pane), banned) {
 			t.Errorf("compare pane must not contain the %q control", banned)
 		}
 	}
@@ -167,21 +165,24 @@ func TestCompareView_ClockStaysLiveAndToggles(t *testing.T) {
 	stopClockTicker(t, pft)
 
 	pft.toggleCompareSecondary()
+	if pft.compareWindow == nil {
+		t.Fatal("toggle should open the compare window")
+	}
 	if pft.buttons.start.Disabled() || pft.buttons.lap.Disabled() {
-		t.Error("opening the compare pane must not disable the clock's own run controls")
+		t.Error("opening the compare window must not disable the clock's own run controls")
 	}
 	pft.buttons.start.OnTapped()
 	if !pft.clockState.isRunning {
-		t.Error("Start still works while the compare pane is open")
+		t.Error("Start still works while the compare window is open")
 	}
 	pft.clockState.isRunning = false
 
 	pft.toggleCompareSecondary()
-	if pft.compareOpen {
-		t.Fatal("second toggle should hide the pane")
+	if pft.compareWindow != nil {
+		t.Fatal("second toggle should close the compare window")
 	}
-	if pft.window.Content() != pft.contentRoot {
-		t.Error("hiding the pane should restore the single-pane clock content")
+	if pft.buttons.compare.Text != common.CompareSecondaryButtonText {
+		t.Errorf("button label after close = %q, want %q", pft.buttons.compare.Text, common.CompareSecondaryButtonText)
 	}
 }
 
@@ -191,18 +192,17 @@ func TestCompareView_LiveRefresh(t *testing.T) {
 	pft.toggleCompareSecondary()
 
 	pft.UpdateSecondaryFinish(secResult("04:59.9"))
-	if !pft.compareOpen {
-		t.Fatal("a live secondary update should keep the pane open")
+	if pft.compareWindow == nil {
+		t.Fatal("a live secondary update should keep the window open")
 	}
-	split := pft.window.Content().(*container.Split)
-	if !strings.Contains(strings.Join(labelTexts(split.Trailing), " "), "04:59.9") {
-		t.Error("the open compare pane should show the refreshed secondary winning time")
+	if !strings.Contains(strings.Join(labelTexts(comparePane(t, pft)), " "), "04:59.9") {
+		t.Error("the open compare window should show the refreshed secondary winning time")
 	}
 
-	// The secondary result losing its winning time closes the pane.
+	// The secondary result losing its winning time closes the window.
 	pft.UpdateSecondaryFinish(emptyFinish())
-	if pft.compareOpen {
-		t.Error("the pane should close when the secondary result is no longer comparable")
+	if pft.compareWindow != nil {
+		t.Error("the window should close when the secondary result is no longer comparable")
 	}
 }
 
@@ -219,8 +219,7 @@ func TestCompareView_SkewNote(t *testing.T) {
 	stopClockTicker(t, pft)
 	pft.toggleCompareSecondary()
 
-	split := pft.window.Content().(*container.Split)
-	joined := strings.Join(labelTexts(split.Trailing), " ")
+	joined := strings.Join(labelTexts(comparePane(t, pft)), " ")
 	if !strings.Contains(joined, "ft-a") || !strings.Contains(joined, "ft-b") {
 		t.Errorf("a 3s machine-clock gap should show the skew note naming both machines; got %q", joined)
 	}
@@ -228,8 +227,7 @@ func TestCompareView_SkewNote(t *testing.T) {
 	// Within threshold: no note.
 	sec.Envelope.Clock = timesync.ClockRef{Offset: 200 * time.Millisecond, Source: "ntp:test"}
 	pft.UpdateSecondaryFinish(sec)
-	split = pft.window.Content().(*container.Split)
-	if strings.Contains(strings.Join(labelTexts(split.Trailing), " "), "clocks differ by") {
+	if strings.Contains(strings.Join(labelTexts(comparePane(t, pft)), " "), "clocks differ by") {
 		t.Error("no skew note when the machine clocks agree within the threshold")
 	}
 }

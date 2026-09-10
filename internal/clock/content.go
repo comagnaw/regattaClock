@@ -91,7 +91,7 @@ func (c *Clock) content() *fyne.Container {
 		container.NewPadded(c.resultsPanel()),
 	)
 
-	c.contentRoot = container.NewVBox(
+	root := container.NewVBox(
 		c.skewBannerWidget(),
 		c.scheduleBannerWidget(),
 
@@ -104,7 +104,7 @@ func (c *Clock) content() *fyne.Container {
 		c.approvalPanel(),
 	)
 	c.refreshCompareButton()
-	return c.contentRoot
+	return root
 }
 
 // resultsPanel is the live clock's lanes table. The *widget.Table handle is

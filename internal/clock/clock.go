@@ -9,7 +9,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
-	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/comagnaw/regattaClock/internal/common"
@@ -73,13 +72,10 @@ type Clock struct {
 	// delivers a fresh one. nil for every non-PFT clock. Never written.
 	secondaryFinish *store.FinishLog
 
-	// compare view state: compareOpen is true while the read-only secondary pane
-	// is revealed in an HSplit; comparePane is that split (kept so a live update
-	// can swap its trailing side); contentRoot is the clock's own content, held
-	// so it can be re-wrapped without a rebuild.
-	compareOpen bool
-	comparePane *container.Split
-	contentRoot *fyne.Container
+	// compareWindow - the independent, non-blocking Compare Secondary window
+	// while it is open; nil otherwise. Guards against a second one, refreshed in
+	// place on a live secondary update, and closed on clock teardown.
+	compareWindow fyne.Window
 
 	// derivedWinningTime - the value last auto-filled into winningTime from the
 	// ST start time. A referee edit makes winningTime.Text differ from this, and
@@ -254,18 +250,17 @@ func (c *Clock) WithSecondaryFinish(log *store.FinishLog) *Clock {
 
 // UpdateSecondaryFinish replaces the secondary-team mirror when the watcher
 // delivers a fresh finish.json, refreshing the Compare Secondary button and, if
-// the pane is open, its contents. Call on the UI thread.
+// the compare window is open, its contents. Call on the UI thread.
 func (c *Clock) UpdateSecondaryFinish(log *store.FinishLog) {
 	c.secondaryFinish = log
 	c.refreshCompareButton()
-	if !c.compareOpen || c.comparePane == nil {
+	if c.compareWindow == nil {
 		return
 	}
 	if res, ok := c.comparableSecondaryResult(c.raceData.RaceNumber); ok {
-		c.comparePane.Trailing = c.compareBody(res)
-		c.comparePane.Refresh()
+		c.compareWindow.SetContent(c.compareBody(res))
 	} else {
-		c.closeCompareSecondary() // the secondary result went away or lost its winning time
+		c.compareWindow.Close() // the secondary result went away or lost its winning time
 	}
 }
 
@@ -320,6 +315,9 @@ func (c *Clock) OpenRaceClock() {
 		c.clockClosed = true
 		if c.refereeWindow != nil {
 			c.refereeWindow.Close()
+		}
+		if c.compareWindow != nil {
+			c.compareWindow.Close()
 		}
 		c.clockState.stopTicker()
 		if c.AfterClose != nil {

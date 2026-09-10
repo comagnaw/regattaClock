@@ -75,7 +75,8 @@ const (
 	// The button toggles the pane; the pane never edits the SFT's data.
 	CompareSecondaryButtonText = "Compare Secondary"
 	CompareSecondaryHideText   = "Hide Secondary"
-	CompareSecondaryBandFormat = "Secondary timer — %s" // arg: race title
+	CompareSecondaryBandFormat = "Secondary timer — %s"        // arg: race title
+	CompareWindowTitle         = "Compare Secondary - Race %d" // arg: race number
 	// CompareSkewNoteFormat - shown in the compare pane when the two timers'
 	// machine clocks disagree by more than timesync.SkewWarnThreshold. Args:
 	// primary machine, secondary machine, offset delta.
