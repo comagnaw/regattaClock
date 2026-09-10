@@ -10,17 +10,15 @@ import (
 // staleLaneMap reports whether race n has a committed RaceResult whose stored
 // LaneMapHash no longer matches the live schedule - results entered against an
 // earlier lane map (persona-plan.md 3c item 4). Checked for the finish timer's
-// own log and, for the director, either team's.
+// own log and, for the director, the primary team's.
 func (r *Regatta) staleLaneMap(n int, race reader.RaceData) bool {
 	live := raceLaneMapHash(race)
 	switch r.session.Role {
 	case persona.RoleFinish:
 		return finishResultStale(r.finishLog, n, live)
 	case persona.RoleDirector:
-		for _, team := range directorTeams {
-			if tt := r.teamLogs[team]; tt != nil && finishResultStale(tt.finish, n, live) {
-				return true
-			}
+		if tt := r.teamLogs[persona.TeamPrimary]; tt != nil {
+			return finishResultStale(tt.finish, n, live)
 		}
 	}
 	return false
@@ -44,8 +42,8 @@ func finishResultStale(log *store.FinishLog, n int, liveHash string) bool {
 }
 
 // refreshStaleLaneLegend shows the caution strip when any visible row carries
-// the mark, unless the operator has dismissed it (mirrors
-// refreshSecondaryValueLegend). The strip is created in showRaceTree.
+// the mark, unless the operator has dismissed it - the same on-demand pattern
+// as the schedule-conflict strip. The strip is created in showRaceTree.
 func (r *Regatta) refreshStaleLaneLegend() {
 	if r.staleLaneLegend == nil {
 		return

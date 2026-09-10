@@ -100,7 +100,7 @@ func (r *Regatta) guardScheduleWrite(proceed func()) {
 // finish.json under root - the signal that replacing the schedule in place
 // would orphan real data.
 func regattaHasTimingData(root string) bool {
-	for _, team := range directorTeams {
+	for _, team := range timingTeams {
 		s := directorTeamSession(root, team)
 		if filesystem.FileExists(s.StartPath()) || filesystem.FileExists(s.FinishPath()) {
 			return true

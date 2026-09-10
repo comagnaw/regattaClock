@@ -73,9 +73,8 @@ func TestFinishTree_StaleLaneMapNotFlaggedWhen(t *testing.T) {
 	}
 }
 
-func TestDirectorTree_StaleLaneMapMark_EitherTeam(t *testing.T) {
-	r := directorWithTeamLogs(t,
-		&teamTiming{}, // primary: no finish data
+func TestDirectorTree_StaleLaneMapMark_Primary(t *testing.T) {
+	r := directorWithPrimaryLog(t,
 		&teamTiming{finish: finishLogWith(map[int]store.RaceResult{
 			1: {RaceNumber: 1, WinningTime: "05:30.0", LaneMapHash: "stale-hash"},
 		})},
@@ -83,13 +82,13 @@ func TestDirectorTree_StaleLaneMapMark_EitherTeam(t *testing.T) {
 	r.refreshAllRows()
 
 	if !strings.HasPrefix(r.rows[1].title.Text, common.StaleLaneMapMark) {
-		t.Errorf("row 1 title = %q, want the mark (secondary team's result is stale)", r.rows[1].title.Text)
+		t.Errorf("row 1 title = %q, want the mark (primary team's result is stale)", r.rows[1].title.Text)
 	}
 
-	// Fix the secondary stamp -> mark clears.
-	res := r.teamLogs[persona.TeamSecondary].finish.Races[1]
+	// Fix the primary stamp -> mark clears.
+	res := r.teamLogs[persona.TeamPrimary].finish.Races[1]
 	res.LaneMapHash = liveHash(t, r, 1)
-	r.teamLogs[persona.TeamSecondary].finish.Races[1] = res
+	r.teamLogs[persona.TeamPrimary].finish.Races[1] = res
 	r.refreshAllRows()
 	if strings.HasPrefix(r.rows[1].title.Text, common.StaleLaneMapMark) {
 		t.Errorf("row 1 still flagged after re-stamp: %q", r.rows[1].title.Text)
