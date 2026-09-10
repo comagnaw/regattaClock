@@ -9,6 +9,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/comagnaw/regattaClock/internal/common"
@@ -65,6 +66,20 @@ type Clock struct {
 	// WithStartLog. The winning time is derived from the ST start time for this
 	// race; UpdateStartTime replaces this when the watcher delivers a fresh one.
 	startLog *store.StartLog
+
+	// secondaryFinish - the SECONDARY team's finish.json, mirrored read-only for
+	// the primary finish timer's Compare Secondary view (compare.go). Set by
+	// WithSecondaryFinish; UpdateSecondaryFinish replaces it when the watcher
+	// delivers a fresh one. nil for every non-PFT clock. Never written.
+	secondaryFinish *store.FinishLog
+
+	// compare view state: compareOpen is true while the read-only secondary pane
+	// is revealed in an HSplit; comparePane is that split (kept so a live update
+	// can swap its trailing side); contentRoot is the clock's own content, held
+	// so it can be re-wrapped without a rebuild.
+	compareOpen bool
+	comparePane *container.Split
+	contentRoot *fyne.Container
 
 	// derivedWinningTime - the value last auto-filled into winningTime from the
 	// ST start time. A referee edit makes winningTime.Text differ from this, and
@@ -174,6 +189,15 @@ type clockState struct {
 
 	// stopChan go channel used to signal stoppage of the clock
 	stopChan chan struct{}
+
+	// stopOnce guards stopChan so the ticker can be stopped more than once (the
+	// window close handler, and tests) without a double-close panic.
+	stopOnce sync.Once
+}
+
+// stopTicker signals the 100ms update goroutine to exit. Idempotent.
+func (s *clockState) stopTicker() {
+	s.stopOnce.Do(func() { close(s.stopChan) })
 }
 
 // NewClock - generates Clock object
@@ -218,6 +242,37 @@ func (c *Clock) WithFinishLog(session persona.Session, log *store.FinishLog) *Cl
 func (c *Clock) WithStartLog(log *store.StartLog) *Clock {
 	c.startLog = log
 	return c
+}
+
+// WithSecondaryFinish binds the SECONDARY team's finish.json mirror for the
+// primary finish timer's read-only Compare Secondary view. Safe to pass nil or
+// an empty log; omit entirely for any non-PFT clock. The clock never writes it.
+func (c *Clock) WithSecondaryFinish(log *store.FinishLog) *Clock {
+	c.secondaryFinish = log
+	return c
+}
+
+// UpdateSecondaryFinish replaces the secondary-team mirror when the watcher
+// delivers a fresh finish.json, refreshing the Compare Secondary button and, if
+// the pane is open, its contents. Call on the UI thread.
+func (c *Clock) UpdateSecondaryFinish(log *store.FinishLog) {
+	c.secondaryFinish = log
+	c.refreshCompareButton()
+	if !c.compareOpen || c.comparePane == nil {
+		return
+	}
+	if res, ok := c.comparableSecondaryResult(c.raceData.RaceNumber); ok {
+		c.comparePane.Trailing = c.compareBody(res)
+		c.comparePane.Refresh()
+	} else {
+		c.closeCompareSecondary() // the secondary result went away or lost its winning time
+	}
+}
+
+// isPrimaryFinish reports whether this clock belongs to the Primary Finish
+// Timer - the only persona that reviews the secondary team's data.
+func (c *Clock) isPrimaryFinish() bool {
+	return c.session.Role == persona.RoleFinish && c.session.Team == persona.TeamPrimary
 }
 
 // canPersist reports whether this clock should read from and write to
@@ -266,7 +321,7 @@ func (c *Clock) OpenRaceClock() {
 		if c.refereeWindow != nil {
 			c.refereeWindow.Close()
 		}
-		close(c.clockState.stopChan)
+		c.clockState.stopTicker()
 		if c.AfterClose != nil {
 			c.AfterClose()
 		}

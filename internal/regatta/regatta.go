@@ -105,6 +105,13 @@ type Regatta struct {
 	startLog  *store.StartLog
 	finishLog *store.FinishLog
 
+	// secondaryFinishLog / secondaryFinishPath - the SECONDARY team's finish.json,
+	// mirrored read-only by the PRIMARY finish timer for the clock's Compare
+	// Secondary view, and watched so the view can refresh live. nil / "" for
+	// every other persona. Never written.
+	secondaryFinishLog  *store.FinishLog
+	secondaryFinishPath string
+
 	// teamLogs - the Regatta Director's read-only mirror of the primary team's
 	// start.json + finish.json, keyed by team. The progress tree reads primary
 	// values only; the secondary pair reconciles into the primary finish.json

@@ -91,7 +91,7 @@ func (c *Clock) content() *fyne.Container {
 		container.NewPadded(c.resultsPanel()),
 	)
 
-	return container.NewVBox(
+	c.contentRoot = container.NewVBox(
 		c.skewBannerWidget(),
 		c.scheduleBannerWidget(),
 
@@ -103,22 +103,33 @@ func (c *Clock) content() *fyne.Container {
 
 		c.approvalPanel(),
 	)
+	c.refreshCompareButton()
+	return c.contentRoot
 }
 
-// resultsPanel is the lanes table with the handle kept, so a schedule refresh
-// can repaint lane labels in place, and with changed lanes drawn in a warning
-// style (persona-plan.md 3c). School names ellipsize inside their fixed column
-// rather than widening the panel.
+// resultsPanel is the live clock's lanes table. The *widget.Table handle is
+// kept on the clock so a schedule refresh can repaint lane labels in place;
+// changed lanes are drawn in a warning style (persona-plan.md 3c).
 func (c *Clock) resultsPanel() *fyne.Container {
-	c.resultsTable = widget.NewTable(
-		func() (int, int) { return len(c.results), len(c.results[0]) },
+	panel, tbl := newResultsTable(c.results, c.changedLanes)
+	c.resultsTable = tbl
+	return panel
+}
+
+// newResultsTable builds the six-row lanes table over res, sized so its viewport
+// shows every cell with no scrollbars. Shared by the live clock and the
+// read-only Compare Secondary pane so the two read identically. changed may be
+// nil (the compare pane never highlights schedule conflicts).
+func newResultsTable(res results, changed map[int]bool) (*fyne.Container, *widget.Table) {
+	tbl := widget.NewTable(
+		func() (int, int) { return len(res), len(res[0]) },
 		func() fyne.CanvasObject {
 			return text.TruncatingCenter("wide wide wide content")
 		},
 		func(i widget.TableCellID, o fyne.CanvasObject) {
 			label := o.(*widget.Label)
-			label.SetText(c.results[i.Row][i.Col])
-			if (i.Row == schoolRow || i.Row == additionalRow) && i.Col >= 1 && c.changedLanes[i.Col] {
+			label.SetText(res[i.Row][i.Col])
+			if changed != nil && (i.Row == schoolRow || i.Row == additionalRow) && i.Col >= 1 && changed[i.Col] {
 				label.TextStyle = fyne.TextStyle{Bold: true}
 				label.Importance = widget.WarningImportance
 			} else {
@@ -132,18 +143,18 @@ func (c *Clock) resultsPanel() *fyne.Container {
 	// cell, so that is folded into both the lane-column width (six lanes fill the
 	// card, no wasted strip) and the viewport (+2px absorbs float rounding; a
 	// hairline of card beats a scrollbar clipping the last row).
-	cols := len(c.results[0])
-	rows := len(c.results)
+	cols := len(res[0])
+	rows := len(res)
 	pad := theme.Padding()
 	lanes := float32(cols - 1)
 
 	laneW := (resultsWidth - resultsLabelColWidth - lanes*pad) / lanes
-	c.resultsTable.SetColumnWidth(0, resultsLabelColWidth)
+	tbl.SetColumnWidth(0, resultsLabelColWidth)
 	for col := 1; col < cols; col++ {
-		c.resultsTable.SetColumnWidth(col, laneW)
+		tbl.SetColumnWidth(col, laneW)
 	}
 	for row := range rows {
-		c.resultsTable.SetRowHeight(row, resultsRowHeight)
+		tbl.SetRowHeight(row, resultsRowHeight)
 	}
 
 	size := fyne.NewSize(
@@ -151,7 +162,7 @@ func (c *Clock) resultsPanel() *fyne.Container {
 		(resultsRowHeight+pad)*float32(rows)+2,
 	)
 
-	return container.NewGridWrap(size, container.NewStack(c.resultsTable))
+	return container.NewGridWrap(size, container.NewStack(tbl)), tbl
 }
 
 // skewBannerWidget builds the (initially hidden) clock-skew banner. checkSkew
@@ -258,5 +269,14 @@ func (c *Clock) approvalPanel() *fyne.Container {
 			layout.NewSpacer(),
 		)
 	}
-	return container.NewVBox(row, c.commitStatus)
+
+	panel := container.NewVBox()
+	// The primary FT gets a Compare Secondary toggle on its own row above the
+	// commit buttons, but only once there is a secondary mirror to compare.
+	if c.isPrimaryFinish() && c.secondaryFinish != nil {
+		panel.Add(container.NewCenter(c.buttons.compare))
+	}
+	panel.Add(row)
+	panel.Add(c.commitStatus)
+	return panel
 }

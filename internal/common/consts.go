@@ -70,6 +70,17 @@ const (
 	ClockTimingForFormat  = "timing for %s"
 	ClockResultsZoneLabel = "Results"
 
+	// Compare Secondary - the primary finish timer's read-only side-by-side view
+	// of the secondary team's committed result for the same race (compare.go).
+	// The button toggles the pane; the pane never edits the SFT's data.
+	CompareSecondaryButtonText = "Compare Secondary"
+	CompareSecondaryHideText   = "Hide Secondary"
+	CompareSecondaryBandFormat = "Secondary timer — %s" // arg: race title
+	// CompareSkewNoteFormat - shown in the compare pane when the two timers'
+	// machine clocks disagree by more than timesync.SkewWarnThreshold. Args:
+	// primary machine, secondary machine, offset delta.
+	CompareSkewNoteFormat = "%s and %s clocks differ by %s — the times below may be off by that much. Reconcile with care."
+
 	RefereeButtonText   = "Referee Approval"
 	RefereeApproveTitle = "Referee Approval - Race %d"
 
