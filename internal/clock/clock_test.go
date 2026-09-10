@@ -483,16 +483,20 @@ func TestClock_AdjustPlaceForDQ(t *testing.T) {
 }
 
 func TestClock_Constants(t *testing.T) {
-	if clockWidth != 1240 {
-		t.Errorf("Expected clockWidth 1240, got %f", clockWidth)
+	// Sanity bounds rather than exact pixels, so layout tuning does not churn
+	// this test. The polish pass shrank the window from 1240x800 and the results
+	// panel no longer spans the whole frame.
+	if clockWidth <= 0 || clockWidth >= 1240 {
+		t.Errorf("clockWidth %f: want a positive shrink from the old 1240", clockWidth)
 	}
-
-	if clockHeight != 800 {
-		t.Errorf("Expected clockHeight 800, got %f", clockHeight)
+	if clockHeight <= 0 || clockHeight > 1000 {
+		t.Errorf("clockHeight %f out of sane range", clockHeight)
 	}
-
-	if resultsHeight != 240 {
-		t.Errorf("Expected resultsHeight 240, got %f", resultsHeight)
+	if resultsWidth <= 0 || resultsWidth > clockWidth {
+		t.Errorf("resultsWidth %f should be positive and fit inside clockWidth %f", resultsWidth, clockWidth)
+	}
+	if resultsHeight <= 0 || resultsHeight >= clockHeight {
+		t.Errorf("resultsHeight %f out of sane range", resultsHeight)
 	}
 
 	if badLaneNum != -1 {

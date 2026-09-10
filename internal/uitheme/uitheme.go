@@ -163,6 +163,25 @@ func ReverseCardColors(variant fyne.ThemeVariant) (card, ink color.Color) {
 	return White, BrandNavy
 }
 
+// ReverseCard - draw body on a solid reverse-contrast card (ReverseCardColors)
+// with the opposite palette forced over it, so the widgets inside read correctly
+// on the inverted fill (a navy card wants light text). Pass the app's current
+// theme variant. Unlike AccentBand this does not bleed to the window edges; wrap
+// the result in FullBleed if that is wanted.
+func ReverseCard(variant fyne.ThemeVariant, body fyne.CanvasObject) *fyne.Container {
+	card, _ := ReverseCardColors(variant)
+
+	var over fyne.Theme = LightOverride
+	if variant == theme.VariantLight {
+		over = DarkOverride
+	}
+
+	return container.NewStack(
+		canvas.NewRectangle(card),
+		container.NewThemeOverride(body, over),
+	)
+}
+
 // shade - return c with its HSL lightness moved by delta, keeping hue and
 // saturation intact. Blending toward white instead would desaturate the navy into
 // grey, which is what makes a tinted theme look washed out.

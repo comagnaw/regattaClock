@@ -1,20 +1,46 @@
 package clock
 
 const (
-	// clockWidth - width of clock container
-	clockWidth = float32(1240)
+	// clockWidth / clockHeight - the race-clock window. Sized to the results
+	// panel (the widest zone) with the operator controls stacked above it. Much
+	// smaller than the pre-polish 1240x800: the inputs no longer stretch the
+	// whole frame and the results columns are capped with ellipsis truncation.
+	clockWidth  = float32(880)
+	clockHeight = float32(876)
 
-	// clockHeight - height of clock container
-	clockHeight = float32(800)
+	// resultsWidth / resultsHeight - the lanes table: seven columns (row label +
+	// six lanes). Long school names ellipsize inside their column rather than
+	// widening it (the full name still shows in the Referee Approval window).
+	resultsWidth  = float32(824)
+	resultsHeight = float32(206)
 
-	// resultsHeight - height of results table
-	resultsHeight = float32(240)
+	// resultsLabelColWidth / resultsLaneColWidth - fixed table columns so the row
+	// labels stay narrow and the six lanes share the rest evenly.
+	resultsLabelColWidth = float32(74)
+	resultsLaneColWidth  = float32(124)
 
-	// winningNoteHeight - reserved height (≈ two label lines) for the helper line
-	// under the Winning Time field. The space is always present so showing or
-	// clearing a start-time note never resizes the clock window mid-race and
-	// shifts the Lap button out from under the operator's cursor.
-	winningNoteHeight = float32(52)
+	// lap grid column widths - shared by the header row and the six data rows so
+	// their edges line up. OOF is a single lane digit; Place holds "Next Place" /
+	// "DQ" / a number; Split and Time hold mm:ss.s.
+	lapOOFColWidth   = float32(64)
+	lapPlaceColWidth = float32(184)
+	lapSplitColWidth = float32(120)
+	lapTimeColWidth  = float32(120)
+	lapRowHeight     = float32(34)
+
+	// zoneBandVPad - breathing room inside the "Timing" / "Results" accent bands
+	// (matches the race tree's headerBandVPad).
+	zoneBandVPad = float32(4)
+
+	// winningEntryWidth - the Winning Time entry is a fixed narrow field beside
+	// its label, not a full-width form row.
+	winningEntryWidth = float32(150)
+
+	// winningNoteHeight - reserved height for the helper line under the Winning
+	// Time field. One line covers the common "auto-filled" note so pressing Start
+	// never shifts the Lap button; the rarer multi-line skew/stale notes (shown
+	// only once the operator has stopped to check the time) may wrap past it.
+	winningNoteHeight = float32(24)
 
 	// badLaneNum - used to indicate the lane number text could not be converted to int
 	badLaneNum = -1

@@ -62,6 +62,12 @@ const (
 	RaceTime          = "Time"
 	RaceSchool        = "School"
 
+	// ClockTimingZoneLabel / ClockResultsZoneLabel - the accent-band headers that
+	// split the race clock into its operator-controls zone and its results
+	// readout, matching the race tree's column-header band.
+	ClockTimingZoneLabel  = "Timing"
+	ClockResultsZoneLabel = "Results"
+
 	RefereeButtonText   = "Referee Approval"
 	RefereeApproveTitle = "Referee Approval - Race %d"
 

@@ -1,12 +1,15 @@
 package clock
 
 import (
+	"fmt"
 	"strconv"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
+
 	"github.com/comagnaw/regattaClock/internal/common"
+	"github.com/comagnaw/regattaClock/internal/text"
 )
 
 // lapRow - used to hold each lap collected as race progresses
@@ -32,14 +35,33 @@ type lapRow struct {
 	calculatedTime *widget.Label
 }
 
-// asGridRow - format the lapRow as fyne Grid Container
+// asGridRow - the lapRow as a row of fixed-width cells so its columns line up
+// with the header built by lapHeaderRow.
 func (l lapRow) asGridRow() *fyne.Container {
-	return container.NewGridWithColumns(
-		4,
-		l.oofLaneNum,
-		l.place,
-		l.split,
-		l.calculatedTime,
+	return container.NewHBox(
+		lapCell(lapOOFColWidth, l.oofLaneNum),
+		lapCell(lapPlaceColWidth, l.place),
+		lapCell(lapSplitColWidth, l.split),
+		lapCell(lapTimeColWidth, l.calculatedTime),
+	)
+}
+
+// lapCell - wrap o at a fixed lap-grid column width so the header and every data
+// row share one set of column edges.
+func lapCell(w float32, o fyne.CanvasObject) *fyne.Container {
+	return container.NewGridWrap(fyne.NewSize(w, lapRowHeight), o)
+}
+
+// lapHeaderRow - the bold column header above the lap rows, using the same
+// fixed-width cells as asGridRow.
+func lapHeaderRow() *fyne.Container {
+	place := fmt.Sprintf("%s / %s / %s / %s",
+		common.RacePlace, common.RaceDisqualification, common.RaceDidNotStart, common.RaceDidNotFinish)
+	return container.NewHBox(
+		lapCell(lapOOFColWidth, text.BoldLabel(common.RaceOrderOfFinish)),
+		lapCell(lapPlaceColWidth, text.BoldLabel(place)),
+		lapCell(lapSplitColWidth, text.BoldLabel(common.RaceSplit)),
+		lapCell(lapTimeColWidth, text.BoldLabel(common.RaceTime)),
 	)
 }
 

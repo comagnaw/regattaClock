@@ -1,45 +1,74 @@
 package clock
 
 import (
-	"fmt"
-
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/comagnaw/regattaClock/internal/common"
 	"github.com/comagnaw/regattaClock/internal/text"
+	"github.com/comagnaw/regattaClock/internal/uitheme"
 )
 
-// content - primary fyne objects presented as clock and race input
+// clockThemeVariant is the app's chosen light/dark variant, read from the same
+// preference the main window writes (fyne's Settings().ThemeVariant() reports the
+// OS appearance, which the in-app Light/Dark choice overrides). It drives the
+// direction of the reverse-contrast Results card. Defaults to dark, matching the
+// main window's own fallback.
+func clockThemeVariant() fyne.ThemeVariant {
+	if fyne.CurrentApp().Preferences().String(common.PrefTheme) == common.PrefLight {
+		return theme.VariantLight
+	}
+	return theme.VariantDark
+}
+
+// content - the race clock laid out in two banded zones: a "Timing" zone (the
+// stopwatch, the run controls, the lap grid and the winning-time field) over a
+// reverse-contrast "Results" card (the per-lane readout), matching the race
+// tree's accent-band / reverse-card visual language. The referee / save panel
+// sits below on the plain surface.
 func (c *Clock) content() *fyne.Container {
-	c.raceTitle = text.Header1(c.raceData.RaceTitle())
+	c.raceTitle = text.Header2(c.raceData.RaceTitle())
+
+	variant := clockThemeVariant()
+
+	timing := container.NewVBox(
+		container.NewCenter(c.clock),
+		c.controlPanel(),
+		c.lapsContainer(),
+		c.winningTimeInput(),
+	)
+
+	results := container.NewVBox(
+		container.NewPadded(c.resultsPanel()),
+	)
+
 	return container.NewVBox(
 		container.NewCenter(c.raceTitle),
 		c.skewBannerWidget(),
 		c.scheduleBannerWidget(),
-		container.NewVBox(
-			container.NewCenter(c.clock),
-			c.controlPanel(),
-			c.lapsContainer(),
-			c.winningTimeInput(),
-			c.resultsPanel(),
-			c.approvalPanel(),
-		),
+
+		uitheme.AccentBand(text.BoldLabel(common.ClockTimingZoneLabel), zoneBandVPad),
+		timing,
+
+		uitheme.AccentBand(text.BoldLabel(common.ClockResultsZoneLabel), zoneBandVPad),
+		uitheme.FullBleed(uitheme.ReverseCard(variant, results)),
+
+		c.approvalPanel(),
 	)
 }
 
-// resultsPanel is resultsContainer with the table handle kept, so a schedule
-// refresh can repaint lane labels in place, and with changed lanes drawn in a
-// warning style (persona-plan.md 3c).
+// resultsPanel is the lanes table with the handle kept, so a schedule refresh
+// can repaint lane labels in place, and with changed lanes drawn in a warning
+// style (persona-plan.md 3c). School names ellipsize inside their fixed column
+// rather than widening the panel.
 func (c *Clock) resultsPanel() *fyne.Container {
 	c.resultsTable = widget.NewTable(
 		func() (int, int) { return len(c.results), len(c.results[0]) },
 		func() fyne.CanvasObject {
-			label := widget.NewLabel("wide wide wide content")
-			label.Alignment = fyne.TextAlignCenter
-			return label
+			return text.TruncatingCenter("wide wide wide content")
 		},
 		func(i widget.TableCellID, o fyne.CanvasObject) {
 			label := o.(*widget.Label)
@@ -53,8 +82,13 @@ func (c *Clock) resultsPanel() *fyne.Container {
 			}
 		})
 
+	c.resultsTable.SetColumnWidth(0, resultsLabelColWidth)
+	for col := 1; col < len(c.results[0]); col++ {
+		c.resultsTable.SetColumnWidth(col, resultsLaneColWidth)
+	}
+
 	return container.NewGridWrap(
-		fyne.Size{Width: clockWidth, Height: resultsHeight},
+		fyne.Size{Width: resultsWidth, Height: resultsHeight},
 		container.NewStack(c.resultsTable),
 	)
 }
@@ -73,34 +107,22 @@ func (c *Clock) skewBannerWidget() fyne.CanvasObject {
 	return c.skewBanner
 }
 
-// controlPanel - container with buttons that control clock and clear results
+// controlPanel - the run controls, at their natural size and centred rather than
+// stretched across the whole frame.
 func (c *Clock) controlPanel() *fyne.Container {
-	return container.NewHBox(
-		layout.NewSpacer(),
+	return container.NewCenter(container.NewHBox(
 		c.buttons.start,
-		layout.NewSpacer(),
 		c.buttons.lap,
-		layout.NewSpacer(),
 		c.buttons.stop,
-		layout.NewSpacer(),
 		c.buttons.clear,
-		layout.NewSpacer(),
-	)
+	))
 }
 
-// lapContainer - container that updates as clock is started and lap button pushed.
-// Also collectes order-of-finish (OOF) and adjustement of place and split time.
+// lapsContainer - the lap grid: a bold header row over six fixed-width data
+// rows, updated as the clock runs and the Lap button is pushed. Also collects
+// order-of-finish (OOF) and adjustment of place and split time.
 func (c *Clock) lapsContainer() *fyne.Container {
-	laps := container.NewVBox()
-
-	racePlace := fmt.Sprintf("%s / %s / %s / %s", common.RacePlace, common.RaceDisqualification, common.RaceDidNotStart, common.RaceDidNotFinish)
-	headers := []string{common.RaceOrderOfFinish, racePlace, common.RaceSplit, common.RaceTime}
-
-	header := container.NewGridWithColumns(4)
-	for _, h := range headers {
-		header.Add(text.BoldLabel(h))
-	}
-	laps.Add(header)
+	grid := container.NewVBox(lapHeaderRow())
 
 	for rowNum := range c.laps {
 		c.laps[rowNum] = lapRow{
@@ -109,32 +131,31 @@ func (c *Clock) lapsContainer() *fyne.Container {
 			split:          widget.NewEntry(),
 			calculatedTime: widget.NewLabel(common.EmptyString),
 		}
-		laps.Add(c.laps[rowNum].asGridRow())
+		grid.Add(c.laps[rowNum].asGridRow())
 	}
-	return laps
+	return container.NewCenter(grid)
 }
 
-// winningTimeInput - container to collect official winning time for first boat that
-// crosses finish line.  This reflects the total time from when the race began and finished.
-// The note line under it says where a pre-filled value came from, or why there
-// is none (persona-plan.md 2.1).
+// winningTimeInput - a compact labelled field for the official winning time of
+// the first boat across the line (the total from race start to finish). The
+// note line under it says where a pre-filled value came from, or why there is
+// none (persona-plan.md 2.1); its space is reserved up front so the window
+// geometry never changes after Start is pressed.
 func (c *Clock) winningTimeInput() *fyne.Container {
-	form := widget.NewForm(
-		widget.NewFormItem(
-			common.WinningTimeInputText,
-			c.winningTime,
-		),
+	entry := container.NewGridWrap(
+		fyne.NewSize(winningEntryWidth, c.winningTime.MinSize().Height),
+		c.winningTime,
 	)
+	row := container.NewCenter(container.NewHBox(
+		text.BoldLabel(common.WinningTimeInputText),
+		entry,
+	))
 
 	c.winningNote = text.Wrapping(common.EmptyString)
 	c.winningNote.Importance = widget.MediumImportance
+	noteArea := container.NewGridWrap(fyne.NewSize(resultsWidth, winningNoteHeight), c.winningNote)
 
-	// Reserve the note's space up front. It stays in the layout whether or not
-	// there is a message, so the window geometry never changes after Start is
-	// pressed (which would move the Lap button).
-	noteArea := container.NewGridWrap(fyne.NewSize(clockWidth, winningNoteHeight), c.winningNote)
-
-	return container.NewVBox(form, noteArea)
+	return container.NewVBox(row, container.NewCenter(noteArea))
 }
 
 // initCommitStatus - build the status line under the approval panel. It starts
@@ -145,7 +166,7 @@ func (c *Clock) initCommitStatus() {
 	c.commitStatus.Importance = widget.MediumImportance
 }
 
-// approvalPanel - container to make the results official, with a status line
+// approvalPanel - the panel that makes the results official, with a status line
 // under it. The primary FT gets Referee Approval + Close (Close disabled until
 // approved); the Secondary Finish Timer has no Referee Approval step
 // (reconciliation.md) - its panel is a single Save and Close button.
