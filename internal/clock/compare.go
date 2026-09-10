@@ -112,7 +112,12 @@ func (c *Clock) compareBody(res store.RaceResult) fyne.CanvasObject {
 
 	title := text.BannerHeading(fmt.Sprintf(common.CompareSecondaryBandFormat, c.raceData.RaceTitle()))
 	title.Color = uitheme.White
-	header := uitheme.AccentBand(container.NewCenter(title), zoneBandVPad)
+	// Pin the band's inner height to the wordmark height the live clock's
+	// masthead uses, so the two headers - and everything below them - align.
+	header := uitheme.AccentBand(
+		container.NewGridWrap(fyne.NewSize(title.MinSize().Width, bandLogoHeight), container.NewCenter(title)),
+		zoneBandVPad,
+	)
 
 	secResults := initResults(c.raceData)
 	for _, lr := range res.Rows {
@@ -124,15 +129,37 @@ func (c *Clock) compareBody(res store.RaceResult) fyne.CanvasObject {
 	}
 	resultsPanel, _ := newResultsTable(secResults, nil)
 
+	// Reserve the vertical space the live clock spends on the run controls and
+	// on the winning-time helper line, so the lap grid and the Results band line
+	// up across the two panes for a straight visual scan.
+	controlSpacer := vgap(widget.NewButton(common.StartButtonText, nil).MinSize().Height)
+	noteSpacer := vgap(winningNoteHeight)
+
 	return container.NewVBox(
 		header,
 		c.compareSkewBanner(),
-		container.NewCenter(text.Header1(orZero(res.WinningTime))),
+		container.NewCenter(text.Header1(compareHeadlineTime(res))),
+		controlSpacer,
 		compareLapGrid(res.Rows),
 		compareWinningLine(res.WinningTime),
+		noteSpacer,
 		uitheme.AccentBand(text.BoldLabelCenter(common.ClockResultsZoneLabel), zoneBandVPad),
 		uitheme.FullBleed(uitheme.ReverseCard(variant, container.NewVBox(container.NewPadded(resultsPanel)))),
 	)
+}
+
+// compareHeadlineTime is what the read-only pane shows where the live clock has
+// its stopwatch: the last split - the elapsed the secondary timer had on the
+// board when the last boat crossed, which is what the primary's stopwatch shows
+// when Stop is pressed. "00:00.0" when the secondary recorded no splits.
+func compareHeadlineTime(res store.RaceResult) string {
+	last := common.ZeroTime
+	for _, r := range res.Rows {
+		if r.Split != common.EmptyString {
+			last = r.Split
+		}
+	}
+	return last
 }
 
 // compareLapGrid mirrors lapsContainer with read-only labels built from the
