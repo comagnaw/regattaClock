@@ -1,120 +1,287 @@
 name: Release
 
+# Runs on a v* tag (full release) or on demand (workflow_dispatch - builds and
+# uploads artifacts you can download from the run, but does not publish). See
+# AGENTS.md "Releases" and docs/features/trusted-distribution/.
 on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version for a manual build (default: git describe)"
+        required: false
 
-# The jobs publish the release with `gh release` (built-in GITHUB_TOKEN); that
-# needs contents: write - the repo default is read.
 permissions:
-  contents: write
+  contents: read
 
 jobs:
+  # --------------------------------------------------------------------------
+  # Resolve the version once, and whether Windows signing material is present.
+  # --------------------------------------------------------------------------
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      app_version: ${{ steps.v.outputs.app_version }}
+      is_release: ${{ steps.v.outputs.is_release }}
+      can_sign_windows: ${{ steps.s.outputs.can_sign_windows }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: v
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            RAW="${{ inputs.version }}"
+          elif [ "${{ github.ref_type }}" = "tag" ]; then
+            RAW="${GITHUB_REF_NAME}"
+          else
+            RAW="$(git describe --tags --always)"
+          fi
+          VERSION="${RAW#v}"
+          # Numeric X.Y.Z for -app-version / the Win32 VERSIONINFO resource;
+          # drops any -alpha / -N-gsha suffix. Falls back to 0.0.0.
+          APP_VERSION="$(printf '%s' "$VERSION" | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+' || echo '0.0.0')"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "app_version=$APP_VERSION" >> "$GITHUB_OUTPUT"
+          echo "is_release=${{ github.ref_type == 'tag' }}" >> "$GITHUB_OUTPUT"
+          echo "resolved version=$VERSION  app_version=$APP_VERSION  is_release=${{ github.ref_type == 'tag' }}"
+      - id: s
+        env:
+          PFX: ${{ secrets.WINDOWS_PFX_BASE64 }}
+        run: echo "can_sign_windows=${{ env.PFX != '' }}" >> "$GITHUB_OUTPUT"
+
+  # --------------------------------------------------------------------------
+  # macOS: unsigned universal DMG. Notarization is a mid-term item (see
+  # docs/features/trusted-distribution/macos-notarization.md).
+  # --------------------------------------------------------------------------
   build-macos:
+    needs: setup
     runs-on: macos-latest
     steps:
-    - uses: actions/checkout@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.27.1'
+      - name: Install Fyne
+        run: go install fyne.io/tools/cmd/fyne@latest
+      - name: Build universal DMG
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          LDPKG=github.com/comagnaw/regattaClock/internal/version
+          VER='${{ needs.setup.outputs.version }}'
+          APP_VER='${{ needs.setup.outputs.app_version }}'
+          BUILT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          REPO_URL='${{ github.server_url }}/${{ github.repository }}'
+          # One -ldflags= token per -X so `go` can re-split GOFLAGS on spaces
+          # (values are space-free). A CI tag build is on the tag and clean, so
+          # BuildCount=0 / BuildDirty=false.
+          export GOFLAGS="-ldflags=-X=${LDPKG}.Version=${VER} -ldflags=-X=${LDPKG}.BuildCommit=${{ github.sha }} -ldflags=-X=${LDPKG}.BuildDate=${BUILT} -ldflags=-X=${LDPKG}.BuildBranch=${{ github.ref_name }} -ldflags=-X=${LDPKG}.BuildUser=github-actions -ldflags=-X=${LDPKG}.Project=regattaClock -ldflags=-X=${LDPKG}.ExeName=regattaClock -ldflags=-X=${LDPKG}.RepoURL=${REPO_URL} -ldflags=-X=${LDPKG}.BuildCount=0 -ldflags=-X=${LDPKG}.BuildDirty=false"
+          GOARCH=amd64 fyne package -os darwin -app-id com.github.comagnaw.regattaClock -app-version "${APP_VER}" -release -src ./cmd/regattaClock/
+          mv regattaClock.app regattaClock-intel.app
+          GOARCH=arm64 fyne package -os darwin -app-id com.github.comagnaw.regattaClock -app-version "${APP_VER}" -release -src ./cmd/regattaClock/
+          mv regattaClock.app regattaClock-arm.app
+          mkdir -p regattaClock.app/Contents/MacOS
+          lipo -create -output regattaClock.app/Contents/MacOS/regattaClock \
+            regattaClock-intel.app/Contents/MacOS/regattaClock \
+            regattaClock-arm.app/Contents/MacOS/regattaClock
+          cp -r regattaClock-intel.app/Contents/Resources regattaClock.app/Contents/
+          cp regattaClock-intel.app/Contents/Info.plist regattaClock.app/Contents/
+          rm -rf regattaClock-intel.app regattaClock-arm.app
+          hdiutil create -volname "Regatta Clock" -srcfolder regattaClock.app -ov -format UDZO \
+            "dist/regattaClock-${VER}-macos-universal.dmg"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-macos-dmg
+          path: dist/*.dmg
+          if-no-files-found: error
 
-    - name: Set up Go
-      uses: actions/setup-go@v6
-      with:
-        go-version: '1.27.1'
-
-    - name: Install Fyne
-      run: |
-        go install fyne.io/tools/cmd/fyne@latest
-
-    - name: Build
-      run: |
-        mkdir -p build
-        # Stamp the git tag (v-stripped), commit, and build metadata into the
-        # binary via internal/version. The fyne CLI only picks ldflags up from
-        # GOFLAGS, and `go` re-splits GOFLAGS on spaces, so every -X needs its
-        # own -ldflags= token (values themselves are space-free).
-        LDPKG=github.com/comagnaw/regattaClock/internal/version
-        VER=${GITHUB_REF_NAME#v}
-        BUILT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-        REPO_URL=${{ github.server_url }}/${{ github.repository }}
-        # A tag build is on the tag and the CI tree is clean by construction, so
-        # BuildCount is 0 (no +build suffix) and BuildDirty is false.
-        export GOFLAGS="-ldflags=-X=${LDPKG}.Version=${VER} -ldflags=-X=${LDPKG}.BuildCommit=${{ github.sha }} -ldflags=-X=${LDPKG}.BuildDate=${BUILT} -ldflags=-X=${LDPKG}.BuildBranch=main -ldflags=-X=${LDPKG}.BuildUser=github-actions -ldflags=-X=${LDPKG}.Project=regattaClock -ldflags=-X=${LDPKG}.ExeName=regattaClock -ldflags=-X=${LDPKG}.RepoURL=${REPO_URL} -ldflags=-X=${LDPKG}.BuildCount=0 -ldflags=-X=${LDPKG}.BuildDirty=false"
-        # Build for both architectures
-        GOARCH=amd64 fyne package -os darwin -app-id com.github.comagnaw.regattaClock -release -src ./cmd/regattaClock/
-        mv regattaClock.app build/regattaClock-intel.app
-        GOARCH=arm64 fyne package -os darwin -app-id com.github.comagnaw.regattaClock -release -src ./cmd/regattaClock/
-        mv regattaClock.app build/regattaClock-arm.app
-        # Create app bundle structure
-        mkdir -p build/regattaClock.app/Contents/MacOS
-        # Create universal binary
-        lipo -create -output build/regattaClock.app/Contents/MacOS/regattaClock build/regattaClock-intel.app/Contents/MacOS/regattaClock build/regattaClock-arm.app/Contents/MacOS/regattaClock
-        # Copy other necessary files
-        cp -r build/regattaClock-intel.app/Contents/Resources build/regattaClock.app/Contents/
-        cp -r build/regattaClock-intel.app/Contents/Info.plist build/regattaClock.app/Contents/
-        rm -rf build/regattaClock-arm.app
-        rm -rf build/regattaClock-intel.app
-
-    - name: Create DMG
-      run: |
-        cd build
-        hdiutil create -volname "Regatta Clock" -srcfolder . -ov -format UDZO regattaClock.dmg
-
-    - name: Create Release
-      env:
-        GH_TOKEN: ${{ github.token }}
-      run: |
-        # gh CLI instead of an Action: no Node-runtime deprecations and no
-        # token-precedence surprises. Empty body now; the maintainer fills the
-        # notes and sets --prerelease after the run (see AGENTS.md "Releases").
-        # The tag already exists (it triggered this run). Idempotent on re-run.
-        gh release create "${GITHUB_REF_NAME}" \
-          --title "Release ${GITHUB_REF_NAME}" \
-          --notes "" \
-          build/regattaClock.dmg \
-        || gh release upload "${GITHUB_REF_NAME}" build/regattaClock.dmg --clobber
-
+  # --------------------------------------------------------------------------
+  # Windows: native fyne package on windows-latest (MinGW), so the build stamp
+  # (regattaClock -v) is populated exactly as on macOS. Produces a portable zip
+  # and a per-user Inno Setup installer, both unsigned here.
+  # --------------------------------------------------------------------------
   build-windows:
-    runs-on: ubuntu-latest
-    needs: build-macos
+    needs: setup
+    runs-on: windows-latest
     steps:
-    - uses: actions/checkout@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.27.1'
+      - name: Install MinGW
+        shell: pwsh
+        run: |
+          choco install mingw -y --no-progress
+          "C:\ProgramData\mingw64\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Install Fyne
+        shell: bash
+        run: go install fyne.io/tools/cmd/fyne@latest
+      - name: Build regattaClock.exe
+        shell: bash
+        env:
+          CGO_ENABLED: '1'
+        run: |
+          set -euo pipefail
+          gcc --version
+          LDPKG=github.com/comagnaw/regattaClock/internal/version
+          VER='${{ needs.setup.outputs.version }}'
+          APP_VER='${{ needs.setup.outputs.app_version }}'
+          BUILT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          REPO_URL='${{ github.server_url }}/${{ github.repository }}'
+          export GOFLAGS="-ldflags=-X=${LDPKG}.Version=${VER} -ldflags=-X=${LDPKG}.BuildCommit=${{ github.sha }} -ldflags=-X=${LDPKG}.BuildDate=${BUILT} -ldflags=-X=${LDPKG}.BuildBranch=${{ github.ref_name }} -ldflags=-X=${LDPKG}.BuildUser=github-actions -ldflags=-X=${LDPKG}.Project=regattaClock -ldflags=-X=${LDPKG}.ExeName=regattaClock -ldflags=-X=${LDPKG}.RepoURL=${REPO_URL} -ldflags=-X=${LDPKG}.BuildCount=0 -ldflags=-X=${LDPKG}.BuildDirty=false"
+          fyne package -os windows -app-id com.github.comagnaw.regattaClock -app-version "${APP_VER}" -release -src ./cmd/regattaClock/
+          test -f regattaClock.exe
+      - name: Package portable zip + installer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ver = '${{ needs.setup.outputs.version }}'
+          $appVer = '${{ needs.setup.outputs.app_version }}'
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item packaging/windows/README.txt .
+          Compress-Archive -Path regattaClock.exe, README.txt -DestinationPath "dist/regattaClock-$ver-windows-amd64-portable.zip" -Force
+          choco install innosetup -y --no-progress
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          & $iscc /Q /O"dist" "/DMyAppVersion=$ver" "/DMyAppVersionNumeric=$appVer" "/DMySrcExe=regattaClock.exe" packaging/windows/regattaClock.iss
+          Get-ChildItem dist
+      - name: Upload bare exe (for the signing job)
+        uses: actions/upload-artifact@v4
+        with:
+          name: win-exe-unsigned
+          path: regattaClock.exe
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-windows-portable
+          path: dist/*-portable.zip
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-windows-setup
+          path: dist/*-setup.exe
+          if-no-files-found: error
 
-    - name: Set up Go
-      uses: actions/setup-go@v6
-      with:
-        go-version: '1.27.1'
+  # --------------------------------------------------------------------------
+  # Windows signing (Option B: self-signed cert + signtool, RFC 3161 timestamp).
+  # Skips cleanly when WINDOWS_PFX_BASE64 is absent - the unsigned artifacts from
+  # build-windows flow straight through to provenance/release. See
+  # docs/features/trusted-distribution/windows-internal-pki.md.
+  # --------------------------------------------------------------------------
+  sign-windows:
+    needs: [setup, build-windows]
+    if: needs.setup.outputs.can_sign_windows == 'true'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          name: win-exe-unsigned
+      - name: Sign exe, rebuild + sign installer
+        shell: pwsh
+        env:
+          PFX_B64: ${{ secrets.WINDOWS_PFX_BASE64 }}
+          PFX_PASSWORD: ${{ secrets.WINDOWS_PFX_PASSWORD }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ver = '${{ needs.setup.outputs.version }}'
+          $appVer = '${{ needs.setup.outputs.app_version }}'
+          $tsa = 'http://timestamp.digicert.com'
+          [IO.File]::WriteAllBytes("$PWD\signing.pfx", [Convert]::FromBase64String($env:PFX_B64))
+          $signtool = (Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" |
+            Sort-Object FullName | Select-Object -Last 1).FullName
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
 
-    - name: Install Fyne
-      run: |
-        go install fyne.io/tools/cmd/fyne@latest
-        go install github.com/fyne-io/fyne-cross@latest
+          & $signtool sign /f signing.pfx /p $env:PFX_PASSWORD /fd SHA256 /tr $tsa /td SHA256 regattaClock.exe
+          Copy-Item packaging/windows/README.txt .
+          Compress-Archive -Path regattaClock.exe, README.txt -DestinationPath "dist/regattaClock-$ver-windows-amd64-portable.zip" -Force
 
-    - name: Build Windows executable
-      run: |
-        # Pass the build stamp to the container as GOFLAGS, one -ldflags= token
-        # per -X (the shape the macOS job uses). fyne does a two-phase Windows
-        # build - compile, generate a metadata init file, rebuild - and the
-        # rebuild re-serialises fyne-cross's -ldflags string into GOFLAGS. A
-        # single space-containing -ldflags value there is unparseable
-        # ("unterminated string"); one token per symbol survives the round-trip.
-        # -env GOTOOLCHAIN=auto: the fyne-cross image pins an older Go with
-        # GOTOOLCHAIN=local; go.mod needs 1.26, so let the container fetch it.
-        LDPKG=github.com/comagnaw/regattaClock/internal/version
-        VER=${GITHUB_REF_NAME#v}
-        BUILT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-        REPO_URL=${{ github.server_url }}/${{ github.repository }}
-        GOFLAGS="-ldflags=-X=${LDPKG}.Version=${VER} -ldflags=-X=${LDPKG}.BuildCommit=${{ github.sha }} -ldflags=-X=${LDPKG}.BuildDate=${BUILT} -ldflags=-X=${LDPKG}.BuildBranch=main -ldflags=-X=${LDPKG}.BuildUser=github-actions -ldflags=-X=${LDPKG}.Project=regattaClock -ldflags=-X=${LDPKG}.ExeName=regattaClock -ldflags=-X=${LDPKG}.RepoURL=${REPO_URL} -ldflags=-X=${LDPKG}.BuildCount=0 -ldflags=-X=${LDPKG}.BuildDirty=false"
-        fyne-cross windows -arch amd64,386 -app-id com.github.comagnaw.regattaClock \
-          -env GOTOOLCHAIN=auto \
-          -env "GOFLAGS=${GOFLAGS}" \
-          ./cmd/regattaClock
-        mv fyne-cross/dist/windows-amd64/regattaClock.exe.zip fyne-cross/dist/windows-amd64/regattaClock-amd64.exe.zip
-        mv fyne-cross/dist/windows-386/regattaClock.exe.zip fyne-cross/dist/windows-386/regattaClock-386.exe.zip
-    - name: Upload Windows Release Asset
-      env:
-        GH_TOKEN: ${{ github.token }}
-      run: |
-        gh release upload "${GITHUB_REF_NAME}" \
-          fyne-cross/dist/windows-amd64/regattaClock-amd64.exe.zip \
-          fyne-cross/dist/windows-386/regattaClock-386.exe.zip \
-          --clobber
+          choco install innosetup -y --no-progress
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          & $iscc /Q /O"dist" "/DMyAppVersion=$ver" "/DMyAppVersionNumeric=$appVer" "/DMySrcExe=regattaClock.exe" packaging/windows/regattaClock.iss
+          & $signtool sign /f signing.pfx /p $env:PFX_PASSWORD /fd SHA256 /tr $tsa /td SHA256 (Get-Item dist/*-setup.exe).FullName
+
+          Remove-Item signing.pfx
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-windows-portable
+          path: dist/*-portable.zip
+          overwrite: true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-windows-setup
+          path: dist/*-setup.exe
+          overwrite: true
+
+  # --------------------------------------------------------------------------
+  # Provenance: SHA256SUMS + a GitHub build-provenance attestation over every
+  # released file. Free for public repos, no key to manage. See
+  # docs/features/trusted-distribution/ci-and-provenance.md.
+  # --------------------------------------------------------------------------
+  provenance:
+    needs: [setup, build-macos, build-windows, sign-windows]
+    if: |
+      always() &&
+      needs.build-macos.result == 'success' &&
+      needs.build-windows.result == 'success' &&
+      (needs.sign-windows.result == 'success' || needs.sign-windows.result == 'skipped')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: dist-*
+          merge-multiple: true
+          path: dist
+      - name: SHA256SUMS
+        run: |
+          cd dist
+          ls -la
+          sha256sum * > SHA256SUMS
+          cat SHA256SUMS
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            dist/*.dmg
+            dist/*.zip
+            dist/*.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/*
+          if-no-files-found: error
+          overwrite: true
+
+  # --------------------------------------------------------------------------
+  # Publish. Tag builds only; a workflow_dispatch run stops after provenance
+  # and leaves the artifacts on the run for download.
+  # --------------------------------------------------------------------------
+  release:
+    needs: [setup, provenance]
+    if: needs.setup.outputs.is_release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - name: Create / update the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          # Empty body; the maintainer fills notes and sets --prerelease after
+          # the run (AGENTS.md "Releases"). Idempotent on re-run.
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "Release ${GITHUB_REF_NAME}" \
+            --notes "" \
+            dist/* \
+          || gh release upload "${GITHUB_REF_NAME}" dist/* --clobber
