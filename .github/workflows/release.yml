@@ -117,9 +117,6 @@ jobs:
         run: |
           choco install mingw -y --no-progress
           "C:\ProgramData\mingw64\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-      - name: Install Fyne
-        shell: bash
-        run: go install fyne.io/tools/cmd/fyne@latest
       - name: Build regattaClock.exe
         shell: bash
         env:
@@ -132,16 +129,36 @@ jobs:
           APP_VER='${{ needs.setup.outputs.app_version }}'
           BUILT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           REPO_URL='${{ github.server_url }}/${{ github.repository }}'
-          export GOFLAGS="-ldflags=-X=${LDPKG}.Version=${VER} -ldflags=-X=${LDPKG}.BuildCommit=${{ github.sha }} -ldflags=-X=${LDPKG}.BuildDate=${BUILT} -ldflags=-X=${LDPKG}.BuildBranch=${{ github.ref_name }} -ldflags=-X=${LDPKG}.BuildUser=github-actions -ldflags=-X=${LDPKG}.Project=regattaClock -ldflags=-X=${LDPKG}.ExeName=regattaClock -ldflags=-X=${LDPKG}.RepoURL=${REPO_URL} -ldflags=-X=${LDPKG}.BuildCount=0 -ldflags=-X=${LDPKG}.BuildDirty=false"
-          fyne package -os windows -app-id com.github.comagnaw.regattaClock -app-version "${APP_VER}" -release -src ./cmd/regattaClock/
-          # `fyne package -os windows` writes the exe into the -src directory
-          # (fyne.io/tools@v1.7.2 package-windows.go), not the working dir.
-          if [ -f cmd/regattaClock/regattaClock.exe ]; then
-            mv cmd/regattaClock/regattaClock.exe ./regattaClock.exe
-          fi
-          if [ ! -f regattaClock.exe ]; then
-            echo "::error::regattaClock.exe not produced by fyne package"; find . -name 'regattaClock*' -type f; exit 1
-          fi
+
+          # A plain `go build` - not `fyne package` - because fyne's Windows
+          # packaging does a second build to embed the .syso and, in doing so,
+          # consumes GOFLAGS and drops our -X stamp. Instead generate the
+          # VERSIONINFO + icon .syso ourselves (go-winres) and let `go build`
+          # auto-link it from the main package dir.
+          go run github.com/tc-hib/go-winres@v0.3.3 simply \
+            --arch amd64 --out rsrc \
+            --product-name regattaClock \
+            --product-version "${APP_VER}.0" \
+            --file-version "${APP_VER}.0" \
+            --file-description regattaClock \
+            --original-filename regattaClock.exe \
+            --manifest gui \
+            --icon cmd/regattaClock/Icon.png
+          mv rsrc_windows_amd64.syso cmd/regattaClock/
+
+          # Match `fyne package -release`: -s -w, -H=windowsgui (no console
+          # window), -trimpath, -tags release. One -X per internal/version symbol.
+          LDFLAGS='-s -w -H=windowsgui'
+          for kv in \
+            "Version=${VER}" "BuildCommit=${{ github.sha }}" "BuildDate=${BUILT}" \
+            "BuildBranch=${{ github.ref_name }}" "BuildUser=github-actions" \
+            "Project=regattaClock" "ExeName=regattaClock" "RepoURL=${REPO_URL}" \
+            "BuildCount=0" "BuildDirty=false" ; do
+            LDFLAGS="${LDFLAGS} -X=${LDPKG}.${kv}"
+          done
+          go build -trimpath -tags release -ldflags "${LDFLAGS}" -o regattaClock.exe ./cmd/regattaClock
+          rm -f cmd/regattaClock/rsrc_windows_amd64.syso
+          file regattaClock.exe
           ls -la regattaClock.exe
       - name: Package portable zip + installer
         shell: pwsh
