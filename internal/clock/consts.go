@@ -6,18 +6,18 @@ const (
 	// smaller than the pre-polish 1240x800: the inputs no longer stretch the
 	// whole frame and the results columns are capped with ellipsis truncation.
 	clockWidth  = float32(880)
-	clockHeight = float32(876)
+	clockHeight = float32(884)
 
-	// resultsWidth / resultsHeight - the lanes table: seven columns (row label +
-	// six lanes). Long school names ellipsize inside their column rather than
+	// The lanes table has seven columns (a narrow row-label column + six lanes).
+	// resultsPanel() derives the lane-column width and the exact viewport size
+	// from these plus the live theme padding, so the six lanes fill the Results
+	// card edge to edge (no wasted card on the right) and every cell shows with
+	// no scrollbars. Long school names ellipsize inside their column rather than
 	// widening it (the full name still shows in the Referee Approval window).
-	resultsWidth  = float32(824)
-	resultsHeight = float32(206)
-
-	// resultsLabelColWidth / resultsLaneColWidth - fixed table columns so the row
-	// labels stay narrow and the six lanes share the rest evenly.
-	resultsLabelColWidth = float32(74)
-	resultsLaneColWidth  = float32(124)
+	resultsCardInset     = float32(20)                   // total left+right breathing room inside the card
+	resultsLabelColWidth = float32(72)                   // the "Place" / "Split" / "Time" row-label column
+	resultsRowHeight     = float32(30)                   // each of the six data rows
+	resultsWidth         = clockWidth - resultsCardInset // note-line width; not pixel-critical
 
 	// lap grid column widths - shared by the header row and the six data rows so
 	// their edges line up. OOF is a single lane digit; Place holds "Next Place" /
@@ -31,6 +31,10 @@ const (
 	// zoneBandVPad - breathing room inside the "Timing" / "Results" accent bands
 	// (matches the race tree's headerBandVPad).
 	zoneBandVPad = float32(4)
+
+	// controlGap - horizontal space inserted between the Start / Lap / Stop /
+	// Clear buttons so the rapid-tap targets are not crowded together.
+	controlGap = float32(24)
 
 	// winningEntryWidth - the Winning Time entry is a fixed narrow field beside
 	// its label, not a full-width form row.

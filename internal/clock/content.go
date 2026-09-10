@@ -1,7 +1,10 @@
 package clock
 
 import (
+	"image/color"
+
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
@@ -11,6 +14,15 @@ import (
 	"github.com/comagnaw/regattaClock/internal/text"
 	"github.com/comagnaw/regattaClock/internal/uitheme"
 )
+
+// hgap - a fixed-width transparent spacer, for putting deliberate air between
+// widgets in an HBox (layout.NewSpacer expands, which collapses to nothing
+// inside a container.Center).
+func hgap(w float32) *canvas.Rectangle {
+	r := canvas.NewRectangle(color.Transparent)
+	r.SetMinSize(fyne.NewSize(w, 1))
+	return r
+}
 
 // clockThemeVariant is the app's chosen light/dark variant, read from the same
 // preference the main window writes (fyne's Settings().ThemeVariant() reports the
@@ -50,10 +62,10 @@ func (c *Clock) content() *fyne.Container {
 		c.skewBannerWidget(),
 		c.scheduleBannerWidget(),
 
-		uitheme.AccentBand(text.BoldLabel(common.ClockTimingZoneLabel), zoneBandVPad),
+		uitheme.AccentBand(text.BoldLabelCenter(common.ClockTimingZoneLabel), zoneBandVPad),
 		timing,
 
-		uitheme.AccentBand(text.BoldLabel(common.ClockResultsZoneLabel), zoneBandVPad),
+		uitheme.AccentBand(text.BoldLabelCenter(common.ClockResultsZoneLabel), zoneBandVPad),
 		uitheme.FullBleed(uitheme.ReverseCard(variant, results)),
 
 		c.approvalPanel(),
@@ -82,15 +94,31 @@ func (c *Clock) resultsPanel() *fyne.Container {
 			}
 		})
 
+	// Pin every column and row so the table's content size is known exactly, then
+	// size the viewport to match. widget.Table lays a theme padding between each
+	// cell, so that is folded into both the lane-column width (six lanes fill the
+	// card, no wasted strip) and the viewport (+2px absorbs float rounding; a
+	// hairline of card beats a scrollbar clipping the last row).
+	cols := len(c.results[0])
+	rows := len(c.results)
+	pad := theme.Padding()
+	lanes := float32(cols - 1)
+
+	laneW := (resultsWidth - resultsLabelColWidth - lanes*pad) / lanes
 	c.resultsTable.SetColumnWidth(0, resultsLabelColWidth)
-	for col := 1; col < len(c.results[0]); col++ {
-		c.resultsTable.SetColumnWidth(col, resultsLaneColWidth)
+	for col := 1; col < cols; col++ {
+		c.resultsTable.SetColumnWidth(col, laneW)
+	}
+	for row := range rows {
+		c.resultsTable.SetRowHeight(row, resultsRowHeight)
 	}
 
-	return container.NewGridWrap(
-		fyne.Size{Width: resultsWidth, Height: resultsHeight},
-		container.NewStack(c.resultsTable),
+	size := fyne.NewSize(
+		resultsLabelColWidth+lanes*laneW+lanes*pad+2,
+		(resultsRowHeight+pad)*float32(rows)+2,
 	)
+
+	return container.NewGridWrap(size, container.NewStack(c.resultsTable))
 }
 
 // skewBannerWidget builds the (initially hidden) clock-skew banner. checkSkew
@@ -112,8 +140,11 @@ func (c *Clock) skewBannerWidget() fyne.CanvasObject {
 func (c *Clock) controlPanel() *fyne.Container {
 	return container.NewCenter(container.NewHBox(
 		c.buttons.start,
+		hgap(controlGap),
 		c.buttons.lap,
+		hgap(controlGap),
 		c.buttons.stop,
+		hgap(controlGap),
 		c.buttons.clear,
 	))
 }

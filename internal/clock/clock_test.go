@@ -495,8 +495,8 @@ func TestClock_Constants(t *testing.T) {
 	if resultsWidth <= 0 || resultsWidth > clockWidth {
 		t.Errorf("resultsWidth %f should be positive and fit inside clockWidth %f", resultsWidth, clockWidth)
 	}
-	if resultsHeight <= 0 || resultsHeight >= clockHeight {
-		t.Errorf("resultsHeight %f out of sane range", resultsHeight)
+	if resultsRowHeight <= 0 || resultsLabelColWidth <= 0 {
+		t.Errorf("results cell dimensions must be positive: row %f label-col %f", resultsRowHeight, resultsLabelColWidth)
 	}
 
 	if badLaneNum != -1 {
