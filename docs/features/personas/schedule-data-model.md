@@ -130,7 +130,7 @@ UI composition examples:
 
 - **ST row:** schedule title fields + `start.Races[n]`
 - **FT row:** schedule + `start.Races[n]` + optional `finish.Races[n]` progress
-- **RD row:** schedule + primary (fallback secondary) start/finish fields by `RaceNumber`
+- **RD row:** schedule + the **primary team's** start/finish fields by `RaceNumber` (no secondary fallback)
 - **Clock open:** schedule lane/school seed + `finish.Races[n]` rehydration if present
 
 When `regattaSchedule.json` changes under a race that already has timing data, **do not rewrite start/finish**. Refresh labels from the schedule; alert FT (OOF/lane map) more strongly than ST. See [persona-plan.md §3c](persona-plan.md).

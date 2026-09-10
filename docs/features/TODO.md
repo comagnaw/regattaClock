@@ -46,9 +46,12 @@ ideas belong in the relevant design doc first, then here.
 ## Personas — feature follow-ups
 
 The multi-persona operating model is largely built (`persona-plan.md` phases
-0–8d). Captured remaining work:
+0–8d), plus the clock-window visual pass and the primary FT's read-only
+**Compare Secondary** window; the RD tree was simplified back to primary-team
+values only (the phase 8b-2 per-value `·2nd` fallback was removed). Captured
+remaining work:
 
-- [ ] Phase 8e — the reconciliation *consumer*: a per-race verdict column, a disputed-race resolution screen, and export/publish with places, times, and a provenance tag — [persona-plan.md](personas/persona-plan.md#10-suggested-phasing), [reconciliation.md](personas/reconciliation.md#open-questions-for-the-results-persona)
+- [ ] Phase 8e — the reconciliation *consumer* (the comparison surface shipped as Compare Secondary in the PFT clock; still open): a per-race verdict column, a disputed-race resolution screen, and export/publish with places, times, and a provenance tag — [persona-plan.md](personas/persona-plan.md#10-suggested-phasing), [reconciliation.md](personas/reconciliation.md#open-questions-for-the-results-persona)
 - [ ] Wire the config UI: `PrefLogging` / `PrefDebug` actually drive `internal/applog`, and surface `PrefStorageMode` / `PrefNTPServers` (the checkboxes exist but drive nothing) — [persona-plan.md](personas/persona-plan.md#12-windows-storage-modes-cloud-synced-folder-and-local-smb)
 - [ ] Local write-ahead journal — collect each value to a local file first, then flush to the shared path, so an SMB outage or cloud stall never blocks collection — [persona-plan.md](personas/persona-plan.md#13-open-items), [shared-storage-options.md](personas/shared-storage-options.md)
 - [ ] `ScheduleOrigin` interface (`Fingerprint()` / `Load()`) generalising the Excel reader, with a later HTTP-API origin adapter (RD-only, URI + API key) — [persona-plan.md](personas/persona-plan.md#3b-schedule-origin-refresh-rd-only), [schedule-data-model.md](personas/schedule-data-model.md)

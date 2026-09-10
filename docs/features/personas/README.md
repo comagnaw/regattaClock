@@ -45,7 +45,7 @@ Primary and secondary are independent ST/FT pairings for the same regatta. Timin
 
 ### Regatta Director (RD)
 
-- **Does:** Load / refresh schedule from an **origin** (Excel today; future web API) into `regattaSchedule.json` **only when normalized schedule content actually changes**; establish `regattaData`; notice origin fingerprint changes, ignore no-op workbook saves; Apply meaningful updates on confirmation; view live progress; export; read all timing data.
+- **Does:** Load / refresh schedule from an **origin** (Excel today; future web API) into `regattaSchedule.json` **only when normalized schedule content actually changes**; establish `regattaData`; notice origin fingerprint changes, ignore no-op workbook saves; Apply meaningful updates on confirmation; view live progress; export; read the **primary team's** `start.json` + `finish.json` for the progress tree.
 - **Does not:** Time races; write start times or finish results; silently overwrite the schedule without confirmation while racing is underway.
 - **Entry:** A persona on the one startup picker, gated by the `rc-rd` challenge — choosing it opens the Set Regatta Directory / Load Excel File view and never auto-restores. A separate "resume as director" shortcut appears when the last run was the director and reopens that regatta directly. The **Load Regatta Data** menu returns to the same setup view, so the RD can switch regattas without restarting. Excel import confirms the parsed metadata before writing the schedule.
 - **Constraint:** Timers consume only `regattaSchedule.json`, never the origin. That keeps a future Excel → API pivot inside the RD/reader layer.
@@ -58,8 +58,8 @@ Primary and secondary are independent ST/FT pairings for the same regatta. Timin
 
 ### Finish Timer (FT)
 
-- **Does:** Load race tree from RD schedule; see ST start times (live updates); open **Time Race**; collect laps / OOF / winning time; commit the result — the primary FT on Referee Approval, the secondary FT on Save and Close; reopen a race with prior results restored; when schedule changes under a timed race, review lane/school labels without losing results.
-- **Does not:** Record or clear start times; see **Start Time**; auto-rewrite `finish.json` when the RD publishes scratches or lane moves (attention + label refresh only).
+- **Does:** Load race tree from RD schedule; see ST start times (live updates); open **Time Race**; collect laps / OOF / winning time; commit the result — the primary FT on Referee Approval, the secondary FT on Save and Close; reopen a race with prior results restored; when schedule changes under a timed race, review lane/school labels without losing results. **Primary FT only:** open a read-only **Compare Secondary** window showing the secondary team's committed result for the race (independent, non-blocking; enabled once the SFT commits a winning time; refreshes live).
+- **Does not:** Record or clear start times; see **Start Time**; auto-rewrite `finish.json` when the RD publishes scratches or lane moves (attention + label refresh only); **write the secondary team's `finish.json`** — the primary FT reconciles by editing its **own** `finish.json`.
 - **Sees:** Race list, ST start times, own progress (saved / approved), **Time Race**; conflict affordance when schedule diverges from a race already timed.
 - **Primary FT:** no standalone Save — **Referee Approval** is the only commit (`Approved: true`) and it leaves the clock open so a correction can be re-approved. The **Close** button is disabled until the race is approved. A status line shows `Pending` → `Approved on <date> by <host>` (RFC 1123 local time).
 - **Secondary FT:** no Referee Approval step — **Save and Close** is the terminal action: it writes results unapproved (`Approved: false`) and closes the clock. Its status line shows `Pending` → `Saved on <date> by <host>`. The secondary `finish.json` is a backup data source for the primary FT and reconciliation ([reconciliation.md](reconciliation.md)); the primary FT is the only path to an approved result.
@@ -87,10 +87,12 @@ Primary and secondary are independent ST/FT pairings for the same regatta. Timin
 | Write start times (own team) | no | yes | no |
 | Write finish results (own team) | no | no | yes |
 | Read schedule | yes | yes | yes |
-| Read start times | yes | own | own team |
-| Read finish results | yes | no* | own |
+| Read start times | primary team | own | own team |
+| Read finish results | primary team | no* | own team + secondary (primary FT, read-only)** |
 | Start Time / Clear / Restore UI | no | yes | no |
 | Time Race / clock UI | no | no | yes |
 | Progress-only race tree | yes | — | — |
 
-\*ST does not need finish results for its job; RD reads both teams for oversight.
+\*ST does not need finish results for its job.
+\**The primary FT mirrors `timing/secondary/finish.json` read-only for the
+Compare Secondary window; it never writes it.
