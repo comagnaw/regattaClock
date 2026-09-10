@@ -4,6 +4,18 @@ How the two finish-timer teams' results are combined into one published result
 set. Companion to [persona-plan.md](persona-plan.md) (§9 Director, §2.1 clock
 skew, §3c lane-map hash) and [schedule-data-model.md](schedule-data-model.md).
 
+## Status
+
+**The reconciliation approach is settled.** The primary FT opens the read-only
+**Compare Secondary** window (persona-plan.md §9), reads the secondary's numbers
+off it, and re-keys anything that needs reconciling into the primary
+`finish.json` by hand. That is the accepted, working solution — the digital form
+of the historical "read it off and hand-type it" step. An **automated
+read-time-selection consumer** (per-race verdict column, disputed-race
+resolution screen, provenance-tagged publish) is **not planned** as its own
+work; if a future results/publish persona is ever built, the model below is its
+spec. No further SFT→PFT reconciliation features are intended.
+
 ## Purpose and scope
 
 The primary and secondary Start/Finish pairs time the **same** regatta
