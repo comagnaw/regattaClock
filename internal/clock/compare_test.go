@@ -186,6 +186,22 @@ func TestCompareView_ClockStaysLiveAndToggles(t *testing.T) {
 	}
 }
 
+// Closing the clock while the compare window is open must not try to raise the
+// clock again from the compare window's SetOnClosed (the clockClosed guard).
+func TestCompareView_ClosingClockWithCompareOpenIsClean(t *testing.T) {
+	pft := openPFTWithSecondary(t, emptyFinish(), secResult("05:00.0"))
+	stopClockTicker(t, pft)
+	pft.toggleCompareSecondary()
+	if pft.compareWindow == nil {
+		t.Fatal("precondition: compare window open")
+	}
+
+	pft.closeWindow() // clock teardown -> closes the compare window too
+	if pft.compareWindow != nil {
+		t.Error("closing the clock should close the compare window")
+	}
+}
+
 func TestCompareView_LiveRefresh(t *testing.T) {
 	pft := openPFTWithSecondary(t, emptyFinish(), secResult("05:00.0"))
 	stopClockTicker(t, pft)

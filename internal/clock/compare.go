@@ -93,7 +93,19 @@ func (c *Clock) openCompareSecondary() {
 	w.CenterOnScreen()
 	w.SetOnClosed(func() {
 		c.compareWindow = nil
+		if c.clockClosed {
+			return // the clock is tearing down; nothing to restore or raise
+		}
 		c.refreshCompareButton()
+		// Raise the clock on the next event-loop tick. Doing it inline, mid
+		// close, is too early: the window manager then picks the next focus
+		// window itself and the operator lands on whatever was behind (the race
+		// tree). fyne.Do defers to after the close completes. Mirrors the
+		// Referee Approval window's SetOnClosed.
+		fyne.Do(func() {
+			c.window.Show()
+			c.window.RequestFocus()
+		})
 	})
 
 	c.compareWindow = w
