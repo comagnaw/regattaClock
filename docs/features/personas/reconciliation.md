@@ -4,6 +4,18 @@ How the two finish-timer teams' results are combined into one published result
 set. Companion to [persona-plan.md](persona-plan.md) (§9 Director, §2.1 clock
 skew, §3c lane-map hash) and [schedule-data-model.md](schedule-data-model.md).
 
+## Status
+
+**The reconciliation approach is settled.** The primary FT opens the read-only
+**Compare Secondary** window (persona-plan.md §9), reads the secondary's numbers
+off it, and re-keys anything that needs reconciling into the primary
+`finish.json` by hand. That is the accepted, working solution — the digital form
+of the historical "read it off and hand-type it" step. An **automated
+read-time-selection consumer** (per-race verdict column, disputed-race
+resolution screen, provenance-tagged publish) is **not planned** as its own
+work; if a future results/publish persona is ever built, the model below is its
+spec. No further SFT→PFT reconciliation features are intended.
+
 ## Purpose and scope
 
 The primary and secondary Start/Finish pairs time the **same** regatta
@@ -17,9 +29,14 @@ authoritative, and how disagreements surface.
 
 **Out of scope:** the export / publish mechanism itself. `internal/exporter`
 today renders lane images from the schedule only; the results-publishing surface
-(places, times, a disputed-race resolution screen) will land with a future
-results/publish persona that does not exist yet. This document is that persona's
-spec. [future-result-driven-persona.md](future-result-driven-persona.md) assesses
+(places, times, a per-race verdict column, a disputed-race resolution screen)
+will land with a future results/publish persona that does not exist yet. This
+document is that persona's spec. What *has* shipped is the primary FT's
+read-only **Compare Secondary** window (persona-plan.md §9): a visually parallel
+rendering of the secondary team's committed `RaceResult` for a race, the surface
+that lets the primary FT eyeball the two and re-key the secondary's numbers into
+the primary `finish.json`. It makes no reconciliation decision and publishes
+nothing. [future-result-driven-persona.md](future-result-driven-persona.md) assesses
 the *content* personas downstream of it (a social-media text table, the same as a
 PNG) and whether Referee Approval should materialize a per-race `results/` file —
 recommendation: defer, keep `finish.json` the only source of truth.
@@ -137,17 +154,21 @@ Before an equality test, recompute a corrected winning time from the per-record
 `ClockRef`s each result carries:
 `FirstFinishClock.Corrected(FirstFinishAt) − StartedAtClock.Corrected(StartedAt)`.
 Or compare with a tolerance no smaller than the measured offset delta between the
-two machines. The RD skew banner (persona-plan.md §10 8b-2) already warns when
-the four timing files' stamped offsets diverge by more than
-`timesync.SkewWarnThreshold`.
+two machines. The primary FT's **Compare Secondary** window already shows an
+amber caution when the primary and secondary FT machines' stamped offsets
+diverge by more than `timesync.SkewWarnThreshold`, so the operator knows the raw
+winning times are not directly comparable. (The RD skew banner is now scoped to
+the primary team's `start.json` vs `finish.json` and no longer sees the
+secondary team's offset.)
 
 ### Different `LaneMapHash` between primary and secondary
 
 If the two teams' `RaceResult.LaneMapHash` for the same race differ, they timed
 against **different lane maps** — one applied a schedule change the other did not.
 `Rows` key by lane number, so the order of finish cannot be compared or merged
-mechanically. Verdict: **disputed**, needs a human. (8d flags each team's result
-against the *live* schedule; this case is primary-vs-secondary.)
+mechanically. Verdict: **disputed**, needs a human. (8d flags the primary
+team's committed result against the *live* schedule in the RD tree, and the FT's
+own in the FT tree; this primary-vs-secondary check is the consumer's job.)
 
 ### OOF / split disagreement with a matching winning time
 
@@ -162,9 +183,9 @@ hydration and never entered into reconciliation.
 ### Staleness
 
 A committed result whose `Envelope.WrittenAt` is hours old while racing continues
-is probably abandoned. The RD staleness banner (8b-2) already warns; the consumer
-should treat a stale `approved` primary against a fresh `saved` secondary as
-*flag for RD review*, not automatic.
+is probably abandoned. The RD staleness banner (8b-2) warns on the primary
+team's files; the consumer, which reads both, should treat a stale `approved`
+primary against a fresh `saved` secondary as *flag for RD review*, not automatic.
 
 ### Partial secondary
 
@@ -176,15 +197,24 @@ a conflict — those races are `secondary` verdicts, earlier races are `primary`
 `(in-progress, in-progress)` or `(start-recorded, none)` ⇒ `not-yet` / `gap`.
 Nothing to publish; the RD tree already shows the state.
 
-## What the Director sees today vs. later
+## What is shipped today vs. later
+
+**Shipped (primary FT):**
+
+- The read-only **Compare Secondary** window — a visually parallel rendering of
+  the secondary team's committed `RaceResult` for the race, with an amber skew
+  caution when the two FT machines' offsets diverge (persona-plan.md §9).
 
 **Shipped (RD oversight):**
 
-- Per-value primary→secondary fallback in the progress tree with a `·2nd`
-  marker and legend (8b-2).
-- Clock-skew and staleness banners across the four timing files (8b-2).
-- `†` mark on races whose committed result no longer matches the live lane map
-  (8d).
+- The progress tree shows the **primary team's** Restarts / Start Time / Winning
+  Time / approval; a race the primary pair has not started shows placeholders.
+  *(An early version did per-value primary→secondary fallback with a `·2nd`
+  marker + legend; removed.)*
+- Clock-skew and staleness banners across the **primary team's** `start.json` +
+  `finish.json` (8b-2).
+- `†` mark on primary-team races whose committed result no longer matches the
+  live lane map (8d).
 
 **Deferred to the results/publish persona:**
 

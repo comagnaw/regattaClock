@@ -62,6 +62,26 @@ const (
 	RaceTime          = "Time"
 	RaceSchool        = "School"
 
+	// ClockTimingForFormat / ClockResultsZoneLabel - the accent-band headers that
+	// split the race clock into its operator-controls zone and its results
+	// readout, matching the race tree's column-header band. The Timing band reads
+	// as one centred phrase - the regattaClock wordmark then this text - so it
+	// doubles as the window's heading. Arg: the race title.
+	ClockTimingForFormat  = "timing for %s"
+	ClockResultsZoneLabel = "Results"
+
+	// Compare Secondary - the primary finish timer's read-only side-by-side view
+	// of the secondary team's committed result for the same race (compare.go).
+	// The button toggles the pane; the pane never edits the SFT's data.
+	CompareSecondaryButtonText = "Compare Secondary"
+	CompareSecondaryHideText   = "Hide Secondary"
+	CompareSecondaryBandFormat = "Secondary timer — %s"        // arg: race title
+	CompareWindowTitle         = "Compare Secondary - Race %d" // arg: race number
+	// CompareSkewNoteFormat - shown in the compare pane when the two timers'
+	// machine clocks disagree by more than timesync.SkewWarnThreshold. Args:
+	// primary machine, secondary machine, offset delta.
+	CompareSkewNoteFormat = "%s and %s clocks differ by %s — the times below may be off by that much. Reconcile with care."
+
 	RefereeButtonText   = "Referee Approval"
 	RefereeApproveTitle = "Referee Approval - Race %d"
 
@@ -123,12 +143,18 @@ const (
 	TreeDateLabel    = "Date: %s"
 
 	// PersonaHeaderFormat labels the race-tree header with the operator's role;
-	// WindowTitleFormat puts it in the OS title bar next to the app name.
-	PersonaHeaderFormat   = "Role: %s"
-	WindowTitleFormat     = "%s — %s"
-	ConfigTitle           = "Configuration"
-	LoadDataTitle         = "Load Regatta Data"
-	CreateLaneImagesTitle = "Create Lane Images"
+	// WindowTitleFormat puts it in the OS title bar next to the app name, and is
+	// reused for the race-clock window ("Race N Clock — <role>").
+	PersonaHeaderFormat = "Role: %s"
+	WindowTitleFormat   = "%s — %s"
+
+	// ClockWindowTitleFormat - the race-clock window's OS title bar before the
+	// persona is known. Once it is, the role is appended via WindowTitleFormat.
+	// Arg: race number.
+	ClockWindowTitleFormat = "Race %d Clock"
+	ConfigTitle            = "Configuration"
+	LoadDataTitle          = "Load Regatta Data"
+	CreateLaneImagesTitle  = "Create Lane Images"
 	// VersionTitle is both the menu label and the title of the build-info window.
 	VersionTitle = "Version"
 
@@ -184,16 +210,10 @@ const (
 	ClockSkewBannerFormat = "Clock skew: %s and %s clocks differ by %s (offsets %s and %s). Winning times may be off by that much until the machines agree."
 	DismissButtonText     = "Dismiss"
 
-	// Regatta Director progress tree (internal/regatta director_tree.go). A cell
-	// whose value fell back to the secondary team is suffixed with
-	// SecondaryValueMark and explained by SecondaryValueLegend under the header.
-	SecondaryValueMark   = " ·2nd"
-	SecondaryValueLegend = "·2nd  value from the secondary team"
-
 	// DirectorSkewBannerFormat - persona-plan.md 2.1 skew banner on the RD tree,
-	// comparing the offsets stamped on the four timing files' envelopes. Args:
-	// machine A, machine B, offset delta.
-	DirectorSkewBannerFormat = "Clock skew: %s and %s differ by %s. Race times combining both teams may be off by that much."
+	// comparing the offsets stamped on the primary team's timing-file envelopes.
+	// Args: machine A, machine B, offset delta.
+	DirectorSkewBannerFormat = "Clock skew: %s and %s differ by %s. Primary-team race times may be off by that much."
 
 	// DirectorStaleBannerFormat - persona-plan.md 9 staleness indicator: no
 	// timing file has been written for a while. Arg: age of the freshest write.

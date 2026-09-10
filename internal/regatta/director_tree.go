@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 
@@ -18,12 +17,15 @@ import (
 	"github.com/comagnaw/regattaClock/internal/persona/store"
 	"github.com/comagnaw/regattaClock/internal/text"
 	"github.com/comagnaw/regattaClock/internal/timesync"
+	"github.com/comagnaw/regattaClock/internal/uitheme"
 	"github.com/comagnaw/regattaClock/internal/watcher"
 )
 
-// directorTeams is the read order for the per-value primary-then-secondary
-// fallback (persona-plan.md 9).
-var directorTeams = []persona.Team{persona.TeamPrimary, persona.TeamSecondary}
+// timingTeams are the teams that can own a start.json + finish.json. Only the
+// guard that runs before a schedule is replaced in place needs to consider both
+// (replacing the schedule would orphan either team's data). The Regatta
+// Director's progress tree reads the primary team only.
+var timingTeams = []persona.Team{persona.TeamPrimary, persona.TeamSecondary}
 
 // teamTiming is one team's mirrored start.json + finish.json, held read-only by
 // the Regatta Director.
@@ -32,152 +34,123 @@ type teamTiming struct {
 	finish *store.FinishLog
 }
 
-// directorTeamSession builds a persona.Session for path construction only - the
+// teamPathSession builds a persona.Session for path construction only - the
 // path helpers key off Team, not the (unset) Role.
-func directorTeamSession(root string, team persona.Team) persona.Session {
+func teamPathSession(root string, team persona.Team) persona.Session {
 	return persona.Session{Definition: persona.Definition{Team: team}, Root: root}
 }
 
-// hydrateDirectorLogs loads both teams' start.json and finish.json under the
-// peer rules (missing is normal, unreadable is a warning, a different regatta is
-// ignored). Called once before the RD tree is first shown.
+// hydrateDirectorLogs loads the primary team's start.json and finish.json under
+// the peer rules (missing is normal, unreadable is a warning, a different
+// regatta is ignored). Called once before the RD tree is first shown. The RD
+// tree shows primary-team values only; the secondary pair reconciles into the
+// primary finish.json via the PFT (reconciliation.md).
 func (r *Regatta) hydrateDirectorLogs(root, key string) {
-	r.teamLogs = make(map[persona.Team]*teamTiming, len(directorTeams))
-	for _, team := range directorTeams {
-		s := directorTeamSession(root, team)
-		r.teamLogs[team] = &teamTiming{
+	s := teamPathSession(root, persona.TeamPrimary)
+	r.teamLogs = map[persona.Team]*teamTiming{
+		persona.TeamPrimary: {
 			start:  r.hydratePeerStart(s, key),
 			finish: r.hydratePeerFinish(s, key),
-		}
+		},
 	}
 }
 
-// refreshDirectorRow fills the read-only progress columns for one race, taking
-// each value from the primary team and falling back to the secondary per file
-// (persona-plan.md 9). A value sourced from the secondary team is suffixed with
-// common.SecondaryValueMark.
+// refreshDirectorRow fills the read-only progress columns for one race from the
+// primary team's timing files. A race the primary pair has not started shows
+// placeholders until the PFT reconciles the secondary numbers in
+// (reconciliation.md).
 func (r *Regatta) refreshDirectorRow(row *raceRow) {
 	n := row.raceNumber
 
-	restarts, start, startSecondary := r.directorStartCells(n)
-	row.restarts.SetText(secMark(restarts, startSecondary))
-	row.startTime.SetText(secMark(start, startSecondary))
+	restarts, start := r.directorStartCells(n)
+	row.restarts.SetText(restarts)
+	row.startTime.SetText(start)
 
-	win, status, finishSecondary := r.directorFinishCells(n)
-	row.winTime.SetText(secMark(win, finishSecondary))
-	row.approved.SetText(secMark(status, finishSecondary))
+	win, status := r.directorFinishCells(n)
+	row.winTime.SetText(win)
+	row.approved.SetText(status)
 }
 
 // directorStartCells returns the restart count and start-time text for race n
-// from the first team whose start.json actually has that race, and whether that
-// team was the secondary.
-func (r *Regatta) directorStartCells(n int) (restarts, start string, secondary bool) {
-	for _, team := range directorTeams {
-		tt := r.teamLogs[team]
-		if tt == nil || tt.start == nil {
-			continue
-		}
-		rec, ok := tt.start.Races[n]
-		if !ok || (rec.StartedAt == nil && len(rec.Cleared) == 0) {
-			continue
-		}
-		start = common.NoStartTimeText
-		if rec.StartedAt != nil {
-			start = rec.Display
-		}
-		return strconv.Itoa(len(rec.Cleared)), start, team == persona.TeamSecondary
+// from the primary team's start.json.
+func (r *Regatta) directorStartCells(n int) (restarts, start string) {
+	tt := r.teamLogs[persona.TeamPrimary]
+	if tt == nil || tt.start == nil {
+		return common.NoStartTimeText, common.NoStartTimeText
 	}
-	return common.NoStartTimeText, common.NoStartTimeText, false
+	rec, ok := tt.start.Races[n]
+	if !ok || (rec.StartedAt == nil && len(rec.Cleared) == 0) {
+		return common.NoStartTimeText, common.NoStartTimeText
+	}
+	start = common.NoStartTimeText
+	if rec.StartedAt != nil {
+		start = rec.Display
+	}
+	return strconv.Itoa(len(rec.Cleared)), start
 }
 
 // directorFinishCells returns the winning-time and status text for race n from
-// the first team whose finish.json has begun that race, and whether that team
-// was the secondary.
-func (r *Regatta) directorFinishCells(n int) (win, status string, secondary bool) {
-	for _, team := range directorTeams {
-		tt := r.teamLogs[team]
-		if tt == nil || tt.finish == nil {
-			continue
-		}
-		res, ok := tt.finish.Races[n]
-		if !ok || (res.WinningTime == common.EmptyString && !res.Approved && res.FirstFinishAt == nil) {
-			continue
-		}
-		win = common.NoStartTimeText
-		if res.WinningTime != common.EmptyString {
-			win = res.WinningTime
-		}
-		return win, raceProgressStatus(res), team == persona.TeamSecondary
+// the primary team's finish.json.
+func (r *Regatta) directorFinishCells(n int) (win, status string) {
+	tt := r.teamLogs[persona.TeamPrimary]
+	if tt == nil || tt.finish == nil {
+		return common.NoStartTimeText, common.EmptyString
 	}
-	return common.NoStartTimeText, common.EmptyString, false
-}
-
-// secMark appends the secondary-team marker to a real value.
-func secMark(v string, secondary bool) string {
-	if secondary && v != common.EmptyString && v != common.NoStartTimeText {
-		return v + common.SecondaryValueMark
+	res, ok := tt.finish.Races[n]
+	if !ok || (res.WinningTime == common.EmptyString && !res.Approved && res.FirstFinishAt == nil) {
+		return common.NoStartTimeText, common.EmptyString
 	}
-	return v
+	win = common.NoStartTimeText
+	if res.WinningTime != common.EmptyString {
+		win = res.WinningTime
+	}
+	return win, raceProgressStatus(res)
 }
 
 // --- watcher plumbing -----------------------------------------------------
 
-// directorWatchPaths are the four team timing files the RD mirrors, in addition
-// to the schedule.
+// directorWatchPaths are the primary team's start.json + finish.json, which the
+// RD mirrors in addition to the schedule.
 func directorWatchPaths(root string) []string {
-	paths := make([]string, 0, 2*len(directorTeams))
-	for _, team := range directorTeams {
-		ts := directorTeamSession(root, team)
-		paths = append(paths, ts.StartPath(), ts.FinishPath())
-	}
-	return paths
+	ts := teamPathSession(root, persona.TeamPrimary)
+	return []string{ts.StartPath(), ts.FinishPath()}
 }
 
-// applyDirectorTimingEvent routes a changed team start.json / finish.json into
-// the right mirror. Runs on the watcher goroutine.
+// applyDirectorTimingEvent routes a changed primary start.json / finish.json
+// into the mirror. Runs on the watcher goroutine.
 func (r *Regatta) applyDirectorTimingEvent(ev watcher.Event) {
-	for _, team := range directorTeams {
-		ts := directorTeamSession(r.session.Root, team)
-		switch ev.Path {
-		case ts.StartPath():
-			var log store.StartLog
-			if err := json.Unmarshal(ev.Data, &log); err != nil {
-				applog.Warn("watched start.json did not parse", "component", "race_tree",
-					"team", string(team), "err", err)
-				return
-			}
-			if !r.matchesRegatta(log.RegattaKey) {
-				applog.Warn("watched start.json is a different regatta; ignored",
-					"component", "race_tree", "team", string(team))
-				return
-			}
-			if log.Races == nil {
-				log.Races = map[int]store.StartRecord{}
-			}
-			applog.Info("director start times updated", "component", "race_tree",
-				"team", string(team), "races", len(log.Races))
-			fyne.Do(func() { r.onDirectorTeamChanged(team, &log, nil) })
-			return
-		case ts.FinishPath():
-			var log store.FinishLog
-			if err := json.Unmarshal(ev.Data, &log); err != nil {
-				applog.Warn("watched finish.json did not parse", "component", "race_tree",
-					"team", string(team), "err", err)
-				return
-			}
-			if !r.matchesRegatta(log.RegattaKey) {
-				applog.Warn("watched finish.json is a different regatta; ignored",
-					"component", "race_tree", "team", string(team))
-				return
-			}
-			if log.Races == nil {
-				log.Races = map[int]store.RaceResult{}
-			}
-			applog.Info("director finish progress updated", "component", "race_tree",
-				"team", string(team), "races", len(log.Races))
-			fyne.Do(func() { r.onDirectorTeamChanged(team, nil, &log) })
+	ts := teamPathSession(r.session.Root, persona.TeamPrimary)
+	switch ev.Path {
+	case ts.StartPath():
+		var log store.StartLog
+		if err := json.Unmarshal(ev.Data, &log); err != nil {
+			applog.Warn("watched start.json did not parse", "component", "race_tree", "err", err)
 			return
 		}
+		if !r.matchesRegatta(log.RegattaKey) {
+			applog.Warn("watched start.json is a different regatta; ignored", "component", "race_tree")
+			return
+		}
+		if log.Races == nil {
+			log.Races = map[int]store.StartRecord{}
+		}
+		applog.Info("director start times updated", "component", "race_tree", "races", len(log.Races))
+		fyne.Do(func() { r.onDirectorTeamChanged(persona.TeamPrimary, &log, nil) })
+	case ts.FinishPath():
+		var log store.FinishLog
+		if err := json.Unmarshal(ev.Data, &log); err != nil {
+			applog.Warn("watched finish.json did not parse", "component", "race_tree", "err", err)
+			return
+		}
+		if !r.matchesRegatta(log.RegattaKey) {
+			applog.Warn("watched finish.json is a different regatta; ignored", "component", "race_tree")
+			return
+		}
+		if log.Races == nil {
+			log.Races = map[int]store.RaceResult{}
+		}
+		applog.Info("director finish progress updated", "component", "race_tree", "races", len(log.Races))
+		fyne.Do(func() { r.onDirectorTeamChanged(persona.TeamPrimary, nil, &log) })
 	}
 }
 
@@ -209,8 +182,7 @@ func (r *Regatta) onDirectorTeamChanged(team persona.Team, start *store.StartLog
 // directorHeaderExtras is the RD-only block under the column headers: an
 // origin-change action banner, a dismissible clock-skew banner and a dismissible
 // staleness banner. All three are hidden until they apply, so the header stays
-// compact. The secondary-value legend sits above the column header instead
-// (showRaceTree), styled as a caution strip.
+// compact.
 func (r *Regatta) directorHeaderExtras() fyne.CanvasObject {
 	r.directorSkew = newDismissibleBanner()
 	r.directorStale = newDismissibleBanner()
@@ -226,26 +198,8 @@ func (r *Regatta) directorHeaderExtras() fyne.CanvasObject {
 	)
 }
 
-// refreshSecondaryValueLegend shows the "·2nd value from the secondary team"
-// note only while a visible director row actually carries the mark - the same
-// on-demand pattern as refreshStaleLaneLegend - unless the RD dismissed it.
-func (r *Regatta) refreshSecondaryValueLegend() {
-	if r.secondaryLegend == nil {
-		return
-	}
-	for _, row := range r.rows {
-		for _, c := range []*widget.Label{row.restarts, row.startTime, row.winTime, row.approved} {
-			if strings.Contains(c.Text, common.SecondaryValueMark) {
-				r.secondaryLegend.show(common.SecondaryValueLegend)
-				return
-			}
-		}
-	}
-	r.secondaryLegend.hide()
-}
-
 // checkDirectorSkew shows the skew banner when the widest gap between any two
-// measured machine offsets across the four timing files exceeds
+// measured machine offsets across the primary team's timing files exceeds
 // timesync.SkewWarnThreshold (persona-plan.md 2.1).
 func (r *Regatta) checkDirectorSkew() {
 	if r.directorSkew == nil {
@@ -263,14 +217,12 @@ func (r *Regatta) checkDirectorSkew() {
 		}
 		seen = append(seen, measured{e.Machine, e.Clock.Offset})
 	}
-	for _, team := range directorTeams {
-		if tt := r.teamLogs[team]; tt != nil {
-			if tt.start != nil {
-				add(tt.start.Envelope)
-			}
-			if tt.finish != nil {
-				add(tt.finish.Envelope)
-			}
+	if tt := r.teamLogs[persona.TeamPrimary]; tt != nil {
+		if tt.start != nil {
+			add(tt.start.Envelope)
+		}
+		if tt.finish != nil {
+			add(tt.finish.Envelope)
 		}
 	}
 	if len(seen) < 2 {
@@ -296,22 +248,20 @@ func (r *Regatta) checkDirectorSkew() {
 		hi.name, lo.name, fmt.Sprintf("%.1fs", delta.Seconds())))
 }
 
-// checkDirectorStale shows the staleness banner when the freshest of the four
-// timing files was written more than directorStaleThreshold ago.
+// checkDirectorStale shows the staleness banner when the freshest of the
+// primary team's timing files was written more than directorStaleThreshold ago.
 func (r *Regatta) checkDirectorStale() {
 	if r.directorStale == nil {
 		return
 	}
 
 	var newest time.Time
-	for _, team := range directorTeams {
-		if tt := r.teamLogs[team]; tt != nil {
-			if tt.start != nil && tt.start.WrittenAt.After(newest) {
-				newest = tt.start.WrittenAt
-			}
-			if tt.finish != nil && tt.finish.WrittenAt.After(newest) {
-				newest = tt.finish.WrittenAt
-			}
+	if tt := r.teamLogs[persona.TeamPrimary]; tt != nil {
+		if tt.start != nil && tt.start.WrittenAt.After(newest) {
+			newest = tt.start.WrittenAt
+		}
+		if tt.finish != nil && tt.finish.WrittenAt.After(newest) {
+			newest = tt.finish.WrittenAt
 		}
 	}
 	if newest.IsZero() {
@@ -342,16 +292,10 @@ func (r *Regatta) staleTicker(stop <-chan struct{}) {
 }
 
 // bannerRoot - the one styling path for every notice strip in the race-tree
-// header (dismissibleBanner, actionBanner, the timer schedule banner): an amber
-// caution fill with the light palette forced over the inner widgets, so the
-// label and buttons read dark on the tint on both app themes. Routing every
-// banner through here keeps them from drifting apart cosmetically. Returned
-// hidden, like the strips it wraps.
+// header (dismissibleBanner, actionBanner, the timer schedule banner): the
+// shared amber caution strip, returned hidden like the strips it wraps.
 func bannerRoot(inner fyne.CanvasObject) *fyne.Container {
-	root := container.NewStack(
-		canvas.NewRectangle(bannerAmber),
-		container.NewThemeOverride(inner, bannerTintTheme),
-	)
+	root := uitheme.CautionStrip(inner)
 	root.Hide()
 	return root
 }
