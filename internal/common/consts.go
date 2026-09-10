@@ -64,10 +64,10 @@ const (
 
 	// ClockTimingForFormat / ClockResultsZoneLabel - the accent-band headers that
 	// split the race clock into its operator-controls zone and its results
-	// readout, matching the race tree's column-header band. The Timing band also
-	// carries the race title (with the wordmark on its right), so it doubles as
-	// the window's heading. Arg: the race title.
-	ClockTimingForFormat  = "Timing for %s"
+	// readout, matching the race tree's column-header band. The Timing band reads
+	// as one centred phrase - the regattaClock wordmark then this text - so it
+	// doubles as the window's heading. Arg: the race title.
+	ClockTimingForFormat  = "timing for %s"
 	ClockResultsZoneLabel = "Results"
 
 	RefereeButtonText   = "Referee Approval"

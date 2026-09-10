@@ -45,21 +45,19 @@ func clockThemeVariant() fyne.ThemeVariant {
 }
 
 // timingBand - the accent band that opens the Timing zone. It doubles as the
-// window heading: "Timing for <race title>" on the left, the regattaClock
-// wordmark on the right, both in the band's forced-light contrast. c.raceTitle
-// is kept so UpdateSchedule can retitle it in place.
+// window heading, read as one centred phrase: the regattaClock wordmark, then
+// "timing for <race title>", both in the band's forced-light contrast.
+// c.raceTitle is kept so UpdateSchedule can retitle it in place.
 func (c *Clock) timingBand() fyne.CanvasObject {
 	c.raceTitle = text.BannerHeading(fmt.Sprintf(common.ClockTimingForFormat, c.raceData.RaceTitle()))
 	c.raceTitle.Color = uitheme.White
 
-	logo := container.New(
-		layout.NewCustomPaddedLayout(0, 0, 0, bandLogoRightPad),
-		bandLogo(bandLogoHeight),
+	phrase := container.NewHBox(
+		container.NewCenter(bandLogo(bandLogoHeight)),
+		hgap(bandLogoGap),
+		container.NewCenter(c.raceTitle),
 	)
-	return uitheme.AccentBand(
-		container.NewBorder(nil, nil, nil, logo, c.raceTitle),
-		zoneBandVPad,
-	)
+	return uitheme.AccentBand(container.NewCenter(phrase), zoneBandVPad)
 }
 
 // bandLogo - the regattaClock wordmark at a fixed height, its native white fill

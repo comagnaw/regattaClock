@@ -35,12 +35,13 @@ const (
 	// (matches the race tree's headerBandVPad).
 	zoneBandVPad = float32(4)
 
-	// bandLogoHeight - the regattaClock wordmark on the right of the Timing band.
-	// bandLogoAspect is its SVG viewBox ratio (2793 / 430) so the width follows;
-	// bandLogoRightPad keeps it off the window edge.
-	bandLogoHeight   = float32(26)
-	bandLogoAspect   = float32(2793) / float32(430)
-	bandLogoRightPad = float32(6)
+	// bandLogoHeight - the regattaClock wordmark that opens the centred Timing
+	// band phrase. bandLogoAspect is its SVG viewBox ratio (2793 / 430) so the
+	// width follows; bandLogoGap is the space between the wordmark and the
+	// "timing for ..." text.
+	bandLogoHeight = float32(26)
+	bandLogoAspect = float32(2793) / float32(430)
+	bandLogoGap    = float32(12)
 
 	// controlGap - horizontal space inserted between the Start / Lap / Stop /
 	// Clear buttons so the rapid-tap targets are not crowded together.
