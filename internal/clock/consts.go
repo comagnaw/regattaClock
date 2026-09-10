@@ -6,7 +6,7 @@ const (
 	// smaller than the pre-polish 1240x800: the inputs no longer stretch the
 	// whole frame and the results columns are capped with ellipsis truncation.
 	clockWidth  = float32(880)
-	clockHeight = float32(928)
+	clockHeight = float32(962)
 
 	// The lanes table has seven columns (a narrow row-label column + six lanes).
 	// resultsPanel() derives the lane-column width and the exact viewport size
@@ -51,11 +51,16 @@ const (
 	// its label, not a full-width form row.
 	winningEntryWidth = float32(150)
 
+	// winningTopGap - extra space above the Winning Time row so it reads as its
+	// own step, set apart from the lap grid.
+	winningTopGap = float32(14)
+
 	// winningNoteHeight - reserved height for the helper line under the Winning
-	// Time field. One line covers the common "auto-filled" note so pressing Start
-	// never shifts the Lap button; the rarer multi-line skew/stale notes (shown
-	// only once the operator has stopped to check the time) may wrap past it.
-	winningNoteHeight = float32(24)
+	// Time field (two lines at the lap-grid width). Covers the common
+	// "auto-filled" note so pressing Start never shifts the Lap button; the
+	// rarer, longer skew/stale notes (shown only once the operator has stopped
+	// to check the time) may wrap past it.
+	winningNoteHeight = float32(44)
 
 	// badLaneNum - used to indicate the lane number text could not be converted to int
 	badLaneNum = -1

@@ -6,6 +6,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/comagnaw/regattaClock/internal/common"
@@ -51,6 +52,13 @@ func (l lapRow) asGridRow() *fyne.Container {
 // so an Entry's underline is not clipped.
 func lapCell(w float32, o fyne.CanvasObject) *fyne.Container {
 	return container.NewGridWrap(fyne.NewSize(w, o.MinSize().Height), o)
+}
+
+// lapGridWidth - the total width of a lap row: the four fixed columns plus the
+// three theme-padding gaps container.NewHBox lays between them. Used to left-
+// align the Winning Time row with the lap grid's left edge.
+func lapGridWidth() float32 {
+	return lapOOFColWidth + lapPlaceColWidth + lapSplitColWidth + lapTimeColWidth + 3*theme.Padding()
 }
 
 // lapHeaderRow - the bold column header above the lap rows, using the same

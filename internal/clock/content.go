@@ -213,16 +213,24 @@ func (c *Clock) winningTimeInput() *fyne.Container {
 		fyne.NewSize(winningEntryWidth, c.winningTime.MinSize().Height),
 		c.winningTime,
 	)
-	row := container.NewCenter(container.NewHBox(
-		text.BoldLabel(common.WinningTimeInputText),
-		entry,
-	))
+	label := text.BoldLabel(common.WinningTimeInputText)
+	inner := container.NewHBox(label, entry)
+
+	// Left-align the label with the lap grid's left edge by sizing the row to the
+	// lap-grid width and letting the HBox pack left inside it, then centring that
+	// block the same way the lap grid is centred.
+	gridW := lapGridWidth()
+	row := container.NewCenter(container.NewGridWrap(fyne.NewSize(gridW, inner.MinSize().Height), inner))
 
 	c.winningNote = text.Wrapping(common.EmptyString)
 	c.winningNote.Importance = widget.MediumImportance
-	noteArea := container.NewGridWrap(fyne.NewSize(resultsWidth, winningNoteHeight), c.winningNote)
+	noteArea := container.NewGridWrap(fyne.NewSize(gridW, winningNoteHeight), c.winningNote)
 
-	return container.NewVBox(row, container.NewCenter(noteArea))
+	return container.NewVBox(
+		vgap(winningTopGap),
+		row,
+		container.NewCenter(noteArea),
+	)
 }
 
 // initCommitStatus - build the status line under the approval panel. It starts
