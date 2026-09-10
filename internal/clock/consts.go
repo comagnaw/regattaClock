@@ -6,7 +6,7 @@ const (
 	// smaller than the pre-polish 1240x800: the inputs no longer stretch the
 	// whole frame and the results columns are capped with ellipsis truncation.
 	clockWidth  = float32(880)
-	clockHeight = float32(884)
+	clockHeight = float32(960)
 
 	// The lanes table has seven columns (a narrow row-label column + six lanes).
 	// resultsPanel() derives the lane-column width and the exact viewport size
@@ -26,7 +26,10 @@ const (
 	lapPlaceColWidth = float32(184)
 	lapSplitColWidth = float32(120)
 	lapTimeColWidth  = float32(120)
-	lapRowHeight     = float32(34)
+
+	// lapRowGap - extra vertical space between lap rows (on top of the layout's
+	// own padding) so the input fields are not crowded together.
+	lapRowGap = float32(8)
 
 	// zoneBandVPad - breathing room inside the "Timing" / "Results" accent bands
 	// (matches the race tree's headerBandVPad).

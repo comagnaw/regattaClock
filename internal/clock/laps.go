@@ -46,10 +46,11 @@ func (l lapRow) asGridRow() *fyne.Container {
 	)
 }
 
-// lapCell - wrap o at a fixed lap-grid column width so the header and every data
-// row share one set of column edges.
+// lapCell - pin o to a fixed lap-grid column width so the header and every data
+// row share one set of column edges. The height stays the object's own minimum
+// so an Entry's underline is not clipped.
 func lapCell(w float32, o fyne.CanvasObject) *fyne.Container {
-	return container.NewGridWrap(fyne.NewSize(w, lapRowHeight), o)
+	return container.NewGridWrap(fyne.NewSize(w, o.MinSize().Height), o)
 }
 
 // lapHeaderRow - the bold column header above the lap rows, using the same

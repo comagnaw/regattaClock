@@ -15,12 +15,18 @@ import (
 	"github.com/comagnaw/regattaClock/internal/uitheme"
 )
 
-// hgap - a fixed-width transparent spacer, for putting deliberate air between
-// widgets in an HBox (layout.NewSpacer expands, which collapses to nothing
-// inside a container.Center).
+// hgap / vgap - fixed-size transparent spacers, for putting deliberate air
+// between widgets in an HBox / VBox (layout.NewSpacer expands, which collapses
+// to nothing inside a container.Center).
 func hgap(w float32) *canvas.Rectangle {
 	r := canvas.NewRectangle(color.Transparent)
 	r.SetMinSize(fyne.NewSize(w, 1))
+	return r
+}
+
+func vgap(h float32) *canvas.Rectangle {
+	r := canvas.NewRectangle(color.Transparent)
+	r.SetMinSize(fyne.NewSize(1, h))
 	return r
 }
 
@@ -153,7 +159,7 @@ func (c *Clock) controlPanel() *fyne.Container {
 // rows, updated as the clock runs and the Lap button is pushed. Also collects
 // order-of-finish (OOF) and adjustment of place and split time.
 func (c *Clock) lapsContainer() *fyne.Container {
-	grid := container.NewVBox(lapHeaderRow())
+	grid := container.NewVBox(lapHeaderRow(), vgap(lapRowGap))
 
 	for rowNum := range c.laps {
 		c.laps[rowNum] = lapRow{
@@ -161,6 +167,9 @@ func (c *Clock) lapsContainer() *fyne.Container {
 			place:          c.initPlace(rowNum),
 			split:          widget.NewEntry(),
 			calculatedTime: widget.NewLabel(common.EmptyString),
+		}
+		if rowNum > 0 {
+			grid.Add(vgap(lapRowGap))
 		}
 		grid.Add(c.laps[rowNum].asGridRow())
 	}
