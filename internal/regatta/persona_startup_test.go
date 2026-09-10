@@ -403,6 +403,44 @@ func TestStartSessionFinishTimerHydratesPeerAndOwn(t *testing.T) {
 	}
 }
 
+func TestStartSessionPrimaryFinishMirrorsSecondaryFinish(t *testing.T) {
+	app := test.NewTempApp(t)
+	sch := testSchedule()
+	root := seedRegatta(t, sch)
+	key := store.RegattaKey(sch.Name, sch.Date)
+
+	sft := timerSession(t, "sft", root)
+	secLog := &store.FinishLog{Races: map[int]store.RaceResult{
+		2: {RaceNumber: 2, WinningTime: "07:00.0"},
+	}}
+	secLog.RegattaKey = key
+	if err := store.SaveFinish(sft, secLog); err != nil {
+		t.Fatal(err)
+	}
+
+	// A primary finish timer mirrors the secondary team's finish.json read-only.
+	pft := timerSession(t, "pft", root)
+	r := NewTimer(app)
+	stopWatch(t, r)
+	r.startSession(pft, sch)
+
+	if r.secondaryFinishPath == "" {
+		t.Fatal("primary FT should record the secondary finish path")
+	}
+	if r.secondaryFinishLog == nil || r.secondaryFinishLog.Races[2].WinningTime != "07:00.0" {
+		t.Fatalf("secondary finish.json not mirrored: %+v", r.secondaryFinishLog)
+	}
+
+	// A secondary finish timer does not mirror anything.
+	r2 := NewTimer(app)
+	stopWatch(t, r2)
+	r2.startSession(timerSession(t, "sft", root), sch)
+	if r2.secondaryFinishLog != nil || r2.secondaryFinishPath != "" {
+		t.Errorf("the secondary FT must not mirror a secondary log: log=%v path=%q",
+			r2.secondaryFinishLog, r2.secondaryFinishPath)
+	}
+}
+
 func TestStartSessionFinishTimerPeerCorruptDoesNotBlock(t *testing.T) {
 	app := test.NewTempApp(t)
 	sch := testSchedule()

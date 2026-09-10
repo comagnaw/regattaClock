@@ -129,12 +129,23 @@ func Rule(h float32, name fyne.ThemeColorName) fyne.CanvasObject {
 // bottom) so its columns still line up with non-bled content elsewhere. Labels
 // in the row are forced to the light palette so they read on the blue.
 func AccentBand(row fyne.CanvasObject, vpad float32) fyne.CanvasObject {
+	return band(row, vpad, LogoWaterBlue, DarkOverride)
+}
+
+// CautionBand - AccentBand in the amber warning fill, with the label forced to
+// the light palette so it reads dark on the tint. For a surface that must not be
+// mistaken for the primary one (the read-only Compare Secondary window).
+func CautionBand(row fyne.CanvasObject, vpad float32) fyne.CanvasObject {
+	return band(row, vpad, BannerAmber, LightOverride)
+}
+
+func band(row fyne.CanvasObject, vpad float32, fill color.Color, override fyne.Theme) fyne.CanvasObject {
 	pad := theme.Padding()
 	return FullBleed(container.NewStack(
-		canvas.NewRectangle(LogoWaterBlue),
+		canvas.NewRectangle(fill),
 		container.New(
 			layout.NewCustomPaddedLayout(vpad, vpad, pad, pad),
-			container.NewThemeOverride(row, DarkOverride),
+			container.NewThemeOverride(row, override),
 		),
 	))
 }

@@ -38,6 +38,12 @@ type buttons struct {
 	// approved (the persist gate), then closes the clock window. Not placed in
 	// the secondary FT's panel.
 	close *widget.Button
+
+	// compare - the primary FT's "Compare Secondary" toggle: reveals a read-only
+	// side-by-side view of the secondary team's result for this race, or hides
+	// it. Disabled until the secondary team has a committed result; placed only
+	// in the primary FT's panel (compare.go).
+	compare *widget.Button
 }
 
 // initButtons - initialize buttons object
@@ -49,6 +55,15 @@ func (c *Clock) initButtons() {
 	c.buttons.lap = c.initLap()
 	c.buttons.stop = c.initStop()
 	c.buttons.clear = c.initClear()
+	c.buttons.compare = c.initCompare()
+}
+
+// initCompare - the Compare Secondary toggle, disabled until a valid secondary
+// result exists for this race (refreshCompareButton).
+func (c *Clock) initCompare() *widget.Button {
+	b := widget.NewButton(common.CompareSecondaryButtonText, func() { c.toggleCompareSecondary() })
+	b.Disable()
+	return b
 }
 
 // initStart - initialize start button
@@ -120,6 +135,9 @@ func (c *Clock) initClear() *widget.Button {
 
 			c.clockState.isRunning = false
 			c.clockState.isCleared = true
+			if c.compareWindow != nil {
+				c.compareWindow.Close() // this race is being started over
+			}
 
 			c.clock.Text = common.ZeroTime
 

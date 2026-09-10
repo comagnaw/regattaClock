@@ -34,9 +34,9 @@ type teamTiming struct {
 	finish *store.FinishLog
 }
 
-// directorTeamSession builds a persona.Session for path construction only - the
+// teamPathSession builds a persona.Session for path construction only - the
 // path helpers key off Team, not the (unset) Role.
-func directorTeamSession(root string, team persona.Team) persona.Session {
+func teamPathSession(root string, team persona.Team) persona.Session {
 	return persona.Session{Definition: persona.Definition{Team: team}, Root: root}
 }
 
@@ -46,7 +46,7 @@ func directorTeamSession(root string, team persona.Team) persona.Session {
 // tree shows primary-team values only; the secondary pair reconciles into the
 // primary finish.json via the PFT (reconciliation.md).
 func (r *Regatta) hydrateDirectorLogs(root, key string) {
-	s := directorTeamSession(root, persona.TeamPrimary)
+	s := teamPathSession(root, persona.TeamPrimary)
 	r.teamLogs = map[persona.Team]*teamTiming{
 		persona.TeamPrimary: {
 			start:  r.hydratePeerStart(s, key),
@@ -112,14 +112,14 @@ func (r *Regatta) directorFinishCells(n int) (win, status string) {
 // directorWatchPaths are the primary team's start.json + finish.json, which the
 // RD mirrors in addition to the schedule.
 func directorWatchPaths(root string) []string {
-	ts := directorTeamSession(root, persona.TeamPrimary)
+	ts := teamPathSession(root, persona.TeamPrimary)
 	return []string{ts.StartPath(), ts.FinishPath()}
 }
 
 // applyDirectorTimingEvent routes a changed primary start.json / finish.json
 // into the mirror. Runs on the watcher goroutine.
 func (r *Regatta) applyDirectorTimingEvent(ev watcher.Event) {
-	ts := directorTeamSession(r.session.Root, persona.TeamPrimary)
+	ts := teamPathSession(r.session.Root, persona.TeamPrimary)
 	switch ev.Path {
 	case ts.StartPath():
 		var log store.StartLog

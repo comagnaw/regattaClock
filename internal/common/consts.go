@@ -70,6 +70,18 @@ const (
 	ClockTimingForFormat  = "timing for %s"
 	ClockResultsZoneLabel = "Results"
 
+	// Compare Secondary - the primary finish timer's read-only side-by-side view
+	// of the secondary team's committed result for the same race (compare.go).
+	// The button toggles the pane; the pane never edits the SFT's data.
+	CompareSecondaryButtonText = "Compare Secondary"
+	CompareSecondaryHideText   = "Hide Secondary"
+	CompareSecondaryBandFormat = "Secondary timer — %s"        // arg: race title
+	CompareWindowTitle         = "Compare Secondary - Race %d" // arg: race number
+	// CompareSkewNoteFormat - shown in the compare pane when the two timers'
+	// machine clocks disagree by more than timesync.SkewWarnThreshold. Args:
+	// primary machine, secondary machine, offset delta.
+	CompareSkewNoteFormat = "%s and %s clocks differ by %s — the times below may be off by that much. Reconcile with care."
+
 	RefereeButtonText   = "Referee Approval"
 	RefereeApproveTitle = "Referee Approval - Race %d"
 
@@ -131,12 +143,18 @@ const (
 	TreeDateLabel    = "Date: %s"
 
 	// PersonaHeaderFormat labels the race-tree header with the operator's role;
-	// WindowTitleFormat puts it in the OS title bar next to the app name.
-	PersonaHeaderFormat   = "Role: %s"
-	WindowTitleFormat     = "%s — %s"
-	ConfigTitle           = "Configuration"
-	LoadDataTitle         = "Load Regatta Data"
-	CreateLaneImagesTitle = "Create Lane Images"
+	// WindowTitleFormat puts it in the OS title bar next to the app name, and is
+	// reused for the race-clock window ("Race N Clock — <role>").
+	PersonaHeaderFormat = "Role: %s"
+	WindowTitleFormat   = "%s — %s"
+
+	// ClockWindowTitleFormat - the race-clock window's OS title bar before the
+	// persona is known. Once it is, the role is appended via WindowTitleFormat.
+	// Arg: race number.
+	ClockWindowTitleFormat = "Race %d Clock"
+	ConfigTitle            = "Configuration"
+	LoadDataTitle          = "Load Regatta Data"
+	CreateLaneImagesTitle  = "Create Lane Images"
 	// VersionTitle is both the menu label and the title of the build-info window.
 	VersionTitle = "Version"
 

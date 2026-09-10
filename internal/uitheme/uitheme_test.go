@@ -113,8 +113,35 @@ func TestFramingHelpers_Build(t *testing.T) {
 	if b := AccentBand(Rule(1, theme.ColorNameForeground), 4); b == nil {
 		t.Fatal("AccentBand returned nil")
 	}
+	if b := CautionBand(Rule(1, theme.ColorNameForeground), 4); b == nil {
+		t.Fatal("CautionBand returned nil")
+	}
 	strip := CautionStrip(Rule(1, theme.ColorNameForeground))
 	if strip == nil || strip.Hidden {
 		t.Fatal("CautionStrip should return a visible container")
+	}
+}
+
+func TestCautionBand_FilledAmber(t *testing.T) {
+	test.NewApp()
+	rects := 0
+	var walk func(fyne.CanvasObject)
+	walk = func(o fyne.CanvasObject) {
+		switch v := o.(type) {
+		case *canvas.Rectangle:
+			if v.FillColor == color.Color(BannerAmber) {
+				rects++
+			}
+		case *fyne.Container:
+			for _, c := range v.Objects {
+				walk(c)
+			}
+		case *container.ThemeOverride:
+			walk(v.Content)
+		}
+	}
+	walk(CautionBand(Rule(1, theme.ColorNameForeground), 4))
+	if rects != 1 {
+		t.Errorf("CautionBand should carry exactly one BannerAmber fill, found %d", rects)
 	}
 }

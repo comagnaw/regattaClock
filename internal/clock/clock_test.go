@@ -51,11 +51,7 @@ func createTestRaceData() reader.RaceData {
 // OpenRaceClock + Start when the test then measures / refreshes text itself.
 func stopClockTicker(t *testing.T, c *Clock) {
 	t.Helper()
-	select {
-	case <-c.clockState.stopChan: // already closed
-	default:
-		close(c.clockState.stopChan)
-	}
+	c.clockState.stopTicker()
 }
 
 func TestNewClock(t *testing.T) {

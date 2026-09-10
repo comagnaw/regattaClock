@@ -101,7 +101,7 @@ func (r *Regatta) guardScheduleWrite(proceed func()) {
 // would orphan real data.
 func regattaHasTimingData(root string) bool {
 	for _, team := range timingTeams {
-		s := directorTeamSession(root, team)
+		s := teamPathSession(root, team)
 		if filesystem.FileExists(s.StartPath()) || filesystem.FileExists(s.FinishPath()) {
 			return true
 		}

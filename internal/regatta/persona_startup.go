@@ -281,6 +281,11 @@ func (r *Regatta) startSession(session persona.Session, schedule *store.Schedule
 		r.finishLog = r.hydrateOwnFinish(session, key)
 		r.finishLog.RegattaKey = key
 		r.finishLog.Machine = host
+		if session.Team == persona.TeamPrimary {
+			sec := teamPathSession(session.Root, persona.TeamSecondary)
+			r.secondaryFinishPath = sec.FinishPath()
+			r.secondaryFinishLog = r.hydratePeerFinish(sec, key) // read-only, for Compare Secondary
+		}
 	}
 
 	r.refreshContent()
@@ -438,6 +443,9 @@ func (r *Regatta) startWatcher(s persona.Session) {
 	switch s.Role {
 	case persona.RoleFinish:
 		paths = append(paths, s.StartPath()) // peer start times
+		if s.Team == persona.TeamPrimary && r.secondaryFinishPath != "" {
+			paths = append(paths, r.secondaryFinishPath) // SFT results, for Compare Secondary
+		}
 	case persona.RoleStart:
 		paths = append(paths, s.FinishPath()) // FT progress, for the row lock
 	case persona.RoleDirector:
@@ -536,6 +544,26 @@ func (r *Regatta) applyWatchEvent(ev watcher.Event) {
 		applog.Info("finish progress updated", "component", "race_tree", "races", len(log.Races))
 		fyne.Do(func() { r.onPeerFinishChanged(&log) })
 
+	case r.secondaryFinishPath:
+		if r.secondaryFinishPath == "" || r.session.Role != persona.RoleFinish ||
+			r.session.Team != persona.TeamPrimary {
+			return
+		}
+		var log store.FinishLog
+		if err := json.Unmarshal(ev.Data, &log); err != nil {
+			applog.Warn("watched secondary finish.json did not parse", "component", "race_tree", "err", err)
+			return
+		}
+		if log.RegattaKey != common.EmptyString && log.RegattaKey != r.regattaKey {
+			applog.Warn("watched secondary finish.json is a different regatta; ignored", "component", "race_tree")
+			return
+		}
+		if log.Races == nil {
+			log.Races = map[int]store.RaceResult{}
+		}
+		applog.Info("secondary finish progress updated", "component", "race_tree", "races", len(log.Races))
+		fyne.Do(func() { r.onSecondaryFinishChanged(&log) })
+
 	default:
 		if r.session.Role == persona.RoleDirector {
 			r.applyDirectorTimingEvent(ev)
@@ -580,6 +608,17 @@ func (r *Regatta) onPeerStartChanged(log *store.StartLog) {
 		clk.UpdateStartTime(log)
 	}
 	r.refreshAllRows()
+}
+
+// onSecondaryFinishChanged - the primary finish timer seeing the SECONDARY
+// team's committed results. Read-only: it feeds the clock's Compare Secondary
+// view and nothing else, so no row refresh (the FT tree shows no secondary
+// data).
+func (r *Regatta) onSecondaryFinishChanged(log *store.FinishLog) {
+	r.secondaryFinishLog = log
+	for _, clk := range r.openClocks {
+		clk.UpdateSecondaryFinish(log)
+	}
 }
 
 // onPeerFinishChanged - a start timer seeing the finish timer's progress. It

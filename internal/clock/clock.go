@@ -66,6 +66,17 @@ type Clock struct {
 	// race; UpdateStartTime replaces this when the watcher delivers a fresh one.
 	startLog *store.StartLog
 
+	// secondaryFinish - the SECONDARY team's finish.json, mirrored read-only for
+	// the primary finish timer's Compare Secondary view (compare.go). Set by
+	// WithSecondaryFinish; UpdateSecondaryFinish replaces it when the watcher
+	// delivers a fresh one. nil for every non-PFT clock. Never written.
+	secondaryFinish *store.FinishLog
+
+	// compareWindow - the independent, non-blocking Compare Secondary window
+	// while it is open; nil otherwise. Guards against a second one, refreshed in
+	// place on a live secondary update, and closed on clock teardown.
+	compareWindow fyne.Window
+
 	// derivedWinningTime - the value last auto-filled into winningTime from the
 	// ST start time. A referee edit makes winningTime.Text differ from this, and
 	// a reactive recompute then leaves the manual value alone (persona-plan.md
@@ -174,6 +185,15 @@ type clockState struct {
 
 	// stopChan go channel used to signal stoppage of the clock
 	stopChan chan struct{}
+
+	// stopOnce guards stopChan so the ticker can be stopped more than once (the
+	// window close handler, and tests) without a double-close panic.
+	stopOnce sync.Once
+}
+
+// stopTicker signals the 100ms update goroutine to exit. Idempotent.
+func (s *clockState) stopTicker() {
+	s.stopOnce.Do(func() { close(s.stopChan) })
 }
 
 // NewClock - generates Clock object
@@ -192,7 +212,7 @@ func NewClock(parent fyne.App, regattaData *reader.RegattaData, race reader.Race
 		},
 		RegattaData: regattaData,
 		raceData:    race,
-		window:      parent.NewWindow(fmt.Sprintf("Race %d Clock", race.RaceNumber)),
+		window:      parent.NewWindow(fmt.Sprintf(common.ClockWindowTitleFormat, race.RaceNumber)),
 		App:         parent,
 	}
 
@@ -218,6 +238,48 @@ func (c *Clock) WithFinishLog(session persona.Session, log *store.FinishLog) *Cl
 func (c *Clock) WithStartLog(log *store.StartLog) *Clock {
 	c.startLog = log
 	return c
+}
+
+// WithSecondaryFinish binds the SECONDARY team's finish.json mirror for the
+// primary finish timer's read-only Compare Secondary view. Safe to pass nil or
+// an empty log; omit entirely for any non-PFT clock. The clock never writes it.
+func (c *Clock) WithSecondaryFinish(log *store.FinishLog) *Clock {
+	c.secondaryFinish = log
+	return c
+}
+
+// UpdateSecondaryFinish replaces the secondary-team mirror when the watcher
+// delivers a fresh finish.json, refreshing the Compare Secondary button and, if
+// the compare window is open, its contents. Call on the UI thread.
+func (c *Clock) UpdateSecondaryFinish(log *store.FinishLog) {
+	c.secondaryFinish = log
+	c.refreshCompareButton()
+	if c.compareWindow == nil {
+		return
+	}
+	if res, ok := c.comparableSecondaryResult(c.raceData.RaceNumber); ok {
+		c.compareWindow.SetContent(c.compareBody(res))
+	} else {
+		c.compareWindow.Close() // the secondary result went away or lost its winning time
+	}
+}
+
+// applyWindowTitle puts the race number and, once the persona is bound, the
+// operator's role in the window's OS title bar - the same "<what> — <role>"
+// shape the main window uses (regatta.go). A director-opened clock has no
+// persona label and keeps the plain "Race N Clock".
+func (c *Clock) applyWindowTitle() {
+	title := fmt.Sprintf(common.ClockWindowTitleFormat, c.raceData.RaceNumber)
+	if c.session.Label != common.EmptyString {
+		title = fmt.Sprintf(common.WindowTitleFormat, title, c.session.Label)
+	}
+	c.window.SetTitle(title)
+}
+
+// isPrimaryFinish reports whether this clock belongs to the Primary Finish
+// Timer - the only persona that reviews the secondary team's data.
+func (c *Clock) isPrimaryFinish() bool {
+	return c.session.Role == persona.RoleFinish && c.session.Team == persona.TeamPrimary
 }
 
 // canPersist reports whether this clock should read from and write to
@@ -247,6 +309,7 @@ func (c *Clock) commitButton() *widget.Button {
 // OpenRaceClock - opens the Clock app so that a race can be timed
 func (c *Clock) OpenRaceClock() {
 
+	c.applyWindowTitle()
 	c.window.SetContent(c.content())
 	c.window.Resize(fyne.NewSize(clockWidth, clockHeight))
 
@@ -266,7 +329,10 @@ func (c *Clock) OpenRaceClock() {
 		if c.refereeWindow != nil {
 			c.refereeWindow.Close()
 		}
-		close(c.clockState.stopChan)
+		if c.compareWindow != nil {
+			c.compareWindow.Close()
+		}
+		c.clockState.stopTicker()
 		if c.AfterClose != nil {
 			c.AfterClose()
 		}

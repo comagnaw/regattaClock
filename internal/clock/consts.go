@@ -47,6 +47,13 @@ const (
 	// Clear buttons so the rapid-tap targets are not crowded together.
 	controlGap = float32(24)
 
+	// comparePaneWidth / comparePaneHeight - the independent, non-blocking
+	// Compare Secondary window the PFT opens beside the clock. Width matches the
+	// clock so the two read as one surface; height leaves room for the skew
+	// caution.
+	comparePaneWidth  = float32(880)
+	comparePaneHeight = float32(1000)
+
 	// winningEntryWidth - the Winning Time entry is a fixed narrow field beside
 	// its label, not a full-width form row.
 	winningEntryWidth = float32(150)

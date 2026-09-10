@@ -10,6 +10,7 @@ import (
 	"github.com/comagnaw/regattaClock/internal/applog"
 	"github.com/comagnaw/regattaClock/internal/clock"
 	"github.com/comagnaw/regattaClock/internal/common"
+	"github.com/comagnaw/regattaClock/internal/persona"
 	"github.com/comagnaw/regattaClock/internal/persona/store"
 	"github.com/comagnaw/regattaClock/internal/timesync"
 )
@@ -184,6 +185,10 @@ func (r *Regatta) openClock(n int) {
 	clk := clock.NewClock(r.App, r.RegattaData, race).
 		WithFinishLog(r.session, r.finishLog).
 		WithStartLog(r.startLog)
+
+	if r.session.Team == persona.TeamPrimary {
+		clk.WithSecondaryFinish(r.secondaryFinishLog) // read-only Compare Secondary source
+	}
 
 	if r.openClocks == nil {
 		r.openClocks = make(map[int]*clock.Clock)
