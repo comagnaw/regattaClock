@@ -8,34 +8,27 @@ Companion to [windows-internal-pki.md](windows-internal-pki.md) and
 
 ## Where things stand
 
-[`release.yml`](../../../.github/workflows/release.yml) runs
-`fyne-cross windows -arch amd64,386` and publishes `regattaClock-<arch>.exe.zip` — a bare
-executable, no installer. Two version surfaces, only one of them fed:
+[`release.yml`](../../../.github/workflows/release.yml)'s `build-windows` job runs on
+**`windows-latest`** with MinGW and builds the exe with native `fyne package -os windows`
+(no more `fyne-cross`). It produces **two artifacts**:
 
-- **Go level** — the git tag *is* compiled into the binary via `-ldflags -X` on
-  `internal/version` (`regattaClock -v`; see [`AGENTS.md`](../../../AGENTS.md)
-  "Releases").
-- **Win32 `VERSIONINFO`** — the version Explorer shows under right‑click →
-  Properties → **Details**. There is still **no `FyneApp.toml`** in the repo, so
-  this is whatever `fyne`/`fyne-cross` defaults to; the tag does **not** reach it
-  yet (see [Version metadata](#version-metadata) below).
+- `regattaClock-<version>-windows-amd64-portable.zip` — the exe plus a `README.txt`;
+- `regattaClock-<version>-windows-setup.exe` — a per‑user Inno Setup installer
+  (`packaging/windows/regattaClock.iss`), Start Menu entry and uninstaller.
 
-Consequences of portable‑only:
+Both version surfaces are now fed: the **Go level** (`regattaClock -v`, from `-ldflags -X`
+on `internal/version` — the native build means Windows gets the same stamp as macOS) and the
+**Win32 `VERSIONINFO`** (via `cmd/regattaClock/FyneApp.toml` + `-app-version` in CI). The
+32‑bit (386) build was dropped.
 
-- No Start Menu entry, no "Apps & Features" record, no uninstaller.
-- Nothing to clean up on removal anyway — configuration is in Fyne `Preferences`
-  (registry/AppData), per [`CLAUDE.md`](../../../CLAUDE.md) (**C8**). So an installer's job is
-  *discoverability and lifecycle*, not file management.
+Neither artifact is code‑signed yet — the `sign-windows` job is scaffolded for
+[Option B](windows-internal-pki.md) and stays inert until a certificate secret is set.
 
 ## Keep: the portable zip
 
-Retain `regattaClock-<arch>.exe.zip` as one release artifact. Improvements:
-
-- Include a short `README.txt` and the per‑file line from `SHA256SUMS`
-  ([ci-and-provenance.md](ci-and-provenance.md)) inside the zip.
-- Name consistently: `regattaClock-<version>-windows-<arch>-portable.zip`.
-- This is the artifact for "just run it from a USB stick at the venue" and for operators who
-  cannot install software.
+`regattaClock-<version>-windows-amd64-portable.zip` already bundles a `README.txt` with the
+`Get-FileHash` verify line — the artifact for "just run it from a USB stick at the venue" and
+for operators who cannot install software. It is kept alongside the installer.
 
 ## Add: an installer
 

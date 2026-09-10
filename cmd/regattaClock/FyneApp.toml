@@ -1,0 +1,15 @@
+# Fyne app metadata. `fyne package` reads this from the -src directory on every
+# OS: it names the bundle, sets the app id, embeds Icon.png, and writes the
+# platform version resource (Windows VERSIONINFO, macOS CFBundleShortVersionString).
+#
+# Version is a placeholder for local `fyne package` runs. CI (.github/workflows/
+# release.yml) overrides it with `-app-version <x.y.z>` derived from the release
+# tag. The Go-level build stamp (`regattaClock -v`) is separate - it comes from
+# `-ldflags -X` on internal/version, see AGENTS.md "Releases".
+
+[Details]
+Icon = "Icon.png"
+Name = "regattaClock"
+ID = "com.github.comagnaw.regattaClock"
+Version = "0.0.0"
+Build = 1
