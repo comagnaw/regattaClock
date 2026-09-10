@@ -134,7 +134,15 @@ jobs:
           REPO_URL='${{ github.server_url }}/${{ github.repository }}'
           export GOFLAGS="-ldflags=-X=${LDPKG}.Version=${VER} -ldflags=-X=${LDPKG}.BuildCommit=${{ github.sha }} -ldflags=-X=${LDPKG}.BuildDate=${BUILT} -ldflags=-X=${LDPKG}.BuildBranch=${{ github.ref_name }} -ldflags=-X=${LDPKG}.BuildUser=github-actions -ldflags=-X=${LDPKG}.Project=regattaClock -ldflags=-X=${LDPKG}.ExeName=regattaClock -ldflags=-X=${LDPKG}.RepoURL=${REPO_URL} -ldflags=-X=${LDPKG}.BuildCount=0 -ldflags=-X=${LDPKG}.BuildDirty=false"
           fyne package -os windows -app-id com.github.comagnaw.regattaClock -app-version "${APP_VER}" -release -src ./cmd/regattaClock/
-          test -f regattaClock.exe
+          # `fyne package -os windows` writes the exe into the -src directory
+          # (fyne.io/tools@v1.7.2 package-windows.go), not the working dir.
+          if [ -f cmd/regattaClock/regattaClock.exe ]; then
+            mv cmd/regattaClock/regattaClock.exe ./regattaClock.exe
+          fi
+          if [ ! -f regattaClock.exe ]; then
+            echo "::error::regattaClock.exe not produced by fyne package"; find . -name 'regattaClock*' -type f; exit 1
+          fi
+          ls -la regattaClock.exe
       - name: Package portable zip + installer
         shell: pwsh
         run: |
