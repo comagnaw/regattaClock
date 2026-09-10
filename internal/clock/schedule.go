@@ -49,7 +49,7 @@ func (c *Clock) UpdateSchedule(race reader.RaceData, changedLanes []int) {
 	c.results.setSchoolLabels(race)
 
 	if c.raceTitle != nil {
-		c.raceTitle.Text = race.RaceTitle()
+		c.raceTitle.Text = fmt.Sprintf(common.ClockTimingForFormat, race.RaceTitle())
 		c.raceTitle.Refresh()
 	}
 	if c.resultsTable != nil {

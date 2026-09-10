@@ -184,6 +184,26 @@ func TestHeader3(t *testing.T) {
 	}
 }
 
+func TestBannerHeading(t *testing.T) {
+	result := BannerHeading("Timing for Race 7")
+
+	if result == nil {
+		t.Fatal("BannerHeading returned nil")
+	}
+	if result.Text != "Timing for Race 7" {
+		t.Errorf("Expected text %q, got %q", "Timing for Race 7", result.Text)
+	}
+	if !result.TextStyle.Bold {
+		t.Error("Expected text to be bold")
+	}
+	if result.Alignment != fyne.TextAlignLeading {
+		t.Errorf("Expected alignment to be Leading, got %v", result.Alignment)
+	}
+	if result.TextSize <= Header2("x").TextSize {
+		t.Errorf("BannerHeading size (%f) should be larger than Header2 (%f)", result.TextSize, Header2("x").TextSize)
+	}
+}
+
 func TestCell(t *testing.T) {
 	testText := "Test Cell"
 	result := Cell(testText)

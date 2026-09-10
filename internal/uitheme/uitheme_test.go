@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/test"
 	"fyne.io/fyne/v2/theme"
 )
@@ -61,6 +63,28 @@ func TestReverseCardColors_SwapByVariant(t *testing.T) {
 	card, ink = ReverseCardColors(theme.VariantDark)
 	if card != color.Color(White) || ink != color.Color(BrandNavy) {
 		t.Errorf("dark card/ink = %v/%v, want white/navy", card, ink)
+	}
+}
+
+func TestReverseCard_FillsWithCardColourAndOverrides(t *testing.T) {
+	test.NewApp()
+
+	for _, v := range []fyne.ThemeVariant{theme.VariantLight, theme.VariantDark} {
+		card := ReverseCard(v, Rule(1, theme.ColorNameForeground))
+		if len(card.Objects) != 2 {
+			t.Fatalf("variant %d: ReverseCard should stack a fill under an override, got %d objects", v, len(card.Objects))
+		}
+		rect, ok := card.Objects[0].(*canvas.Rectangle)
+		if !ok {
+			t.Fatalf("variant %d: first object should be the card fill rectangle", v)
+		}
+		wantCard, _ := ReverseCardColors(v)
+		if rect.FillColor != wantCard {
+			t.Errorf("variant %d: card fill = %v, want %v", v, rect.FillColor, wantCard)
+		}
+		if _, ok := card.Objects[1].(*container.ThemeOverride); !ok {
+			t.Errorf("variant %d: body should be wrapped in a ThemeOverride", v)
+		}
 	}
 }
 
