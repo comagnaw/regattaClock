@@ -6,7 +6,7 @@ const (
 	// smaller than the pre-polish 1240x800: the inputs no longer stretch the
 	// whole frame and the results columns are capped with ellipsis truncation.
 	clockWidth  = float32(880)
-	clockHeight = float32(960)
+	clockHeight = float32(928)
 
 	// The lanes table has seven columns (a narrow row-label column + six lanes).
 	// resultsPanel() derives the lane-column width and the exact viewport size
@@ -34,6 +34,13 @@ const (
 	// zoneBandVPad - breathing room inside the "Timing" / "Results" accent bands
 	// (matches the race tree's headerBandVPad).
 	zoneBandVPad = float32(4)
+
+	// bandLogoHeight - the regattaClock wordmark on the right of the Timing band.
+	// bandLogoAspect is its SVG viewBox ratio (2793 / 430) so the width follows;
+	// bandLogoRightPad keeps it off the window edge.
+	bandLogoHeight   = float32(26)
+	bandLogoAspect   = float32(2793) / float32(430)
+	bandLogoRightPad = float32(6)
 
 	// controlGap - horizontal space inserted between the Start / Lap / Stop /
 	// Clear buttons so the rapid-tap targets are not crowded together.

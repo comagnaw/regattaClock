@@ -1,6 +1,7 @@
 package clock
 
 import (
+	"fmt"
 	"image/color"
 
 	"fyne.io/fyne/v2"
@@ -10,6 +11,7 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
+	"github.com/comagnaw/regattaClock/internal/assets"
 	"github.com/comagnaw/regattaClock/internal/common"
 	"github.com/comagnaw/regattaClock/internal/text"
 	"github.com/comagnaw/regattaClock/internal/uitheme"
@@ -42,14 +44,42 @@ func clockThemeVariant() fyne.ThemeVariant {
 	return theme.VariantDark
 }
 
-// content - the race clock laid out in two banded zones: a "Timing" zone (the
-// stopwatch, the run controls, the lap grid and the winning-time field) over a
-// reverse-contrast "Results" card (the per-lane readout), matching the race
-// tree's accent-band / reverse-card visual language. The referee / save panel
-// sits below on the plain surface.
-func (c *Clock) content() *fyne.Container {
-	c.raceTitle = text.Header2(c.raceData.RaceTitle())
+// timingBand - the accent band that opens the Timing zone. It doubles as the
+// window heading: "Timing for <race title>" on the left, the regattaClock
+// wordmark on the right, both in the band's forced-light contrast. c.raceTitle
+// is kept so UpdateSchedule can retitle it in place.
+func (c *Clock) timingBand() fyne.CanvasObject {
+	c.raceTitle = text.BannerHeading(fmt.Sprintf(common.ClockTimingForFormat, c.raceData.RaceTitle()))
+	c.raceTitle.Color = uitheme.White
 
+	logo := container.New(
+		layout.NewCustomPaddedLayout(0, 0, 0, bandLogoRightPad),
+		bandLogo(bandLogoHeight),
+	)
+	return uitheme.AccentBand(
+		container.NewBorder(nil, nil, nil, logo, c.raceTitle),
+		zoneBandVPad,
+	)
+}
+
+// bandLogo - the regattaClock wordmark at a fixed height, its native white fill
+// (viewBox 2793x430) left as authored so it reads on the blue band. Not run
+// through theme.NewThemedResource, which would recolour it to the app theme.
+func bandLogo(height float32) *canvas.Image {
+	res := fyne.NewStaticResource(common.BannerResourceName, assets.RegattaClockBanner)
+	img := canvas.NewImageFromResource(res)
+	img.FillMode = canvas.ImageFillContain
+	img.SetMinSize(fyne.NewSize(height*bandLogoAspect, height))
+	return img
+}
+
+// content - the race clock laid out in two banded zones: a "Timing" band (which
+// also carries the race title and the wordmark, so it doubles as the window
+// heading) over the stopwatch / run controls / lap grid / winning-time field,
+// then a "Results" band over a reverse-contrast card (the per-lane readout),
+// matching the race tree's accent-band / reverse-card visual language. The
+// referee / save panel sits below on the plain surface.
+func (c *Clock) content() *fyne.Container {
 	variant := clockThemeVariant()
 
 	timing := container.NewVBox(
@@ -64,11 +94,10 @@ func (c *Clock) content() *fyne.Container {
 	)
 
 	return container.NewVBox(
-		container.NewCenter(c.raceTitle),
 		c.skewBannerWidget(),
 		c.scheduleBannerWidget(),
 
-		uitheme.AccentBand(text.BoldLabelCenter(common.ClockTimingZoneLabel), zoneBandVPad),
+		c.timingBand(),
 		timing,
 
 		uitheme.AccentBand(text.BoldLabelCenter(common.ClockResultsZoneLabel), zoneBandVPad),

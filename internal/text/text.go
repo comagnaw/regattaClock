@@ -74,6 +74,14 @@ func Header2(t string) *canvas.Text {
 	return newText(t, false, true, fyne.TextAlignCenter, 24)
 }
 
+// BannerHeading - a bold, leading-aligned canvas.Text sized for a title that
+// sits inside a full-width colour band (a step up from Header2, below the
+// Header1 page title). The caller sets .Color, since the band forces its own
+// contrast rather than following the theme.
+func BannerHeading(t string) *canvas.Text {
+	return newText(t, false, true, fyne.TextAlignLeading, 28)
+}
+
 // Header3 - returns title format of fyne Text
 func Header3(t string) *canvas.Text {
 	return newText(t, false, true, fyne.TextAlignCenter, 20)
