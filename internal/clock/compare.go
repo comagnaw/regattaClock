@@ -87,6 +87,10 @@ func (c *Clock) openCompareSecondary() {
 	w := c.App.NewWindow(fmt.Sprintf(common.CompareWindowTitle, c.raceData.RaceNumber))
 	w.SetContent(c.compareBody(res))
 	w.Resize(fyne.NewSize(comparePaneWidth, comparePaneHeight))
+	// Fyne 2.8 has no API to place a window at an offset from another, so the
+	// best we can do is centre it - predictable and easy to find, then the
+	// operator drags it beside the clock (or onto a second screen).
+	w.CenterOnScreen()
 	w.SetOnClosed(func() {
 		c.compareWindow = nil
 		c.refreshCompareButton()
@@ -110,10 +114,12 @@ func (c *Clock) compareBody(res store.RaceResult) fyne.CanvasObject {
 	variant := clockThemeVariant()
 
 	title := text.BannerHeading(fmt.Sprintf(common.CompareSecondaryBandFormat, c.raceData.RaceTitle()))
-	title.Color = uitheme.White
-	// Pin the band's inner height to the wordmark height the live clock's
-	// masthead uses, so the two headers - and everything below them - align.
-	header := uitheme.AccentBand(
+	title.Color = uitheme.BrandNavy // dark text on the amber band
+	// The bands here are amber, not the live clock's blue, so this read-only
+	// window can never be mistaken for the primary one at a glance. Pin the
+	// header's inner height to the clock masthead's wordmark height so the two
+	// windows still line up when placed side by side.
+	header := uitheme.CautionBand(
 		container.NewGridWrap(fyne.NewSize(title.MinSize().Width, bandLogoHeight), container.NewCenter(title)),
 		zoneBandVPad,
 	)
@@ -142,7 +148,7 @@ func (c *Clock) compareBody(res store.RaceResult) fyne.CanvasObject {
 		compareLapGrid(res.Rows),
 		compareWinningLine(res.WinningTime),
 		noteSpacer,
-		uitheme.AccentBand(text.BoldLabelCenter(common.ClockResultsZoneLabel), zoneBandVPad),
+		uitheme.CautionBand(text.BoldLabelCenter(common.ClockResultsZoneLabel), zoneBandVPad),
 		uitheme.FullBleed(uitheme.ReverseCard(variant, container.NewVBox(container.NewPadded(resultsPanel)))),
 	)
 }
