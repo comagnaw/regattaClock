@@ -121,17 +121,24 @@ Releases are cut from the release branch for the active line — today always
    means a new tag.
 
 8. **Let `release.yml` run** (it triggers on the `v*` tag push):
-   `gh run watch` / `gh run list --workflow=release.yml`. It builds
-   `regattaClock.dmg`, `regattaClock-amd64.exe.zip`, `regattaClock-386.exe.zip` and
-   **auto-creates the GitHub release** — title `Release <version>`, **empty body**, and
-   **not marked pre-release** whatever the suffix. Wait for **both** jobs (`build-macos`,
-   then `build-windows`) to finish. If a job fails, report it and stop — do not retag.
+   `gh run watch` / `gh run list --workflow=release.yml`. Jobs run
+   `setup → build-macos / build-windows → sign-windows → provenance → release`
+   (`sign-windows` skips until a signing cert secret is set). The `release` job
+   **auto-creates the GitHub release** — title `Release <version>`, **empty
+   body**, **not pre-release** whatever the suffix — with these assets:
+   `regattaClock-<version>-macos-universal.dmg`,
+   `regattaClock-<version>-windows-amd64-portable.zip`,
+   `regattaClock-<version>-windows-setup.exe`, and `SHA256SUMS` (plus a
+   build-provenance attestation). If a job fails, report it and stop — do not
+   retag. To shake out a workflow change first, run it with
+   **`gh workflow run release.yml --ref <branch>`**: everything builds and
+   uploads to the run, but `release` is skipped (no tag).
 
 9. **Finalise the GitHub release** (the workflow does not):
    - `gh release edit <version> --notes-file <notes>` — add the bullet-point notes.
    - If it should be a pre-release: `gh release edit <version> --prerelease` (the
      workflow forced `prerelease: false`).
-   - `gh release view <version>` — confirm the three assets are attached.
+   - `gh release view <version>` — confirm all four assets are attached.
 
 10. **Report** the tag, the reason for that bump, the pre-release status, and the
     release URL.

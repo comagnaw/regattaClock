@@ -77,6 +77,36 @@ the workbook itself.
 Sample workbooks for both supported formats — `.xlsx` and macro-enabled `.xlsm`
 — are in [examples/](examples/).
 
+## Downloading and verifying
+
+Builds are attached to each [GitHub release](https://github.com/comagnaw/regattaClock/releases):
+
+- **macOS** — `regattaClock-<version>-macos-universal.dmg` (Intel + Apple
+  Silicon). Not yet notarized, so Gatekeeper needs a one-time
+  System Settings → Privacy & Security → **Open Anyway**.
+- **Windows** — `regattaClock-<version>-windows-amd64-portable.zip` (unzip and
+  run) or `regattaClock-<version>-windows-setup.exe` (per-user installer, Start
+  Menu entry, uninstaller). Not yet code-signed, so SmartScreen shows a
+  "Windows protected your PC" warning — **More info → Run anyway**.
+
+`regattaClock -v` prints the running build's version, commit, and build date.
+
+Every release also carries a `SHA256SUMS` file and a GitHub build-provenance
+attestation. Verify a download before running it:
+
+```sh
+# macOS / Linux
+shasum -a 256 -c SHA256SUMS
+
+# any platform, with the GitHub CLI
+gh attestation verify <file> --repo comagnaw/regattaClock
+```
+
+```powershell
+# Windows
+(Get-FileHash .\regattaClock-<version>-windows-amd64-portable.zip -Algorithm SHA256).Hash
+```
+
 ## Getting started
 
 ![Persona picker](docs/img/persona-picker.png)

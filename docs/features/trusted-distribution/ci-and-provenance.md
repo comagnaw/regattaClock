@@ -5,6 +5,13 @@ signing material is handled without leaking it (**R3**) or breaking fork builds 
 the **zero‑cost verifiability baseline to ship first** (**R4**). Companion to every other doc
 in this directory.
 
+> **Status (2026‑09):** implemented. `release.yml` now has the
+> `setup → build-macos / build-windows → sign-windows → provenance → release`
+> split; a `provenance` job emits `SHA256SUMS` and an `attest-build-provenance`
+> attestation over every file; `sign-windows` is scaffolded for Option B and
+> skips when `WINDOWS_PFX_BASE64` is unset. Still to do: a real certificate, and
+> the fork/PR `check-secrets` gate (only relevant once a secret exists).
+
 ## Zero‑cost baseline — do this first
 
 Independent of any certificate. Gives every release a verifiable identity even while it is

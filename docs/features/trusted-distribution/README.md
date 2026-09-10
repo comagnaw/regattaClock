@@ -17,13 +17,25 @@ public distribution — at zero recurring cost for the near term.
 
 ## Where things stand
 
-[`.github/workflows/release.yml`](../../../.github/workflows/release.yml) builds unsigned
-artifacts on every `v*` tag:
+[`.github/workflows/release.yml`](../../../.github/workflows/release.yml) builds artifacts on
+every `v*` tag (and on `workflow_dispatch`, which builds and uploads to the run without
+publishing). The `build → sign → provenance → release` split from
+[ci-and-provenance.md](ci-and-provenance.md) is in place; the sign stage is scaffolded for
+**Option B** (self‑signed cert + `signtool`) and skips cleanly until `WINDOWS_PFX_BASE64` is
+set.
 
 | OS | Job | Build | Output | Signed? |
 |----|-----|-------|--------|---------|
-| Windows | `build-windows` (`ubuntu-latest`) | `fyne-cross windows -arch amd64,386` | `regattaClock-<arch>.exe.zip` | no |
-| macOS | `build-macos` (`macos-latest`) | `fyne package -os darwin -release` per arch → `lipo` universal → `hdiutil` DMG | `regattaClock.dmg` | no |
+| Windows | `build-windows` (`windows-latest`, MinGW) | native `fyne package -os windows` | `regattaClock-<version>-windows-amd64-portable.zip` + Inno Setup `…-windows-setup.exe` | not yet (scaffolded) |
+| macOS | `build-macos` (`macos-latest`) | `fyne package -os darwin -release` per arch → `lipo` universal → `hdiutil` DMG | `regattaClock-<version>-macos-universal.dmg` | no |
+| both | `provenance` (`ubuntu-latest`) | — | `SHA256SUMS` + `attest-build-provenance` over every file | n/a |
+
+**Done:** the zero‑cost verifiability baseline (`SHA256SUMS` + provenance attestations); native
+Windows build so `regattaClock -v` carries the real build stamp on Windows too; a
+`FyneApp.toml` version resource; a per‑user Inno Setup installer alongside the portable zip.
+**Pending:** an actual signing certificate (this doc), macOS notarization
+([macos-notarization.md](macos-notarization.md)), a WiX MSI for silent domain deploy
+([windows-packaging.md](windows-packaging.md)).
 
 What users see today:
 
