@@ -252,11 +252,11 @@ jobs:
   # --------------------------------------------------------------------------
   provenance:
     needs: [setup, build-macos, build-windows, sign-windows]
-    if: |
-      always() &&
-      needs.build-macos.result == 'success' &&
-      needs.build-windows.result == 'success' &&
-      (needs.sign-windows.result == 'success' || needs.sign-windows.result == 'skipped')
+    if: >-
+      !cancelled()
+      && needs.build-macos.result == 'success'
+      && needs.build-windows.result == 'success'
+      && (needs.sign-windows.result == 'success' || needs.sign-windows.result == 'skipped')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -293,7 +293,14 @@ jobs:
   # --------------------------------------------------------------------------
   release:
     needs: [setup, provenance]
-    if: needs.setup.outputs.is_release == 'true'
+    # sign-windows is skipped when unconfigured; that skip propagates through
+    # the graph, so - like provenance - this job must guard explicitly rather
+    # than rely on the implicit success() gate.
+    if: >-
+      !cancelled()
+      && needs.setup.result == 'success'
+      && needs.provenance.result == 'success'
+      && needs.setup.outputs.is_release == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
