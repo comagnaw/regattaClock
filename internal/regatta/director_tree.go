@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 
@@ -18,6 +17,7 @@ import (
 	"github.com/comagnaw/regattaClock/internal/persona/store"
 	"github.com/comagnaw/regattaClock/internal/text"
 	"github.com/comagnaw/regattaClock/internal/timesync"
+	"github.com/comagnaw/regattaClock/internal/uitheme"
 	"github.com/comagnaw/regattaClock/internal/watcher"
 )
 
@@ -292,16 +292,10 @@ func (r *Regatta) staleTicker(stop <-chan struct{}) {
 }
 
 // bannerRoot - the one styling path for every notice strip in the race-tree
-// header (dismissibleBanner, actionBanner, the timer schedule banner): an amber
-// caution fill with the light palette forced over the inner widgets, so the
-// label and buttons read dark on the tint on both app themes. Routing every
-// banner through here keeps them from drifting apart cosmetically. Returned
-// hidden, like the strips it wraps.
+// header (dismissibleBanner, actionBanner, the timer schedule banner): the
+// shared amber caution strip, returned hidden like the strips it wraps.
 func bannerRoot(inner fyne.CanvasObject) *fyne.Container {
-	root := container.NewStack(
-		canvas.NewRectangle(bannerAmber),
-		container.NewThemeOverride(inner, bannerTintTheme),
-	)
+	root := uitheme.CautionStrip(inner)
 	root.Hide()
 	return root
 }

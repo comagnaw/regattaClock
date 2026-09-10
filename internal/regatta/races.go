@@ -1,8 +1,6 @@
 package regatta
 
 import (
-	"image/color"
-
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
@@ -12,6 +10,7 @@ import (
 	"github.com/comagnaw/regattaClock/internal/common"
 	"github.com/comagnaw/regattaClock/internal/persona"
 	"github.com/comagnaw/regattaClock/internal/text"
+	"github.com/comagnaw/regattaClock/internal/uitheme"
 )
 
 func (r *Regatta) showRaceTree() {
@@ -27,7 +26,7 @@ func (r *Regatta) showRaceTree() {
 			layout.NewCustomPaddedLayout(viewMargin, 0, 0, 0),
 			container.NewCenter(banner(treeWordmarkWidth, treeWordmarkHeight)),
 		),
-		fullBleed(canvasRule(treeRuleThickness, theme.ColorNameForeground)),
+		uitheme.FullBleed(uitheme.Rule(treeRuleThickness, theme.ColorNameForeground)),
 		r.treeTitle(),
 	)
 	// Every notice banner sits above the column header, so it never pushes into
@@ -39,7 +38,7 @@ func (r *Regatta) showRaceTree() {
 	}
 	r.staleLaneLegend = newDismissibleBanner()
 	header.Add(r.staleLaneLegend.root)
-	header.Add(r.headerBand(r.raceListHeader()))
+	header.Add(uitheme.AccentBand(r.raceListHeader(), headerBandVPad))
 
 	// Set the window content
 	body := r.raceListBody()
@@ -62,11 +61,7 @@ func (r *Regatta) showRaceTree() {
 // appearance and can disagree; they are re-applied on every build so a theme
 // switch followed by a navigation picks up the change.
 func (r *Regatta) treeTitle() *fyne.Container {
-	white := color.NRGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xff}
-	card, ink := white, brandNavy
-	if r.themeVariant == theme.VariantLight {
-		card, ink = brandNavy, white
-	}
+	card, ink := uitheme.ReverseCardColors(r.themeVariant)
 	for _, t := range []*canvas.Text{r.title, r.subtitle, r.date, r.persona} {
 		t.Color = ink
 	}
@@ -81,46 +76,7 @@ func (r *Regatta) treeTitle() *fyne.Container {
 	)
 	panel := container.NewStack(canvas.NewRectangle(card), body)
 
-	return fullBleed(panel)
-}
-
-// canvasRule - a full-width horizontal rule h pixels tall in a theme surface
-// colour, heavier than widget.NewSeparator()'s 1px hairline.
-func canvasRule(h float32, name fyne.ThemeColorName) fyne.CanvasObject {
-	rule := canvas.NewRectangle(themeColor(name))
-	rule.SetMinSize(fyne.NewSize(0, h))
-
-	return rule
-}
-
-// fullBleed - stretch o out to the window edges. The window canvas insets all
-// content by theme.Padding() on every side (glCanvas is created padded), so a
-// coloured band otherwise stops a few pixels short and leaks the window colour
-// down each edge; a matching negative horizontal margin cancels that.
-func fullBleed(o fyne.CanvasObject) *fyne.Container {
-	pad := theme.Padding()
-	return container.New(layout.NewCustomPaddedLayout(0, 0, -pad, -pad), o)
-}
-
-// headerBandTheme forces the dark palette for the column-header labels so they
-// render light on the blue band regardless of the app's theme choice (a
-// ThemeOverride re-themes widgets, which the labels are).
-var headerBandTheme fyne.Theme = &colorTheme{Theme: theme.DefaultTheme(), variant: theme.VariantDark}
-
-// headerBand - put the race-list column-header row on a solid accent band so it
-// reads as a table head between the details card and the scrolling rows, with
-// real contrast against the window in both themes. The band bleeds to the window
-// edges; the row inside is re-inset by theme.Padding() so its columns still line
-// up exactly with the (non-bled) data rows below.
-func (r *Regatta) headerBand(row fyne.CanvasObject) fyne.CanvasObject {
-	pad := theme.Padding()
-	return fullBleed(container.NewStack(
-		canvas.NewRectangle(logoWaterBlue),
-		container.New(
-			layout.NewCustomPaddedLayout(headerBandVPad, headerBandVPad, pad, pad),
-			container.NewThemeOverride(row, headerBandTheme),
-		),
-	))
+	return uitheme.FullBleed(panel)
 }
 
 // raceListHeader is the bold column-header row above the race list. It uses the
