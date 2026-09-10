@@ -31,14 +31,16 @@ cloud-synced folder — and each runs regattaClock as a single **persona**:
 ![Race tree](docs/img/race-tree.png)
 
 - **Regatta Director** — sets up the shared regatta folder, imports and owns the
-  race schedule, watches every team's live progress, and exports lane images. Does
-  not time races.
+  race schedule, watches the primary team's live progress, and exports lane
+  images. Does not time races.
 - **Start Timer** — records each race's start time. Runs as a primary operator
   plus an independent **secondary** operator as a backup.
 - **Finish Timer** — runs the finish-line clock and enters the referee's winning
   time and the order-of-finish. The **primary** Finish Timer's result becomes the
   official result on **Referee Approval**; the **secondary** Finish Timer keeps an
-  unapproved backup used for reconciliation.
+  unapproved backup. The primary Finish Timer can open a read-only **Compare
+  Secondary** window showing the secondary team's result for the same race side
+  by side, and reconcile any difference into its own result.
 
 Every persona reads the one shared schedule and writes only its own file, so the
 teams never overwrite each other's work. Additional personas — for media and
@@ -58,6 +60,11 @@ lane number per place. Every captured detail — the splits, the winning time, a
 the order-of-finish — stays editable by the Finish Timer after the clock has
 stopped, so the results can be corrected against feedback from the course before
 the race is reviewed, approved, and published as an official result.
+
+The primary Finish Timer can also open **Compare Secondary** — an independent,
+read-only window rendering the secondary team's committed result for the same
+race in the same layout, so the two can be checked side by side and any
+difference re-keyed into the primary result.
 
 ![Finish-line clock](docs/img/finish-line-clock.gif)
 

@@ -36,7 +36,7 @@ So the log field is explicitly the persona **id**, matching `Definition.ID`, wit
 **Rules:**
 
 - **INFO** — normal operational events: button clicks, NTP measure success, watcher content changes, successful hydrate/save, persona challenge pass, directory confirmed.
-- **WARN** — recoverable problems worth noticing: NTP \|offset\| over threshold, source=`none`, stale share, conflict-copy detected, secondary-sourced fallback on the RD tree.
+- **WARN** — recoverable problems worth noticing: NTP \|offset\| over threshold, source=`none`, stale share, conflict-copy detected, a peer file that failed to parse or belongs to another regatta and was ignored.
 - **ERROR** — failures that today already surface to the user or abort an operation: JSON parse failure, atomic write failure, Excel load failure, directory create failure, challenge/load errors that show a dialog. If the UI shows an error, the log line for that path should be `ERROR` with the same underlying `err`.
 - **DEBUG** — only when Logging **and** Debug are on: poll heartbeats / periodic watcher stats, verbose timesync internals, etc. Never emit DEBUG from hot paths when Debug is off (the handler would drop them, but skipping the call avoids work).
 
