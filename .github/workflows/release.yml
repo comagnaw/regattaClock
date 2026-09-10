@@ -93,7 +93,7 @@ jobs:
           rm -rf regattaClock-intel.app regattaClock-arm.app
           hdiutil create -volname "Regatta Clock" -srcfolder regattaClock.app -ov -format UDZO \
             "dist/regattaClock-${VER}-macos-universal.dmg"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dist-macos-dmg
           path: dist/*.dmg
@@ -117,9 +117,6 @@ jobs:
         run: |
           choco install mingw -y --no-progress
           "C:\ProgramData\mingw64\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-      - name: Install Fyne
-        shell: bash
-        run: go install fyne.io/tools/cmd/fyne@latest
       - name: Build regattaClock.exe
         shell: bash
         env:
@@ -132,9 +129,37 @@ jobs:
           APP_VER='${{ needs.setup.outputs.app_version }}'
           BUILT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           REPO_URL='${{ github.server_url }}/${{ github.repository }}'
-          export GOFLAGS="-ldflags=-X=${LDPKG}.Version=${VER} -ldflags=-X=${LDPKG}.BuildCommit=${{ github.sha }} -ldflags=-X=${LDPKG}.BuildDate=${BUILT} -ldflags=-X=${LDPKG}.BuildBranch=${{ github.ref_name }} -ldflags=-X=${LDPKG}.BuildUser=github-actions -ldflags=-X=${LDPKG}.Project=regattaClock -ldflags=-X=${LDPKG}.ExeName=regattaClock -ldflags=-X=${LDPKG}.RepoURL=${REPO_URL} -ldflags=-X=${LDPKG}.BuildCount=0 -ldflags=-X=${LDPKG}.BuildDirty=false"
-          fyne package -os windows -app-id com.github.comagnaw.regattaClock -app-version "${APP_VER}" -release -src ./cmd/regattaClock/
-          test -f regattaClock.exe
+
+          # A plain `go build` - not `fyne package` - because fyne's Windows
+          # packaging does a second build to embed the .syso and, in doing so,
+          # consumes GOFLAGS and drops our -X stamp. Instead generate the
+          # VERSIONINFO + icon .syso ourselves (go-winres) and let `go build`
+          # auto-link it from the main package dir.
+          go run github.com/tc-hib/go-winres@v0.3.3 simply \
+            --arch amd64 --out rsrc \
+            --product-name regattaClock \
+            --product-version "${APP_VER}.0" \
+            --file-version "${APP_VER}.0" \
+            --file-description regattaClock \
+            --original-filename regattaClock.exe \
+            --manifest gui \
+            --icon cmd/regattaClock/Icon.png
+          mv rsrc_windows_amd64.syso cmd/regattaClock/
+
+          # Match `fyne package -release`: -s -w, -H=windowsgui (no console
+          # window), -trimpath, -tags release. One -X per internal/version symbol.
+          LDFLAGS='-s -w -H=windowsgui'
+          for kv in \
+            "Version=${VER}" "BuildCommit=${{ github.sha }}" "BuildDate=${BUILT}" \
+            "BuildBranch=${{ github.ref_name }}" "BuildUser=github-actions" \
+            "Project=regattaClock" "ExeName=regattaClock" "RepoURL=${REPO_URL}" \
+            "BuildCount=0" "BuildDirty=false" ; do
+            LDFLAGS="${LDFLAGS} -X=${LDPKG}.${kv}"
+          done
+          go build -trimpath -tags release -ldflags "${LDFLAGS}" -o regattaClock.exe ./cmd/regattaClock
+          rm -f cmd/regattaClock/rsrc_windows_amd64.syso
+          file regattaClock.exe
+          ls -la regattaClock.exe
       - name: Package portable zip + installer
         shell: pwsh
         run: |
@@ -144,22 +169,25 @@ jobs:
           New-Item -ItemType Directory -Force -Path dist | Out-Null
           Copy-Item packaging/windows/README.txt .
           Compress-Archive -Path regattaClock.exe, README.txt -DestinationPath "dist/regattaClock-$ver-windows-amd64-portable.zip" -Force
-          choco install innosetup -y --no-progress
+          # Inno Setup ships on windows-latest. Its [Files] Source: is resolved
+          # relative to the .iss, so pass the exe as an absolute path.
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
-          & $iscc /Q /O"dist" "/DMyAppVersion=$ver" "/DMyAppVersionNumeric=$appVer" "/DMySrcExe=regattaClock.exe" packaging/windows/regattaClock.iss
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress }
+          $exe = (Resolve-Path regattaClock.exe).Path
+          & $iscc /Q "/O$PWD\dist" "/DMyAppVersion=$ver" "/DMyAppVersionNumeric=$appVer" "/DMySrcExe=$exe" packaging/windows/regattaClock.iss
           Get-ChildItem dist
       - name: Upload bare exe (for the signing job)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: win-exe-unsigned
           path: regattaClock.exe
           if-no-files-found: error
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dist-windows-portable
           path: dist/*-portable.zip
           if-no-files-found: error
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dist-windows-setup
           path: dist/*-setup.exe
@@ -177,7 +205,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: win-exe-unsigned
       - name: Sign exe, rebuild + sign installer
@@ -199,18 +227,19 @@ jobs:
           Copy-Item packaging/windows/README.txt .
           Compress-Archive -Path regattaClock.exe, README.txt -DestinationPath "dist/regattaClock-$ver-windows-amd64-portable.zip" -Force
 
-          choco install innosetup -y --no-progress
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
-          & $iscc /Q /O"dist" "/DMyAppVersion=$ver" "/DMyAppVersionNumeric=$appVer" "/DMySrcExe=regattaClock.exe" packaging/windows/regattaClock.iss
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress }
+          $exe = (Resolve-Path regattaClock.exe).Path
+          & $iscc /Q "/O$PWD\dist" "/DMyAppVersion=$ver" "/DMyAppVersionNumeric=$appVer" "/DMySrcExe=$exe" packaging/windows/regattaClock.iss
           & $signtool sign /f signing.pfx /p $env:PFX_PASSWORD /fd SHA256 /tr $tsa /td SHA256 (Get-Item dist/*-setup.exe).FullName
 
           Remove-Item signing.pfx
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dist-windows-portable
           path: dist/*-portable.zip
           overwrite: true
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dist-windows-setup
           path: dist/*-setup.exe
@@ -234,7 +263,7 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: dist-*
           merge-multiple: true
@@ -245,13 +274,13 @@ jobs:
           ls -la
           sha256sum * > SHA256SUMS
           cat SHA256SUMS
-      - uses: actions/attest-build-provenance@v2
+      - uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
             dist/*.dmg
             dist/*.zip
             dist/*.exe
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/*
@@ -269,7 +298,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist
