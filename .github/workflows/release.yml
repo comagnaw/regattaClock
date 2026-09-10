@@ -152,9 +152,12 @@ jobs:
           New-Item -ItemType Directory -Force -Path dist | Out-Null
           Copy-Item packaging/windows/README.txt .
           Compress-Archive -Path regattaClock.exe, README.txt -DestinationPath "dist/regattaClock-$ver-windows-amd64-portable.zip" -Force
-          choco install innosetup -y --no-progress
+          # Inno Setup ships on windows-latest. Its [Files] Source: is resolved
+          # relative to the .iss, so pass the exe as an absolute path.
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
-          & $iscc /Q /O"dist" "/DMyAppVersion=$ver" "/DMyAppVersionNumeric=$appVer" "/DMySrcExe=regattaClock.exe" packaging/windows/regattaClock.iss
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress }
+          $exe = (Resolve-Path regattaClock.exe).Path
+          & $iscc /Q "/O$PWD\dist" "/DMyAppVersion=$ver" "/DMyAppVersionNumeric=$appVer" "/DMySrcExe=$exe" packaging/windows/regattaClock.iss
           Get-ChildItem dist
       - name: Upload bare exe (for the signing job)
         uses: actions/upload-artifact@v7
@@ -207,9 +210,10 @@ jobs:
           Copy-Item packaging/windows/README.txt .
           Compress-Archive -Path regattaClock.exe, README.txt -DestinationPath "dist/regattaClock-$ver-windows-amd64-portable.zip" -Force
 
-          choco install innosetup -y --no-progress
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
-          & $iscc /Q /O"dist" "/DMyAppVersion=$ver" "/DMyAppVersionNumeric=$appVer" "/DMySrcExe=regattaClock.exe" packaging/windows/regattaClock.iss
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress }
+          $exe = (Resolve-Path regattaClock.exe).Path
+          & $iscc /Q "/O$PWD\dist" "/DMyAppVersion=$ver" "/DMyAppVersionNumeric=$appVer" "/DMySrcExe=$exe" packaging/windows/regattaClock.iss
           & $signtool sign /f signing.pfx /p $env:PFX_PASSWORD /fd SHA256 /tr $tsa /td SHA256 (Get-Item dist/*-setup.exe).FullName
 
           Remove-Item signing.pfx
