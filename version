@@ -3,4 +3,4 @@
 # Single source of truth for the release version string. Bumped ONLY in the
 # develop -> main promotion PR; the git tag is "v" + this value. See AGENTS.md
 # "Releases". Unquoted so `include version` in the Makefile yields the bare string.
-export VERSION=0.5.1-alpha
+export VERSION=0.5.0-alpha
