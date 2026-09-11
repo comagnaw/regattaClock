@@ -84,9 +84,19 @@ uncertain is left for the report's human reader to judge, the same
 "read-only, human reviews and decides" pattern as
 [reconciliation.md](../../docs/features/personas/reconciliation.md).
 
+An entry does not have to carry its organization's name inline — a real
+capture had none at all, only an id reference. `entriesFromDir` in
+[`rcmodel.go`](rcmodel.go) resolves that id against every `organizations.json`
+/ org-shaped object found across `--rc-dir` (see `asOrg`); an id that never
+resolves still shows up (as "Unknown organization (RegattaCentral id …)")
+rather than silently vanishing. `rcprobe walk` fetches `organizations.json`
+automatically now, so a `--rc-dir` populated by `walk` already has what this
+join needs.
+
 ## Troubleshooting: "found 0 RegattaCentral entries"
 
-Two independent, non-exclusive causes:
+Three independent, non-exclusive causes, roughly in the order they turned out
+to matter on the first real regatta tried:
 
 1. **The capture is missing per-event entries.** It is unconfirmed whether
    `/bulk` nests full entries per event or just event/regatta metadata. Run:
@@ -95,14 +105,22 @@ Two independent, non-exclusive causes:
    go run ./cmd/rcprobe walk <regattaID> --out internal/regattacentral/testdata
    ```
 
-   which pulls `/bulk` and then follows it with a per-event entries call for
-   every event id it finds — one command instead of hand-running `entries
-   <eventID>` per event. Re-run `reconcile` against the same `--rc-dir`
-   afterward.
-2. **`rcmodel.go`'s field-name guesses don't match reality.** Run `shape`
-   (above) against `bulk.json` and an `entries-<id>.json` and share the
-   (PII-free) output so `asEntry` / `firstString` / `firstOrgName`'s candidate
-   key lists can be widened.
+   which pulls `/bulk`, `organizations.json`, and then follows bulk with a
+   per-event entries call for every event id it finds — one command instead of
+   hand-running `entries <eventID>` per event. Re-run `reconcile` against the
+   same `--rc-dir` afterward.
+2. **An entry references its organization by id, not by name.** Confirmed on a
+   real capture (grep the entries file yourself - no school/org name strings
+   at all). `entriesFromDir` resolves this automatically as long as
+   `organizations.json` is in the same `--rc-dir` (see above); if `reconcile`
+   still shows entries with an "Unknown organization" label, the id-field name
+   or the organizations shape doesn't match `asEntry`'s / `asOrg`'s guesses —
+   run `shape` (below) against both `entries-<id>.json` and
+   `organizations.json`.
+3. **`rcmodel.go`'s field-name guesses don't match reality.** Run `shape`
+   (above) against `bulk.json`, an `entries-<id>.json`, and `organizations.json`
+   and share the (PII-free) output so `asEntry` / `asOrg` / `firstString` /
+   `firstOrgName`'s candidate key lists can be widened.
 
 ## Not yet built
 

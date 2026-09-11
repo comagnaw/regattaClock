@@ -22,6 +22,13 @@ type rcEntry struct {
 	// unconfirmed whether RC ids are numeric or UUIDs.
 	ID string
 
+	// OrgID is set when the entry references its organization by id rather
+	// than carrying the name inline (confirmed the real shape: a real /bulk +
+	// entries capture had no org name strings at all). Resolved against an
+	// rcOrg index built from every file in the same --rc-dir - see
+	// entriesFromDir.
+	OrgID string
+
 	OrgName      string
 	OrgShortName string
 	OrgAbbrev    string
@@ -32,13 +39,23 @@ type rcEntry struct {
 	Label string
 }
 
+// rcOrg is what an rcEntry's OrgID resolves against - a RegattaCentral
+// organization (club/school). Built from a dedicated organizations listing
+// (rcprobe orgs / walk), not from an entry.
+type rcOrg struct {
+	ID        string
+	Name      string
+	ShortName string
+	Abbrev    string
+}
+
 // entriesFromDir reads every *.json file directly inside dir - typically an
-// rcprobe --out capture directory, e.g. bulk.json plus whatever
-// entries-<eventID>.json files `rcprobe walk` wrote - and merges the rcEntry
-// values bulkEntries finds in each. Files are read in sorted-name order and
-// the first occurrence of an ID wins, so "bulk.json" (sorted before
-// "entries-*.json") is treated as the more authoritative source when the same
-// entry appears in more than one capture.
+// rcprobe --out capture directory: bulk.json, organizations.json, and
+// whatever entries-<eventID>.json files `rcprobe walk` wrote - merges the
+// rcEntry values bulkEntries finds in each (first occurrence of an ID wins, in
+// sorted-filename order, so "bulk.json" sorts ahead of "entries-*.json" and is
+// treated as the more authoritative source), and resolves any entry that only
+// has an OrgID against an rcOrg index built the same way from every file.
 func entriesFromDir(dir string) ([]rcEntry, error) {
 	files, err := os.ReadDir(dir)
 	if err != nil {
@@ -53,46 +70,83 @@ func entriesFromDir(dir string) ([]rcEntry, error) {
 	}
 	sort.Strings(names)
 
-	seen := map[string]bool{}
+	seenEntry := map[string]bool{}
+	orgs := map[string]rcOrg{}
 	var merged []rcEntry
+
 	for _, name := range names {
 		path := filepath.Join(dir, name)
 		raw, err := os.ReadFile(path)
 		if err != nil {
 			return nil, fmt.Errorf("read %q: %w", path, err)
 		}
+
 		found, err := bulkEntries(raw)
 		if err != nil {
 			return nil, fmt.Errorf("%q: %w", path, err)
 		}
 		for _, e := range found {
-			if seen[e.ID] {
+			if seenEntry[e.ID] {
 				continue
 			}
-			seen[e.ID] = true
+			seenEntry[e.ID] = true
 			merged = append(merged, e)
+		}
+
+		foundOrgs, err := bulkOrgs(raw)
+		if err != nil {
+			return nil, fmt.Errorf("%q: %w", path, err)
+		}
+		for id, o := range foundOrgs {
+			if _, ok := orgs[id]; !ok {
+				orgs[id] = o
+			}
+		}
+	}
+
+	for i := range merged {
+		if merged[i].OrgName == "" && merged[i].OrgID != "" {
+			if o, ok := orgs[merged[i].OrgID]; ok {
+				merged[i].OrgName = o.Name
+				merged[i].OrgShortName = o.ShortName
+				merged[i].OrgAbbrev = o.Abbrev
+			}
 		}
 	}
 	return merged, nil
 }
 
-// bulkEntries extracts a flat list of rcEntry from a raw /bulk response.
+// bulkEntries extracts a flat list of rcEntry from a raw /bulk (or similar)
+// response.
 //
 // PROVISIONAL: rather than assume one fixed path (e.g.
 // "regattas[0].events[].entries[]"), this walks the whole document looking
 // for objects that look like an Entry - something with an id-like field and
-// an organization-name-like field - using guessed field names from the
-// Cookbook's entity list and the LaneConstructor example. It is expected to
-// need correction once the real shape is known: run
-// `rcreconcile shape --bulk-file <path>` and use its (PII-free) key-path
-// output to fix the field-name candidates below.
+// either an inline organization-name-like field or an organization-id
+// reference - using guessed field names from the Cookbook's entity list and
+// the LaneConstructor example. It is expected to need correction once the
+// real shape is known: run `rcreconcile shape --bulk-file <path>` and use its
+// (PII-free) key-path output to fix the field-name candidates below.
 func bulkEntries(raw json.RawMessage) ([]rcEntry, error) {
 	var v any
 	if err := json.Unmarshal(raw, &v); err != nil {
-		return nil, fmt.Errorf("decode bulk response: %w", err)
+		return nil, fmt.Errorf("decode response: %w", err)
 	}
 	var found []rcEntry
 	walkForEntries(v, &found)
+	return found, nil
+}
+
+// bulkOrgs extracts an id -> rcOrg index from a raw response, typically a
+// dedicated organizations listing (rcprobe orgs / walk's organizations.json)
+// but harmless to run against any capture - see asOrg.
+func bulkOrgs(raw json.RawMessage) (map[string]rcOrg, error) {
+	var v any
+	if err := json.Unmarshal(raw, &v); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	found := map[string]rcOrg{}
+	walkForOrgs(v, found)
 	return found, nil
 }
 
@@ -115,22 +169,67 @@ func walkForEntries(v any, out *[]rcEntry) {
 	}
 }
 
+func walkForOrgs(v any, out map[string]rcOrg) {
+	switch t := v.(type) {
+	case map[string]any:
+		if o, ok := asOrg(t); ok {
+			out[o.ID] = o
+			return
+		}
+		for _, child := range t {
+			walkForOrgs(child, out)
+		}
+	case []any:
+		for _, child := range t {
+			walkForOrgs(child, out)
+		}
+	}
+}
+
 // asEntry heuristically recognizes an Entry-shaped object. Field-name
 // candidates are PROVISIONAL guesses; extend the candidate lists once
-// `rcreconcile shape` shows the real names.
+// `rcreconcile shape` shows the real names. An entry needs an id and either an
+// inline organization name or a reference to one by id - a real capture had
+// no inline org name at all, only an id reference resolved separately (see
+// entriesFromDir).
 func asEntry(m map[string]any) (rcEntry, bool) {
 	id := firstString(m, "id", "entryId", "crewId")
+	if id == "" {
+		return rcEntry{}, false
+	}
 	org := firstOrgName(m)
-	if id == "" || org == "" {
+	orgID := firstString(m, "organizationId", "orgId", "clubId", "teamId", "organisationId")
+	if org == "" && orgID == "" {
 		return rcEntry{}, false
 	}
 	return rcEntry{
 		ID:           id,
+		OrgID:        orgID,
 		OrgName:      org,
 		OrgShortName: firstString(m, "shortName", "orgShortName", "organizationShortName"),
 		OrgAbbrev:    firstString(m, "abbreviation", "orgAbbreviation", "organizationAbbreviation"),
 		BoatClass:    firstString(m, "boatClass", "equipmentType", "eventName", "className"),
 		Label:        firstString(m, "label", "displayNumber", "boatLabel", "suffix"),
+	}, true
+}
+
+// asOrg heuristically recognizes a plain Organization object: an id-like
+// field plus its own name-like field. This is deliberately simpler than
+// asEntry's org-name check (which looks for orgName/organizationName/a nested
+// .organization.name - a reference shape) so the two do not fire on the same
+// object: a plain organization's own name field is expected to just be
+// "name". PROVISIONAL; extend once `rcreconcile shape` shows the real names.
+func asOrg(m map[string]any) (rcOrg, bool) {
+	id := firstString(m, "id", "organizationId", "orgId")
+	name := firstString(m, "name")
+	if id == "" || name == "" {
+		return rcOrg{}, false
+	}
+	return rcOrg{
+		ID:        id,
+		Name:      name,
+		ShortName: firstString(m, "shortName"),
+		Abbrev:    firstString(m, "abbreviation"),
 	}, true
 }
 

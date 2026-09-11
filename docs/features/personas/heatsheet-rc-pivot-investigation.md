@@ -48,20 +48,23 @@ served by the current manual process.
 Full detail in [`cmd/rcprobe`'s README](../../../cmd/rcprobe/README.md) and
 [`cmd/rcreconcile`'s README](../../../cmd/rcreconcile/README.md). Summary:
 
-1. **`rcprobe walk <regattaID> --out DIR`** pulls `/bulk`, then structurally
-   discovers event ids in that response (no fixed path assumed — it was
-   unconfirmed whether `/bulk` nests full entries per event) and calls
-   `entries <eventID>` for each one it finds, saving everything into `DIR`.
-   One command instead of hand-running `entries` per event.
+1. **`rcprobe walk <regattaID> --out DIR`** pulls `/bulk` and
+   `organizations.json`, then structurally discovers event ids in the bulk
+   response (no fixed path assumed — it was unconfirmed whether `/bulk` nests
+   full entries per event) and calls `entries <eventID>` for each one it
+   finds, saving everything into `DIR`. One command instead of hand-running
+   `entries` per event and remembering `orgs` separately.
 2. **`rcreconcile shape`** walks a captured JSON file and prints its key-path
    structure (field names + JSON types, never values) — how the real schema
    gets confirmed without exposing PII.
 3. **`rcreconcile reconcile --rc-dir DIR`** compares the xlsm's lineup (via the
    existing `reader.ReadExcelFile` — no new Excel parsing) against every RC
    entry found across all the JSON files in `DIR` (i.e., everything `walk`
-   captured), and writes a plain-language HTML report: which boats matched
-   RegattaCentral automatically, which need a human's judgment, and which RC
-   entries the lineup never used (possible scratches).
+   captured) — resolving an entry that only references its organization by id
+   against `organizations.json` in the same directory — and writes a
+   plain-language HTML report: which boats matched RegattaCentral
+   automatically, which need a human's judgment, and which RC entries the
+   lineup never used (possible scratches).
 4. **Upload preview** (not yet built): a `--dry-run` rendering of what a
    heat-sheet-and-results "publish" would look like, built from the xlsm and
    `reconcile`'s matches, using the already-typed, already-tested
@@ -83,15 +86,21 @@ _(filled in as the investigation proceeds)_
 - **First real run found 0 entries.** The author's real `bulk.json` (984 KB)
   and real xlsm produced 0 recognized RegattaCentral entries and 104/104
   unmatched lanes — the designed degrade-gracefully path did its job (no
-  crash, no false match), but it means the real schema still isn't confirmed.
-  `rcprobe walk` (above) and a corrected `bulkEntries` are the two-pronged fix;
-  next step is running `walk`, then sharing `rcreconcile shape` output for both
-  `bulk.json` and an `entries-<id>.json`.
-- The real `/bulk` / `entries` schema — confirm with `rcreconcile shape`
-  against the author's local capture; correct `bulkEntries` in
-  `cmd/rcreconcile/rcmodel.go` accordingly. This is also what Milestone 4 of
-  the swimlane promotes into `internal/regattacentral`'s read model, once
-  confirmed.
+  crash, no false match), but it meant the real schema still wasn't confirmed.
+- **Second real run (after `rcprobe walk`): event ids were found, entries were
+  not.** `walk` correctly discovered real event ids in `bulk.json` and
+  captured `entries-<id>.json` for each, but `reconcile` still found 0
+  entries. The author inspected `entries-4.json` directly and confirmed **no
+  school/org name string appears anywhere in it** — an entry references its
+  organization by id only. `asEntry` now accepts an id-only reference and
+  `entriesFromDir` resolves it against `organizations.json` (which `walk` now
+  fetches automatically); not yet confirmed against the real data whether the
+  guessed reference field name (`organizationId` et al.) is right.
+- The real `/bulk` / `entries` / `organizations` schema — confirm with
+  `rcreconcile shape` against the author's local capture; correct
+  `bulkEntries` / `asEntry` / `asOrg` in `cmd/rcreconcile/rcmodel.go`
+  accordingly. This is also what Milestone 4 of the swimlane promotes into
+  `internal/regattacentral`'s read model, once confirmed.
 - Whether the "HS"/"MS"/"JV"/"RC"/"BC" abbreviation-expansion heuristic in
   `cmd/rcreconcile/match.go` needs to grow (or shrink) once tested against real
   organization names.

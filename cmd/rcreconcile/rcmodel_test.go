@@ -48,6 +48,49 @@ func TestEntriesFromDirMergesAndDedupes(t *testing.T) {
 	}
 }
 
+func TestEntriesFromDirResolvesOrgIDAgainstOrganizationsFile(t *testing.T) {
+	dir := t.TempDir()
+	// A real capture had no inline org name at all - only an id reference.
+	writeJSON(t, dir, "entries-4.json", `[
+		{"id":"1","organizationId":42},
+		{"id":"2","organizationId":99}
+	]`)
+	writeJSON(t, dir, "organizations.json", `[
+		{"id":42,"name":"Springfield High School","abbreviation":"SHS"}
+	]`)
+
+	entries, err := entriesFromDir(dir)
+	if err != nil {
+		t.Fatalf("entriesFromDir: %v", err)
+	}
+	byID := map[string]rcEntry{}
+	for _, e := range entries {
+		byID[e.ID] = e
+	}
+	if len(byID) != 2 {
+		t.Fatalf("got %d entries, want 2: %+v", len(byID), entries)
+	}
+	if got := byID["1"]; got.OrgName != "Springfield High School" || got.OrgAbbrev != "SHS" {
+		t.Errorf("entry 1 = %+v, want resolved against organizations.json", got)
+	}
+	if got := byID["2"]; got.OrgName != "" || got.OrgID != "99" {
+		t.Errorf("entry 2 = %+v, want OrgID kept but OrgName still blank (id 99 has no match)", got)
+	}
+}
+
+func TestAsOrgDoesNotMatchAReferenceShapedObject(t *testing.T) {
+	// An entry that references its org by id must not itself be picked up as
+	// an rcOrg - asOrg requires a bare "name" field, which a reference shape
+	// ("organizationId": 42) does not have.
+	if _, ok := asOrg(map[string]any{"id": "1", "organizationId": float64(42)}); ok {
+		t.Error("a reference-only object must not be recognized as an rcOrg")
+	}
+	org, ok := asOrg(map[string]any{"id": float64(42), "name": "Springfield High School"})
+	if !ok || org.ID != "42" || org.Name != "Springfield High School" {
+		t.Errorf("asOrg = %+v, %v; want a recognized org", org, ok)
+	}
+}
+
 func TestEntriesFromDirMissingDir(t *testing.T) {
 	if _, err := entriesFromDir(filepath.Join(t.TempDir(), "nope")); err == nil {
 		t.Fatal("expected an error for a missing directory")

@@ -84,9 +84,23 @@ func buildReport(regattaName string, matches []laneMatch, unused []rcEntry) repo
 		data.Races = append(data.Races, *byRace[n])
 	}
 	for _, e := range unused {
-		data.Unused = append(data.Unused, e.OrgName)
+		data.Unused = append(data.Unused, displayOrgName(e))
 	}
 	return data
+}
+
+// displayOrgName is what the report shows for an rcEntry's organization. An
+// entry whose OrgID never resolved against the organizations index (see
+// entriesFromDir) has a blank OrgName; show its RegattaCentral id instead of a
+// blank bullet, so the report stays legible rather than silently dropping it.
+func displayOrgName(e rcEntry) string {
+	if e.OrgName != "" {
+		return e.OrgName
+	}
+	if e.OrgID != "" {
+		return fmt.Sprintf("Unknown organization (RegattaCentral id %s)", e.OrgID)
+	}
+	return "Unknown organization"
 }
 
 func writeReport(path string, data reportData) error {

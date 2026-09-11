@@ -63,6 +63,7 @@ func TestRunWalk(t *testing.T) {
 	bulk := `{"regatta":{"id":"R1"},"events":[{"id":42,"name":"Event A"},{"id":"77","name":"Event B"}]}`
 	srv := newRecordingServer(t, map[string]string{
 		"/v4.0/regattas/R1/bulk":              bulk,
+		"/v4.0/regattas/R1/organizations":     `[{"id":1,"name":"Springfield High School"}]`,
 		"/v4.0/regattas/R1/events/42/entries": `[{"id":1}]`,
 		"/v4.0/regattas/R1/events/77/entries": `[{"id":2}]`,
 	})
@@ -73,10 +74,31 @@ func TestRunWalk(t *testing.T) {
 		t.Fatalf("runWalk: %v", err)
 	}
 
-	for _, name := range []string{"bulk.json", "entries-42.json", "entries-77.json"} {
+	for _, name := range []string{"bulk.json", "organizations.json", "entries-42.json", "entries-77.json"} {
 		if _, err := os.Stat(filepath.Join(out, name)); err != nil {
 			t.Errorf("expected %s to be written: %v", name, err)
 		}
+	}
+}
+
+func TestRunWalkContinuesWhenOrganizationsFetchFails(t *testing.T) {
+	// No /organizations stub registered -> 404. walk must still succeed and
+	// still write bulk.json and the entries.
+	srv := newRecordingServer(t, map[string]string{
+		"/v4.0/regattas/R1/bulk":             `{"events":[{"id":1}]}`,
+		"/v4.0/regattas/R1/events/1/entries": `[]`,
+	})
+	client := clientAgainst(t, srv.Server)
+	out := t.TempDir()
+
+	if err := runWalk(context.Background(), client, "R1", out); err != nil {
+		t.Fatalf("runWalk should tolerate a failed organizations fetch: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(out, "organizations.json")); err == nil {
+		t.Error("organizations.json should not exist when the fetch failed")
+	}
+	if _, err := os.Stat(filepath.Join(out, "bulk.json")); err != nil {
+		t.Errorf("bulk.json should still be written: %v", err)
 	}
 }
 

@@ -42,6 +42,24 @@ func TestBuildReport(t *testing.T) {
 	}
 }
 
+func TestBuildReportUnresolvedOrgIDGetsAFriendlyLabel(t *testing.T) {
+	unused := []rcEntry{
+		{ID: "9", OrgID: "77"},    // never resolved against organizations.json
+		{ID: "10"},                // no org info at all
+		{ID: "11", OrgName: "Ok"}, // resolved fine
+	}
+	data := buildReport("Test", nil, unused)
+	want := []string{"Unknown organization (RegattaCentral id 77)", "Unknown organization", "Ok"}
+	if len(data.Unused) != len(want) {
+		t.Fatalf("Unused = %v, want %v", data.Unused, want)
+	}
+	for i, w := range want {
+		if data.Unused[i] != w {
+			t.Errorf("Unused[%d] = %q, want %q", i, data.Unused[i], w)
+		}
+	}
+}
+
 func TestBuildReportBlankRegattaName(t *testing.T) {
 	if got := buildReport("   ", nil, nil).RegattaName; got != "This regatta" {
 		t.Errorf("RegattaName = %q, want a friendly fallback", got)

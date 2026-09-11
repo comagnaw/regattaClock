@@ -74,11 +74,15 @@ go run ./cmd/rcprobe --out "$OUT" search-people "<lastname>" 1999-01-01
 or hand-running `entries <eventID>` once per event:
 
 1. Calls `bulk` and saves `bulk.json`, same as the `bulk` command.
-2. Walks that response looking for event ids — structurally, not by a fixed
-   path: any object with an `eventId` field, or an `id` field one level under
-   something named like "events" (see `eventIDsFromBulk` in
+2. Calls `orgs` and saves `organizations.json` (best-effort — a failure here is
+   logged and does not stop the rest). A real capture showed an entry
+   references its organization **by id only**, no inline name at all, which
+   `cmd/rcreconcile` resolves against this file — see its README.
+3. Walks the bulk response looking for event ids — structurally, not by a
+   fixed path: any object with an `eventId` field, or an `id` field one level
+   under something named like "events" (see `eventIDsFromBulk` in
    [`walk.go`](walk.go)).
-3. Calls `entries <eventID>` for every id it found and saves each as
+4. Calls `entries <eventID>` for every id it found and saves each as
    `entries-<eventID>.json` — the same files, and same naming, the individual
    `entries` command would produce.
 

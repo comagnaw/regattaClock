@@ -13,13 +13,17 @@ import (
 	"github.com/comagnaw/regattaClock/internal/regattacentral"
 )
 
-// runWalk is the `walk` command: one call that pulls /bulk and then follows it
-// with a GET .../events/{id}/entries for every event id it can find in that
-// response, saving all of it into outDir. It exists because it is unconfirmed
-// whether /bulk nests full entries per event or just event/regatta metadata
-// (see cmd/rcreconcile's rcmodel.go) - this gets whatever is missing in one
-// command instead of the operator hand-running `entries <eventID>` once per
-// event.
+// runWalk is the `walk` command: one call that pulls /bulk, the organizations
+// listing, and then follows bulk with a GET .../events/{id}/entries for every
+// event id it can find in that response, saving all of it into outDir. It
+// exists because it is unconfirmed whether /bulk nests full entries per event
+// or just event/regatta metadata (see cmd/rcreconcile's rcmodel.go) - this
+// gets whatever is missing in one command instead of the operator
+// hand-running `entries <eventID>` once per event. organizations.json matters
+// because a real capture showed an entry references its organization by id
+// only, with no inline name - cmd/rcreconcile resolves that id against
+// organizations.json, so `walk` fetches it unconditionally rather than
+// leaving the operator to remember a separate `orgs` call.
 func runWalk(ctx context.Context, client *regattacentral.Client, regattaID, outDir string) error {
 	if outDir == "" {
 		return fmt.Errorf("walk: --out is required - it needs somewhere to save bulk.json and each event's entries")
@@ -31,6 +35,14 @@ func runWalk(ctx context.Context, client *regattacentral.Client, regattaID, outD
 	}
 	if err := saveQuiet(outDir, "bulk", raw); err != nil {
 		return fmt.Errorf("walk: save bulk: %w", err)
+	}
+
+	if orgs, err := client.Organizations(ctx, regattaID); err != nil {
+		// Best-effort: some entries may still carry an inline org name, and a
+		// failure here should not block the entries this command exists for.
+		fmt.Fprintf(os.Stderr, "walk: fetch organizations: %v (continuing without it)\n", err)
+	} else if err := saveQuiet(outDir, "organizations", orgs); err != nil {
+		fmt.Fprintf(os.Stderr, "walk: save organizations: %v\n", err)
 	}
 
 	ids, err := eventIDsFromBulk(raw)
