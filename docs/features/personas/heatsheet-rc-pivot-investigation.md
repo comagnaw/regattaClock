@@ -74,11 +74,11 @@ Full detail in [`cmd/rcprobe`'s README](../../../cmd/rcprobe/README.md) and
 
 _(filled in as the investigation proceeds)_
 
-- Match-rate observed on the real regatta: —
-- Common causes of "needs a quick check" / "not found": —
-- Did RegattaCentral already have any `Event`/`Race`/`Lane` data for this
-  regatta (i.e., was the unused heat-sheet capability truly empty)?: —
-- RD / regatta-executive feedback on the report: —
+- **Real matches are happening** as of the fourth real run (after the org-id
+  join, the "St."/"Saint" fix, and event-scoped pools). Exact match-rate,
+  remaining "needs a quick check" / "not found" causes, whether RC already had
+  any `Event`/`Race`/`Lane` data for this regatta, and RD/executive feedback:
+  still to be recorded here.
 - Go / no-go recommendation for a real Phase C/D: —
 
 ## Open items
@@ -94,15 +94,30 @@ _(filled in as the investigation proceeds)_
   school/org name string appears anywhere in it** — an entry references its
   organization by id only. `asEntry` now accepts an id-only reference and
   `entriesFromDir` resolves it against `organizations.json` (which `walk` now
-  fetches automatically); not yet confirmed against the real data whether the
-  guessed reference field name (`organizationId` et al.) is right.
-- The real `/bulk` / `entries` / `organizations` schema — confirm with
-  `rcreconcile shape` against the author's local capture; correct
-  `bulkEntries` / `asEntry` / `asOrg` in `cmd/rcreconcile/rcmodel.go`
-  accordingly. This is also what Milestone 4 of the swimlane promotes into
+  fetches automatically).
+- **Third real run: real matches, plus two quality issues, both confirmed and
+  fixed.** (1) RegattaCentral spells some organizations "St." where the xlsm
+  spells them "Saint" — `commonAbbrevExpansions` (`cmd/rcreconcile/match.go`)
+  now expands both, checked by hand against the two real schools involved so
+  the fix doesn't newly confuse them with each other. (2) Schools entered in
+  more than one boat class showed up as "ambiguous" in _every_ race, not just
+  their own, because an entry's boat class was never reliably inline —
+  confirmed by the author (schools do have boats across multiple events, and
+  some have two boats in the _same_ event too). Fixed by scoping the candidate
+  pool to the RC event whose label matches a race's boat class
+  (`entriesForRace`, using each entry's filename-derived `EventID` and a new
+  `events.json`-built label index, `asEvent`) rather than guessing an inline
+  field, falling back to the old full-pool behavior when no event resolves.
+  Two boats from the _same_ school in the _same_ event are expected to remain
+  "ambiguous" - RegattaCentral's data may not distinguish them at all, and
+  that is the correct, human-reviews-it answer, not a bug.
+- The real `/bulk` / `entries` / `organizations` / `events` schema — confirm
+  with `rcreconcile shape` against the author's local capture; correct
+  `asEntry` / `asOrg` / `asEvent` in `cmd/rcreconcile/rcmodel.go` accordingly.
+  This is also what Milestone 4 of the swimlane promotes into
   `internal/regattacentral`'s read model, once confirmed.
-- Whether the "HS"/"MS"/"JV"/"RC"/"BC" abbreviation-expansion heuristic in
-  `cmd/rcreconcile/match.go` needs to grow (or shrink) once tested against real
-  organization names.
+- Whether the abbreviation-expansion heuristic in `cmd/rcreconcile/match.go`
+  ("HS"/"MS"/"JV"/"RC"/"BC"/"St.") needs to grow (or shrink) once tested
+  against more real organization names.
 - Whether a live `--regatta` pull is worth adding to `rcreconcile`, or the
   offline `--rc-dir` workflow is sufficient.

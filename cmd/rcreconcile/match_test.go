@@ -34,7 +34,7 @@ func TestMatchRaces(t *testing.T) {
 		}),
 	}
 
-	matches, unused := matchRaces(races, entries)
+	matches, unused := matchRaces(races, entries, nil)
 	if len(matches) != 4 {
 		t.Fatalf("matches = %d, want 4", len(matches))
 	}
@@ -72,7 +72,7 @@ func TestMatchRacesAmbiguousWithoutLabel(t *testing.T) {
 			1: {SchoolName: "Springfield HS", AdditionalInfo: ""}, // two candidates, no label to disambiguate
 		}),
 	}
-	matches, _ := matchRaces(races, entries)
+	matches, _ := matchRaces(races, entries, nil)
 	if matches[0].Status != statusAmbiguous || len(matches[0].Candidates) != 2 {
 		t.Fatalf("got %+v, want ambiguous with 2 candidates", matches[0])
 	}
@@ -116,7 +116,86 @@ func TestExtractBoatLabel(t *testing.T) {
 }
 
 func TestNormalize(t *testing.T) {
-	if got := normalize("St. Mary's H.S.!"); got != "stmaryshs" {
-		t.Errorf("normalize = %q, want stmaryshs", got)
+	if got := normalize("St. Mary's H.S.!"); got != "saintmaryshs" {
+		t.Errorf("normalize = %q, want saintmaryshs", got)
+	}
+}
+
+// TestStVsSaintRealSchools is a regression test for two real schools at one
+// regatta: RegattaCentral spells the org "St.", the xlsm spells it "Saint".
+// The fix must resolve both without confusing them with each other - "St.
+// Johns College HS" and "St. John Paul" stay distinguishable after "st"
+// expands to "saint", even though both start "Saint John".
+func TestStVsSaintRealSchools(t *testing.T) {
+	pool := []rcEntry{
+		{ID: "1", OrgName: "St. Johns College HS"},
+		{ID: "2", OrgName: "St. John Paul"},
+	}
+
+	tests := []struct {
+		school   string
+		wantID   string
+		wantOnly bool // true: must match wantID and nothing else
+	}{
+		{"Saint John's", "1", true},
+		{"Saint John Paul", "2", true},
+	}
+	for _, tc := range tests {
+		got := candidatesFor(tc.school, pool)
+		if len(got) != 1 || got[0].ID != tc.wantID {
+			t.Errorf("candidatesFor(%q) = %+v, want exactly entry %s", tc.school, got, tc.wantID)
+		}
+	}
+}
+
+func TestMatchingEventIDs(t *testing.T) {
+	events := map[string]string{
+		"10": "Varsity 8",
+		"11": "Junior Varsity 8",
+	}
+	race := reader.RaceData{BoatClass: "Varsity 8"}
+	ids := matchingEventIDs(race, events)
+	if len(ids) != 1 || !ids["10"] {
+		t.Errorf("matchingEventIDs = %v, want just {10}", ids)
+	}
+
+	if got := matchingEventIDs(reader.RaceData{BoatClass: "Novice 4"}, events); len(got) != 0 {
+		t.Errorf("matchingEventIDs for an unresolvable class = %v, want none", got)
+	}
+}
+
+func TestEntriesForRaceScopesByEventAndFallsBack(t *testing.T) {
+	entries := []rcEntry{
+		{ID: "1", OrgName: "Springfield High School", EventID: "10"}, // Varsity 8
+		{ID: "2", OrgName: "Springfield High School", EventID: "11"}, // JV 8 - different event
+		{ID: "3", OrgName: "Shelbyville", EventID: "10"},
+	}
+	events := map[string]string{"10": "Varsity 8", "11": "Junior Varsity 8"}
+
+	// Without event-scoping (Milestone 1.6 behavior), entry 2 leaks into every
+	// race regardless of its own event - this is exactly the bug Issue B
+	// described. With events supplied, it must not.
+	pool := entriesForRace(entries, reader.RaceData{BoatClass: "Varsity 8"}, events)
+	for _, e := range pool {
+		if e.ID == "2" {
+			t.Errorf("entry 2 (JV 8) leaked into the Varsity 8 pool: %+v", pool)
+		}
+	}
+	if len(pool) != 2 {
+		t.Errorf("pool = %+v, want entries 1 and 3 only", pool)
+	}
+
+	// A race whose class matches no known event falls back to the full pool
+	// (entriesForBoatClass's own "keep everything, blank BoatClass" behavior)
+	// rather than returning zero candidates.
+	fallback := entriesForRace(entries, reader.RaceData{BoatClass: "Novice 4"}, events)
+	if len(fallback) != len(entries) {
+		t.Errorf("fallback pool = %+v, want all %d entries", fallback, len(entries))
+	}
+
+	// No events index at all (e.g. events.json was never captured) must also
+	// fall back rather than erroring or returning nothing.
+	if got := entriesForRace(entries, reader.RaceData{BoatClass: "Varsity 8"}, nil); len(got) != len(entries) {
+		t.Errorf("nil events pool = %+v, want all %d entries", got, len(entries))
 	}
 }

@@ -35,12 +35,14 @@ type laneMatch struct {
 // matchRaces compares every lane across races against entries and returns one
 // laneMatch per lane (in race/lane order) plus the entries never referenced by
 // any lane - a possible scratch, or a boat RC has that the lineup never
-// included.
-func matchRaces(races []reader.RaceData, entries []rcEntry) (matches []laneMatch, unused []rcEntry) {
+// included. events is the eventID -> label index from entriesFromDir, used to
+// scope each race's candidate pool to its own RC event (see entriesForRace);
+// pass nil to fall back to the plain boat-class filter.
+func matchRaces(races []reader.RaceData, entries []rcEntry, events map[string]string) (matches []laneMatch, unused []rcEntry) {
 	used := map[string]bool{}
 
 	for _, race := range races {
-		pool := entriesForBoatClass(entries, race.BoatClass)
+		pool := entriesForRace(entries, race, events)
 		for lane, entry := range race.OrderedLanes() {
 			cands := disambiguateByLabel(candidatesFor(entry.SchoolName, pool), entry.AdditionalInfo)
 			lm := laneMatch{
@@ -71,6 +73,61 @@ func matchRaces(races []reader.RaceData, entries []rcEntry) (matches []laneMatch
 		}
 	}
 	return matches, unused
+}
+
+// entriesForRace scopes the candidate pool to entries tagged with an EventID
+// whose event label (from events, the eventID -> label index entriesFromDir
+// builds from events.json et al.) matches race's BoatClass/FlightInfo. An
+// entry's own boat class has never turned out to be reliably inline - see
+// asEntry - so this is preferred over entriesForBoatClass, which it falls
+// back to whenever no event can be resolved for this race, or resolves to
+// events none of the entries are tagged with (e.g. all entries came from
+// bulk.json, which carries no filename-derived EventID). The fallback means
+// this can only narrow a pool, never regress to fewer matches than before
+// event-scoping existed.
+func entriesForRace(entries []rcEntry, race reader.RaceData, events map[string]string) []rcEntry {
+	ids := matchingEventIDs(race, events)
+	if len(ids) == 0 {
+		return entriesForBoatClass(entries, race.BoatClass)
+	}
+	var out []rcEntry
+	for _, e := range entries {
+		if e.EventID != "" && ids[e.EventID] {
+			out = append(out, e)
+		}
+	}
+	if len(out) == 0 {
+		return entriesForBoatClass(entries, race.BoatClass)
+	}
+	return out
+}
+
+// matchingEventIDs returns the ids of every event in events whose label
+// exactly equals race's (normalized) BoatClass or FlightInfo.
+//
+// Deliberately exact, not substring-either-way like candidatesFor's org-name
+// match: boat classes are drawn from a small, systematically-prefixed
+// vocabulary ("Varsity 8", "Junior Varsity 8", "Novice Varsity 8", ...) where
+// a shorter class name is routinely a literal substring of a longer,
+// different one - "varsity8" is a substring of "juniorvarsity8" - so
+// substring matching here would silently merge distinct boat classes instead
+// of separating them. An unresolved race falls back to entriesForBoatClass
+// (see entriesForRace), so exact-only just means "narrow when confident,
+// otherwise don't guess."
+func matchingEventIDs(race reader.RaceData, events map[string]string) map[string]bool {
+	out := map[string]bool{}
+	for _, field := range []string{race.BoatClass, race.FlightInfo} {
+		n := normalize(field)
+		if n == "" {
+			continue
+		}
+		for id, label := range events {
+			if normalize(label) == n {
+				out[id] = true
+			}
+		}
+	}
+	return out
 }
 
 // entriesForBoatClass narrows the candidate pool to entries whose boat class
@@ -156,6 +213,7 @@ var commonAbbrevExpansions = map[string]string{
 	"jv": "juniorvarsity",
 	"rc": "rowingclub",
 	"bc": "boatclub",
+	"st": "saint",
 }
 
 // disambiguateByLabel narrows more-than-one candidate down to one using a

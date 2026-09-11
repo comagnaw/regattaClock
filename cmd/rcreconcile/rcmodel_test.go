@@ -28,7 +28,7 @@ func TestEntriesFromDirMergesAndDedupes(t *testing.T) {
 	// A non-JSON file in the same directory must be ignored, not error out.
 	writeJSON(t, dir, "notes.txt", "not json at all")
 
-	entries, err := entriesFromDir(dir)
+	entries, _, err := entriesFromDir(dir)
 	if err != nil {
 		t.Fatalf("entriesFromDir: %v", err)
 	}
@@ -59,7 +59,7 @@ func TestEntriesFromDirResolvesOrgIDAgainstOrganizationsFile(t *testing.T) {
 		{"id":42,"name":"Springfield High School","abbreviation":"SHS"}
 	]`)
 
-	entries, err := entriesFromDir(dir)
+	entries, _, err := entriesFromDir(dir)
 	if err != nil {
 		t.Fatalf("entriesFromDir: %v", err)
 	}
@@ -92,17 +92,72 @@ func TestAsOrgDoesNotMatchAReferenceShapedObject(t *testing.T) {
 }
 
 func TestEntriesFromDirMissingDir(t *testing.T) {
-	if _, err := entriesFromDir(filepath.Join(t.TempDir(), "nope")); err == nil {
+	if _, _, err := entriesFromDir(filepath.Join(t.TempDir(), "nope")); err == nil {
 		t.Fatal("expected an error for a missing directory")
 	}
 }
 
 func TestEntriesFromDirEmpty(t *testing.T) {
-	entries, err := entriesFromDir(t.TempDir())
+	entries, events, err := entriesFromDir(t.TempDir())
 	if err != nil {
 		t.Fatalf("entriesFromDir: %v", err)
 	}
 	if len(entries) != 0 {
 		t.Errorf("entries = %v, want none", entries)
+	}
+	if len(events) != 0 {
+		t.Errorf("events = %v, want none", events)
+	}
+}
+
+func TestEntriesFromDirTagsEventIDFromFilename(t *testing.T) {
+	dir := t.TempDir()
+	writeJSON(t, dir, "entries-10.json", `[{"id":"1","organizationId":42}]`)
+	writeJSON(t, dir, "bulk.json", `{"id":"2","organizationId":42}`) // no event-id-shaped filename
+
+	entries, _, err := entriesFromDir(dir)
+	if err != nil {
+		t.Fatalf("entriesFromDir: %v", err)
+	}
+	byID := map[string]rcEntry{}
+	for _, e := range entries {
+		byID[e.ID] = e
+	}
+	if got := byID["1"].EventID; got != "10" {
+		t.Errorf("entry from entries-10.json: EventID = %q, want 10", got)
+	}
+	if got := byID["2"].EventID; got != "" {
+		t.Errorf("entry from bulk.json: EventID = %q, want blank (no filename hint)", got)
+	}
+}
+
+func TestEntriesFromDirBuildsEventsIndex(t *testing.T) {
+	dir := t.TempDir()
+	writeJSON(t, dir, "events.json", `[
+		{"id":10,"name":"Varsity 8"},
+		{"id":11,"boatClass":"Junior Varsity 8"}
+	]`)
+
+	_, events, err := entriesFromDir(dir)
+	if err != nil {
+		t.Fatalf("entriesFromDir: %v", err)
+	}
+	if events["10"] != "Varsity 8" || events["11"] != "Junior Varsity 8" {
+		t.Errorf("events = %v, want {10: Varsity 8, 11: Junior Varsity 8}", events)
+	}
+}
+
+func TestEventIDFromFilename(t *testing.T) {
+	tests := map[string]string{
+		"entries-10.json":    "10",
+		"entries-abc.json":   "abc",
+		"bulk.json":          "",
+		"organizations.json": "",
+		"entries-.json":      "",
+	}
+	for in, want := range tests {
+		if got := eventIDFromFilename(in); got != want {
+			t.Errorf("eventIDFromFilename(%q) = %q, want %q", in, got, want)
+		}
 	}
 }

@@ -37,7 +37,7 @@ func runReconcile(argv []string) error {
 		return fmt.Errorf("read xlsm %q: %w", xlsmPath, err)
 	}
 
-	entries, err := entriesFromDir(rcDir)
+	entries, events, err := entriesFromDir(rcDir)
 	if err != nil {
 		return err
 	}
@@ -47,10 +47,10 @@ func runReconcile(argv []string) error {
 		fmt.Fprintln(os.Stderr, "    rcprobe walk <regattaID> --out", rcDir)
 		fmt.Fprintln(os.Stderr, "- or the /bulk schema is PROVISIONAL (see rcmodel.go) and needs correcting. Run:")
 		fmt.Fprintln(os.Stderr, "    rcreconcile shape --bulk-file", filepath.Join(rcDir, "bulk.json"))
-		fmt.Fprintln(os.Stderr, "and share the (PII-free) key-path output so bulkEntries can be corrected.")
+		fmt.Fprintln(os.Stderr, "and share the (PII-free) key-path output so asEntry/asOrg can be corrected.")
 	}
 
-	matches, unused := matchRaces(rd.SortedRaces(), entries)
+	matches, unused := matchRaces(rd.SortedRaces(), entries, events)
 	if len(unused) > 0 || countUnmatched(matches) > 0 {
 		fmt.Fprintf(os.Stderr, "rcreconcile: %d lane(s) unmatched or ambiguous, %d RegattaCentral entr%s unused - see the report.\n",
 			countUnmatched(matches)+countAmbiguous(matches), len(unused), plural(len(unused)))

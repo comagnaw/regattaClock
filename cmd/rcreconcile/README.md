@@ -25,7 +25,7 @@ Like [`cmd/rcprobe`](../rcprobe/README.md), it is **not shipped** —
 
 `internal/regattacentral`'s `/bulk` read model is deliberately raw JSON (see
 [regattacentral-integration.md](../../docs/features/personas/regattacentral-integration.md)) —
-nobody has confirmed the exact field names yet. `bulkEntries` in
+nobody has confirmed the exact field names yet. `asEntry` in
 [`rcmodel.go`](rcmodel.go) is a **provisional**, best-effort guess at where an
 "Entry" lives in that JSON and what its fields are called.
 
@@ -93,6 +93,29 @@ rather than silently vanishing. `rcprobe walk` fetches `organizations.json`
 automatically now, so a `--rc-dir` populated by `walk` already has what this
 join needs.
 
+Two more things `reconcile` handles that came up on the first real regatta:
+
+- **Spelling variations.** RegattaCentral writes "St." where an xlsm may write
+  "Saint" (and vice versa) — `commonAbbrevExpansions` in `match.go` expands
+  both directions before comparing, alongside the existing "HS"/"High School"
+  style abbreviations. This is a short, named list, not general spell-checking
+  — a variation outside it is left for the report's human reader, same as
+  everything else this tool is unsure of.
+- **Pools scoped by event, not by a field on the entry.** A school entered in
+  more than one boat class at the same regatta used to show up as an
+  "ambiguous" candidate in *every* race, because an entry's own boat class has
+  never turned out to be reliably inline. `entriesForRace` (`match.go`) scopes
+  the candidate pool to the RC event whose label matches a race's boat class,
+  using each entry's `EventID` (read straight from its capture's filename,
+  e.g. `entries-42.json` → event `42` — no guessing needed there) and an
+  `eventID -> label` index built from `events.json` (see `asEvent` —
+  PROVISIONAL, same as `asEntry`/`asOrg`). A race whose class can't be matched
+  to any event falls back to the old behavior, so this can only narrow a pool,
+  never lose a match that worked before. Two boats from the *same* school in
+  the *same* event still show up as "ambiguous, needs a quick check" — that is
+  the correct answer when RegattaCentral's own data doesn't distinguish them,
+  not a bug to chase.
+
 ## Troubleshooting: "found 0 RegattaCentral entries"
 
 Three independent, non-exclusive causes, roughly in the order they turned out
@@ -118,9 +141,10 @@ to matter on the first real regatta tried:
    run `shape` (below) against both `entries-<id>.json` and
    `organizations.json`.
 3. **`rcmodel.go`'s field-name guesses don't match reality.** Run `shape`
-   (above) against `bulk.json`, an `entries-<id>.json`, and `organizations.json`
-   and share the (PII-free) output so `asEntry` / `asOrg` / `firstString` /
-   `firstOrgName`'s candidate key lists can be widened.
+   (above) against `bulk.json`, an `entries-<id>.json`, `organizations.json`,
+   and `events.json`, and share the (PII-free) output so `asEntry` / `asOrg` /
+   `asEvent` / `firstString` / `firstOrgName`'s candidate key lists can be
+   widened.
 
 ## Not yet built
 

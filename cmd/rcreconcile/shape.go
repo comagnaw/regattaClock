@@ -11,7 +11,7 @@ import (
 
 // runShape walks a captured /bulk JSON file and prints its key-path structure
 // - field names and JSON types only, never values - so a human can safely
-// share it (no PII, no secrets) to correct bulkEntries in rcmodel.go against
+// share it (no PII, no secrets) to correct asEntry/asOrg/asEvent in rcmodel.go against
 // the real schema.
 func runShape(argv []string) error {
 	fs := flag.NewFlagSet("shape", flag.ContinueOnError)
