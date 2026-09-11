@@ -564,6 +564,13 @@ Resolve before Phase A code (confirm against a live staff account):
 
 Phase C / later:
 
+- **Before committing to Phase C/D:** an investigation is underway comparing a
+  real, completed regatta's RegattaCentral data against the `.xlsm` its RD
+  actually produced, using `cmd/rcreconcile` — see
+  [heatsheet-rc-pivot-investigation.md](heatsheet-rc-pivot-investigation.md).
+  Its findings (real match rate, RC heat-sheet fit/finish gaps, RD/executive
+  feedback) are meant to confirm or revise everything below before any of it is
+  built.
 - Where RegattaCentral ids / UUIDs live on the schedule model (fields on
   `store.ScheduleRace` / `store.ScheduleEntry` vs a sidecar map).
 - Heat-sheet authoring UX, and whether the in-app schedule must still be

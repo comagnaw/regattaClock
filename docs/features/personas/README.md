@@ -13,6 +13,7 @@ High-level requirements for multi-persona operation of Regatta Clock.
 - [persona-config-file.md](persona-config-file.md) — optional deployment JSON: host→persona assignment and challenge-code overrides
 - [sidecar-personas.md](sidecar-personas.md) — publishing sub-tasks attached to a lead persona (social post, register results); Lead / Standalone / Sidecar classification
 - [regattacentral-integration.md](regattacentral-integration.md) — the RegattaCentral v4 API client (`internal/regattacentral`), `internal/secretstore`, and how read (roster) and write (results) plug into existing seams
+- [heatsheet-rc-pivot-investigation.md](heatsheet-rc-pivot-investigation.md) — testing the RegattaCentral pivot against one real, completed regatta before it becomes a feature
 
 ## Goal
 
