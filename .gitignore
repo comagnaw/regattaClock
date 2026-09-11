@@ -29,3 +29,9 @@ go.work.sum
 .DS_Store
 .vscode
 fyne-cross/
+
+# Live RegattaCentral API captures from cmd/rcprobe contain athlete PII and a
+# real access token. Never commit them; committed test fixtures are hand-authored
+# and redacted. See cmd/rcprobe/README.md.
+/internal/regattacentral/testdata/
+rc-secrets*.json

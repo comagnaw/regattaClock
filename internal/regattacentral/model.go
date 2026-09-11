@@ -6,12 +6,13 @@ import (
 )
 
 // The read side of the model is intentionally thin: Bulk and the other GETs
-// return raw JSON (json.RawMessage) for now. cmd/rcprobe captures real
-// responses against a live staff account, and those captures become the goldens
-// that drive typed structs in a follow-up. The upload side below is typed,
-// because the Cookbook's prose and its LaneConstructor example pin down the
-// field and enum names - though those are still PROVISIONAL until a round-trip
-// against the live API confirms them.
+// return raw JSON (json.RawMessage) for now. cmd/rcprobe captures real responses
+// against a live staff account to inform typed structs in a follow-up; those
+// captures contain athlete PII and are never committed, so the eventual test
+// fixtures are hand-authored with synthetic data. The upload side below is
+// typed, because the Cookbook's prose and its LaneConstructor example pin down
+// the field and enum names - though those are still PROVISIONAL until a
+// round-trip against the live API confirms them.
 
 // RaceStatus is a RegattaCentral race status (Cookbook §13). Regularly advancing
 // this as the regatta runs is what drives the highlight states on RegattaCentral's

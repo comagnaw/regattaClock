@@ -10,6 +10,12 @@ per-seat eligibility, rate limits, and the `Origin` / referer requirement.
 stays out of releases while `go build ./...` still compiles it in CI. It imports
 no Fyne, so it builds without CGO.
 
+> **Never commit rcprobe output.** A real `/bulk` response contains athlete PII
+> (names, ages, clubs) and `token` prints a live access token. The commands below
+> write to `internal/regattacentral/testdata/`, which is **gitignored** for
+> exactly this reason. Any committed test fixture under that path is hand-authored
+> with synthetic data - captures inform the model, they are not the model.
+
 ## Credentials
 
 rcprobe reads credentials from [`internal/secretstore`](../../internal/secretstore) -
@@ -40,14 +46,15 @@ go run ./cmd/rcprobe --secrets-file ~/.config/regattaclock/rc-secrets.json …
 }
 ```
 
-## Capturing the Phase A goldens
+## Capturing responses for reference
 
-`--out DIR` writes each raw JSON response to `DIR/<name>.json`. These captures
-become the fixtures that drive the typed read model.
+`--out DIR` writes each raw JSON response to `DIR/<name>.json`. Use these locally
+to write the typed read model and to derive synthetic fixtures; they are **not**
+committed (see the warning above).
 
 ```sh
 RID=<regatta id>          # or use --config <personacfg file>
-OUT=internal/regattacentral/testdata
+OUT=internal/regattacentral/testdata   # gitignored
 
 go run ./cmd/rcprobe --regatta "$RID" --out "$OUT" token
 go run ./cmd/rcprobe --regatta "$RID" --out "$OUT" bulk
