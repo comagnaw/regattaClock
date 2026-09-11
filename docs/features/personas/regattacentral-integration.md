@@ -326,9 +326,12 @@ requirement.
 - **Credentials** from `internal/secretstore` (same keys as the app) or `RC_*`
   env vars — never flags, never hard-coded. `BaseURL` / `RegattaID` from a
   `personacfg` file or flags.
-- **`--out <dir>`** writes each raw JSON response to disk. Those captures become
-  the **Phase A test goldens** (`/bulk`, event entries, organizations), which
-  otherwise cannot be written without a real response.
+- **`--out <dir>`** writes each raw JSON response to disk. A real `/bulk`
+  response carries athlete **PII** (names, ages, clubs) and `token` prints a live
+  access token, so these captures are **never committed** —
+  `internal/regattacentral/testdata/` is gitignored. They are the developer's
+  local reference for writing the typed read model; the committed unmarshal
+  fixtures are hand-authored with **synthetic** data.
 - **Not released.** `release.yml` packages named binaries, not `./...`, so it is
   excluded automatically; CI's `go build ./...` still compiles it. Keep it
   in-tree as a debugging aid after Phase B, or delete it — maintainer's call.
@@ -473,7 +476,8 @@ Phase A (no live API in CI):
   refresh token, refresh-on-`401`.
 - `429` / `503` retry with a fake clock; `Retry-After` respected; `ctx`
   cancellation stops the retry loop.
-- JSON unmarshal goldens (captured with `cmd/rcprobe --out`) for `/bulk`,
+- JSON unmarshal fixtures — **hand-authored with synthetic data**, shaped from
+  `cmd/rcprobe` captures (which are PII-bearing and gitignored) — for `/bulk`,
   `Entry` + athletes, `Organization`.
 - `Upload` serialises events / races / `lane` / `result` into one combined
   body; a `flush` flag round-trips at regatta and per-race scope.
