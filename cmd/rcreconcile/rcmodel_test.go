@@ -91,6 +91,40 @@ func TestAsOrgDoesNotMatchAReferenceShapedObject(t *testing.T) {
 	}
 }
 
+// TestEntriesFromDirDoesNotLetBulkJSONShadowRealOrgs is a regression test:
+// RC ids very likely restart at 1 per entity kind, so an unrelated
+// id-plus-name object in bulk.json (here, standing in for e.g. an event or
+// regatta object) can coincidentally share an id with a real organization.
+// Only organizations.json (the dedicated listing) may populate the org index,
+// so that collision can never shadow the real name.
+func TestEntriesFromDirDoesNotLetBulkJSONShadowRealOrgs(t *testing.T) {
+	dir := t.TempDir()
+	// bulk.json sorts first and has an unrelated object with id "1" that
+	// would otherwise look like an org to asOrg.
+	writeJSON(t, dir, "bulk.json", `{"regatta":{"id":1,"name":"Not An Organization"},"entries":[{"id":"1","organizationId":"1"}]}`)
+	writeJSON(t, dir, "organizations.json", `[{"id":1,"name":"Springfield High School"}]`)
+
+	entries, _, err := entriesFromDir(dir)
+	if err != nil {
+		t.Fatalf("entriesFromDir: %v", err)
+	}
+	if len(entries) != 1 || entries[0].OrgName != "Springfield High School" {
+		t.Errorf("entries = %+v, want the entry resolved to the real org, not bulk.json's regatta object", entries)
+	}
+}
+
+func TestIsOrganizationsFileAndIsEventsFile(t *testing.T) {
+	if !isOrganizationsFile("organizations.json") || isOrganizationsFile("bulk.json") {
+		t.Error("isOrganizationsFile misclassified a filename")
+	}
+	if !isEventsFile("events.json") {
+		t.Error("isEventsFile should match events.json")
+	}
+	if isEventsFile("entries-4.json") {
+		t.Error("isEventsFile must not match an entries-<id>.json file")
+	}
+}
+
 func TestEntriesFromDirMissingDir(t *testing.T) {
 	if _, _, err := entriesFromDir(filepath.Join(t.TempDir(), "nope")); err == nil {
 		t.Fatal("expected an error for a missing directory")

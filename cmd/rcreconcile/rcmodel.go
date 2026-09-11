@@ -116,19 +116,32 @@ func entriesFromDir(dir string) (entries []rcEntry, events map[string]string, er
 			merged = append(merged, e)
 		}
 
-		foundOrgs := map[string]rcOrg{}
-		walkForOrgs(v, foundOrgs)
-		for id, o := range foundOrgs {
-			if _, ok := orgs[id]; !ok {
-				orgs[id] = o
+		// Orgs and events are extracted only from their own dedicated listing
+		// file, not from every file in the directory. RC ids very likely
+		// restart at 1 per entity kind (an org, an event, and an entry can
+		// all legitimately be id "1"), so walking bulk.json/entries-*.json for
+		// asOrg/asEvent matches risks an unrelated object - another entity
+		// kind that happens to have an "id" and a "name" field - colliding
+		// with a real organization's or event's id and silently shadowing it.
+		// organizations.json / events.json are each one coherent list from
+		// one endpoint, so that collision can't happen within them.
+		if isOrganizationsFile(name) {
+			foundOrgs := map[string]rcOrg{}
+			walkForOrgs(v, foundOrgs)
+			for id, o := range foundOrgs {
+				if _, ok := orgs[id]; !ok {
+					orgs[id] = o
+				}
 			}
 		}
 
-		foundEvents := map[string]string{}
-		walkForEvents(v, foundEvents)
-		for id, label := range foundEvents {
-			if _, ok := events[id]; !ok {
-				events[id] = label
+		if isEventsFile(name) {
+			foundEvents := map[string]string{}
+			walkForEvents(v, foundEvents)
+			for id, label := range foundEvents {
+				if _, ok := events[id]; !ok {
+					events[id] = label
+				}
 			}
 		}
 	}
@@ -154,6 +167,22 @@ func eventIDFromFilename(name string) string {
 		return ""
 	}
 	return id
+}
+
+// isOrganizationsFile reports whether name looks like the dedicated
+// organizations listing rcprobe writes ("organizations.json", from `orgs` or
+// `walk`).
+func isOrganizationsFile(name string) bool {
+	return strings.Contains(strings.ToLower(name), "organization")
+}
+
+// isEventsFile reports whether name looks like the dedicated events listing
+// rcprobe's `events` command writes ("events.json") - deliberately excluding
+// "entries-<id>.json" (one event's *entries*, not the events list) even
+// though both names contain "event".
+func isEventsFile(name string) bool {
+	lower := strings.ToLower(name)
+	return strings.Contains(lower, "event") && !strings.HasPrefix(lower, "entries-")
 }
 
 // walkForEntries recurses through v (a parsed /bulk, entries, or similar

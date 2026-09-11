@@ -184,6 +184,17 @@ const (
 	orgExact
 )
 
+// minSubstringMatchLen is the shortest a normalized name may be to
+// participate in the substring side of matchOrgName. Below this length a
+// name is only ever an exact match. Real example that motivated this: "Osbourn
+// Park"'s abbreviation "OP" is a substring of "bishOPireton" ("Bishop
+// Ireton") purely by coincidence - short strings are too likely to appear
+// inside an unrelated longer one for "contains" to mean "probably the same
+// school." This trades a few legitimate short-abbreviation matches (still
+// reachable via an exact match) for far fewer coincidental false ones; ambiguous
+// or unmatched is the safe direction to err in, since a human reviews both.
+const minSubstringMatchLen = 4
+
 func matchOrgName(normalizedSchool string, e rcEntry) orgMatchKind {
 	best := orgNone
 	for _, name := range []string{e.OrgName, e.OrgShortName, e.OrgAbbrev} {
@@ -194,7 +205,8 @@ func matchOrgName(normalizedSchool string, e rcEntry) orgMatchKind {
 		if nn == normalizedSchool {
 			return orgExact
 		}
-		if strings.Contains(nn, normalizedSchool) || strings.Contains(normalizedSchool, nn) {
+		if len(nn) >= minSubstringMatchLen && len(normalizedSchool) >= minSubstringMatchLen &&
+			(strings.Contains(nn, normalizedSchool) || strings.Contains(normalizedSchool, nn)) {
 			best = orgPartial
 		}
 	}

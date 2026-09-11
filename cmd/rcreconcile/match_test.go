@@ -148,6 +148,28 @@ func TestStVsSaintRealSchools(t *testing.T) {
 	}
 }
 
+// TestShortAbbreviationDoesNotFalseMatch is a regression test for a real
+// mismatch: "Bishop Ireton" (xlsm) was showing "Osbourn Park" as a candidate.
+// normalize("Bishop Ireton") contains "op" (from "bish-OP"), and "OP" is a
+// plausible abbreviation for "Osbourn Park" - a coincidental substring match,
+// not a real one. Below minSubstringMatchLen, only an exact match counts.
+func TestShortAbbreviationDoesNotFalseMatch(t *testing.T) {
+	pool := []rcEntry{
+		{ID: "1", OrgName: "Bishop Ireton HS"},
+		{ID: "2", OrgName: "Osbourn Park", OrgAbbrev: "OP"},
+	}
+	got := candidatesFor("Bishop Ireton", pool)
+	if len(got) != 1 || got[0].ID != "1" {
+		t.Errorf("candidatesFor(%q) = %+v, want exactly entry 1 (Osbourn Park's \"OP\" must not coincidentally match)", "Bishop Ireton", got)
+	}
+
+	// The short form still matches when it is genuinely an exact query.
+	got = candidatesFor("OP", pool)
+	if len(got) != 1 || got[0].ID != "2" {
+		t.Errorf("candidatesFor(%q) = %+v, want exactly entry 2 (exact match still works)", "OP", got)
+	}
+}
+
 func TestMatchingEventIDs(t *testing.T) {
 	events := map[string]string{
 		"10": "Varsity 8",

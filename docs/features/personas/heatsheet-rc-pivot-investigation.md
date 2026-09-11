@@ -74,10 +74,11 @@ Full detail in [`cmd/rcprobe`'s README](../../../cmd/rcprobe/README.md) and
 
 _(filled in as the investigation proceeds)_
 
-- **Real matches are happening** as of the fourth real run (after the org-id
-  join, the "St."/"Saint" fix, and event-scoped pools). Exact match-rate,
-  remaining "needs a quick check" / "not found" causes, whether RC already had
-  any `Event`/`Race`/`Lane` data for this regatta, and RD/executive feedback:
+- **Real matches are happening** as of the fifth real run (after the org-id
+  join, the "St."/"Saint" fix, event-scoped pools, the short-abbreviation
+  guard, and file-scoped org/event extraction). Exact match-rate, remaining
+  "needs a quick check" / "not found" causes, whether RC already had any
+  `Event`/`Race`/`Lane` data for this regatta, and RD/executive feedback:
   still to be recorded here.
 - Go / no-go recommendation for a real Phase C/D: —
 
@@ -111,6 +112,25 @@ _(filled in as the investigation proceeds)_
   Two boats from the _same_ school in the _same_ event are expected to remain
   "ambiguous" - RegattaCentral's data may not distinguish them at all, and
   that is the correct, human-reviews-it answer, not a bug.
+- **Fourth real run: event-scoping alone wasn't enough - two more false-match
+  causes found and fixed.** Still-ambiguous lanes included a case with 8
+  candidates for one school, most of them a _different_ real school
+  ("Osbourn Park") that shares no real similarity with the xlsm's "Bishop
+  Ireton". Two causes, both structural, neither needing new field-name
+  guesses:
+  1. `matchOrgName`'s substring comparison had no minimum length - "Bishop
+     Ireton" normalizes to contain "op" (the tail of "bishop"), which
+     coincidentally matched Osbourn Park's short abbreviation "OP". Fixed
+     with a minimum length below which only an exact match counts
+     (`minSubstringMatchLen`, `cmd/rcreconcile/match.go`).
+  2. `asOrg`/`asEvent` were walking every file in `--rc-dir`, not just the
+     dedicated organizations/events listings. Since RC ids very likely
+     restart at 1 per entity kind, an unrelated id-plus-name object elsewhere
+     (e.g. in `bulk.json`) could collide with a real organization's id and
+     silently shadow it. Fixed by extracting orgs only from a file whose name
+     contains "organization" and events only from a file named like
+     `events.json` (`isOrganizationsFile` / `isEventsFile`,
+     `cmd/rcreconcile/rcmodel.go`).
 - The real `/bulk` / `entries` / `organizations` / `events` schema — confirm
   with `rcreconcile shape` against the author's local capture; correct
   `asEntry` / `asOrg` / `asEvent` in `cmd/rcreconcile/rcmodel.go` accordingly.

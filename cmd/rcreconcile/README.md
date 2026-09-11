@@ -93,7 +93,7 @@ rather than silently vanishing. `rcprobe walk` fetches `organizations.json`
 automatically now, so a `--rc-dir` populated by `walk` already has what this
 join needs.
 
-Two more things `reconcile` handles that came up on the first real regatta:
+Four more things `reconcile` handles that came up on real regattas:
 
 - **Spelling variations.** RegattaCentral writes "St." where an xlsm may write
   "Saint" (and vice versa) — `commonAbbrevExpansions` in `match.go` expands
@@ -103,7 +103,7 @@ Two more things `reconcile` handles that came up on the first real regatta:
   everything else this tool is unsure of.
 - **Pools scoped by event, not by a field on the entry.** A school entered in
   more than one boat class at the same regatta used to show up as an
-  "ambiguous" candidate in *every* race, because an entry's own boat class has
+  "ambiguous" candidate in _every_ race, because an entry's own boat class has
   never turned out to be reliably inline. `entriesForRace` (`match.go`) scopes
   the candidate pool to the RC event whose label matches a race's boat class,
   using each entry's `EventID` (read straight from its capture's filename,
@@ -111,10 +111,30 @@ Two more things `reconcile` handles that came up on the first real regatta:
   `eventID -> label` index built from `events.json` (see `asEvent` —
   PROVISIONAL, same as `asEntry`/`asOrg`). A race whose class can't be matched
   to any event falls back to the old behavior, so this can only narrow a pool,
-  never lose a match that worked before. Two boats from the *same* school in
-  the *same* event still show up as "ambiguous, needs a quick check" — that is
+  never lose a match that worked before. Two boats from the _same_ school in
+  the _same_ event still show up as "ambiguous, needs a quick check" — that is
   the correct answer when RegattaCentral's own data doesn't distinguish them,
   not a bug to chase.
+- **Short abbreviations don't substring-match.** A real mismatch: "Bishop
+  Ireton" (xlsm) was showing "Osbourn Park" as a candidate, because
+  normalize("Bishop Ireton") happens to contain "op" (the tail end of
+  "bishop") and "OP" is a plausible abbreviation for "Osbourn Park" - purely
+  coincidental. `matchOrgName` (`match.go`) only allows the substring side of
+  a comparison when both normalized strings are at least
+  `minSubstringMatchLen` (4) characters; a short name can still match, but
+  only exactly. This trades a few legitimate short-abbreviation matches for
+  far fewer coincidental false ones - again, erring toward "ask a human"
+  rather than a confident wrong answer.
+- **Organizations and events are read only from their own dedicated capture
+  file.** `asOrg` / `asEvent` used to walk every file in `--rc-dir`, but
+  RegattaCentral ids very likely restart at 1 per entity kind - an org, an
+  event and an entry can all legitimately be id "1" - so an unrelated
+  id-plus-name object elsewhere (in `bulk.json`, say) could coincidentally
+  collide with a real organization's or event's id and silently shadow it.
+  `entriesFromDir` now only extracts organizations from a file whose name
+  contains "organization" and events from a file named like `events.json`
+  (see `isOrganizationsFile` / `isEventsFile`), so that collision can't
+  happen within one coherent, single-endpoint listing.
 
 ## Troubleshooting: "found 0 RegattaCentral entries"
 
