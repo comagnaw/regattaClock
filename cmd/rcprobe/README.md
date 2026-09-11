@@ -57,13 +57,7 @@ RID=<regatta id>          # or use --config <personacfg file>
 OUT=internal/regattacentral/testdata   # gitignored
 
 go run ./cmd/rcprobe --regatta "$RID" --out "$OUT" token
-go run ./cmd/rcprobe --regatta "$RID" --out "$OUT" bulk
-go run ./cmd/rcprobe --regatta "$RID" --out "$OUT" events
-
-# pick an <eventID> from events.json, then:
-go run ./cmd/rcprobe --regatta "$RID" --out "$OUT" entries <eventID>
-go run ./cmd/rcprobe --regatta "$RID" --out "$OUT" lanes   <eventID>
-go run ./cmd/rcprobe --regatta "$RID" --out "$OUT" results <eventID>
+go run ./cmd/rcprobe --regatta "$RID" --out "$OUT" walk    # bulk + every event's entries, one call
 
 go run ./cmd/rcprobe --regatta "$RID" --out "$OUT" active
 go run ./cmd/rcprobe --regatta "$RID" --out "$OUT" orgs
@@ -71,12 +65,40 @@ go run ./cmd/rcprobe --out "$OUT" search-orgs "<club name>"
 go run ./cmd/rcprobe --out "$OUT" search-people "<lastname>" 1999-01-01
 ```
 
+### walk command
+
+`internal/regattacentral`'s Cookbook reading left it unconfirmed whether
+`/bulk` nests full per-event entries or just event/regatta metadata (see
+[regattacentral-integration.md](../../docs/features/personas/regattacentral-integration.md)).
+`walk` gets everything reconciliation needs in one command instead of guessing
+or hand-running `entries <eventID>` once per event:
+
+1. Calls `bulk` and saves `bulk.json`, same as the `bulk` command.
+2. Walks that response looking for event ids — structurally, not by a fixed
+   path: any object with an `eventId` field, or an `id` field one level under
+   something named like "events" (see `eventIDsFromBulk` in
+   [`walk.go`](walk.go)).
+3. Calls `entries <eventID>` for every id it found and saves each as
+   `entries-<eventID>.json` — the same files, and same naming, the individual
+   `entries` command would produce.
+
+`--out` is required (there would be nowhere to put the results otherwise). A
+failure on one event's entries is reported and does not stop the rest; `walk`
+exits non-zero listing which ids failed, after saving everything it could.
+[`cmd/rcreconcile`](../rcreconcile/README.md) reads a whole `--out` directory
+like this at once via `--rc-dir`.
+
+If `walk` finds 0 event ids, or `rcreconcile` still reports 0 entries after
+running it, the `/bulk`/`entries` shape itself needs confirming — see the
+`shape` command in [`cmd/rcreconcile`'s README](../rcreconcile/README.md).
+
 ## Commands
 
 | Command | Endpoint |
 |---|---|
 | `token` | `POST /oauth2/api/token` (prints the access token) |
 | `bulk [regattaID]` | `GET /regattas/{id}/bulk` |
+| `walk [regattaID]` | `bulk`, then `entries` for every event id found in it — see [above](#walk-command) |
 | `events [regattaID]` | `GET /regattas/{id}/events` |
 | `entries <eventID> [regattaID]` | `GET /regattas/{id}/events/{eventID}/entries` |
 | `lanes <eventID> [regattaID]` | `GET /regattas/{id}/events/{eventID}/lanes` |

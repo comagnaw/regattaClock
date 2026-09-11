@@ -16,6 +16,9 @@
 //
 //	token                                   acquire and print an access token
 //	bulk         [regattaID]                GET /regattas/{id}/bulk
+//	walk         [regattaID]                bulk, then GET .../events/{id}/entries
+//	                                        for every event id found in it - all in
+//	                                        one call; requires --out
 //	events       [regattaID]                GET /regattas/{id}/events
 //	entries      <eventID> [regattaID]      GET /regattas/{id}/events/{eventID}/entries
 //	lanes        <eventID> [regattaID]      GET /regattas/{id}/events/{eventID}/lanes
@@ -79,7 +82,7 @@ func run(argv []string) error {
 	fs.Usage = func() {
 		fmt.Fprint(os.Stderr, "usage: rcprobe [flags] <command> [args]\n\nflags:\n")
 		fs.PrintDefaults()
-		fmt.Fprint(os.Stderr, "\ncommands: token, bulk, events, entries, lanes, results, active, orgs, search-orgs, search-people\n")
+		fmt.Fprint(os.Stderr, "\ncommands: token, bulk, walk, events, entries, lanes, results, active, orgs, search-orgs, search-people\n")
 	}
 	if err := fs.Parse(argv); err != nil {
 		return err
@@ -120,6 +123,8 @@ func run(argv []string) error {
 
 	case "bulk":
 		return fetch("bulk", func() (json.RawMessage, error) { return client.Bulk(ctx, pick(0)) })
+	case "walk":
+		return runWalk(ctx, client, pick(0), o.outDir)
 	case "events":
 		return fetch("events", func() (json.RawMessage, error) { return client.Events(ctx, pick(0)) })
 	case "active":

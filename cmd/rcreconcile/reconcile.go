@@ -4,30 +4,32 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/comagnaw/regattaClock/internal/reader"
 )
 
-// runReconcile is Milestone 1: compare an xlsm workbook against a captured
-// /bulk JSON file and write a plain-language HTML report. It never reaches
-// the network - --bulk-file is a file already captured with
-// `rcprobe bulk --out`.
+// runReconcile is Milestone 1: compare an xlsm workbook against a directory of
+// captured RegattaCentral JSON files and write a plain-language HTML report.
+// It never reaches the network - --rc-dir is a directory already populated by
+// `rcprobe walk` (or the individual `rcprobe bulk` / `entries` commands),
+// --out pointed at the same directory.
 func runReconcile(argv []string) error {
 	fs := flag.NewFlagSet("reconcile", flag.ContinueOnError)
-	var xlsmPath, bulkFile, reportOut string
+	var xlsmPath, rcDir, reportOut string
 	fs.StringVar(&xlsmPath, "xlsm", "", "path to the regatta's .xlsm/.xlsx workbook (required)")
-	fs.StringVar(&bulkFile, "bulk-file", "", "path to a captured /bulk JSON file, e.g. from `rcprobe bulk --out` (required)")
+	fs.StringVar(&rcDir, "rc-dir", "", "directory of captured RegattaCentral JSON files, e.g. from `rcprobe walk --out` (required)")
 	fs.StringVar(&reportOut, "report-out", "", "path to write the HTML report (required; keep it outside the repo, or under a gitignored path - it will name real people)")
 	fs.Usage = func() {
-		fmt.Fprint(os.Stderr, "usage: rcreconcile reconcile --xlsm PATH --bulk-file PATH --report-out PATH\n\nflags:\n")
+		fmt.Fprint(os.Stderr, "usage: rcreconcile reconcile --xlsm PATH --rc-dir DIR --report-out PATH\n\nflags:\n")
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(argv); err != nil {
 		return err
 	}
-	if xlsmPath == "" || bulkFile == "" || reportOut == "" {
+	if xlsmPath == "" || rcDir == "" || reportOut == "" {
 		fs.Usage()
-		return fmt.Errorf("reconcile: --xlsm, --bulk-file and --report-out are all required")
+		return fmt.Errorf("reconcile: --xlsm, --rc-dir and --report-out are all required")
 	}
 
 	rd, err := reader.ReadExcelFile(xlsmPath)
@@ -35,18 +37,16 @@ func runReconcile(argv []string) error {
 		return fmt.Errorf("read xlsm %q: %w", xlsmPath, err)
 	}
 
-	raw, err := os.ReadFile(bulkFile)
-	if err != nil {
-		return fmt.Errorf("read bulk file %q: %w", bulkFile, err)
-	}
-	entries, err := bulkEntries(raw)
+	entries, err := entriesFromDir(rcDir)
 	if err != nil {
 		return err
 	}
 	if len(entries) == 0 {
-		fmt.Fprintln(os.Stderr, "rcreconcile: found 0 RegattaCentral entries in", bulkFile+".")
-		fmt.Fprintln(os.Stderr, "The /bulk schema is PROVISIONAL (see rcmodel.go). Run:")
-		fmt.Fprintln(os.Stderr, "    rcreconcile shape --bulk-file", bulkFile)
+		fmt.Fprintln(os.Stderr, "rcreconcile: found 0 RegattaCentral entries in", rcDir+".")
+		fmt.Fprintln(os.Stderr, "Either the capture is missing per-event entries - try:")
+		fmt.Fprintln(os.Stderr, "    rcprobe walk <regattaID> --out", rcDir)
+		fmt.Fprintln(os.Stderr, "- or the /bulk schema is PROVISIONAL (see rcmodel.go) and needs correcting. Run:")
+		fmt.Fprintln(os.Stderr, "    rcreconcile shape --bulk-file", filepath.Join(rcDir, "bulk.json"))
 		fmt.Fprintln(os.Stderr, "and share the (PII-free) key-path output so bulkEntries can be corrected.")
 	}
 

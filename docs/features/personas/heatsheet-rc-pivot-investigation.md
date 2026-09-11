@@ -43,19 +43,26 @@ served by the current manual process.
   help is needed (e.g. confirming the real `/bulk` schema), only
   field-names-and-types are shared — via `rcreconcile shape` — never values.
 
-## The tool: `cmd/rcreconcile`
+## The tools: `cmd/rcprobe walk` and `cmd/rcreconcile`
 
-Full detail in [its README](../../../cmd/rcreconcile/README.md). Summary:
+Full detail in [`cmd/rcprobe`'s README](../../../cmd/rcprobe/README.md) and
+[`cmd/rcreconcile`'s README](../../../cmd/rcreconcile/README.md). Summary:
 
-1. **`shape`** walks a captured `/bulk` JSON file and prints its key-path
+1. **`rcprobe walk <regattaID> --out DIR`** pulls `/bulk`, then structurally
+   discovers event ids in that response (no fixed path assumed — it was
+   unconfirmed whether `/bulk` nests full entries per event) and calls
+   `entries <eventID>` for each one it finds, saving everything into `DIR`.
+   One command instead of hand-running `entries` per event.
+2. **`rcreconcile shape`** walks a captured JSON file and prints its key-path
    structure (field names + JSON types, never values) — how the real schema
    gets confirmed without exposing PII.
-2. **`reconcile`** compares the xlsm's lineup (via the existing
-   `reader.ReadExcelFile` — no new Excel parsing) against the RC entries in a
-   `/bulk` capture, and writes a plain-language HTML report: which boats
-   matched RegattaCentral automatically, which need a human's judgment, and
-   which RC entries the lineup never used (possible scratches).
-3. **Upload preview** (not yet built): a `--dry-run` rendering of what a
+3. **`rcreconcile reconcile --rc-dir DIR`** compares the xlsm's lineup (via the
+   existing `reader.ReadExcelFile` — no new Excel parsing) against every RC
+   entry found across all the JSON files in `DIR` (i.e., everything `walk`
+   captured), and writes a plain-language HTML report: which boats matched
+   RegattaCentral automatically, which need a human's judgment, and which RC
+   entries the lineup never used (possible scratches).
+4. **Upload preview** (not yet built): a `--dry-run` rendering of what a
    heat-sheet-and-results "publish" would look like, built from the xlsm and
    `reconcile`'s matches, using the already-typed, already-tested
    `regattacentral.UploadRequest`. `Client.Upload` is never called.
@@ -73,12 +80,20 @@ _(filled in as the investigation proceeds)_
 
 ## Open items
 
-- The real `/bulk` schema — confirm with `rcreconcile shape` against the
-  author's local capture; correct `bulkEntries` in `cmd/rcreconcile/rcmodel.go`
-  accordingly. This is also what Milestone 4 of the swimlane promotes into
-  `internal/regattacentral`'s read model, once confirmed.
+- **First real run found 0 entries.** The author's real `bulk.json` (984 KB)
+  and real xlsm produced 0 recognized RegattaCentral entries and 104/104
+  unmatched lanes — the designed degrade-gracefully path did its job (no
+  crash, no false match), but it means the real schema still isn't confirmed.
+  `rcprobe walk` (above) and a corrected `bulkEntries` are the two-pronged fix;
+  next step is running `walk`, then sharing `rcreconcile shape` output for both
+  `bulk.json` and an `entries-<id>.json`.
+- The real `/bulk` / `entries` schema — confirm with `rcreconcile shape`
+  against the author's local capture; correct `bulkEntries` in
+  `cmd/rcreconcile/rcmodel.go` accordingly. This is also what Milestone 4 of
+  the swimlane promotes into `internal/regattacentral`'s read model, once
+  confirmed.
 - Whether the "HS"/"MS"/"JV"/"RC"/"BC" abbreviation-expansion heuristic in
   `cmd/rcreconcile/match.go` needs to grow (or shrink) once tested against real
   organization names.
 - Whether a live `--regatta` pull is worth adding to `rcreconcile`, or the
-  offline `--bulk-file` workflow is sufficient.
+  offline `--rc-dir` workflow is sufficient.

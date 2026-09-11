@@ -3,6 +3,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -27,6 +30,50 @@ type rcEntry struct {
 	// Label is a boat-label hint ("A"/"B" for a school's second boat), if the
 	// /bulk payload carries one under any of the guessed field names below.
 	Label string
+}
+
+// entriesFromDir reads every *.json file directly inside dir - typically an
+// rcprobe --out capture directory, e.g. bulk.json plus whatever
+// entries-<eventID>.json files `rcprobe walk` wrote - and merges the rcEntry
+// values bulkEntries finds in each. Files are read in sorted-name order and
+// the first occurrence of an ID wins, so "bulk.json" (sorted before
+// "entries-*.json") is treated as the more authoritative source when the same
+// entry appears in more than one capture.
+func entriesFromDir(dir string) ([]rcEntry, error) {
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, fmt.Errorf("read %q: %w", dir, err)
+	}
+
+	var names []string
+	for _, f := range files {
+		if !f.IsDir() && strings.EqualFold(filepath.Ext(f.Name()), ".json") {
+			names = append(names, f.Name())
+		}
+	}
+	sort.Strings(names)
+
+	seen := map[string]bool{}
+	var merged []rcEntry
+	for _, name := range names {
+		path := filepath.Join(dir, name)
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("read %q: %w", path, err)
+		}
+		found, err := bulkEntries(raw)
+		if err != nil {
+			return nil, fmt.Errorf("%q: %w", path, err)
+		}
+		for _, e := range found {
+			if seen[e.ID] {
+				continue
+			}
+			seen[e.ID] = true
+			merged = append(merged, e)
+		}
+	}
+	return merged, nil
 }
 
 // bulkEntries extracts a flat list of rcEntry from a raw /bulk response.

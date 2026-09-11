@@ -15,9 +15,9 @@ Like [`cmd/rcprobe`](../rcprobe/README.md), it is **not shipped** —
 > report names real athletes, schools, and clubs. `--report-out` is required
 > precisely so nothing defaults into the repo; point it under `/out/`, which is
 > **gitignored**, or anywhere outside this checkout. The same goes for
-> `--upload-preview-out` (Milestone 2) and any `--bulk-file` you keep around
-> locally — see [`cmd/rcprobe`'s PII warning](../rcprobe/README.md), which
-> applies here identically.
+> `--upload-preview-out` (Milestone 2) and any `--rc-dir` capture directory you
+> keep around locally — see [`cmd/rcprobe`'s PII warning](../rcprobe/README.md),
+> which applies here identically.
 
 ## Commands
 
@@ -45,14 +45,16 @@ regattas[].regatta.name: string
 
 If `reconcile` (below) reports "found 0 RegattaCentral entries", this is the
 first thing to run — the output tells you (and whoever fixes `rcmodel.go`)
-exactly where the real fields are, with zero risk of leaking PII.
+exactly where the real fields are, with zero risk of leaking PII. Run it
+against both `bulk.json` and one `entries-<eventID>.json` — the two responses
+may not be shaped the same way.
 
 ### `reconcile` — the comparison report (Milestone 1)
 
 ```sh
 go run ./cmd/rcreconcile reconcile \
   --xlsm internal/reader/testdata/example.xlsm \
-  --bulk-file internal/regattacentral/testdata/bulk.json \
+  --rc-dir internal/regattacentral/testdata \
   --report-out out/reconciliation.html
 ```
 
@@ -61,10 +63,12 @@ go run ./cmd/rcreconcile reconcile \
   parsing. Its "Results" tab already carries both the lineup (school, boat)
   and, once the regatta has happened, the outcome (place/split/time); the
   "Heat Sheet" tab is not read (see the comment on `findRaceSheet`).
-- `--bulk-file` — a `/bulk` capture from `rcprobe bulk --out` (or `rcprobe
-  bulk --out` pointed at the regatta the xlsm belongs to). There is no
-  `--regatta` live-pull flag yet — this tool is offline-only for now, so
-  iterating on the matching logic never re-hits the network.
+- `--rc-dir` — a directory of captured RegattaCentral JSON files, e.g. from
+  [`rcprobe walk --out`](../rcprobe/README.md#walk-command) (or the individual
+  `bulk` / `entries` commands pointed at the same `--out` directory). Every
+  `*.json` file directly inside it is read and merged; there is no live-pull
+  flag here — this tool is offline-only, so iterating on the matching logic
+  never re-hits the network.
 - `--report-out` — where the HTML report is written. Required; see the PII
   warning above.
 
@@ -80,10 +84,30 @@ uncertain is left for the report's human reader to judge, the same
 "read-only, human reviews and decides" pattern as
 [reconciliation.md](../../docs/features/personas/reconciliation.md).
 
+## Troubleshooting: "found 0 RegattaCentral entries"
+
+Two independent, non-exclusive causes:
+
+1. **The capture is missing per-event entries.** It is unconfirmed whether
+   `/bulk` nests full entries per event or just event/regatta metadata. Run:
+
+   ```sh
+   go run ./cmd/rcprobe walk <regattaID> --out internal/regattacentral/testdata
+   ```
+
+   which pulls `/bulk` and then follows it with a per-event entries call for
+   every event id it finds — one command instead of hand-running `entries
+   <eventID>` per event. Re-run `reconcile` against the same `--rc-dir`
+   afterward.
+2. **`rcmodel.go`'s field-name guesses don't match reality.** Run `shape`
+   (above) against `bulk.json` and an `entries-<id>.json` and share the
+   (PII-free) output so `asEntry` / `firstString` / `firstOrgName`'s candidate
+   key lists can be widened.
+
 ## Not yet built
 
 - `--upload-preview-out` (Milestone 2): a dry-run preview of what a
   heat-sheet-and-results "publish" to RegattaCentral would look like, built
   from the xlsm plus this tool's matches. Still never calls the write API.
-- A `--regatta` live-pull flag, if offline capture-file iteration turns out not
-  to be enough.
+- A live `--regatta` pull, if the offline `--rc-dir` workflow turns out not to
+  be enough.
