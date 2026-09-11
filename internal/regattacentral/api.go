@@ -12,6 +12,13 @@ import (
 // Paths follow api.regattacentral.com/v4/apiV4.jsp. A "" regattaID / eventID
 // falls back to Config.RegattaID; an unset regatta id is ErrNoRegattaID.
 
+// Token returns a currently-valid access token, acquiring or refreshing one if
+// needed. It is exposed mainly for diagnostics (cmd/rcprobe) - normal callers
+// use the API methods, which manage the token themselves.
+func (c *Client) Token(ctx context.Context) (string, error) {
+	return c.token.token(ctx)
+}
+
 // Bulk fetches the entire regatta - events, entries, athletes, organizations -
 // in one response. Requires staff access. There is no incremental variant.
 func (c *Client) Bulk(ctx context.Context, regattaID string) (json.RawMessage, error) {
