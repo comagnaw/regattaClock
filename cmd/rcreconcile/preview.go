@@ -45,7 +45,7 @@ func buildUploadPreview(matches []laneMatch) (*regattacentral.UploadRequest, []s
 			RaceNumber:    m.RaceNumber,
 			Lane:          m.Lane,
 			DisplayNumber: extractBoatLabel(m.AdditionalInfo),
-			Status:        laneStatusForPlace(m.Place),
+			Status:        laneStatus(m.Place, m.LaneClass),
 		}
 
 		switch m.Status {
@@ -89,6 +89,23 @@ func buildUploadPreview(matches []laneMatch) (*regattacentral.UploadRequest, []s
 	}
 
 	return req, warnings
+}
+
+// laneStatus combines the xlsm's post-race Place outcome with the Heat
+// Sheet's pre-race "Exhibition" designation (see isExhibitionLane, match.go)
+// into one regattacentral.LaneStatus. A real, observed outcome takes
+// priority - DQ/DNF/DNS/SCR are hard facts recorded at the finish line (or a
+// pre-race scratch), whereas Exhibition is an administrative designation
+// made before the race even starts; if the lane finished cleanly with no
+// outcome-level status, its Exhibition flag (if any) is what's reported.
+func laneStatus(place, laneClass string) regattacentral.LaneStatus {
+	if s := laneStatusForPlace(place); s != regattacentral.LaneOK {
+		return s
+	}
+	if isExhibitionLane(laneClass) {
+		return regattacentral.LaneExhibition
+	}
+	return regattacentral.LaneOK
 }
 
 // laneStatusForPlace maps the xlsm's Place field to a RegattaCentral

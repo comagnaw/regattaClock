@@ -47,6 +47,39 @@ func TestLaneStatusForPlace(t *testing.T) {
 	}
 }
 
+func TestLaneStatusCombinesPlaceAndExhibition(t *testing.T) {
+	tests := []struct {
+		place, laneClass string
+		want             regattacentral.LaneStatus
+	}{
+		{"", "Exhibition M-1-4x", regattacentral.LaneExhibition},
+		{"", "M-1-4x", regattacentral.LaneOK}, // a real class, no "Exhibition" decorator
+		{"", "", regattacentral.LaneOK},
+		// A real outcome takes priority over a pre-race Exhibition designation.
+		{common.RaceDidNotFinish, "Exhibition M-1-4x", regattacentral.LaneDidNotFinish},
+	}
+	for _, tt := range tests {
+		if got := laneStatus(tt.place, tt.laneClass); got != tt.want {
+			t.Errorf("laneStatus(%q, %q) = %q, want %q", tt.place, tt.laneClass, got, tt.want)
+		}
+	}
+}
+
+func TestIsExhibitionLane(t *testing.T) {
+	tests := map[string]bool{
+		"Exhibition M-1-4x": true,
+		"exhibition":        true,
+		"M-1-4x":            false,
+		"":                  false,
+		"A":                 false,
+	}
+	for laneClass, want := range tests {
+		if got := isExhibitionLane(laneClass); got != want {
+			t.Errorf("isExhibitionLane(%q) = %v, want %v", laneClass, got, want)
+		}
+	}
+}
+
 func TestNewPlaceholderUUIDLooksLikeAUUIDAndVaries(t *testing.T) {
 	a := newPlaceholderUUID()
 	b := newPlaceholderUUID()
@@ -82,6 +115,21 @@ func TestBuildUploadPreviewMatchedLaneGetsRealEntryID(t *testing.T) {
 	}
 	if len(req.Races) != 1 || req.Races[0].Status != regattacentral.StatusOfficial {
 		t.Errorf("races = %+v, want race 1 marked Official since it has a result", req.Races)
+	}
+}
+
+func TestBuildUploadPreviewCarriesExhibitionFromHeatSheet(t *testing.T) {
+	matches := []laneMatch{
+		{
+			RaceNumber: 6, Lane: 6, SchoolName: "Justice High",
+			LaneClass:  "Exhibition M-1-4x",
+			Status:     statusMatched,
+			Candidates: []rcEntry{{ID: "122"}},
+		},
+	}
+	req, _ := buildUploadPreview(matches)
+	if len(req.Lanes) != 1 || req.Lanes[0].Status != regattacentral.LaneExhibition {
+		t.Errorf("lane = %+v, want Status LaneExhibition", req.Lanes[0])
 	}
 }
 

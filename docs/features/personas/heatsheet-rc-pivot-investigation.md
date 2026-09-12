@@ -317,6 +317,44 @@ Full detail in [`cmd/rcprobe`'s README](../../../cmd/rcprobe/README.md) and
   lane skips to the next untaken candidate instead of colliding; if there
   are more tied lanes than distinct candidates left (rare), the extra lane
   stays honestly ambiguous rather than reusing an id outright wrong.
+- **A real, structural viability question for Phase C/D: does RegattaCentral's
+  data model even support the mixed-boat-class races this RD ran?**
+  Confirmed from two independent sources without any write call: (1) the
+  documented Cookbook API surface reads races _through_ an event
+  (`GET .../events/{EventId}/races`), and (2) the real `bulk.json` capture
+  shows each `Event` object nesting its own `races` array as a child field,
+  with the event itself carrying the boat-class-defining attributes
+  (`gender`, `coxed`, `sweep`, `athleteClass`, `equipment`) - so a `Race`
+  belongs to exactly one `Event`, structurally. All 28 events in this
+  capture have empty `races` arrays - RC's own scheduling feature was never
+  used for this regatta, answering a question this doc had left open. The
+  RD's real practice - sending a small class down the course as an extra
+  lane in a different class's race, to save time with too few entries to
+  justify its own heat - has no direct equivalent in RC's schema as
+  documented: that lane's result would most likely need to go against a race
+  belonging to its _own_ event, not the one it physically raced alongside.
+  What can't be resolved by reading alone: whether `/upload` actually
+  validates "every lane in a race must share one event" server-side, since
+  `UploadRequest`'s `RaceRecord`/`LaneRecord` carry no `eventId` field at
+  all - confirming that would require an actual write call, which the
+  ground rules for this investigation rule out entirely.
+- **Confirmed against RegattaCentral's public schema documentation (read-only,
+  no write call): a per-entry `"EXH"` (Exhibition) status is real, and the
+  earlier `"DSQ"` guess for disqualified was wrong.** The RD's Heat Sheet
+  already marks combined-in boats "Exhibition" (the same annotation
+  `heatSheetClassDecorators` strips before a boat-class comparison) - four
+  boats in this regatta carry it. Fetched
+  `api.regattacentral.com/v4/xsd_doc/resultstatustype.html` directly (a
+  public schema page, not the live regatta) and confirmed `ResultStatusType`
+  is `DNF, SCR, DNS, DQ, EXC, EXH, NJ, REL, RMV, OK` - `EXH` is real, and the
+  correct disqualified code is `DQ`, not the `DSQ` this project's
+  `LaneDisqualified` had guessed since Phase A. Added `LaneExhibition`
+  ("EXH") to `internal/regattacentral/model.go` and corrected
+  `LaneDisqualified` to `"DQ"`; `cmd/rcreconcile`'s `laneMatch` now carries
+  the Heat Sheet's row-2 text through to `buildUploadPreview`, which reports
+  `LaneExhibition` whenever `isExhibitionLane` finds the decorator and no
+  real outcome (DQ/DNF/DNS/SCR) already takes priority. `REL` (meaning
+  unconfirmed) is not yet modeled.
 - The real `/bulk` / `entries` / `organizations` / `events` schema — confirm
   with `rcreconcile shape` against the author's local capture; correct
   `asEntry` / `asOrg` / `asEvent` in `cmd/rcreconcile/rcmodel.go` accordingly.

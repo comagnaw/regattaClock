@@ -306,7 +306,14 @@ shape are in one place.
   something the finish-line clock marks, but an RD can still hand-type it
   into the post-race Results tab for a boat that never rowed) map to the
   matching `LaneStatus`; anything else (a real finish place, or blank)
-  reports as OK.
+  reports as OK - unless the Heat Sheet's row-2 text for that lane carries
+  the "Exhibition" decorator (see boat-class disambiguation, above), in
+  which case it reports `LaneExhibition` ("EXH") instead. `LaneStatus`
+  (`internal/regattacentral/model.go`) is backed by the schema's
+  `ResultStatusType` enum, confirmed directly against
+  `api.regattacentral.com/v4/xsd_doc/resultstatustype.html` while adding
+  `EXH`: `LaneDisqualified` was also corrected from an earlier PROVISIONAL
+  `"DSQ"` guess to the schema's actual `"DQ"`.
 - `DisplayNumber` reuses `extractBoatLabel` ("A"/"B" from `AdditionalInfo`) -
   PROVISIONAL like everything else guessing at RegattaCentral's own field
   meanings, and known to occasionally false-positive when `AdditionalInfo`

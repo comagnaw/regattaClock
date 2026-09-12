@@ -41,10 +41,16 @@ type laneMatch struct {
 	// (reader.RaceEntry's own field names) - blank before the regatta has run,
 	// or for a bye lane. Used by buildUploadPreview (preview.go) to fill in
 	// ResultRecord/lane status; unused by the reconciliation report itself.
-	Place  string
-	Split  string
-	Time   string
-	Status matchStatus
+	Place string
+	Split string
+	Time  string
+	// LaneClass is the Heat Sheet tab's row-2 text for this lane, if any
+	// (see heatSheetLane.LaneClass) - carried through so buildUploadPreview
+	// can detect an "Exhibition" designation and set
+	// regattacentral.LaneExhibition. Blank when the xlsm has no Heat Sheet
+	// tab, or no row-2 text for this lane.
+	LaneClass string
+	Status    matchStatus
 	// Candidates is the matched entry for statusMatched, the competing entries
 	// for statusAmbiguous, and empty for statusUnmatched.
 	Candidates []rcEntry
@@ -79,6 +85,7 @@ func matchRaces(races []reader.RaceData, entries []rcEntry, events map[string]st
 				Place:          entry.Place,
 				Split:          entry.Split,
 				Time:           entry.Time,
+				LaneClass:      heatSheet[[2]int{race.RaceNumber, lane}].LaneClass,
 				Candidates:     cands,
 			}
 			switch {
@@ -583,6 +590,16 @@ func normalizeBoatClass(s string) string {
 		b.WriteString(t)
 	}
 	return b.String()
+}
+
+// isExhibitionLane reports whether laneClass (the Heat Sheet tab's row-2
+// text for a lane) carries the "exhibition" decorator - the one word in
+// heatSheetClassDecorators that also means something to RegattaCentral
+// itself: buildUploadPreview (preview.go) maps it to the confirmed-real
+// regattacentral.LaneExhibition status, unlike the others (which exist
+// purely to be stripped before a boat-class comparison).
+func isExhibitionLane(laneClass string) bool {
+	return slices.Contains(tokens(laneClass), "exhibition")
 }
 
 func entryHasParticipantToken(e rcEntry, want []string) bool {

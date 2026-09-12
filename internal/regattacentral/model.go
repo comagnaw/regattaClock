@@ -36,7 +36,14 @@ const (
 	StatusUnknown             RaceStatus = "Unknown"
 )
 
-// LaneStatus is a per-entry status on a lane record (Cookbook §15).
+// LaneStatus is a per-entry status on a lane record (Cookbook §15), backed by
+// the schema's ResultStatusType enum (confirmed directly against
+// api.regattacentral.com/v4/xsd_doc/resultstatustype.html: DNF, SCR, DNS, DQ,
+// EXC, EXH, NJ, REL, RMV, OK). LaneDisqualified was corrected from an earlier
+// PROVISIONAL "DSQ" guess to the confirmed "DQ". REL (meaning unconfirmed)
+// and the literal "OK" value are not yet modeled - LaneOK stays the empty
+// string (an omitted field), the standard REST default-state convention,
+// until there's a reason to believe RC actually requires the literal "OK".
 type LaneStatus string
 
 const (
@@ -44,11 +51,18 @@ const (
 	LaneScratched    LaneStatus = "SCR"
 	LaneDidNotStart  LaneStatus = "DNS"
 	LaneDidNotFinish LaneStatus = "DNF"
-	LaneDisqualified LaneStatus = "DSQ"
+	LaneDisqualified LaneStatus = "DQ"
 	LaneRemoved      LaneStatus = "RMV"
 	LaneExcluded     LaneStatus = "EXC"
 	LaneNotJudged    LaneStatus = "NJ"
 	LaneByInvitation LaneStatus = "INV"
+	// LaneExhibition marks a crew racing outside official competition - not
+	// scoring, not counted in results - the real case that motivated
+	// confirming this enum: an RD can combine a small class into another
+	// race's open lanes for lack of entries (see
+	// heatsheet-rc-pivot-investigation.md) and mark that boat "Exhibition"
+	// on the Heat Sheet tab.
+	LaneExhibition LaneStatus = "EXH"
 )
 
 // Timing milestones (Cookbook §14): id 0 is always the start line, id 4 is
