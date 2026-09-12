@@ -65,10 +65,12 @@ Full detail in [`cmd/rcprobe`'s README](../../../cmd/rcprobe/README.md) and
    plain-language HTML report: which boats matched RegattaCentral
    automatically, which need a human's judgment, and which RC entries the
    lineup never used (possible scratches).
-4. **Upload preview** (not yet built): a `--dry-run` rendering of what a
-   heat-sheet-and-results "publish" would look like, built from the xlsm and
-   `reconcile`'s matches, using the already-typed, already-tested
-   `regattacentral.UploadRequest`. `Client.Upload` is never called.
+4. **`rcreconcile reconcile --upload-preview-out`** (Milestone 2) renders a
+   local, human-readable preview of what a heat-sheet-and-results "publish"
+   would look like, built from the xlsm and `reconcile`'s matches, using the
+   already-typed, already-tested `regattacentral.UploadRequest`. `Client.Upload`
+   is never called - see [`cmd/rcreconcile`'s README](../../../cmd/rcreconcile/README.md)
+   for exactly what it does and does not resolve confidently.
 
 ## Findings
 

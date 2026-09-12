@@ -186,10 +186,48 @@ to matter on the first real regatta tried:
    `asEvent` / `firstString` / `firstOrgName`'s candidate key lists can be
    widened.
 
+### `--upload-preview-out` — dry-run upload preview (Milestone 2)
+
+```sh
+go run ./cmd/rcreconcile reconcile \
+  --xlsm internal/reader/testdata/example.xlsm \
+  --rc-dir internal/regattacentral/testdata \
+  --report-out out/reconciliation.html \
+  --upload-preview-out out/upload-preview.txt
+```
+
+An optional flag on `reconcile` (not a separate command, since it reuses the
+same matches): renders a local, human-readable preview of the
+`regattacentral.UploadRequest` (`internal/regattacentral/model.go`) this
+data would produce if it were ever PUT to `/regattas/{id}/upload` - **it never
+is**; `Client.Upload` is not called anywhere in `cmd/rcreconcile`
+(`grep -rn "\.Upload(" cmd/rcreconcile/` finds nothing). One output file holds
+both a per-race/lane rendering (`Race 1 Lane 1 - RC entry #4821 - 6:12.5`) and
+the raw JSON payload underneath it, so both a quick read and the exact wire
+shape are in one place.
+
+`buildUploadPreview` (`preview.go`) adapts each `laneMatch` from Milestone 1:
+
+- **Matched** lanes get the real, already-confirmed RegattaCentral `EntryID`.
+- **Ambiguous** or **unmatched** lanes get a locally-generated placeholder
+  UUID instead (the same shape RegattaCentral documents for a brand-new
+  entry) and are listed in a "needs a human's judgment" section - nothing is
+  silently guessed into a real id.
+- A result (`AddFinish`) is only added for a lane with a parseable finish time
+  (`parseRaceTime`, expects the xlsm's own `"M:SS.s"` format) - a race that
+  hasn't happened yet, or a bye lane, still gets a lane record but no result.
+- `Place`'s `"DQ"`/`"DNF"`/`"DNS"` map to the matching `LaneStatus`; anything
+  else (a real finish place, or blank) reports as OK.
+- `DisplayNumber` reuses `extractBoatLabel` ("A"/"B" from `AdditionalInfo`) -
+  PROVISIONAL like everything else guessing at RegattaCentral's own field
+  meanings, and known to occasionally false-positive when `AdditionalInfo`
+  instead holds a small boat's rower name (see `reader.RaceEntry`'s doc
+  comment) rather than a boat label.
+
+Same PII rule as `--report-out`: this names real people once run against a
+real capture, so keep it outside the repo or under a gitignored path.
+
 ## Not yet built
 
-- `--upload-preview-out` (Milestone 2): a dry-run preview of what a
-  heat-sheet-and-results "publish" to RegattaCentral would look like, built
-  from the xlsm plus this tool's matches. Still never calls the write API.
 - A live `--regatta` pull, if the offline `--rc-dir` workflow turns out not to
   be enough.

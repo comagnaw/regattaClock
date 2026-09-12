@@ -16,12 +16,13 @@ import (
 // --out pointed at the same directory.
 func runReconcile(argv []string) error {
 	fs := flag.NewFlagSet("reconcile", flag.ContinueOnError)
-	var xlsmPath, rcDir, reportOut string
+	var xlsmPath, rcDir, reportOut, uploadPreviewOut string
 	fs.StringVar(&xlsmPath, "xlsm", "", "path to the regatta's .xlsm/.xlsx workbook (required)")
 	fs.StringVar(&rcDir, "rc-dir", "", "directory of captured RegattaCentral JSON files, e.g. from `rcprobe walk --out` (required)")
 	fs.StringVar(&reportOut, "report-out", "", "path to write the HTML report (required; keep it outside the repo, or under a gitignored path - it will name real people)")
+	fs.StringVar(&uploadPreviewOut, "upload-preview-out", "", "optional: path to write a local dry-run preview of the RegattaCentral upload this data would produce - never sent, Client.Upload is never called; keep it outside the repo or under a gitignored path")
 	fs.Usage = func() {
-		fmt.Fprint(os.Stderr, "usage: rcreconcile reconcile --xlsm PATH --rc-dir DIR --report-out PATH\n\nflags:\n")
+		fmt.Fprint(os.Stderr, "usage: rcreconcile reconcile --xlsm PATH --rc-dir DIR --report-out PATH [--upload-preview-out PATH]\n\nflags:\n")
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(argv); err != nil {
@@ -56,7 +57,22 @@ func runReconcile(argv []string) error {
 			countUnmatched(matches)+countAmbiguous(matches), len(unused), plural(len(unused)))
 	}
 
-	return writeReport(reportOut, buildReport(rd.Name, matches, unused))
+	if err := writeReport(reportOut, buildReport(rd.Name, matches, unused)); err != nil {
+		return err
+	}
+
+	if uploadPreviewOut != "" {
+		req, warnings := buildUploadPreview(matches)
+		if len(warnings) > 0 {
+			fmt.Fprintf(os.Stderr, "rcreconcile: %d lane(s) in the upload preview use a placeholder id - see %s.\n",
+				len(warnings), uploadPreviewOut)
+		}
+		if err := writeUploadPreview(uploadPreviewOut, req, warnings); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func countUnmatched(matches []laneMatch) int {

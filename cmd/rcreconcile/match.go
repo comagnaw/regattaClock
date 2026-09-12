@@ -26,7 +26,14 @@ type laneMatch struct {
 	FlightInfo     string
 	SchoolName     string
 	AdditionalInfo string
-	Status         matchStatus
+	// Place, Split and Time are the xlsm's post-race outcome for this lane
+	// (reader.RaceEntry's own field names) - blank before the regatta has run,
+	// or for a bye lane. Used by buildUploadPreview (preview.go) to fill in
+	// ResultRecord/lane status; unused by the reconciliation report itself.
+	Place  string
+	Split  string
+	Time   string
+	Status matchStatus
 	// Candidates is the matched entry for statusMatched, the competing entries
 	// for statusAmbiguous, and empty for statusUnmatched.
 	Candidates []rcEntry
@@ -52,6 +59,9 @@ func matchRaces(races []reader.RaceData, entries []rcEntry, events map[string]st
 				FlightInfo:     race.FlightInfo,
 				SchoolName:     entry.SchoolName,
 				AdditionalInfo: entry.AdditionalInfo,
+				Place:          entry.Place,
+				Split:          entry.Split,
+				Time:           entry.Time,
 				Candidates:     cands,
 			}
 			switch len(cands) {
