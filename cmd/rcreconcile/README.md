@@ -173,10 +173,16 @@ Four more things `reconcile` handles that came up on real regattas:
   - `disambiguateByBoatClass` narrows when the row-2 text exactly matches
     (normalized, not substring - the same false-positive risk a short code
     runs as any other) a candidate's own `BoatClass` field or its resolved
-    event's label.
+    event's label. A real example needed one more step first: an RD can
+    write a local annotation into the same cell as the real class (e.g.
+    "Exhibition M-1-4x") - RegattaCentral's own text never carries that
+    annotation, so `normalizeBoatClass` strips a short, named list of known
+    decorator words (`heatSheetClassDecorators`, same "named list, not
+    general NLP" approach as `commonAbbrevExpansions`) before comparing, so
+    "Exhibition M-1-4x" still exact-matches a plain "M-1-4x".
   - Anything that isn't really a name or a class landing in either cell
-    (blank, an advancement note, "Exhibition", "SCRATCHED", "A"/"B") simply
-    won't match and is a harmless no-op in both.
+    (blank, an advancement note, "SCRATCHED", "A"/"B") simply won't match
+    and is a harmless no-op in both.
 - **`--debug-race N`.** Prints a step-by-step trace, to stderr, of how one
   race's lanes were resolved - the race-scoped pool size, then per lane:
   candidate counts before/after widening, before/after the rower-name check,

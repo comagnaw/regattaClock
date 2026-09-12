@@ -267,6 +267,19 @@ Full detail in [`cmd/rcprobe`'s README](../../../cmd/rcprobe/README.md) and
   genuine data/algorithm limitation, not a bug - fixing it would mean
   reworking roster overlap's tie-breaking for races with few schools, a
   separate and riskier change not pursued in this swimlane.
+- **Tenth real run: fixing a mislabeled boat class in the xlsm (`(W|M)-4x`
+  written where it should have been `(W|M)-1-4x`) resolved several more
+  lanes** - another data-quality dependency, not a code fix. Investigating
+  a remaining miss ("Justice (Exhibition M-1-4x)") found a new, real
+  pattern: the Heat Sheet's row-2 cell can combine a local-only annotation
+  with the real class in one string (e.g. "Exhibition M-1-4x"), which never
+  exact-matched RegattaCentral's plain "M-1-4x" text. Fixed with
+  `heatSheetClassDecorators` (`match.go`) - a short, named list of known
+  decorator words (currently just "exhibition") stripped before comparing,
+  the same "named list, not general NLP" approach as
+  `commonAbbrevExpansions`, deliberately not a switch to substring matching
+  (which would reopen the "Varsity 8" vs. "Junior Varsity 8" collision risk
+  `matchingEventIDs` already guards against for boat-class-like text).
 - The real `/bulk` / `entries` / `organizations` / `events` schema — confirm
   with `rcreconcile shape` against the author's local capture; correct
   `asEntry` / `asOrg` / `asEvent` in `cmd/rcreconcile/rcmodel.go` accordingly.

@@ -468,13 +468,13 @@ func disambiguateByBoatClass(cands []rcEntry, laneClass string, events map[strin
 	if len(cands) <= 1 {
 		return cands
 	}
-	n := normalize(laneClass)
+	n := normalizeBoatClass(laneClass)
 	if n == "" {
 		return cands
 	}
 	var narrowed []rcEntry
 	for _, c := range cands {
-		if normalize(c.BoatClass) == n || normalize(events[c.EventID]) == n {
+		if normalizeBoatClass(c.BoatClass) == n || normalizeBoatClass(events[c.EventID]) == n {
 			narrowed = append(narrowed, c)
 		}
 	}
@@ -482,6 +482,36 @@ func disambiguateByBoatClass(cands []rcEntry, laneClass string, events map[strin
 		return narrowed
 	}
 	return cands
+}
+
+// heatSheetClassDecorators is a short, named list of local RD annotations
+// that can share a Heat Sheet cell with a real boat class (e.g. a real
+// example: "Exhibition M-1-4x") but never appear in RegattaCentral's own
+// class/event-label text - stripped before comparing so a decorated lane can
+// still exact-match. Same "named list, not general NLP" approach as
+// commonAbbrevExpansions; a decorator outside this list is left unresolved
+// for a human to judge, same as everything else this tool is unsure of.
+var heatSheetClassDecorators = map[string]bool{
+	"exhibition": true,
+}
+
+// normalizeBoatClass is normalize's boat-class-specific sibling: same
+// tokenize-and-join approach, but strips heatSheetClassDecorators instead of
+// expanding commonAbbrevExpansions (a decorator word isn't a synonym for
+// part of the class, it's an unrelated annotation riding along in the same
+// cell). Deliberately still exact-match-only where it's used
+// (disambiguateByBoatClass) - a short class code is too easy to
+// coincidentally substring-match a different one (e.g. "Varsity 8" inside
+// "Junior Varsity 8"), the same risk matchingEventIDs guards against.
+func normalizeBoatClass(s string) string {
+	var b strings.Builder
+	for _, t := range tokens(s) {
+		if heatSheetClassDecorators[t] {
+			continue
+		}
+		b.WriteString(t)
+	}
+	return b.String()
 }
 
 func entryHasParticipantToken(e rcEntry, want []string) bool {

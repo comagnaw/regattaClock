@@ -168,6 +168,17 @@ func TestDisambiguateByBoatClass(t *testing.T) {
 	if got := disambiguateByBoatClass([]rcEntry{cands[0]}, "M-Jr-1x", events); len(got) != 1 {
 		t.Errorf("single candidate: got %+v, want it returned untouched", got)
 	}
+
+	// Real example: a Heat Sheet cell read "Exhibition M-1-4x" - a local RD
+	// decorator sharing the cell with the real class, which RegattaCentral's
+	// own text never carries.
+	decorated := []rcEntry{
+		{ID: "3", BoatClass: "M-1-4x"},
+		{ID: "4", BoatClass: "W-1-4x"},
+	}
+	if got := disambiguateByBoatClass(decorated, "Exhibition M-1-4x", nil); len(got) != 1 || got[0].ID != "3" {
+		t.Errorf("decorated lane class: got %+v, want just entry 3 (Exhibition stripped)", got)
+	}
 }
 
 // TestMatchRacesWidensPoolAndDisambiguatesByBoatClass covers the mash-up case
