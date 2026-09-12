@@ -147,28 +147,43 @@ Four more things `reconcile` handles that came up on real regattas:
   against every entry in the regatta before giving up. That widened pool can
   itself be ambiguous (the school may have several other entries across the
   regatta), which is what the Heat Sheet tab's rower name is for, next.
-- **Disambiguating by the rower's name, from the Heat Sheet tab.** The xlsm's
-  "Heat Sheet" tab (a separate tab from "Results" - `internal/reader` never
-  reads it; see its `findRaceSheet` comment) lists a stroke/rower's last name
-  for 1x/2x boats, confirmed against a real RD-authored template
-  (`Heat Sheet Input Examples.xlsx`'s Instructions tab): every race is a
-  3-row block - row 1 is the boat class and per-lane school names, row 2 is a
-  free-text per-lane annotation (an alternate boat class, "A"/"B",
-  "SCRATCHED", ...) this tool deliberately does not try to interpret, and row
-  3 is the rower's last name. `readHeatSheet` (`heatsheet.go`) is a small,
+- **Disambiguating a widened lane by the rower's name and boat class, from
+  the Heat Sheet tab.** The xlsm's "Heat Sheet" tab (a separate tab from
+  "Results" - `internal/reader` never reads it; see its `findRaceSheet`
+  comment) is a 3-row block per race, confirmed against a real RD-authored
+  template (`Heat Sheet Input Examples.xlsx`'s Instructions tab): row 1 is
+  the nominal boat class and per-lane school names; row 2 is a per-lane
+  annotation that is an alternate boat class exactly when the RD combined a
+  different class into this race (it can just as easily be "A"/"B",
+  "SCRATCHED", or an advancement note - see `disambiguateByBoatClass` below
+  for how that's told apart); row 3 is the stroke/rower's last name, listed
+  only for 1x/2x boats. `readHeatSheet` (`heatsheet.go`) is a small,
   standalone parser scoped to `cmd/rcreconcile` on purpose - not
   `internal/reader` - since this investigation isn't meant to grow the
-  shipped app's Excel-parsing surface for a one-off disambiguation signal;
-  a workbook with no tab named exactly "Heat Sheet" (so "Referee Heat Sheet"
-  is never mistaken for it) simply yields no rower-name data, and reconcile
-  still works without it. `disambiguateByRowerLastName` narrows candidates
-  down when the name appears as a whole token in any of an entry's
-  `ParticipantNames` (`rcEntry`, from a confirmed-real `entryParticipants`
-  array on the entry) - PROVISIONAL like every other name-shape guess in this
-  tool, since the real API's name format ("First Last" vs "Last, First") is
-  unconfirmed. Anything that isn't really a name landing in that Heat Sheet
-  cell (blank, an advancement note, "Exhibition") simply won't match any
-  participant and is a harmless no-op.
+  shipped app's Excel-parsing surface for a one-off disambiguation signal; a
+  workbook with no tab named exactly "Heat Sheet" (so "Referee Heat Sheet" is
+  never mistaken for it) simply yields no data, and reconcile still works
+  without it. Two independent narrowing steps run on a widened lane's
+  candidates:
+  - `disambiguateByRowerLastName` narrows when the row-3 name appears as a
+    whole token in any of a candidate's `ParticipantNames` (`rcEntry`, from a
+    confirmed-real `entryParticipants` array) - PROVISIONAL like every other
+    name-shape guess in this tool, since the real API's name format
+    ("First Last" vs "Last, First") is unconfirmed.
+  - `disambiguateByBoatClass` narrows when the row-2 text exactly matches
+    (normalized, not substring - the same false-positive risk a short code
+    runs as any other) a candidate's own `BoatClass` field or its resolved
+    event's label.
+  - Anything that isn't really a name or a class landing in either cell
+    (blank, an advancement note, "Exhibition", "SCRATCHED", "A"/"B") simply
+    won't match and is a harmless no-op in both.
+- **`--debug-race N`.** Prints a step-by-step trace, to stderr, of how one
+  race's lanes were resolved - the race-scoped pool size, then per lane:
+  candidate counts before/after widening, before/after the rower-name check,
+  before/after the boat-class check. Only school/organization names, entry
+  ids, and event ids ever print - never an athlete's name - so a specific
+  lane's non-match can be diagnosed against a real capture without sharing
+  anything sensitive.
 - **Short abbreviations don't substring-match.** A real mismatch: "Bishop
   Ireton" (xlsm) was showing "Osbourn Park" as a candidate, because
   normalize("Bishop Ireton") happens to contain "op" (the tail end of

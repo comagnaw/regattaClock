@@ -179,28 +179,36 @@ _(filled in as the investigation proceeds)_
   see the fifth real run), and boat classes the RD combined into a race's
   open lanes for lack of entries (e.g. the regatta's only Junior Men's 1x
   raced as an extra lane in a Men's 2x).
-- **Eighth real run, in progress: resolving RD-combined lanes via the Heat
-  Sheet tab's rower name - built, not yet confirmed against the real
-  regatta.** A combined lane's real RegattaCentral entry belongs to an event
-  `bestMatchingEvent` correctly excludes from the rest of that race, so it's
-  structurally unmatchable from the Results tab alone. The xlsm's separate
-  "Heat Sheet" tab (never read by `internal/reader` — a different, 3-row
-  block layout) carries the one signal that resolves it: a rower's last
-  name, listed for 1x/2x boats. Confirmed against a real RD-authored
-  template (`cmd/rcreconcile/Heat Sheet Input Examples.xlsx`), not guessed:
-  row 1 of each block is the boat class and per-lane school names, row 2 is a
-  free-text per-lane annotation (alternate class, "A"/"B", "SCRATCHED") left
-  uninterpreted on purpose, row 3 is the rower's last name.
-  `cmd/rcreconcile/heatsheet.go` reads just that — a small, standalone parser
-  kept out of `internal/reader` deliberately, so this one-off investigation
-  signal doesn't grow the shipped app's Excel-parsing surface. `matchRaces`
-  widens a lane's candidate pool to the whole regatta when the race-scoped
-  pool finds nothing, then `disambiguateByRowerLastName` narrows the result
-  using the entry's `entryParticipants` names (confirmed real, from tracing a
-  real `entryId`'s structure). Separately: an RD can hand-type
-  "SCR"/"SCRATCHED" into the Results tab's Place column for a scratched boat
-  (not something `internal/clock`'s live timing ever writes) —
-  `preview.go`'s `laneStatusForPlace` (Milestone 2) now recognizes it too.
+- **Eighth real run: the rower-name signal alone parsed correctly (8 names
+  found) but didn't move the ambiguous-lane count - row 2's boat class
+  turned out to be needed too, in progress.** A combined lane's real
+  RegattaCentral entry belongs to an event `bestMatchingEvent` correctly
+  excludes from the rest of that race, so it's structurally unmatchable from
+  the Results tab alone. The xlsm's separate "Heat Sheet" tab (never read by
+  `internal/reader` — a different, 3-row block layout) carries two signals:
+  row 3's rower last name (1x/2x boats only) and row 2's per-lane boat
+  class, set exactly when the RD combined a different class into a race's
+  open lanes. The rower name alone wasn't enough on the real regatta - a
+  bigger boat has no rower name at all, and a school can have several other
+  entries that don't help distinguish by name either.
+  `cmd/rcreconcile/heatsheet.go` now captures both signals;
+  `disambiguateByBoatClass` narrows a widened lane's candidates by matching
+  row 2's text (exact normalized match only - the same false-positive risk
+  as any short code) against a candidate's own `BoatClass` field or its
+  resolved event's label. Separately, `asEntry`'s `BoatClass` guess was
+  widened to include `division` and `alternateTitle` - confirmed-real field
+  names on a live Entry object, traced structurally from a real `entryId`'s
+  own keys (`entryLabel`, also confirmed-real, reads more like a boat's
+  display label than its class, so it moved to the `Label` guess instead).
+  A new `--debug-race N` flag prints a step-by-step trace of one race's
+  matching (school/org names, entry ids, candidate counts - never an
+  athlete's name), added specifically because the rower-name fix's "8 names
+  found, 10 lanes still ambiguous, no change" result gave no way to tell
+  which stage was failing without it. Not yet confirmed against the real
+  regatta. Separately: an RD can hand-type "SCR"/"SCRATCHED" into the
+  Results tab's Place column for a scratched boat (not something
+  `internal/clock`'s live timing ever writes) — `preview.go`'s
+  `laneStatusForPlace` (Milestone 2) now recognizes it too.
 - The real `/bulk` / `entries` / `organizations` / `events` schema — confirm
   with `rcreconcile shape` against the author's local capture; correct
   `asEntry` / `asOrg` / `asEvent` in `cmd/rcreconcile/rcmodel.go` accordingly.
