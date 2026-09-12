@@ -27,6 +27,7 @@ export RC_CLIENT_ID=…
 export RC_CLIENT_SECRET=…
 export RC_USERNAME=…       # your RegattaCentral login
 export RC_PASSWORD=…
+export RC_API_KEY=…        # optional - see below
 ```
 
 Or point it at a 0600 JSON file instead:
@@ -41,10 +42,27 @@ go run ./cmd/rcprobe --secrets-file ~/.config/regattaclock/rc-secrets.json …
     "regattacentral/client_id": "…",
     "regattacentral/client_secret": "…",
     "regattacentral/username": "…",
-    "regattacentral/password": "…"
+    "regattacentral/password": "…",
+    "regattacentral/api_key": "…"
   }
 }
 ```
+
+`RC_API_KEY` / `regattacentral/api_key` is **optional** - RegattaCentral's own
+client-registration flow issues a `client-id` and an `API-Key` together as a
+pair (its account-management page: *"your assigned 'API-key' and 'client-id'
+will be displayed"*), and separately documents *"requests made ... using your
+API-Key or Client-Id generated token"* - implying the API-Key is really an
+**alternative to** the OAuth2 password grant (and, per an earlier reading of
+the Cookbook, meant to travel in the `Authorization` header itself, not a
+separate header). When set, this client currently sends it as an additional
+`X-Api-Key` header alongside the OAuth token, not as an Authorization-header
+replacement - a reasonable first guess, not a confirmed mechanism. See
+[the investigation doc](../../docs/features/personas/heatsheet-rc-pivot-investigation.md)
+for why this was added: a real `/upload` write returned `404` without it
+ever being sent, and every read this project has made worked fine without
+it, so its actual necessity (and the right way to send it) is still
+unconfirmed.
 
 ## Capturing responses for reference
 

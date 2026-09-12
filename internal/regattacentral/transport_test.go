@@ -183,6 +183,43 @@ func TestDoAPIErrorOn404(t *testing.T) {
 	}
 }
 
+func TestDoSendsAPIKeyHeaderOnlyWhenConfigured(t *testing.T) {
+	var gotKey string
+	ts := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		gotKey = r.Header.Get("X-Api-Key")
+		io.WriteString(w, `{}`)
+	})
+
+	// Default testCreds() has no APIKey - the header must be absent.
+	c := ts.client(t, Config{})
+	if _, err := c.Bulk(context.Background(), "R1"); err != nil {
+		t.Fatal(err)
+	}
+	if gotKey != "" {
+		t.Errorf("X-Api-Key = %q, want absent when Credentials.APIKey is empty", gotKey)
+	}
+
+	// ts.client always overwrites Credentials with testCreds(), so build this
+	// one directly to set APIKey.
+	creds := testCreds()
+	creds.APIKey = "the-api-key"
+	c2, err := New(Config{
+		Credentials: creds,
+		TokenURL:    ts.URL + "/oauth2/api/token",
+		BaseURL:     ts.URL + "/v4.0/",
+		HTTPClient:  ts.Server.Client(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c2.Bulk(context.Background(), "R1"); err != nil {
+		t.Fatal(err)
+	}
+	if gotKey != "the-api-key" {
+		t.Errorf("X-Api-Key = %q, want \"the-api-key\"", gotKey)
+	}
+}
+
 func TestDoUsesConfiguredRegattaID(t *testing.T) {
 	var path string
 	ts := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {

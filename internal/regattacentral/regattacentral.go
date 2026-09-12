@@ -37,14 +37,24 @@ const (
 	DefaultMaxRetries = 3
 )
 
-// Credentials are the four secrets the password grant needs. They come from
-// internal/secretstore (see LoadCredentials) or, for cmd/rcprobe, from the
-// environment - never from a flag or the synced regattaData/ tree.
+// Credentials are the four secrets the password grant needs, plus an
+// optional fifth. They come from internal/secretstore (see LoadCredentials)
+// or, for cmd/rcprobe, from the environment - never from a flag or the
+// synced regattaData/ tree.
 type Credentials struct {
 	ClientID     string
 	ClientSecret string
 	Username     string
 	Password     string
+
+	// APIKey is optional and unrelated to the password grant above -
+	// RegattaCentral has been observed issuing a separate x-api-key
+	// alongside client_id/client_secret whose exact purpose isn't yet
+	// confirmed (see heatsheet-rc-pivot-investigation.md: a real write
+	// endpoint returned 404 without it ever being sent). When set, it is
+	// sent as the X-Api-Key header on every request, in addition to the
+	// OAuth2 Authorization header - never in place of it.
+	APIKey string
 }
 
 func (c Credentials) valid() bool {

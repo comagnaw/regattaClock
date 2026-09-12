@@ -75,6 +75,11 @@ func (c *Client) do(ctx context.Context, method, path, rawQuery string, body, ou
 		if c.cfg.Origin != "" {
 			req.Header.Set("Origin", c.cfg.Origin)
 		}
+		// PROVISIONAL: sent alongside, never instead of, the Authorization
+		// token above - see Credentials.APIKey.
+		if c.cfg.Credentials.APIKey != "" {
+			req.Header.Set("X-Api-Key", c.cfg.Credentials.APIKey)
+		}
 
 		resp, err := c.cfg.HTTPClient.Do(req)
 		if err != nil {

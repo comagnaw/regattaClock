@@ -466,3 +466,37 @@ Full detail in [`cmd/rcprobe`'s README](../../../cmd/rcprobe/README.md) and
   integration, or a higher permission tier than the read-only "staff
   access" `/bulk` needs) rather than assuming the request shape itself is
   still wrong.
+- **Sixteenth real run: two attempts to retry the confirmation flow both
+  failed on flag usage before ever reaching the network, and a new
+  credential surfaced.** `--origin --confirm` silently swallowed `--confirm`
+  as `--origin`'s string value (Go's `flag` package always consumes the next
+  token as a string flag's value, even one that looks like another flag) -
+  the dry-run summary printed correctly but nothing was actually confirmed.
+  `--confirm --origin` then correctly errored `flag needs an argument:
+  -origin`, since `--origin` needs an actual URL and none was given. Neither
+  attempt re-tested the `DSQ` fix. Separately, the author revealed the
+  account was issued a third credential alongside the already-used
+  `client_id`/`client_secret`: an **`x-api-key`**, never mentioned or used
+  anywhere in this project before. Confirmed the same client_id/client_secret
+  (plus username/password) already used for every successful read - the
+  `x-api-key` just was never wired in or tried. The author then found (in
+  RegattaCentral's own account-management page HTML, a commented-out block)
+  that `client-id` and `API-Key` are issued together as a pair at
+  registration, that Origin/referer matching is conditional on having
+  registered a referer at all ("if you specify a referer then requests...
+  must have a HTTP Origin header that matches" - since reads have worked
+  with no `Origin` header, this regatta's registration almost certainly has
+  no referer set, further weakening Origin as the 404's cause), and that
+  requests can authenticate "using your API-Key **or** Client-Id generated
+  token" - phrasing that matches Phase A's own earlier finding that the
+  API-Key likely travels in the `Authorization` header as an alternative to
+  the OAuth2 token, not a separate header. Added `Credentials.APIKey`
+  (`internal/regattacentral/regattacentral.go`, optional - `LoadCredentials`
+  tolerates it being unset, unlike the four required credentials) and sent
+  it as an additional `X-Api-Key` header (`transport.go`) alongside, not
+  instead of, the OAuth token - a reasonable first guess given the
+  ambiguity, not a confirmed mechanism. Whether this, the Authorization-header
+  alternative, or an account/regatta entitlement RC support would need to
+  confirm is the actual fix remains open; the next real attempt should be a
+  clean retry (`--confirm` alone, no `--origin`) to finally test the `DSQ`
+  fix in isolation before layering on the API-key hypothesis.

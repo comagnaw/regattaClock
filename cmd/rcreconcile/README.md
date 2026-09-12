@@ -374,10 +374,9 @@ inventing a new RC registration on a live regatta was never asked for.
   `Client.Upload` is ever called - two independent gates before a real
   write happens. Credentials/config work exactly like `cmd/rcprobe`
   (`--secrets-file` or `RC_*` env vars, optional `--config`, optional
-  `--origin` - RegattaCentral documents this as required for a client id
-  with a registered referer; reads have never needed it against this
-  regatta, so it's PROVISIONAL whether a write does either, but the flag
-  exists in case).
+  `--origin`, optional `RC_API_KEY` - see `cmd/rcprobe/README.md`'s
+  Credentials section for what's confirmed and what's still a guess about
+  each of those).
 - **A real 404 from `Client.Upload` isn't necessarily a bug in this tool.**
   The URL/path construction is identical to every already-working GET call
   against the same regatta id; a 404 whose response body is RegattaCentral's
