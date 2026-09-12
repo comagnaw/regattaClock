@@ -186,6 +186,89 @@ func TestMatchingEventIDs(t *testing.T) {
 	}
 }
 
+// TestBestMatchingEventScopesByRosterOverlap is a regression test for the
+// real failure mode: an xlsm using short boat-class codes ("M-2-8+") that
+// share no text with RegattaCentral's event labels, so label matching (the
+// events map here is deliberately unhelpful) resolves nothing and every
+// school with more than one boat in the whole regatta showed up as
+// "ambiguous" in every race it raced in - not just its own. Roster overlap
+// must resolve each race to its own event using only which schools raced
+// together, with no event-label text involved at all.
+func TestBestMatchingEventScopesByRosterOverlap(t *testing.T) {
+	entries := []rcEntry{
+		{ID: "1", OrgName: "McLean", EventID: "10"},
+		{ID: "2", OrgName: "Woodson", EventID: "10"},
+		{ID: "3", OrgName: "Colgan", EventID: "10"},
+		{ID: "4", OrgName: "Langley", EventID: "10"},
+		{ID: "5", OrgName: "McLean", EventID: "20"}, // McLean's other boat, different event
+		{ID: "6", OrgName: "Independence", EventID: "20"},
+		{ID: "7", OrgName: "Battlefield", EventID: "20"},
+	}
+	// Labels deliberately don't match either race's short xlsm code, forcing
+	// bestMatchingEvent (not matchingEventIDs) to be what resolves this.
+	events := map[string]string{"10": "Men's Second Eight", "20": "Women's First Four"}
+
+	race1 := raceWithLanes(1, "M-2-8+", map[int]reader.RaceEntry{
+		1: {SchoolName: "McLean"},
+		2: {SchoolName: "Woodson"},
+		3: {SchoolName: "Colgan"},
+		4: {SchoolName: "Langley"},
+	})
+	pool1 := entriesForRace(entries, race1, events)
+	if len(pool1) != 4 {
+		t.Fatalf("race1 pool = %+v, want exactly the 4 event-10 entries", pool1)
+	}
+	for _, e := range pool1 {
+		if e.EventID != "10" {
+			t.Errorf("race1 pool contains a non-event-10 entry: %+v", e)
+		}
+	}
+	// The real bug: McLean's event-20 boat must not appear as a second
+	// "McLean" candidate for a race that is actually event 10's.
+	mcLean1 := candidatesFor("McLean", pool1)
+	if len(mcLean1) != 1 || mcLean1[0].ID != "1" {
+		t.Errorf("race1 McLean candidates = %+v, want exactly entry 1", mcLean1)
+	}
+
+	race2 := raceWithLanes(2, "W-1-4+", map[int]reader.RaceEntry{
+		1: {SchoolName: "McLean"},
+		2: {SchoolName: "Independence"},
+		3: {SchoolName: "Battlefield"},
+	})
+	pool2 := entriesForRace(entries, race2, events)
+	if len(pool2) != 3 {
+		t.Fatalf("race2 pool = %+v, want exactly the 3 event-20 entries", pool2)
+	}
+	mcLean2 := candidatesFor("McLean", pool2)
+	if len(mcLean2) != 1 || mcLean2[0].ID != "5" {
+		t.Errorf("race2 McLean candidates = %+v, want exactly entry 5", mcLean2)
+	}
+}
+
+func TestBestMatchingEventReturnsBlankOnATieOrNoSignal(t *testing.T) {
+	entries := []rcEntry{
+		{ID: "1", OrgName: "Alpha", EventID: "10"},
+		{ID: "2", OrgName: "Alpha", EventID: "20"},
+	}
+	// "Alpha" alone matches both events equally - a coin flip, not a
+	// confident scoping decision, so this must return "" rather than guess.
+	tie := raceWithLanes(1, "X", map[int]reader.RaceEntry{1: {SchoolName: "Alpha"}})
+	if id := bestMatchingEvent(entries, tie); id != "" {
+		t.Errorf("bestMatchingEvent on a tie = %q, want blank", id)
+	}
+
+	// No lanes at all -> no signal.
+	if id := bestMatchingEvent(entries, reader.RaceData{}); id != "" {
+		t.Errorf("bestMatchingEvent with no lanes = %q, want blank", id)
+	}
+
+	// No entries match any of the race's schools -> no signal.
+	noMatch := raceWithLanes(1, "X", map[int]reader.RaceEntry{1: {SchoolName: "Nobody Here"}})
+	if id := bestMatchingEvent(entries, noMatch); id != "" {
+		t.Errorf("bestMatchingEvent with no matching entries = %q, want blank", id)
+	}
+}
+
 func TestEntriesForRaceScopesByEventAndFallsBack(t *testing.T) {
 	entries := []rcEntry{
 		{ID: "1", OrgName: "Springfield High School", EventID: "10"}, // Varsity 8

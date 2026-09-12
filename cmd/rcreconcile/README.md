@@ -101,20 +101,27 @@ Four more things `reconcile` handles that came up on real regattas:
   style abbreviations. This is a short, named list, not general spell-checking
   — a variation outside it is left for the report's human reader, same as
   everything else this tool is unsure of.
-- **Pools scoped by event, not by a field on the entry.** A school entered in
-  more than one boat class at the same regatta used to show up as an
-  "ambiguous" candidate in _every_ race, because an entry's own boat class has
-  never turned out to be reliably inline. `entriesForRace` (`match.go`) scopes
-  the candidate pool to the RC event whose label matches a race's boat class,
+- **Pools scoped by event, using roster overlap, not label text.**
+  `entriesForRace` (`match.go`) scopes each race's candidate pool to one RC
+  event, tried in order: (1) **roster overlap** (`bestMatchingEvent`) - which
+  event's entries best match the *schools actually racing in this race*,
   using each entry's `EventID` (read straight from its capture's filename,
-  e.g. `entries-42.json` → event `42` — no guessing needed there) and an
-  `eventID -> label` index built from `events.json` (see `asEvent` —
-  PROVISIONAL, same as `asEntry`/`asOrg`). A race whose class can't be matched
-  to any event falls back to the old behavior, so this can only narrow a pool,
-  never lose a match that worked before. Two boats from the _same_ school in
-  the _same_ event still show up as "ambiguous, needs a quick check" — that is
-  the correct answer when RegattaCentral's own data doesn't distinguish them,
-  not a bug to chase.
+  e.g. `entries-42.json` → event `42` — no guessing needed there); (2) event
+  *label* text (`matchingEventIDs`, matching an `events.json`-built label
+  against the race's BoatClass/FlightInfo - see `asEvent`, PROVISIONAL like
+  `asEntry`/`asOrg`); (3) the old plain boat-class filter. Roster overlap is
+  what actually works: a real regatta's xlsm used short codes like "M-2-8+"
+  that share no text with RegattaCentral's fuller event names, so label
+  matching alone resolved nothing, and every school with more than one boat
+  anywhere in the regatta showed up as "ambiguous" in *every* race it raced
+  in - overlap sidesteps that by using something both sides already agree on
+  (which schools race together) instead of needing the two sides' text to
+  match. Every step only narrows further than the one before it produced
+  nothing usable, so this can never regress to fewer matches than before
+  event-scoping existed. Two boats from the *same* school in the *same* event
+  still show up as "ambiguous, needs a quick check" — that is the correct
+  answer when RegattaCentral's own data doesn't distinguish them, not a bug
+  to chase.
 - **Short abbreviations don't substring-match.** A real mismatch: "Bishop
   Ireton" (xlsm) was showing "Osbourn Park" as a candidate, because
   normalize("Bishop Ireton") happens to contain "op" (the tail end of

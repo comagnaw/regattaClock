@@ -74,10 +74,11 @@ Full detail in [`cmd/rcprobe`'s README](../../../cmd/rcprobe/README.md) and
 
 _(filled in as the investigation proceeds)_
 
-- **Real matches are happening** as of the fifth real run (after the org-id
-  join, the "St."/"Saint" fix, event-scoped pools, the short-abbreviation
-  guard, and file-scoped org/event extraction). Exact match-rate, remaining
-  "needs a quick check" / "not found" causes, whether RC already had any
+- **Real matches are expected** as of the sixth real run (after the org-id
+  join, the "St."/"Saint" fix, the short-abbreviation guard, file-scoped
+  org/event extraction, and - the fix that actually made event-scoping work -
+  roster-overlap event resolution). Exact match-rate, remaining "needs a
+  quick check" / "not found" causes, whether RC already had any
   `Event`/`Race`/`Lane` data for this regatta, and RD/executive feedback:
   still to be recorded here.
 - Go / no-go recommendation for a real Phase C/D: —
@@ -131,6 +132,23 @@ _(filled in as the investigation proceeds)_
      contains "organization" and events only from a file named like
      `events.json` (`isOrganizationsFile` / `isEventsFile`,
      `cmd/rcreconcile/rcmodel.go`).
+- **Fifth real run: the Bishop Ireton fix worked, but now _every_ school
+  showed the same pattern** - one xlsm school resolving to 4-6 duplicate
+  copies of its own correct name (and the "unused" list ballooning to
+  essentially every entry in the regatta, since nothing was ever confidently
+  "matched"). Root cause: event-_label_ matching (Milestone 1.7's original
+  `entriesForRace`) never actually resolved anything, because this regatta's
+  xlsm records boat class as a short code ("M-2-8+", "W-Jr-4x") that shares no
+  text with RegattaCentral's fuller event names - so every race silently fell
+  back to the full, unscoped pool, and any school with more than one boat
+  anywhere in the whole regatta appeared as an "ambiguous" duplicate in every
+  race it raced in. Fixed with a different signal that does not depend on the
+  two sides' text agreeing at all: **roster overlap** (`bestMatchingEvent`,
+  `cmd/rcreconcile/match.go`) picks the RC event whose entries best match the
+  _set of schools actually racing in this specific race_, requiring a clear
+  lead over every other event before scoping to it. Event-label matching is
+  kept as a second-opinion fallback behind it, in case a future regatta's
+  labels do line up with the xlsm's codes.
 - The real `/bulk` / `entries` / `organizations` / `events` schema — confirm
   with `rcreconcile shape` against the author's local capture; correct
   `asEntry` / `asOrg` / `asEvent` in `cmd/rcreconcile/rcmodel.go` accordingly.

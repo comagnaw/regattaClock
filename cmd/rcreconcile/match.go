@@ -75,35 +75,116 @@ func matchRaces(races []reader.RaceData, entries []rcEntry, events map[string]st
 	return matches, unused
 }
 
-// entriesForRace scopes the candidate pool to entries tagged with an EventID
-// whose event label (from events, the eventID -> label index entriesFromDir
-// builds from events.json et al.) matches race's BoatClass/FlightInfo. An
-// entry's own boat class has never turned out to be reliably inline - see
-// asEntry - so this is preferred over entriesForBoatClass, which it falls
-// back to whenever no event can be resolved for this race, or resolves to
-// events none of the entries are tagged with (e.g. all entries came from
-// bulk.json, which carries no filename-derived EventID). The fallback means
-// this can only narrow a pool, never regress to fewer matches than before
+// entriesForRace scopes the candidate pool to one RC event's entries, tried in
+// order of how much can be trusted:
+//
+//  1. Roster overlap (bestMatchingEvent): which event's entries best match the
+//     schools actually racing in this race. This is the primary mechanism -
+//     see bestMatchingEvent for why.
+//  2. Event label text (matchingEventIDs against events, the eventID -> label
+//     index entriesFromDir builds from events.json et al.) - kept as a second
+//     opinion in case a regatta's labels do line up with the xlsm's
+//     BoatClass/FlightInfo text, which real data has not shown so far.
+//  3. entriesForBoatClass (today's plain filter) - the final fallback whenever
+//     no event can be resolved for this race at all.
+//
+// Every step can only narrow the pool further than the one before it produced
+// nothing usable; this never regresses to fewer matches than before
 // event-scoping existed.
 func entriesForRace(entries []rcEntry, race reader.RaceData, events map[string]string) []rcEntry {
-	ids := matchingEventIDs(race, events)
-	if len(ids) == 0 {
-		return entriesForBoatClass(entries, race.BoatClass)
-	}
-	var out []rcEntry
-	for _, e := range entries {
-		if e.EventID != "" && ids[e.EventID] {
-			out = append(out, e)
+	if id := bestMatchingEvent(entries, race); id != "" {
+		if pool := entriesWithEventID(entries, id); len(pool) > 0 {
+			return pool
 		}
 	}
-	if len(out) == 0 {
-		return entriesForBoatClass(entries, race.BoatClass)
+
+	if ids := matchingEventIDs(race, events); len(ids) > 0 {
+		var pool []rcEntry
+		for _, e := range entries {
+			if e.EventID != "" && ids[e.EventID] {
+				pool = append(pool, e)
+			}
+		}
+		if len(pool) > 0 {
+			return pool
+		}
+	}
+
+	return entriesForBoatClass(entries, race.BoatClass)
+}
+
+// bestMatchingEvent finds which RC event's entries best match the schools
+// actually racing in race, by counting - per event - how many *distinct*
+// schools in race's lineup resolve (via the same comparison candidatesFor
+// uses) to an entry tagged with that event. The event id is returned only if
+// it has a clear lead over every other event's count; a tie (including 0-0)
+// returns "" rather than guess.
+//
+// This is preferred over matching event labels to the xlsm's BoatClass/
+// FlightInfo text (matchingEventIDs): a real regatta's xlsm used short codes
+// like "M-2-4+" / "W-Jr-4x" that share no useful text with RegattaCentral's
+// fuller event names, so label matching resolved nothing and every race fell
+// back to the full, unscoped entry pool - every school with more than one
+// boat in the whole regatta then showed up as "ambiguous" in every race it
+// raced in, not just its own. Roster overlap sidesteps needing the two sides'
+// text to agree on anything: it uses data both sides already agree on, which
+// schools are racing together.
+func bestMatchingEvent(entries []rcEntry, race reader.RaceData) string {
+	raceSchools := map[string]bool{}
+	for _, lane := range race.Lanes {
+		if n := normalize(lane.SchoolName); n != "" {
+			raceSchools[n] = true
+		}
+	}
+	if len(raceSchools) == 0 {
+		return ""
+	}
+
+	counts := map[string]int{}
+	for school := range raceSchools {
+		matchedEvents := map[string]bool{}
+		for _, e := range entries {
+			if e.EventID == "" || e.OrgName == "" {
+				continue
+			}
+			if matchOrgName(school, e) != orgNone {
+				matchedEvents[e.EventID] = true
+			}
+		}
+		for id := range matchedEvents {
+			counts[id]++
+		}
+	}
+
+	var bestID string
+	var bestCount, secondCount int
+	for id, c := range counts {
+		switch {
+		case c > bestCount:
+			bestID, bestCount, secondCount = id, c, bestCount
+		case c > secondCount:
+			secondCount = c
+		}
+	}
+	if bestCount == 0 || bestCount == secondCount {
+		return ""
+	}
+	return bestID
+}
+
+func entriesWithEventID(entries []rcEntry, eventID string) []rcEntry {
+	var out []rcEntry
+	for _, e := range entries {
+		if e.EventID == eventID {
+			out = append(out, e)
+		}
 	}
 	return out
 }
 
 // matchingEventIDs returns the ids of every event in events whose label
-// exactly equals race's (normalized) BoatClass or FlightInfo.
+// exactly equals race's (normalized) BoatClass or FlightInfo. See
+// entriesForRace: this is a secondary check behind bestMatchingEvent.
 //
 // Deliberately exact, not substring-either-way like candidatesFor's org-name
 // match: boat classes are drawn from a small, systematically-prefixed
@@ -111,9 +192,7 @@ func entriesForRace(entries []rcEntry, race reader.RaceData, events map[string]s
 // a shorter class name is routinely a literal substring of a longer,
 // different one - "varsity8" is a substring of "juniorvarsity8" - so
 // substring matching here would silently merge distinct boat classes instead
-// of separating them. An unresolved race falls back to entriesForBoatClass
-// (see entriesForRace), so exact-only just means "narrow when confident,
-// otherwise don't guess."
+// of separating them.
 func matchingEventIDs(race reader.RaceData, events map[string]string) map[string]bool {
 	out := map[string]bool{}
 	for _, field := range []string{race.BoatClass, race.FlightInfo} {
