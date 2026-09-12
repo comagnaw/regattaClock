@@ -40,10 +40,10 @@ const (
 // the schema's ResultStatusType enum (confirmed directly against
 // api.regattacentral.com/v4/xsd_doc/resultstatustype.html: DNF, SCR, DNS, DQ,
 // EXC, EXH, NJ, REL, RMV, OK). LaneDisqualified was corrected from an earlier
-// PROVISIONAL "DSQ" guess to the confirmed "DQ". REL (meaning unconfirmed)
-// and the literal "OK" value are not yet modeled - LaneOK stays the empty
-// string (an omitted field), the standard REST default-state convention,
-// until there's a reason to believe RC actually requires the literal "OK".
+// PROVISIONAL "DSQ" guess to the confirmed "DQ". The literal "OK" value is
+// not yet modeled - LaneOK stays the empty string (an omitted field), the
+// standard REST default-state convention, until there's a reason to believe
+// RC actually requires the literal "OK".
 type LaneStatus string
 
 const (
@@ -63,6 +63,9 @@ const (
 	// heatsheet-rc-pivot-investigation.md) and mark that boat "Exhibition"
 	// on the Heat Sheet tab.
 	LaneExhibition LaneStatus = "EXH"
+	// LaneRelegated marks a crew moved down from its original heat/division
+	// (a rowing-specific meaning confirmed by the author).
+	LaneRelegated LaneStatus = "REL"
 )
 
 // Timing milestones (Cookbook §14): id 0 is always the start line, id 4 is

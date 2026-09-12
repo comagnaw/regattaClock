@@ -11,8 +11,10 @@ import (
 
 // runShape walks a captured /bulk JSON file and prints its key-path structure
 // - field names and JSON types only, never values - so a human can safely
-// share it (no PII, no secrets) to correct asEntry/asOrg/asEvent in rcmodel.go against
-// the real schema.
+// share it (no PII, no secrets) to correct or extend
+// internal/regattacentral/readmodel.go's typed structs against the real
+// schema (Race/Lane/Result remain unconfirmed - every real capture seen so
+// far has an empty races[] on every event).
 func runShape(argv []string) error {
 	fs := flag.NewFlagSet("shape", flag.ContinueOnError)
 	var bulkFile, out string

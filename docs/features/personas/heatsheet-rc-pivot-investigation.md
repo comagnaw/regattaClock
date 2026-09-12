@@ -353,13 +353,33 @@ Full detail in [`cmd/rcprobe`'s README](../../../cmd/rcprobe/README.md) and
   `LaneDisqualified` to `"DQ"`; `cmd/rcreconcile`'s `laneMatch` now carries
   the Heat Sheet's row-2 text through to `buildUploadPreview`, which reports
   `LaneExhibition` whenever `isExhibitionLane` finds the decorator and no
-  real outcome (DQ/DNF/DNS/SCR) already takes priority. `REL` (meaning
-  unconfirmed) is not yet modeled.
-- The real `/bulk` / `entries` / `organizations` / `events` schema — confirm
-  with `rcreconcile shape` against the author's local capture; correct
-  `asEntry` / `asOrg` / `asEvent` in `cmd/rcreconcile/rcmodel.go` accordingly.
-  This is also what Milestone 4 of the swimlane promotes into
-  `internal/regattacentral`'s read model, once confirmed.
+  real outcome (DQ/DNF/DNS/SCR) already takes priority. `REL` means
+  **Relegated** (confirmed by the author) - added as `LaneRelegated` in
+  Milestone 4, below.
+- **Thirteenth real run: Milestone 4 - promoted the confirmed schema into
+  `internal/regattacentral`, migrated `cmd/rcreconcile` to consume it.**
+  Added `internal/regattacentral/readmodel.go`: typed `Entry`, `Participant`,
+  `Organization`, `Event` structs and `BulkResponse` / `EntriesResponse` /
+  `OrganizationsResponse` / `EventsResponse` envelope decoders, using only
+  the confirmed-real field names traced across this investigation
+  (`entryId`, `eventId`, `organizationId`, `entryParticipants`, `division`,
+  `alternateTitle`, `entryLabel`, and the shared `{success, count, data,
+  links, messages}` envelope every endpoint uses). `api.go`'s existing
+  methods still return raw `json.RawMessage` unchanged - `cmd/rcprobe`
+  depends on full-fidelity captures, and a typed round-trip would silently
+  drop every unmodeled field. `cmd/rcreconcile/rcmodel.go`'s field-name
+  guessing (`asEntry`/`asOrg`/`asEvent`/`firstString`/`firstOrgName`, and the
+  generic tree-walking that went with them) is gone, replaced by decoding
+  each file by name into its confirmed shape. One real simplification this
+  enabled: `EventID` no longer needs the filename-derived fallback or the
+  merge-priority backfill (the `d7a7afa` fix) at all, since every real
+  entry's own `eventId` field agrees with itself regardless of which file
+  found it first - confirmed empirically (zero blank `EventID`/
+  `OrganizationID` across all 107 real entries in the local capture).
+  Verified as a pure refactor, not a behavior change: every existing
+  `match_test.go` / `report_test.go` / `preview_test.go` / `heatsheet_test.go`
+  test passed unchanged, and a real run against the local capture found the
+  identical 107 entries before and after the migration.
 - Whether the abbreviation-expansion heuristic in `cmd/rcreconcile/match.go`
   ("HS"/"MS"/"JV"/"RC"/"BC"/"St.") needs to grow (or shrink) once tested
   against more real organization names.

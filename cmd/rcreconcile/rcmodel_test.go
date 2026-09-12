@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/comagnaw/regattaClock/internal/regattacentral"
 )
 
 func writeJSON(t *testing.T, dir, name, body string) {
@@ -13,18 +15,25 @@ func writeJSON(t *testing.T, dir, name, body string) {
 	}
 }
 
+// Fixtures below use the confirmed real envelope/field shapes (see
+// readmodel.go and heatsheet-rc-pivot-investigation.md's Milestone 4 entry):
+// every response is {success, count, data, links, messages}, with bulk.json
+// nesting entries under data.events[], and the dedicated listings
+// (entries-<id>.json, organizations.json, events.json) carrying a flat array
+// directly under data.
+
 func TestEntriesFromDirMergesAndDedupes(t *testing.T) {
 	dir := t.TempDir()
-	writeJSON(t, dir, "bulk.json", `{"events":[{"id":1,"entries":[
-		{"id":"1","organization":{"name":"Springfield High School"}},
-		{"id":"2","organization":{"name":"Shelbyville Rowing Club"}}
-	]}]}`)
-	// entries-1.json repeats entry "1" (bulk.json sorts first, so its version
-	// wins) and adds a new entry "3" that only exists here.
-	writeJSON(t, dir, "entries-1.json", `[
-		{"id":"1","organization":{"name":"SHOULD NOT WIN - bulk.json sorts first"}},
-		{"id":"3","organization":{"name":"Ogdenville Composite"}}
-	]`)
+	// bulk.json sorts first, so its version of entry "1" wins; entry "3"
+	// only exists in entries-1.json and is merged in.
+	writeJSON(t, dir, "bulk.json", `{"success":true,"count":1,"data":{"events":[{"eventId":1,"entries":[
+		{"entryId":"1","eventId":1,"organizationId":"5","division":"FromBulk"},
+		{"entryId":"2","eventId":1,"organizationId":"6","division":"AlsoFromBulk"}
+	]}]}}`)
+	writeJSON(t, dir, "entries-1.json", `{"success":true,"count":2,"data":[
+		{"entryId":"1","eventId":1,"organizationId":"5","division":"SHOULD NOT WIN - bulk.json sorts first"},
+		{"entryId":"3","eventId":1,"organizationId":"7","division":"FromEntriesFile"}
+	]}`)
 	// A non-JSON file in the same directory must be ignored, not error out.
 	writeJSON(t, dir, "notes.txt", "not json at all")
 
@@ -40,24 +49,27 @@ func TestEntriesFromDirMergesAndDedupes(t *testing.T) {
 	if len(byID) != 3 {
 		t.Fatalf("got %d distinct entries, want 3: %+v", len(byID), entries)
 	}
-	if got := byID["1"].OrgName; got != "Springfield High School" {
-		t.Errorf("entry 1 org = %q, want the bulk.json version to win", got)
+	if got := byID["1"].BoatClass; got != "FromBulk" {
+		t.Errorf("entry 1 division = %q, want the bulk.json version to win", got)
 	}
-	if got := byID["3"].OrgName; got != "Ogdenville Composite" {
-		t.Errorf("entry 3 org = %q, want it merged in from entries-1.json", got)
+	if got := byID["1"].EventID; got != "1" {
+		t.Errorf("entry 1 EventID = %q, want \"1\" from its own eventId field", got)
+	}
+	if got := byID["3"].BoatClass; got != "FromEntriesFile" {
+		t.Errorf("entry 3 division = %q, want it merged in from entries-1.json", got)
 	}
 }
 
 func TestEntriesFromDirResolvesOrgIDAgainstOrganizationsFile(t *testing.T) {
 	dir := t.TempDir()
 	// A real capture had no inline org name at all - only an id reference.
-	writeJSON(t, dir, "entries-4.json", `[
-		{"id":"1","organizationId":42},
-		{"id":"2","organizationId":99}
-	]`)
-	writeJSON(t, dir, "organizations.json", `[
-		{"id":42,"name":"Springfield High School","abbreviation":"SHS"}
-	]`)
+	writeJSON(t, dir, "entries-4.json", `{"success":true,"count":2,"data":[
+		{"entryId":"1","organizationId":42},
+		{"entryId":"2","organizationId":99}
+	]}`)
+	writeJSON(t, dir, "organizations.json", `{"success":true,"count":1,"data":[
+		{"organizationId":42,"name":"Springfield High School","abbreviation":"SHS"}
+	]}`)
 
 	entries, _, err := entriesFromDir(dir)
 	if err != nil {
@@ -78,42 +90,32 @@ func TestEntriesFromDirResolvesOrgIDAgainstOrganizationsFile(t *testing.T) {
 	}
 }
 
-func TestAsOrgDoesNotMatchAReferenceShapedObject(t *testing.T) {
-	// An entry that references its org by id must not itself be picked up as
-	// an rcOrg - asOrg requires a bare "name" field, which a reference shape
-	// ("organizationId": 42) does not have.
-	if _, ok := asOrg(map[string]any{"id": "1", "organizationId": float64(42)}); ok {
-		t.Error("a reference-only object must not be recognized as an rcOrg")
-	}
-	org, ok := asOrg(map[string]any{"id": float64(42), "name": "Springfield High School"})
-	if !ok || org.ID != "42" || org.Name != "Springfield High School" {
-		t.Errorf("asOrg = %+v, %v; want a recognized org", org, ok)
-	}
-}
-
-// TestEntriesFromDirDoesNotLetBulkJSONShadowRealOrgs is a regression test:
-// RC ids very likely restart at 1 per entity kind, so an unrelated
-// id-plus-name object in bulk.json (here, standing in for e.g. an event or
-// regatta object) can coincidentally share an id with a real organization.
-// Only organizations.json (the dedicated listing) may populate the org index,
-// so that collision can never shadow the real name.
-func TestEntriesFromDirDoesNotLetBulkJSONShadowRealOrgs(t *testing.T) {
+// TestEntriesFromDirOnlyExtractsOrgsFromTheirOwnField is a regression test:
+// organizations only ever come from bulk.json's Data.Organizations field or
+// a dedicated organizations.json listing - both explicitly typed - so an
+// unrelated object elsewhere in bulk.json (e.g. an event, which also has an
+// id and could coincidentally collide with a real organization's id) can
+// never be mistaken for one, structurally, unlike the old heuristic walk
+// that had to guard against this by filename alone.
+func TestEntriesFromDirOnlyExtractsOrgsFromTheirOwnField(t *testing.T) {
 	dir := t.TempDir()
-	// bulk.json sorts first and has an unrelated object with id "1" that
-	// would otherwise look like an org to asOrg.
-	writeJSON(t, dir, "bulk.json", `{"regatta":{"id":1,"name":"Not An Organization"},"entries":[{"id":"1","organizationId":"1"}]}`)
-	writeJSON(t, dir, "organizations.json", `[{"id":1,"name":"Springfield High School"}]`)
+	// Event id "1" here deliberately collides with organization id "1" -
+	// RC ids very likely restart at 1 per entity kind.
+	writeJSON(t, dir, "bulk.json", `{"success":true,"count":1,"data":{
+		"events":[{"eventId":1,"title":"Not An Organization","entries":[{"entryId":"1","organizationId":"1"}]}],
+		"organizations":[{"organizationId":1,"name":"Springfield High School"}]
+	}}`)
 
 	entries, _, err := entriesFromDir(dir)
 	if err != nil {
 		t.Fatalf("entriesFromDir: %v", err)
 	}
 	if len(entries) != 1 || entries[0].OrgName != "Springfield High School" {
-		t.Errorf("entries = %+v, want the entry resolved to the real org, not bulk.json's regatta object", entries)
+		t.Errorf("entries = %+v, want the entry resolved to the real org, not the event object", entries)
 	}
 }
 
-func TestIsOrganizationsFileAndIsEventsFile(t *testing.T) {
+func TestIsOrganizationsFileAndIsEventsFileAndIsBulkFile(t *testing.T) {
 	if !isOrganizationsFile("organizations.json") || isOrganizationsFile("bulk.json") {
 		t.Error("isOrganizationsFile misclassified a filename")
 	}
@@ -122,6 +124,9 @@ func TestIsOrganizationsFileAndIsEventsFile(t *testing.T) {
 	}
 	if isEventsFile("entries-4.json") {
 		t.Error("isEventsFile must not match an entries-<id>.json file")
+	}
+	if !isBulkFile("bulk.json") || isBulkFile("entries-4.json") {
+		t.Error("isBulkFile misclassified a filename")
 	}
 }
 
@@ -144,33 +149,49 @@ func TestEntriesFromDirEmpty(t *testing.T) {
 	}
 }
 
-func TestEntriesFromDirTagsEventIDFromFilename(t *testing.T) {
+// TestEntriesFromDirIgnoresUnrecognizedFileShapes covers files that are
+// valid JSON but not one of the four recognized shapes (e.g. rcprobe's
+// token.json, active-races.json) - these must be skipped, not treated as an
+// error or as zero-value entries.
+func TestEntriesFromDirIgnoresUnrecognizedFileShapes(t *testing.T) {
 	dir := t.TempDir()
-	writeJSON(t, dir, "entries-10.json", `[{"id":"1","organizationId":42}]`)
-	writeJSON(t, dir, "bulk.json", `{"id":"2","organizationId":42}`) // no event-id-shaped filename
+	writeJSON(t, dir, "token.json", `{"access_token":"not-a-real-token"}`)
+	writeJSON(t, dir, "entries-1.json", `{"success":true,"count":1,"data":[{"entryId":"1","organizationId":"5"}]}`)
 
 	entries, _, err := entriesFromDir(dir)
 	if err != nil {
 		t.Fatalf("entriesFromDir: %v", err)
 	}
-	byID := map[string]rcEntry{}
-	for _, e := range entries {
-		byID[e.ID] = e
+	if len(entries) != 1 || entries[0].ID != "1" {
+		t.Errorf("entries = %+v, want just the one real entry, token.json ignored", entries)
 	}
-	if got := byID["1"].EventID; got != "10" {
-		t.Errorf("entry from entries-10.json: EventID = %q, want 10", got)
+}
+
+// TestEntriesFromDirUsesEntrysOwnEventIDNotFilename is a regression test for
+// the simplification this migration makes: EventID comes from the entry's
+// own confirmed-real "eventId" field, not the capture's filename - so even a
+// mismatched or missing filename hint doesn't matter anymore.
+func TestEntriesFromDirUsesEntrysOwnEventIDNotFilename(t *testing.T) {
+	dir := t.TempDir()
+	// Deliberately mismatched: the filename says event 99, the entry's own
+	// field says event 10.
+	writeJSON(t, dir, "entries-99.json", `{"success":true,"count":1,"data":[{"entryId":"1","eventId":10}]}`)
+
+	entries, _, err := entriesFromDir(dir)
+	if err != nil {
+		t.Fatalf("entriesFromDir: %v", err)
 	}
-	if got := byID["2"].EventID; got != "" {
-		t.Errorf("entry from bulk.json: EventID = %q, want blank (no filename hint)", got)
+	if len(entries) != 1 || entries[0].EventID != "10" {
+		t.Errorf("entries = %+v, want EventID \"10\" from the entry's own field, not \"99\" from the filename", entries)
 	}
 }
 
 func TestEntriesFromDirBuildsEventsIndex(t *testing.T) {
 	dir := t.TempDir()
-	writeJSON(t, dir, "events.json", `[
-		{"id":10,"name":"Varsity 8"},
-		{"id":11,"boatClass":"Junior Varsity 8"}
-	]`)
+	writeJSON(t, dir, "events.json", `{"success":true,"count":2,"data":[
+		{"eventId":10,"title":"Varsity 8"},
+		{"eventId":11,"label":"Junior Varsity 8"}
+	]}`)
 
 	_, events, err := entriesFromDir(dir)
 	if err != nil {
@@ -181,67 +202,35 @@ func TestEntriesFromDirBuildsEventsIndex(t *testing.T) {
 	}
 }
 
-// TestEntriesFromDirBackfillsEventIDAcrossDuplicates is a regression test for
-// a real-world bug: bulk.json sorts ahead of entries-<id>.json and nests the
-// same entries (asEntry now matches an org-id-only reference, so bulk.json's
-// copy is recognized too), but bulk.json's copy never carries a
-// filename-derived EventID. Before this fix, "first occurrence wins" meant
-// bulk.json's blank EventID always won, silently starving entriesForRace's
-// event-scoping (bestMatchingEvent) for every real entry - reproducing
-// "every school shows N duplicate copies of itself as ambiguous" even after
-// event-scoping was added. EventID must backfill from a later duplicate
-// while other fields (here, OrgName) keep the documented first-occurrence-wins
-// behavior.
-func TestEntriesFromDirBackfillsEventIDAcrossDuplicates(t *testing.T) {
-	dir := t.TempDir()
-	writeJSON(t, dir, "bulk.json", `{"entries":[
-		{"id":"1","organization":{"name":"Springfield High School"}}
-	]}`)
-	writeJSON(t, dir, "entries-10.json", `[
-		{"id":"1","organization":{"name":"SHOULD NOT WIN - bulk.json sorts first"}}
-	]`)
-
-	entries, _, err := entriesFromDir(dir)
-	if err != nil {
-		t.Fatalf("entriesFromDir: %v", err)
-	}
-	if len(entries) != 1 {
-		t.Fatalf("got %d entries, want 1: %+v", len(entries), entries)
-	}
-	if got := entries[0].OrgName; got != "Springfield High School" {
-		t.Errorf("OrgName = %q, want the bulk.json version to still win", got)
-	}
-	if got := entries[0].EventID; got != "10" {
-		t.Errorf("EventID = %q, want backfilled from entries-10.json", got)
-	}
-}
-
-func TestAsEntryExtractsParticipantNames(t *testing.T) {
-	m := map[string]any{
-		"id":      "61",
-		"orgName": "Springfield High School",
-		"entryParticipants": []any{
-			map[string]any{"participantId": "1", "name": "Alex Mihalovich"},
-			map[string]any{"participantId": "2", "name": "Jamie Smith"},
+func TestEntryFromRCExtractsParticipantNames(t *testing.T) {
+	e := entryFromRC(regattacentral.Entry{
+		ID: "61",
+		Participants: []regattacentral.Participant{
+			{ID: "1", Name: "Alex Mihalovich"},
+			{ID: "2", Name: "Jamie Smith"},
 		},
-	}
-	e, ok := asEntry(m)
-	if !ok {
-		t.Fatal("asEntry() = false, want a recognized entry")
-	}
+	})
 	want := []string{"Alex Mihalovich", "Jamie Smith"}
 	if len(e.ParticipantNames) != len(want) || e.ParticipantNames[0] != want[0] || e.ParticipantNames[1] != want[1] {
 		t.Errorf("ParticipantNames = %v, want %v", e.ParticipantNames, want)
 	}
 }
 
-func TestAsEntryNoParticipantsFieldLeavesParticipantNamesNil(t *testing.T) {
-	e, ok := asEntry(map[string]any{"id": "1", "orgName": "Springfield High School"})
-	if !ok {
-		t.Fatal("asEntry() = false, want a recognized entry")
-	}
+func TestEntryFromRCNoParticipantsLeavesParticipantNamesNil(t *testing.T) {
+	e := entryFromRC(regattacentral.Entry{ID: "1"})
 	if e.ParticipantNames != nil {
 		t.Errorf("ParticipantNames = %v, want nil", e.ParticipantNames)
+	}
+}
+
+func TestEntryFromRCBoatClassPrefersDivisionOverAlternateTitle(t *testing.T) {
+	e := entryFromRC(regattacentral.Entry{ID: "1", Division: "Junior", AlternateTitle: "M-Jr-1x"})
+	if e.BoatClass != "Junior" {
+		t.Errorf("BoatClass = %q, want Division (\"Junior\") preferred over AlternateTitle", e.BoatClass)
+	}
+	e = entryFromRC(regattacentral.Entry{ID: "1", AlternateTitle: "M-Jr-1x"})
+	if e.BoatClass != "M-Jr-1x" {
+		t.Errorf("BoatClass = %q, want AlternateTitle used when Division is blank", e.BoatClass)
 	}
 }
 

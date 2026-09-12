@@ -48,11 +48,12 @@ func runReconcile(argv []string) error {
 	}
 	if len(entries) == 0 {
 		fmt.Fprintln(os.Stderr, "rcreconcile: found 0 RegattaCentral entries in", rcDir+".")
-		fmt.Fprintln(os.Stderr, "Either the capture is missing per-event entries - try:")
+		fmt.Fprintln(os.Stderr, "The capture is likely missing per-event entries - try:")
 		fmt.Fprintln(os.Stderr, "    rcprobe walk <regattaID> --out", rcDir)
-		fmt.Fprintln(os.Stderr, "- or the /bulk schema is PROVISIONAL (see rcmodel.go) and needs correcting. Run:")
-		fmt.Fprintln(os.Stderr, "    rcreconcile shape --bulk-file", filepath.Join(rcDir, "bulk.json"))
-		fmt.Fprintln(os.Stderr, "and share the (PII-free) key-path output so asEntry/asOrg can be corrected.")
+		fmt.Fprintln(os.Stderr, "(a real schema mismatch on bulk.json/organizations.json/events.json would have")
+		fmt.Fprintln(os.Stderr, "already failed above with a decode error, not silently reached this message - if")
+		fmt.Fprintln(os.Stderr, "that happens instead, run: rcreconcile shape --bulk-file", filepath.Join(rcDir, "bulk.json"))
+		fmt.Fprintln(os.Stderr, "and compare its (PII-free) key-path output to internal/regattacentral/readmodel.go.)")
 	}
 
 	heatSheet, hsStats, err := readHeatSheet(xlsmPath)

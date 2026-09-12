@@ -1,58 +1,55 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
+
+	"github.com/comagnaw/regattaClock/internal/regattacentral"
 )
 
-// rcEntry is the handful of RegattaCentral /bulk fields the matcher needs.
-// This is deliberately not internal/regattacentral's model: the exact /bulk
-// shape is unconfirmed (see
-// docs/features/personas/regattacentral-integration.md "What the schema tells
-// us"), and this investigation is what confirms it - promoting a real model
-// there is Milestone 4, once bulkEntries below has been corrected against
-// real, observed field names via `rcreconcile shape`.
+// rcEntry is the handful of RegattaCentral fields the matcher needs, mapped
+// from the confirmed typed regattacentral.Entry (see entryFromRC) - kept as
+// its own type rather than using regattacentral.Entry directly because
+// OrgName/OrgShortName/OrgAbbrev are an rcreconcile-side join result (an
+// entry only references its organization by id), not something RC's own
+// Entry type carries inline.
 type rcEntry struct {
-	// ID identifies the entry on RegattaCentral. Kept as a string since it is
-	// unconfirmed whether RC ids are numeric or UUIDs.
+	// ID identifies the entry on RegattaCentral. Kept as a string since RC
+	// sends ids as either a bare JSON number or a quoted string (see
+	// regattacentral.FlexibleID).
 	ID string
 
-	// EventID is which RC event this entry belongs to - read from its
-	// capture's filename ("entries-<eventID>.json", exactly what `rcprobe
-	// walk`/`entries` name them), not guessed from an in-document field.
-	// Blank for entries found in a file that isn't named that way (e.g.
-	// bulk.json), which just means event-scoping can't use it - see
-	// entriesForRace.
+	// EventID is which RC event this entry belongs to, read directly from
+	// the entry's own confirmed-real "eventId" field (see
+	// regattacentral.Entry) - no longer derived from the capture's filename,
+	// now that every real entry has been observed to carry this field
+	// inline and agree with itself across every file it appears in.
 	EventID string
 
-	// OrgID is set when the entry references its organization by id rather
-	// than carrying the name inline (confirmed the real shape: a real /bulk +
-	// entries capture had no org name strings at all). Resolved against an
-	// rcOrg index built from every file in the same --rc-dir - see
-	// entriesFromDir.
+	// OrgID is the entry's organization reference (RC's Entry has no inline
+	// org name - see entryFromRC). Resolved against an rcOrg index built
+	// from every organizations-shaped file in the same --rc-dir.
 	OrgID string
 
 	OrgName      string
 	OrgShortName string
 	OrgAbbrev    string
-	BoatClass    string
+	// BoatClass prefers the confirmed-real Division field, falling back to
+	// AlternateTitle - see entryFromRC.
+	BoatClass string
 
-	// Label is a boat-label hint ("A"/"B" for a school's second boat), if the
-	// /bulk payload carries one under any of the guessed field names below.
-	// RegattaCentral may not track this distinction at all - it may be purely
-	// a heat-sheet-authoring convention - so two same-event entries from one
-	// school can legitimately stay ambiguous; see disambiguateByLabel.
+	// Label is the confirmed-real "entryLabel" field ("A"/"B" for a school's
+	// second boat, when RC tracks it at all - it may be purely a
+	// heat-sheet-authoring convention with no RC equivalent, so two
+	// same-event entries from one school can legitimately stay ambiguous;
+	// see disambiguateByLabel).
 	Label string
 
-	// ParticipantNames are the crew's rower/athlete names, if the entry
-	// carries a participants-shaped array under any of the guessed field
-	// names below - confirmed real on a live capture (an "entryParticipants"
-	// array, each with its own "name"). Used only by
+	// ParticipantNames are the crew's rower/athlete names, from the entry's
+	// confirmed-real "entryParticipants" array. Used only by
 	// disambiguateByRowerLastName, matching against the Heat Sheet tab's
 	// stroke-name column (see heatsheet.go) - never surfaced in the
 	// reconciliation report itself.
@@ -60,8 +57,8 @@ type rcEntry struct {
 }
 
 // rcOrg is what an rcEntry's OrgID resolves against - a RegattaCentral
-// organization (club/school). Built from a dedicated organizations listing
-// (rcprobe orgs / walk), not from an entry.
+// organization (club/school), mapped from the confirmed typed
+// regattacentral.Organization.
 type rcOrg struct {
 	ID        string
 	Name      string
@@ -71,26 +68,24 @@ type rcOrg struct {
 
 // entriesFromDir reads every *.json file directly inside dir - typically an
 // rcprobe --out capture directory: bulk.json, organizations.json, events.json,
-// and whatever entries-<eventID>.json files `rcprobe walk` wrote. For each
-// file (one parse, not one per lookup kind) it collects entries, organizations
-// and events, then: tags each entry found in an "entries-<id>.json" file with
-// that id as EventID; merges entries (first occurrence of an ID wins, in
-// sorted-filename order, so "bulk.json" sorts ahead of "entries-*.json" and is
-// treated as the more authoritative source for name fields); and resolves any
-// entry that only has an OrgID against the merged rcOrg index. Also returns
-// the merged eventID -> label index for entriesForRace to scope pools by
-// event.
+// and whatever entries-<eventID>.json files `rcprobe walk` wrote. Each file
+// is decoded into its confirmed regattacentral typed shape (DecodeBulk for
+// bulk.json's nested events/entries, DecodeOrganizations/DecodeEvents for
+// their dedicated listings, DecodeEntries for everything else) rather than
+// the field-name-guessing structural walk this file used before those types
+// existed - see docs/features/personas/heatsheet-rc-pivot-investigation.md's
+// Milestone 4 entry for why. A file that doesn't decode as an entries
+// listing (e.g. token.json, active-races.json) is skipped rather than
+// erroring the whole read, the same tolerance the old heuristic walk had for
+// files that simply didn't match any recognized shape.
 //
-// EventID is the one field exempt from "first occurrence wins": bulk.json
-// nests the same entries the per-event entries-<id>.json files do (confirmed
-// once asEntry started accepting an org-id-only reference - see Milestone
-// 1.6), and bulk.json's copy never carries a filename-derived EventID. Without
-// this exemption, bulk.json's blank EventID would win the merge for nearly
-// every real entry, silently starving entriesForRace's event-scoping
-// (bestMatchingEvent) of the one signal it depends on - reproducing the exact
-// "every school shows N duplicate copies of itself as ambiguous" symptom
-// event-scoping was built to fix. So a later duplicate's non-blank EventID
-// always backfills an earlier, blank one.
+// Entries are deduped by ID, first occurrence wins (sorted-filename order):
+// the same real entry appearing in both bulk.json and its own
+// entries-<id>.json carries identical field values either way, so unlike the
+// old heuristic walk there is no special-case merging needed for EventID or
+// any other field - confirmed empirically (zero blank EventID/OrganizationID
+// across every entry in a real 107-entry capture). Also returns the merged
+// eventID -> label index for entriesForRace to scope pools by event.
 func entriesFromDir(dir string) (entries []rcEntry, events map[string]string, err error) {
 	files, err := os.ReadDir(dir)
 	if err != nil {
@@ -105,10 +100,34 @@ func entriesFromDir(dir string) (entries []rcEntry, events map[string]string, er
 	}
 	sort.Strings(names)
 
-	seenEntry := map[string]int{} // entry ID -> its index in merged
+	seenEntry := map[string]bool{}
 	orgs := map[string]rcOrg{}
 	events = map[string]string{}
 	var merged []rcEntry
+
+	addEntry := func(e rcEntry) {
+		if e.ID == "" || seenEntry[e.ID] {
+			return
+		}
+		seenEntry[e.ID] = true
+		merged = append(merged, e)
+	}
+	addOrg := func(o rcOrg) {
+		if o.ID == "" {
+			return
+		}
+		if _, ok := orgs[o.ID]; !ok {
+			orgs[o.ID] = o
+		}
+	}
+	addEventLabel := func(id, label string) {
+		if id == "" || label == "" {
+			return
+		}
+		if _, ok := events[id]; !ok {
+			events[id] = label
+		}
+	}
 
 	for _, name := range names {
 		path := filepath.Join(dir, name)
@@ -117,55 +136,62 @@ func entriesFromDir(dir string) (entries []rcEntry, events map[string]string, er
 			return nil, nil, fmt.Errorf("read %q: %w", path, err)
 		}
 
-		var v any
-		if err := json.Unmarshal(raw, &v); err != nil {
-			return nil, nil, fmt.Errorf("%q: %w", path, err)
-		}
-
-		fileEventID := eventIDFromFilename(name)
-
-		var found []rcEntry
-		walkForEntries(v, &found)
-		for _, e := range found {
-			if fileEventID != "" {
-				e.EventID = fileEventID
+		switch {
+		case isBulkFile(name):
+			bulk, err := regattacentral.DecodeBulk(raw)
+			if err != nil {
+				return nil, nil, fmt.Errorf("%q: %w", path, err)
 			}
-			if idx, ok := seenEntry[e.ID]; ok {
-				if merged[idx].EventID == "" && e.EventID != "" {
-					merged[idx].EventID = e.EventID
+			for _, ev := range bulk.Data.Events {
+				addEventLabel(string(ev.ID), eventLabel(ev))
+				for _, e := range ev.Entries {
+					addEntry(entryFromRC(e))
 				}
+			}
+			for _, o := range bulk.Data.Organizations {
+				addOrg(orgFromRC(o))
+			}
+
+		case isOrganizationsFile(name):
+			resp, err := regattacentral.DecodeOrganizations(raw)
+			if err != nil {
+				return nil, nil, fmt.Errorf("%q: %w", path, err)
+			}
+			for _, o := range resp.Data {
+				addOrg(orgFromRC(o))
+			}
+
+		case isEventsFile(name):
+			resp, err := regattacentral.DecodeEvents(raw)
+			if err != nil {
+				return nil, nil, fmt.Errorf("%q: %w", path, err)
+			}
+			for _, ev := range resp.Data {
+				addEventLabel(string(ev.ID), eventLabel(ev))
+			}
+
+		default:
+			resp, err := regattacentral.DecodeEntries(raw)
+			if err != nil {
+				// Not every *.json file in --rc-dir is an entries listing
+				// (token.json, active-races.json, ...) - skip rather than
+				// failing the whole read.
 				continue
 			}
-			seenEntry[e.ID] = len(merged)
-			merged = append(merged, e)
-		}
-
-		// Orgs and events are extracted only from their own dedicated listing
-		// file, not from every file in the directory. RC ids very likely
-		// restart at 1 per entity kind (an org, an event, and an entry can
-		// all legitimately be id "1"), so walking bulk.json/entries-*.json for
-		// asOrg/asEvent matches risks an unrelated object - another entity
-		// kind that happens to have an "id" and a "name" field - colliding
-		// with a real organization's or event's id and silently shadowing it.
-		// organizations.json / events.json are each one coherent list from
-		// one endpoint, so that collision can't happen within them.
-		if isOrganizationsFile(name) {
-			foundOrgs := map[string]rcOrg{}
-			walkForOrgs(v, foundOrgs)
-			for id, o := range foundOrgs {
-				if _, ok := orgs[id]; !ok {
-					orgs[id] = o
+			// Defensive cross-check only, never fatal: every real entry
+			// observed so far already carries its own correct eventId, so
+			// this should never fire - if it does, the inline field can no
+			// longer be trusted blindly and needs another look.
+			if fileEventID := eventIDFromFilename(name); fileEventID != "" {
+				for _, e := range resp.Data {
+					if id := string(e.EventID); id != "" && id != fileEventID {
+						fmt.Fprintf(os.Stderr, "rcreconcile: %s: entry %s's eventId (%s) disagrees with the filename (%s)\n",
+							name, e.ID, id, fileEventID)
+					}
 				}
 			}
-		}
-
-		if isEventsFile(name) {
-			foundEvents := map[string]string{}
-			walkForEvents(v, foundEvents)
-			for id, label := range foundEvents {
-				if _, ok := events[id]; !ok {
-					events[id] = label
-				}
+			for _, e := range resp.Data {
+				addEntry(entryFromRC(e))
 			}
 		}
 	}
@@ -182,8 +208,56 @@ func entriesFromDir(dir string) (entries []rcEntry, events map[string]string, er
 	return merged, events, nil
 }
 
+// entryFromRC maps a confirmed regattacentral.Entry into the matcher's own
+// rcEntry shape. BoatClass prefers Division, falling back to AlternateTitle
+// - both confirmed-real fields (traced from a live entry's own JSON keys),
+// replacing the old asEntry's unconfirmed boatClass/equipmentType/className
+// guesses entirely.
+func entryFromRC(e regattacentral.Entry) rcEntry {
+	var names []string
+	for _, p := range e.Participants {
+		if p.Name != "" {
+			names = append(names, p.Name)
+		}
+	}
+	return rcEntry{
+		ID:               string(e.ID),
+		EventID:          string(e.EventID),
+		OrgID:            string(e.OrganizationID),
+		BoatClass:        firstNonBlank(e.Division, e.AlternateTitle),
+		Label:            e.Label,
+		ParticipantNames: names,
+	}
+}
+
+func orgFromRC(o regattacentral.Organization) rcOrg {
+	return rcOrg{
+		ID:        string(o.ID),
+		Name:      o.Name,
+		ShortName: o.ShortName,
+		Abbrev:    o.Abbreviation,
+	}
+}
+
+// eventLabel picks the best display label for an event - Title over Label,
+// both confirmed-real fields; empty if neither is set.
+func eventLabel(ev regattacentral.Event) string {
+	return firstNonBlank(ev.Title, ev.Label)
+}
+
+func firstNonBlank(vals ...string) string {
+	for _, v := range vals {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
 // eventIDFromFilename returns the id in an "entries-<id>.json" filename, or ""
-// if name doesn't match that pattern.
+// if name doesn't match that pattern. Used only as a defensive cross-check
+// against each entry's own confirmed-real eventId field (see
+// entriesFromDir) - no longer the primary source of EventID.
 func eventIDFromFilename(name string) string {
 	base := strings.TrimSuffix(name, filepath.Ext(name))
 	id, ok := strings.CutPrefix(base, "entries-")
@@ -191,6 +265,12 @@ func eventIDFromFilename(name string) string {
 		return ""
 	}
 	return id
+}
+
+// isBulkFile reports whether name looks like the combined /bulk capture
+// rcprobe writes ("bulk.json", from `bulk` or `walk`).
+func isBulkFile(name string) bool {
+	return strings.Contains(strings.ToLower(name), "bulk")
 }
 
 // isOrganizationsFile reports whether name looks like the dedicated
@@ -207,191 +287,4 @@ func isOrganizationsFile(name string) bool {
 func isEventsFile(name string) bool {
 	lower := strings.ToLower(name)
 	return strings.Contains(lower, "event") && !strings.HasPrefix(lower, "entries-")
-}
-
-// walkForEntries recurses through v (a parsed /bulk, entries, or similar
-// response) collecting every Entry-shaped object it finds - see asEntry,
-// which is where the PROVISIONAL, guessed field names actually live and where
-// `rcreconcile shape`'s output should be used to correct them.
-func walkForEntries(v any, out *[]rcEntry) {
-	switch t := v.(type) {
-	case map[string]any:
-		if e, ok := asEntry(t); ok {
-			*out = append(*out, e)
-			// An Entry object is not expected to nest another Entry inside
-			// itself, so do not recurse further into a match.
-			return
-		}
-		for _, child := range t {
-			walkForEntries(child, out)
-		}
-	case []any:
-		for _, child := range t {
-			walkForEntries(child, out)
-		}
-	}
-}
-
-func walkForOrgs(v any, out map[string]rcOrg) {
-	switch t := v.(type) {
-	case map[string]any:
-		if o, ok := asOrg(t); ok {
-			out[o.ID] = o
-			return
-		}
-		for _, child := range t {
-			walkForOrgs(child, out)
-		}
-	case []any:
-		for _, child := range t {
-			walkForOrgs(child, out)
-		}
-	}
-}
-
-func walkForEvents(v any, out map[string]string) {
-	switch t := v.(type) {
-	case map[string]any:
-		if id, label, ok := asEvent(t); ok {
-			out[id] = label
-			return
-		}
-		for _, child := range t {
-			walkForEvents(child, out)
-		}
-	case []any:
-		for _, child := range t {
-			walkForEvents(child, out)
-		}
-	}
-}
-
-// asEntry heuristically recognizes an Entry-shaped object. Field-name
-// candidates are PROVISIONAL guesses; extend the candidate lists once
-// `rcreconcile shape` shows the real names. An entry needs an id and either an
-// inline organization name or a reference to one by id - a real capture had
-// no inline org name at all, only an id reference resolved separately (see
-// entriesFromDir).
-func asEntry(m map[string]any) (rcEntry, bool) {
-	id := firstString(m, "id", "entryId", "crewId")
-	if id == "" {
-		return rcEntry{}, false
-	}
-	org := firstOrgName(m)
-	orgID := firstString(m, "organizationId", "orgId", "clubId", "teamId", "organisationId")
-	if org == "" && orgID == "" {
-		return rcEntry{}, false
-	}
-	return rcEntry{
-		ID:           id,
-		OrgID:        orgID,
-		OrgName:      org,
-		OrgShortName: firstString(m, "shortName", "orgShortName", "organizationShortName"),
-		OrgAbbrev:    firstString(m, "abbreviation", "orgAbbreviation", "organizationAbbreviation"),
-		// "division" and "alternateTitle" are confirmed-real field names on a
-		// live Entry object (traced structurally from a real entryId's own
-		// keys); the rest are older, unconfirmed guesses kept as a fallback.
-		BoatClass: firstString(m, "division", "alternateTitle", "boatClass", "equipmentType", "eventName", "className"),
-		// "entryLabel" is also confirmed-real and reads more like a boat's
-		// display label ("A"/"B") than its class, so it's tried here instead
-		// of BoatClass.
-		Label:            firstString(m, "entryLabel", "label", "displayNumber", "boatLabel", "suffix"),
-		ParticipantNames: participantNames(m),
-	}, true
-}
-
-// participantNames extracts each participant's name from an entry's
-// participants-shaped array, tried under a few guessed field names -
-// "entryParticipants" is the confirmed real one; the rest are PROVISIONAL
-// fallbacks, same pattern as every other field guess in this file.
-func participantNames(m map[string]any) []string {
-	for _, key := range []string{"entryParticipants", "participants", "crew", "athletes"} {
-		arr, ok := m[key].([]any)
-		if !ok {
-			continue
-		}
-		var names []string
-		for _, item := range arr {
-			p, ok := item.(map[string]any)
-			if !ok {
-				continue
-			}
-			if n := firstString(p, "name", "fullName", "athleteName"); n != "" {
-				names = append(names, n)
-			}
-		}
-		if len(names) > 0 {
-			return names
-		}
-	}
-	return nil
-}
-
-// asOrg heuristically recognizes a plain Organization object: an id-like
-// field plus its own name-like field. This is deliberately simpler than
-// asEntry's org-name check (which looks for orgName/organizationName/a nested
-// .organization.name - a reference shape) so the two do not fire on the same
-// object: a plain organization's own name field is expected to just be
-// "name". PROVISIONAL; extend once `rcreconcile shape` shows the real names.
-func asOrg(m map[string]any) (rcOrg, bool) {
-	id := firstString(m, "id", "organizationId", "orgId")
-	name := firstString(m, "name")
-	if id == "" || name == "" {
-		return rcOrg{}, false
-	}
-	return rcOrg{
-		ID:        id,
-		Name:      name,
-		ShortName: firstString(m, "shortName"),
-		Abbrev:    firstString(m, "abbreviation"),
-	}, true
-}
-
-// asEvent heuristically recognizes an Event-shaped object: an id plus a
-// name/title/boat-class-like label. Used only to scope an entry's race by the
-// event it belongs to (entriesForRace) - an entry's own boat class has never
-// been reliably inline (see asEntry), and RC's shape has consistently turned
-// out to be normalized/id-based rather than denormalized. PROVISIONAL; may
-// collide with asOrg on a plain "name" field (both are approximate on
-// purpose) - extend/narrow once `rcreconcile shape` (against events.json)
-// shows the real names.
-func asEvent(m map[string]any) (id, label string, ok bool) {
-	id = firstString(m, "id", "eventId")
-	label = firstString(m, "name", "title", "boatClass", "eventName", "className", "description")
-	if id == "" || label == "" {
-		return "", "", false
-	}
-	return id, label, true
-}
-
-// firstOrgName tries a flat organization-name field first, then a nested
-// "organization" object.
-func firstOrgName(m map[string]any) string {
-	if s := firstString(m, "orgName", "organizationName", "clubName", "teamName"); s != "" {
-		return s
-	}
-	if org, ok := m["organization"].(map[string]any); ok {
-		return firstString(org, "name", "shortName", "abbreviation")
-	}
-	return ""
-}
-
-// firstString returns the first non-blank string value among keys, converting
-// a bare number to its decimal string (RC ids may be numeric in the JSON).
-func firstString(m map[string]any, keys ...string) string {
-	for _, k := range keys {
-		v, ok := m[k]
-		if !ok {
-			continue
-		}
-		switch t := v.(type) {
-		case string:
-			if s := strings.TrimSpace(t); s != "" {
-				return s
-			}
-		case float64:
-			return strconv.FormatFloat(t, 'f', -1, 64)
-		}
-	}
-	return ""
 }

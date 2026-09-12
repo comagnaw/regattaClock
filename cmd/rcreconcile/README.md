@@ -21,33 +21,31 @@ Like [`cmd/rcprobe`](../rcprobe/README.md), it is **not shipped** —
 
 ## Commands
 
-### `shape` — learn the real `/bulk` schema, safely
+### `shape` — learn a real schema, safely
 
-`internal/regattacentral`'s `/bulk` read model is deliberately raw JSON (see
-[regattacentral-integration.md](../../docs/features/personas/regattacentral-integration.md)) —
-nobody has confirmed the exact field names yet. `asEntry` in
-[`rcmodel.go`](rcmodel.go) is a **provisional**, best-effort guess at where an
-"Entry" lives in that JSON and what its fields are called.
-
-`shape` walks a captured `/bulk` file and prints its key-path structure —
-field names and JSON types **only, never values** — so it is safe to paste back
-into a conversation or an issue:
+`internal/regattacentral`'s read side used to be entirely raw JSON, since
+nobody had confirmed the exact field names. `shape` walks a captured file and
+prints its key-path structure — field names and JSON types **only, never
+values** — so it is safe to paste back into a conversation or an issue:
 
 ```sh
 go run ./cmd/rcreconcile shape --bulk-file internal/regattacentral/testdata/bulk.json
 ```
 
 ```text
-regattas[].events[].entries[].id: number
-regattas[].events[].entries[].organization.name: string
-regattas[].regatta.name: string
+data.events[].entries[].entryId: number
+data.events[].entries[].organizationId: number
+data.organizations[].name: string
 ```
 
-If `reconcile` (below) reports "found 0 RegattaCentral entries", this is the
-first thing to run — the output tells you (and whoever fixes `rcmodel.go`)
-exactly where the real fields are, with zero risk of leaking PII. Run it
-against both `bulk.json` and one `entries-<eventID>.json` — the two responses
-may not be shaped the same way.
+This is how `Entry`/`Organization`/`Event`
+(`internal/regattacentral/readmodel.go`) went from guessed to confirmed - see
+[the investigation doc](../../docs/features/personas/heatsheet-rc-pivot-investigation.md)'s
+Milestone 4 entry. `Race`/`Lane`/`Result` are still unconfirmed (every real
+capture seen so far has an empty `races[]` on every event), so `shape`
+remains the tool to reach for if that ever needs confirming, or if
+`reconcile` reports a decode error on a file shaped differently than
+expected (see Troubleshooting, below).
 
 ### `reconcile` — the comparison report (Milestone 1)
 
@@ -84,14 +82,14 @@ uncertain is left for the report's human reader to judge, the same
 "read-only, human reviews and decides" pattern as
 [reconciliation.md](../../docs/features/personas/reconciliation.md).
 
-An entry does not have to carry its organization's name inline — a real
-capture had none at all, only an id reference. `entriesFromDir` in
-[`rcmodel.go`](rcmodel.go) resolves that id against every `organizations.json`
-/ org-shaped object found across `--rc-dir` (see `asOrg`); an id that never
-resolves still shows up (as "Unknown organization (RegattaCentral id …)")
-rather than silently vanishing. `rcprobe walk` fetches `organizations.json`
-automatically now, so a `--rc-dir` populated by `walk` already has what this
-join needs.
+An entry does not carry its organization's name inline — confirmed real: an
+`Entry` (`internal/regattacentral/readmodel.go`) only has an `OrganizationID`.
+`entriesFromDir` in [`rcmodel.go`](rcmodel.go) resolves that id against every
+`Organization` decoded from an organizations-shaped file across `--rc-dir`;
+an id that never resolves still shows up (as "Unknown organization
+(RegattaCentral id …)") rather than silently vanishing. `rcprobe walk`
+fetches `organizations.json` automatically now, so a `--rc-dir` populated by
+`walk` already has what this join needs.
 
 Four more things `reconcile` handles that came up on real regattas:
 
@@ -105,11 +103,11 @@ Four more things `reconcile` handles that came up on real regattas:
   `entriesForRace` (`match.go`) scopes each race's candidate pool to one RC
   event, tried in order: (1) **roster overlap** (`bestMatchingEvent`) - which
   event's entries best match the *schools actually racing in this race*,
-  using each entry's `EventID` (read straight from its capture's filename,
-  e.g. `entries-42.json` → event `42` — no guessing needed there); (2) event
-  *label* text (`matchingEventIDs`, matching an `events.json`-built label
-  against the race's BoatClass/FlightInfo - see `asEvent`, PROVISIONAL like
-  `asEntry`/`asOrg`); (3) the old plain boat-class filter. Roster overlap is
+  using each entry's `EventID` (the confirmed-real `eventId` field, decoded
+  directly - see `internal/regattacentral/readmodel.go`); (2) event *label*
+  text (`matchingEventIDs`, matching an `events.json`-built label against the
+  race's BoatClass/FlightInfo); (3) the old plain boat-class filter. Roster
+  overlap is
   what actually works: a real regatta's xlsm used short codes like "M-2-8+"
   that share no text with RegattaCentral's fuller event names, so label
   matching alone resolved nothing, and every school with more than one boat
@@ -122,19 +120,20 @@ Four more things `reconcile` handles that came up on real regattas:
   still show up as "ambiguous, needs a quick check" — that is the correct
   answer when RegattaCentral's own data doesn't distinguish them, not a bug
   to chase.
-- **`EventID` has to survive the entry merge even when `bulk.json` "wins."**
-  `entriesFromDir`'s dedupe is first-occurrence-wins in sorted-filename order
-  — `bulk.json` sorts ahead of every `entries-<id>.json` file, and once an
-  entry can be recognized from an org-id reference alone (the org-id join
-  above), `bulk.json` turned out to nest the same entries every
-  `entries-<id>.json` file does. `bulk.json` has no filename to derive an
-  `EventID` from, so its winning copy always carried a blank one — on a real
-  regatta this silently zeroed `EventID` for nearly every entry, so
-  `bestMatchingEvent` never had anything to count and roster overlap had no
-  observable effect at all, identical to the pre-fix symptom. Fixed by
-  exempting `EventID` alone from first-occurrence-wins: a later duplicate's
-  non-blank `EventID` backfills an earlier blank one, while every other field
-  (org name, etc.) keeps the original, tested behavior.
+- **`EventID` used to need special handling across a merge; it no longer
+  does.** `entriesFromDir`'s dedupe is first-occurrence-wins in
+  sorted-filename order — `bulk.json` sorts ahead of every `entries-<id>.json`
+  file, and nests the same entries every `entries-<id>.json` file does. Back
+  when `EventID` was derived from the capture's *filename*, `bulk.json`'s
+  copy (no filename to derive one from) always won the merge with a blank
+  `EventID`, silently starving `bestMatchingEvent` for nearly every entry -
+  roster overlap had no observable effect at all. Now that `EventID` decodes
+  directly from each entry's own confirmed-real `eventId` field
+  (`internal/regattacentral/readmodel.go`), every occurrence of the same real
+  entry already agrees on the same value regardless of which file found it
+  first, so plain first-occurrence-wins is correct for every field,
+  `EventID` included - confirmed empirically against a real capture (zero
+  blank `EventID`/`OrganizationID` across every entry found).
 - **A lane combined into a different event's race, by the RD, for lack of
   entries.** Real example: a regatta's only Junior Men's 1x entry had no one
   else to race, so the RD sent it down the course as an extra lane in a
@@ -229,24 +228,26 @@ Four more things `reconcile` handles that came up on real regattas:
   only exactly. This trades a few legitimate short-abbreviation matches for
   far fewer coincidental false ones - again, erring toward "ask a human"
   rather than a confident wrong answer.
-- **Organizations and events are read only from their own dedicated capture
-  file.** `asOrg` / `asEvent` used to walk every file in `--rc-dir`, but
-  RegattaCentral ids very likely restart at 1 per entity kind - an org, an
-  event and an entry can all legitimately be id "1" - so an unrelated
-  id-plus-name object elsewhere (in `bulk.json`, say) could coincidentally
-  collide with a real organization's or event's id and silently shadow it.
-  `entriesFromDir` now only extracts organizations from a file whose name
-  contains "organization" and events from a file named like `events.json`
-  (see `isOrganizationsFile` / `isEventsFile`), so that collision can't
-  happen within one coherent, single-endpoint listing.
+- **Organizations, events and entries are each decoded into their own
+  confirmed type, by file shape - never guessed from a generic object's
+  fields.** `entriesFromDir` (`rcmodel.go`) dispatches each file by name:
+  `bulk.json` decodes as `regattacentral.BulkResponse` (nested events, each
+  with its own entries, plus the regatta's organizations); a dedicated
+  `organizations.json` / `events.json` decodes as a flat
+  `OrganizationsResponse` / `EventsResponse`; anything else is tried as an
+  `EntriesResponse`, and simply skipped if it doesn't decode as one (e.g.
+  `rcprobe`'s `token.json`, `active-races.json`). Since organizations only
+  ever come from `Organization`-typed fields and events only from
+  `Event`-typed fields, RegattaCentral ids restarting at 1 per entity kind (an
+  org, an event and an entry can all legitimately be id "1") can no longer
+  cause one kind to shadow another the way generic per-object shape-guessing
+  once risked.
 
 ## Troubleshooting: "found 0 RegattaCentral entries"
 
-Three independent, non-exclusive causes, roughly in the order they turned out
-to matter on the first real regatta tried:
+Two independent, non-exclusive causes:
 
-1. **The capture is missing per-event entries.** It is unconfirmed whether
-   `/bulk` nests full entries per event or just event/regatta metadata. Run:
+1. **The capture is missing per-event entries.** Run:
 
    ```sh
    go run ./cmd/rcprobe walk <regattaID> --out internal/regattacentral/testdata
@@ -256,19 +257,16 @@ to matter on the first real regatta tried:
    per-event entries call for every event id it finds — one command instead of
    hand-running `entries <eventID>` per event. Re-run `reconcile` against the
    same `--rc-dir` afterward.
-2. **An entry references its organization by id, not by name.** Confirmed on a
-   real capture (grep the entries file yourself - no school/org name strings
-   at all). `entriesFromDir` resolves this automatically as long as
-   `organizations.json` is in the same `--rc-dir` (see above); if `reconcile`
-   still shows entries with an "Unknown organization" label, the id-field name
-   or the organizations shape doesn't match `asEntry`'s / `asOrg`'s guesses —
-   run `shape` (below) against both `entries-<id>.json` and
-   `organizations.json`.
-3. **`rcmodel.go`'s field-name guesses don't match reality.** Run `shape`
-   (above) against `bulk.json`, an `entries-<id>.json`, `organizations.json`,
-   and `events.json`, and share the (PII-free) output so `asEntry` / `asOrg` /
-   `asEvent` / `firstString` / `firstOrgName`'s candidate key lists can be
-   widened.
+2. **A capture file fails to decode as its expected shape.** `Entry` /
+   `Organization` / `Event` (`internal/regattacentral/readmodel.go`) are
+   confirmed against a real regatta, but RegattaCentral's schema could still
+   differ for a different regatta, a different account tier, or a future API
+   version - `entriesFromDir` returns that decode error directly (it does not
+   silently swallow a `bulk.json` / `organizations.json` / `events.json` that
+   fails to parse, only files it can't otherwise identify as one of the four
+   known shapes). Run `shape` (below) against the file named in the error and
+   compare its key-path output to `readmodel.go`'s struct tags - the (PII-free)
+   output is exactly what's needed to widen or correct them.
 
 ### `--upload-preview-out` — dry-run upload preview (Milestone 2)
 
