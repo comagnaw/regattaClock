@@ -74,17 +74,53 @@ Full detail in [`cmd/rcprobe`'s README](../../../cmd/rcprobe/README.md) and
 
 ## Findings
 
-_(filled in as the investigation proceeds)_
-
-- **Confirmed on the real regatta (after the seventh real run, below): the
-  majority of boats now match RegattaCentral automatically.** The only
-  remaining "needs a quick check" cases the author found: two boats from the
-  same school in the same event (expected — see the fifth real run), and
-  boat classes the RD combined into a race's open lanes for lack of entries
-  (the eighth real run, below, targets exactly this). Exact match-rate,
-  whether RC already had any `Event`/`Race`/`Lane` data for this regatta, and
-  RD/executive feedback beyond the author's own: still to be recorded here.
-- Go / no-go recommendation for a real Phase C/D: —
+- **The majority of boats match RegattaCentral automatically** once the
+  fixes through the ninth real run (below) were applied: the org-id join,
+  "St."/"Saint" and short-abbreviation handling, file-scoped org/event
+  extraction, roster-overlap event resolution, the `EventID` merge-priority
+  fix, and the Heat Sheet tab's rower-name and boat-class disambiguation for
+  RD-combined lanes.
+- **What's left unresolved falls into two kinds, and only one of them is a
+  real gap:**
+  1. Two boats from the same school in the same event, where RegattaCentral's
+     own data may not distinguish them at all - correctly flagged
+     "ambiguous, needs a quick check" rather than guessed, per this tool's
+     whole design philosophy (see the fifth real run). Not a gap to close;
+     this is the intended, honest outcome.
+  2. A small-boat race with few schools, each already racing in several
+     other events, where roster overlap can tie and neither the rower name
+     (absent for boats bigger than a double) nor the boat-class text (no
+     override present, since the boat wasn't actually combined in) can
+     rescue it (the ninth real run). This is a genuine algorithmic
+     limitation - fixing it means reworking roster overlap's tie-breaking
+     for thin-roster races, not something the Heat Sheet tab can supply.
+  Note, from the ninth real run: the boat-class signal is a data-quality
+  dependency, not just a code path - it only works when the RD filled in
+  the Heat Sheet's per-lane class completely (including the gender prefix),
+  confirmed by the author correcting a real workbook and re-running.
+- **`--debug-race N`** (added during the eighth/ninth real runs) turned out
+  to be essential for diagnosing exactly which of these two categories a
+  remaining ambiguous lane falls into, without ever needing to share real
+  data - every future round of tuning this tool should reach for it first
+  rather than guessing again.
+- Exact match-rate (N of M boats), whether RC already had any
+  `Event`/`Race`/`Lane` data for this regatta, and RD/executive feedback
+  beyond the author's own: still to be recorded here if gathered.
+- **Carrying this forward:** this swimlane's commits live on
+  `regattacentral-heatsheet-investigation`, not `develop` - how (or
+  whether) any of it lands there is undecided. The author's own framing:
+  possibly cherry-picking or otherwise carrying forward specific documented
+  findings (this file, and the reasoning already captured in
+  `cmd/rcreconcile`'s commit history) rather than merging the branch
+  wholesale, once a Phase C/D go/no-go is actually decided. Nothing about
+  that mechanism is settled yet.
+- Go / no-go recommendation for a real Phase C/D: leaning toward **go, with
+  the tie-breaking limitation above named as a known, bounded gap** - the
+  majority-automatic result plus a design that never guesses past a genuine
+  ambiguity (real matches are trustworthy exactly because the tool would
+  rather ask a human than be confidently wrong) suggests the pivot is
+  viable, pending real RD/executive feedback and the schema-confirmation
+  work below.
 
 ## Open items
 
@@ -204,11 +240,33 @@ _(filled in as the investigation proceeds)_
   matching (school/org names, entry ids, candidate counts - never an
   athlete's name), added specifically because the rower-name fix's "8 names
   found, 10 lanes still ambiguous, no change" result gave no way to tell
-  which stage was failing without it. Not yet confirmed against the real
-  regatta. Separately: an RD can hand-type "SCR"/"SCRATCHED" into the
-  Results tab's Place column for a scratched boat (not something
-  `internal/clock`'s live timing ever writes) — `preview.go`'s
-  `laneStatusForPlace` (Milestone 2) now recognizes it too.
+  which stage was failing without it. **Confirmed on the real regatta**: the
+  traced lane (a Junior Men's 1x combined into a Men's 2x race) resolved
+  from 3 candidates to 1 via the boat-class match. Separately: an RD can
+  hand-type "SCR"/"SCRATCHED" into the Results tab's Place column for a
+  scratched boat (not something `internal/clock`'s live timing ever writes)
+  — `preview.go`'s `laneStatusForPlace` (Milestone 2) now recognizes it too.
+- **Ninth real run: `--debug-race` on two more combined races found a real
+  data-entry gap, and a separate, deeper limitation that's out of scope for
+  now.** Tracing race 7 (`--debug-race 7`) showed one lane's Heat Sheet
+  class text as `"Jr-4x"` where the race's own nominal class was `"W-4x"` -
+  the RD had dropped the gender prefix, presumably since it's implied by
+  the race itself, so it never exact-matched anything. The author corrected
+  the source xlsm (added the missing "W") rather than have the tool guess
+  at implied prefixes, and re-running confirmed it then resolved
+  correctly - a data-quality dependency on the Heat Sheet being filled in
+  completely, not a code fix. A second, different lane in the same race
+  (two different schools, `"W-4x"` in the Heat Sheet matching the race's own
+  nominal class - not actually combined at all) stayed ambiguous for a
+  deeper reason: `bestMatchingEvent`'s roster overlap hit a 4-way tie -
+  with only 3 schools in a small-boat race, each already spread across
+  several other events, no one event's overlap count came out ahead, so
+  the pool fell back to nearly the whole regatta. Rower name didn't help
+  either (a 4-person boat gets no individual name per the established
+  convention), leaving no signal at all to pick the right entry. This is a
+  genuine data/algorithm limitation, not a bug - fixing it would mean
+  reworking roster overlap's tie-breaking for races with few schools, a
+  separate and riskier change not pursued in this swimlane.
 - The real `/bulk` / `entries` / `organizations` / `events` schema — confirm
   with `rcreconcile shape` against the author's local capture; correct
   `asEntry` / `asOrg` / `asEvent` in `cmd/rcreconcile/rcmodel.go` accordingly.
