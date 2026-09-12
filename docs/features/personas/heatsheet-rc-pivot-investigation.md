@@ -425,3 +425,44 @@ Full detail in [`cmd/rcprobe`'s README](../../../cmd/rcprobe/README.md) and
   before `Client.Upload` fires. This investigation's own standing "read +
   local preview only" rule is recorded as deliberately lifted for this one
   regatta above (see Ground rules), not silently contradicted.
+- **Fifteenth real run: the first real `publish-schedule --confirm` attempt
+  - every safety gate worked correctly, and RegattaCentral rejected the
+  write itself with a 404.** The dry-run summary correctly counted 25
+  races / 104 lanes, called out 4 `--guess-ties` picks by name and RC entry
+  id, and the interactive confirmation correctly required the exact regatta
+  id before touching the network at all. `Client.Upload` then got back
+  `HTTP 404 Not Found` with RegattaCentral's own API envelope in the body
+  (`{"success":false,"messages":["Failed","HTTP 404 Not Found"]}`) - not a
+  bare proxy/gateway page, meaning the request reached RC's real
+  application code and was deliberately rejected, not merely misrouted.
+  Two things came out of investigating it:
+  1. **A real regression, found and fixed**: reading the official
+     RegattaCentral API V4.0 Cookbook PDF directly (not summarized) showed
+     its own §15 status table quotes `"DSQ"` as the wire value for
+     disqualified - contradicting the thirteenth real run's "correction" of
+     `LaneDisqualified` from `"DSQ"` to `"DQ"`, which was based on an
+     AI-summarized fetch of a schema documentation page that was very
+     likely showing the _Java enum constant name_ from the Cookbook's own
+     generated-code example (`ResultStatusType.DQ`), not the actual wire
+     value. Reverted to `"DSQ"`. A lesson for the rest of this
+     investigation: a primary source read directly outweighs a summarized
+     fetch of a secondary one, even when the secondary source seemed
+     authoritative at the time. `EXH` is unaffected - independently
+     confirmed by that same Cookbook example
+     (`case EXHIBITION_LITERAL : ... ResultStatusType.EXH`).
+  2. **A real gap, fixed**: `publish-schedule`/`publish-results` never
+     exposed `--origin`, even though `cmd/rcprobe` does and
+     `internal/regattacentral`'s own docs say RegattaCentral requires it
+     "for a client id that has a registered referer." The author confirmed
+     reads never needed `--origin` against this regatta, which weakens (but
+     doesn't rule out) Origin as the 404's cause - write endpoints
+     commonly enforce stricter checks than reads even on the same client
+     id. Added the flag for parity regardless.
+  Whether either of these was the actual cause of this specific 404 is not
+  yet confirmed - that requires trying again, which hasn't happened as of
+  this writing. If it recurs, the next step is checking with RegattaCentral
+  support about account/regatta-level write entitlement (e.g. whether
+  `/upload` requires the regatta to be flagged for timing-system
+  integration, or a higher permission tier than the read-only "staff
+  access" `/bulk` needs) rather than assuming the request shape itself is
+  still wrong.

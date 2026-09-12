@@ -373,7 +373,24 @@ inventing a new RC registration on a live regatta was never asked for.
   prompt requiring the operator to type the regatta id back exactly before
   `Client.Upload` is ever called - two independent gates before a real
   write happens. Credentials/config work exactly like `cmd/rcprobe`
-  (`--secrets-file` or `RC_*` env vars, optional `--config`).
+  (`--secrets-file` or `RC_*` env vars, optional `--config`, optional
+  `--origin` - RegattaCentral documents this as required for a client id
+  with a registered referer; reads have never needed it against this
+  regatta, so it's PROVISIONAL whether a write does either, but the flag
+  exists in case).
+- **A real 404 from `Client.Upload` isn't necessarily a bug in this tool.**
+  The URL/path construction is identical to every already-working GET call
+  against the same regatta id; a 404 whose response body is RegattaCentral's
+  own API envelope (`{"success":false,"messages":[...]}`, not a bare
+  proxy/gateway 404 page) means the request reached RC's real application
+  code and was deliberately rejected - most likely a permission/entitlement
+  the account lacks for this specific regatta, or a business rule (e.g. a
+  completed regatta's upload window). Confirm the `LaneStatus` values being
+  sent match the Cookbook's own quoted table exactly first (see the
+  `model.go` doc comment - a wrong enum literal in even one lane could be
+  rejected as a whole-request failure), then check with RegattaCentral
+  support about account/regatta-level write entitlement before assuming the
+  request shape itself is wrong.
 
 ## Not yet built
 

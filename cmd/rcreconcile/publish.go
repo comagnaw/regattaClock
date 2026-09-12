@@ -35,8 +35,8 @@ import (
 )
 
 type publishOptions struct {
-	xlsmPath, rcDir, regattaID, configFile, secretsFile string
-	confirm                                             bool
+	xlsmPath, rcDir, regattaID, configFile, secretsFile, origin string
+	confirm                                                     bool
 }
 
 func parsePublishFlags(name string, argv []string) (publishOptions, error) {
@@ -47,9 +47,10 @@ func parsePublishFlags(name string, argv []string) (publishOptions, error) {
 	fs.StringVar(&o.regattaID, "regatta", "", "the RegattaCentral regatta id to publish to (required)")
 	fs.StringVar(&o.configFile, "config", "", "path to a personacfg deployment file for the API base URL")
 	fs.StringVar(&o.secretsFile, "secrets-file", "", "path to a JSON secrets file (default: RC_* environment variables)")
+	fs.StringVar(&o.origin, "origin", "", "Origin header to send - RegattaCentral requires it for a client id with a registered referer (see cmd/rcprobe's --origin); PROVISIONAL whether a write needs it when reads don't")
 	fs.BoolVar(&o.confirm, "confirm", false, "actually write to RegattaCentral after the interactive confirmation prompt; without it, only the dry-run summary prints")
 	fs.Usage = func() {
-		fmt.Fprintf(os.Stderr, "usage: rcreconcile %s --xlsm PATH --rc-dir DIR --regatta ID [--config PATH] [--secrets-file PATH] [--confirm]\n\nflags:\n", name)
+		fmt.Fprintf(os.Stderr, "usage: rcreconcile %s --xlsm PATH --rc-dir DIR --regatta ID [--config PATH] [--secrets-file PATH] [--origin URL] [--confirm]\n\nflags:\n", name)
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(argv); err != nil {
@@ -90,6 +91,7 @@ func publishClient(o publishOptions) (*regattacentral.Client, error) {
 		Credentials: creds,
 		RegattaID:   o.regattaID,
 		BaseURL:     baseURL,
+		Origin:      o.origin,
 		Timeout:     30 * time.Second,
 	})
 }

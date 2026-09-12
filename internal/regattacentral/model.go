@@ -36,14 +36,21 @@ const (
 	StatusUnknown             RaceStatus = "Unknown"
 )
 
-// LaneStatus is a per-entry status on a lane record (Cookbook §15), backed by
-// the schema's ResultStatusType enum (confirmed directly against
-// api.regattacentral.com/v4/xsd_doc/resultstatustype.html: DNF, SCR, DNS, DQ,
-// EXC, EXH, NJ, REL, RMV, OK). LaneDisqualified was corrected from an earlier
-// PROVISIONAL "DSQ" guess to the confirmed "DQ". The literal "OK" value is
-// not yet modeled - LaneOK stays the empty string (an omitted field), the
-// standard REST default-state convention, until there's a reason to believe
-// RC actually requires the literal "OK".
+// LaneStatus is a per-entry status on a lane record. Confirmed directly
+// against the official RegattaCentral API V4.0 Cookbook PDF (§15, Lane
+// Draw's own quoted status table): "SCR", "DNS", "DNF", "DSQ", "RMV", "EXC",
+// "NJ", "INV". An earlier pass "corrected" LaneDisqualified from this
+// original, correct "DSQ" to "DQ", based on an AI-summarized fetch of
+// api.regattacentral.com/v4/xsd_doc/resultstatustype.html - that page was
+// very likely showing the *Java enum constant name* from the Cookbook's own
+// generated-code example (`ResultStatusType.DQ`, in its §4 LaneConstructor
+// sample), not the wire value; the Cookbook's own explicit quoted-string
+// table is the more authoritative, primary source, and "DSQ" is restored.
+// EXH is independently confirmed by that same LaneConstructor example
+// (`case EXHIBITION_LITERAL : this.status = ResultStatusType.EXH`), so it
+// stays. The literal "OK" value is not modeled - LaneOK stays the empty
+// string (an omitted field), the standard REST default-state convention,
+// until there's a reason to believe RC actually requires the literal "OK".
 type LaneStatus string
 
 const (
@@ -51,7 +58,7 @@ const (
 	LaneScratched    LaneStatus = "SCR"
 	LaneDidNotStart  LaneStatus = "DNS"
 	LaneDidNotFinish LaneStatus = "DNF"
-	LaneDisqualified LaneStatus = "DQ"
+	LaneDisqualified LaneStatus = "DSQ"
 	LaneRemoved      LaneStatus = "RMV"
 	LaneExcluded     LaneStatus = "EXC"
 	LaneNotJudged    LaneStatus = "NJ"
