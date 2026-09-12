@@ -30,8 +30,18 @@ go.work.sum
 .vscode
 fyne-cross/
 
+# `go build ./cmd/...` without -o can drop an extension-less binary at repo
+# root named after a dev-tool command; keep those out.
+/rcprobe
+/rcreconcile
+
 # Live RegattaCentral API captures from cmd/rcprobe contain athlete PII and a
 # real access token. Never commit them; committed test fixtures are hand-authored
 # and redacted. See cmd/rcprobe/README.md.
 /internal/regattacentral/testdata/
 rc-secrets*.json
+
+# cmd/rcreconcile's reports and upload previews name real athletes/schools
+# from a real regatta. A catch-all local output directory - point --report-out
+# / --upload-preview-out here. See cmd/rcreconcile/README.md.
+/out/
