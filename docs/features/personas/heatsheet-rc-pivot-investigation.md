@@ -385,3 +385,14 @@ Full detail in [`cmd/rcprobe`'s README](../../../cmd/rcprobe/README.md) and
   against more real organization names.
 - Whether a live `--regatta` pull is worth adding to `rcreconcile`, or the
   offline `--rc-dir` workflow is sufficient.
+- **A real write test (`Client.Upload`) is blocked on a sandbox regatta,
+  which doesn't exist yet.** The author confirmed reconcile's output looks
+  correct and asked about testing an actual push; per this investigation's
+  standing ground rule, RC's write API is never called against the real
+  regatta used throughout - a live write test needs a separate sandbox/test
+  regatta id, which RegattaCentral's public API docs don't mention having.
+  The author is awaiting an answer from the RD on whether a sandbox copy of
+  the regatta can be obtained. Until then, the upload preview
+  (`--upload-preview-out`, Milestone 2) is the interim evidence: it validates
+  payload shape, entry-id resolution, lane/result mapping and status codes
+  entirely locally, without ever needing a live write.
