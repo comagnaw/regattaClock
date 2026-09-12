@@ -3,10 +3,16 @@
 An investigation tool: it balances what [RegattaCentral](https://www.regattacentral.com/)
 has on file for a regatta against the `.xlsm` heat-sheet / results workbook the
 RD actually produced, and writes a plain-language HTML report for a
-non-technical reader (a regatta executive, not a developer). It never calls
-RegattaCentral's write API. See
+non-technical reader (a regatta executive, not a developer). See
 [the investigation doc](../../docs/features/personas/heatsheet-rc-pivot-investigation.md)
 for the goal and ground rules this tool exists to serve.
+
+**`shape` and `reconcile` never call RegattaCentral's write API - `publish-schedule`
+and `publish-results` are the one deliberate exception**, built only after the
+RD explicitly approved publishing one real, completed regatta's schedule and
+results for real. See
+[`publish-schedule` and `publish-results`](#publish-schedule-and-publish-results-live-write)
+below before assuming this tool is read-only end to end.
 
 Like [`cmd/rcprobe`](../rcprobe/README.md), it is **not shipped** —
 `release.yml` packages only `./cmd/regattaClock` — and it builds without CGO.
@@ -320,6 +326,54 @@ shape are in one place.
 
 Same PII rule as `--report-out`: this names real people once run against a
 real capture, so keep it outside the repo or under a gitignored path.
+
+### `publish-schedule` and `publish-results` (live write)
+
+```sh
+go run ./cmd/rcreconcile publish-schedule --xlsm PATH --rc-dir DIR --regatta ID
+go run ./cmd/rcreconcile publish-results  --xlsm PATH --rc-dir DIR --regatta ID
+```
+
+**These two commands are the one deliberate exception to "never calls the
+write API."** They exist only because the RD explicitly approved publishing
+one real, completed regatta's schedule and results to RegattaCentral for
+real - see
+[the investigation doc's Findings](../../docs/features/personas/heatsheet-rc-pivot-investigation.md#findings).
+`shape` and `reconcile` remain permanently read-only.
+
+Both commands reuse `reconcile`'s exact matching pipeline
+(`entriesFromDir` / `readHeatSheet` / `matchRaces`, with `--guess-ties`
+always on - the author's decision was to include best-guess picks in a real
+push rather than only confident matches) so the write path can never
+disagree with what `reconcile` already showed. Only a lane with a
+confidently resolved, numeric RC `EntryID` (`statusMatched` or
+`statusGuessed`) is ever included - unlike `--upload-preview-out`, a lane
+with no resolvable entry is **excluded, not given a placeholder UUID**:
+inventing a new RC registration on a live regatta was never asked for.
+`classifyForPublish` (`publish.go`) does this split.
+
+- **`publish-schedule`** sends one `LaneRecord` per included lane
+  (`EntryID`, `DisplayNumber`, and `Status` via the existing `laneStatus` -
+  `SCR`/`EXH` are lane-level facts already known from the historical xlsm)
+  and a `StatusDraw` `RaceRecord` for every race that has one. No results.
+  `Client.Upload(..., assumeLanesUploaded: false)`.
+- **`publish-results`**, run only after `publish-schedule` and verifying the
+  schedule on RegattaCentral's own site, sends one `ResultRecord` per
+  included lane with a parseable finish time (`AddFinish`) and a
+  `StatusOfficial` `RaceRecord` for every race that gets one. No lanes -
+  those were already sent by `publish-schedule`.
+  `Client.Upload(..., assumeLanesUploaded: true)`. **Use the exact same
+  `--xlsm`/`--rc-dir` as the `publish-schedule` run** - results are keyed by
+  race + lane, and depend on that same pair having already been sent.
+- **`--confirm` gates everything.** Without it, both commands only print a
+  dry-run summary (races/lanes counted, guessed lanes and their picked
+  entry id, excluded lanes and why) and touch nothing - not even the
+  network, since the summary is built and printed before any client is
+  created. With `--confirm`, the summary is followed by an interactive
+  prompt requiring the operator to type the regatta id back exactly before
+  `Client.Upload` is ever called - two independent gates before a real
+  write happens. Credentials/config work exactly like `cmd/rcprobe`
+  (`--secrets-file` or `RC_*` env vars, optional `--config`).
 
 ## Not yet built
 

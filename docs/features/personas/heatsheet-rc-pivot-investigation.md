@@ -26,10 +26,16 @@ served by the current manual process.
 
 ## Ground rules
 
-- **Read + local preview only.** RegattaCentral's write API is never called
-  against this real, already-public, already-completed regatta. Any "this is
-  what would be published" artifact is a local dry-run — a file on disk, never
-  transmitted.
+- **Read + local preview only** through the thirteenth real run (below). RegattaCentral's
+  write API was never called against this real, already-public, already-completed
+  regatta; any "this is what would be published" artifact was a local dry-run —
+  a file on disk, never transmitted. **This rule was deliberately lifted for
+  this one regatta at the fourteenth real run**, once the author got the RD's
+  explicit approval to publish the real schedule and results for real - see
+  the Findings entry below. It is not lifted for any other regatta, and
+  `shape`/`reconcile` remain permanently read-only regardless;
+  `publish-schedule`/`publish-results` are the sole, explicitly-approved
+  exception.
 - **The audience is not technical.** The RD is the hands-on operator; the
   regatta executives evaluating this are not developers. Anything meant for
   them to look at is plain language, not JSON — see `cmd/rcreconcile`'s HTML
@@ -116,13 +122,14 @@ Full detail in [`cmd/rcprobe`'s README](../../../cmd/rcprobe/README.md) and
   `cmd/rcreconcile`'s commit history) rather than merging the branch
   wholesale, once a Phase C/D go/no-go is actually decided. Nothing about
   that mechanism is settled yet.
-- Go / no-go recommendation for a real Phase C/D: leaning toward **go, with
-  the tie-breaking limitation above named as a known, bounded gap** - the
-  majority-automatic result plus a design that never guesses past a genuine
-  ambiguity (real matches are trustworthy exactly because the tool would
-  rather ask a human than be confidently wrong) suggests the pivot is
-  viable, pending real RD/executive feedback and the schema-confirmation
-  work below.
+- Go / no-go recommendation for a real Phase C/D: **effectively answered by
+  the RD's own approval to publish for real (the fourteenth real run,
+  below)** - the majority-automatic result plus a design that never
+  guesses past a genuine ambiguity (real matches are trustworthy exactly
+  because the tool would rather ask a human than be confidently wrong) was
+  enough evidence for the person who'd actually use it to say yes. The
+  tie-breaking limitation from the ninth real run remains a known, bounded
+  gap, not a blocker.
 
 ## Open items
 
@@ -385,14 +392,36 @@ Full detail in [`cmd/rcprobe`'s README](../../../cmd/rcprobe/README.md) and
   against more real organization names.
 - Whether a live `--regatta` pull is worth adding to `rcreconcile`, or the
   offline `--rc-dir` workflow is sufficient.
-- **A real write test (`Client.Upload`) is blocked on a sandbox regatta,
-  which doesn't exist yet.** The author confirmed reconcile's output looks
-  correct and asked about testing an actual push; per this investigation's
-  standing ground rule, RC's write API is never called against the real
-  regatta used throughout - a live write test needs a separate sandbox/test
-  regatta id, which RegattaCentral's public API docs don't mention having.
-  The author is awaiting an answer from the RD on whether a sandbox copy of
-  the regatta can be obtained. Until then, the upload preview
-  (`--upload-preview-out`, Milestone 2) is the interim evidence: it validates
-  payload shape, entry-id resolution, lane/result mapping and status codes
-  entirely locally, without ever needing a live write.
+- ~~A real write test (`Client.Upload`) is blocked on a sandbox regatta~~ -
+  **superseded: the RD approved a real write to the real regatta directly,
+  no sandbox needed - see the fourteenth real run, below.**
+- **Fourteenth real run: the RD approved publishing the real regatta's
+  schedule and results to RegattaCentral for real - built
+  `publish-schedule` / `publish-results`, cmd/rcreconcile's one deliberate
+  write-API exception.** Not a sandbox test - a genuine, first-ever, live
+  write to a real public record, once the person with the authority to
+  approve it did. Two confirmed decisions shaped the design: (1) a live
+  push includes `--guess-ties` picks, not just confident matches - a wrong
+  guess landing on the real record is an accepted risk in exchange for
+  fewer manual follow-ups for the RD; (2) staged, not combined - a
+  `publish-schedule` run establishes the race schedule and lane draws only,
+  the RD verifies it on RC's own site, and a separate `publish-results` run
+  then pushes results - a safety checkpoint, not an API requirement
+  (`UploadRequest.Validate` already allows both in one request). Both
+  commands reuse `reconcile`'s exact matching pipeline
+  (`entriesFromDir`/`readHeatSheet`/`matchRaces`) so the write path can
+  never disagree with what `reconcile` already showed - considered a
+  separate `cmd/rcpublish` binary to keep `cmd/rcreconcile`'s "never
+  writes" claim airtight, but rejected it: duplicating or extracting the
+  safety-critical matching logic right before the highest-stakes action in
+  this investigation was a worse risk than reusing it in-process. Unlike
+  the local upload preview (Milestone 2), a lane with no resolvable
+  numeric `EntryID` is excluded outright rather than given a placeholder
+  UUID - inventing a new RC registration on a live regatta was never asked
+  for. Two independent safety gates before any write: `--confirm` is
+  required just to reach an interactive prompt (without it, only a
+  dry-run summary prints, and the network is never touched - not even for
+  auth); with it, the operator must type the regatta id back exactly
+  before `Client.Upload` fires. This investigation's own standing "read +
+  local preview only" rule is recorded as deliberately lifted for this one
+  regatta above (see Ground rules), not silently contradicted.
