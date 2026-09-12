@@ -283,13 +283,19 @@ func asEntry(m map[string]any) (rcEntry, bool) {
 		return rcEntry{}, false
 	}
 	return rcEntry{
-		ID:               id,
-		OrgID:            orgID,
-		OrgName:          org,
-		OrgShortName:     firstString(m, "shortName", "orgShortName", "organizationShortName"),
-		OrgAbbrev:        firstString(m, "abbreviation", "orgAbbreviation", "organizationAbbreviation"),
-		BoatClass:        firstString(m, "boatClass", "equipmentType", "eventName", "className"),
-		Label:            firstString(m, "label", "displayNumber", "boatLabel", "suffix"),
+		ID:           id,
+		OrgID:        orgID,
+		OrgName:      org,
+		OrgShortName: firstString(m, "shortName", "orgShortName", "organizationShortName"),
+		OrgAbbrev:    firstString(m, "abbreviation", "orgAbbreviation", "organizationAbbreviation"),
+		// "division" and "alternateTitle" are confirmed-real field names on a
+		// live Entry object (traced structurally from a real entryId's own
+		// keys); the rest are older, unconfirmed guesses kept as a fallback.
+		BoatClass: firstString(m, "division", "alternateTitle", "boatClass", "equipmentType", "eventName", "className"),
+		// "entryLabel" is also confirmed-real and reads more like a boat's
+		// display label ("A"/"B") than its class, so it's tried here instead
+		// of BoatClass.
+		Label:            firstString(m, "entryLabel", "label", "displayNumber", "boatLabel", "suffix"),
 		ParticipantNames: participantNames(m),
 	}, true
 }

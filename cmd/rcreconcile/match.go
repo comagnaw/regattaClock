@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"io"
 	"regexp"
 	"slices"
 	"strings"
@@ -46,29 +48,16 @@ type laneMatch struct {
 // included. events is the eventID -> label index from entriesFromDir, used to
 // scope each race's candidate pool to its own RC event (see entriesForRace);
 // pass nil to fall back to the plain boat-class filter. heatSheet is the
-// (raceNumber, lane) -> rower's last name index from readHeatSheet
+// (raceNumber, lane) -> heatSheetLane index from readHeatSheet
 // (heatsheet.go), used only to disambiguate; pass nil if the xlsm has no
 // Heat Sheet tab.
-func matchRaces(races []reader.RaceData, entries []rcEntry, events map[string]string, heatSheet map[[2]int]string) (matches []laneMatch, unused []rcEntry) {
+func matchRaces(races []reader.RaceData, entries []rcEntry, events map[string]string, heatSheet map[[2]int]heatSheetLane) (matches []laneMatch, unused []rcEntry) {
 	used := map[string]bool{}
 
 	for _, race := range races {
 		pool := entriesForRace(entries, race, events)
 		for lane, entry := range race.OrderedLanes() {
-			cands := disambiguateByLabel(candidatesFor(entry.SchoolName, pool), entry.AdditionalInfo)
-			if len(cands) == 0 {
-				// This lane's school may not actually race in the event
-				// entriesForRace resolved for the rest of the race - e.g.
-				// the RD combined a small class into open lanes for lack of
-				// entries (see heatsheet-rc-pivot-investigation.md). Retry
-				// against every entry in the regatta before giving up; this
-				// can only ever find more candidates, never regress a lane
-				// that already matched within the race-scoped pool.
-				cands = disambiguateByLabel(candidatesFor(entry.SchoolName, entries), entry.AdditionalInfo)
-			}
-			if rower := heatSheet[[2]int{race.RaceNumber, lane}]; rower != "" {
-				cands = disambiguateByRowerLastName(cands, rower)
-			}
+			cands, _ := matchLane(race, lane, entry, pool, entries, events, heatSheet)
 			lm := laneMatch{
 				RaceNumber:     race.RaceNumber,
 				Lane:           lane,
@@ -100,6 +89,83 @@ func matchRaces(races []reader.RaceData, entries []rcEntry, events map[string]st
 		}
 	}
 	return matches, unused
+}
+
+// matchLane resolves one lane's candidates, in the same narrowing order
+// matchRaces always applies, and also returns a step-by-step trace (school
+// and organization names, entry ids and counts only - never an athlete's
+// name) for --debug-race (see traceRace in reconcile.go). matchRaces ignores
+// the trace in normal operation.
+func matchLane(race reader.RaceData, lane int, entry reader.RaceEntry, pool, allEntries []rcEntry, events map[string]string, heatSheet map[[2]int]heatSheetLane) (cands []rcEntry, trace []string) {
+	cands = disambiguateByLabel(candidatesFor(entry.SchoolName, pool), entry.AdditionalInfo)
+	trace = append(trace, fmt.Sprintf("lane %d (%s): race-scoped pool -> %d candidate(s) %s",
+		lane, entry.SchoolName, len(cands), candidateSummary(cands)))
+
+	if len(cands) == 0 {
+		// This lane's school may not actually race in the event
+		// entriesForRace resolved for the rest of the race - e.g. the RD
+		// combined a small class into open lanes for lack of entries (see
+		// heatsheet-rc-pivot-investigation.md). Retry against every entry in
+		// the regatta before giving up; this can only ever find more
+		// candidates, never regress a lane that already matched within the
+		// race-scoped pool.
+		cands = disambiguateByLabel(candidatesFor(entry.SchoolName, allEntries), entry.AdditionalInfo)
+		trace = append(trace, fmt.Sprintf("lane %d (%s): widened to full regatta -> %d candidate(s) %s",
+			lane, entry.SchoolName, len(cands), candidateSummary(cands)))
+	}
+
+	hs := heatSheet[[2]int{race.RaceNumber, lane}]
+	if hs.RowerLastName != "" {
+		before := len(cands)
+		cands = disambiguateByRowerLastName(cands, hs.RowerLastName)
+		trace = append(trace, fmt.Sprintf("lane %d (%s): heat sheet rower name present -> narrowed %d to %d %s",
+			lane, entry.SchoolName, before, len(cands), candidateSummary(cands)))
+	} else {
+		trace = append(trace, fmt.Sprintf("lane %d (%s): no heat sheet rower name for this lane", lane, entry.SchoolName))
+	}
+
+	if hs.LaneClass != "" {
+		before := len(cands)
+		cands = disambiguateByBoatClass(cands, hs.LaneClass, events)
+		trace = append(trace, fmt.Sprintf("lane %d (%s): heat sheet lane class %q present -> narrowed %d to %d %s",
+			lane, entry.SchoolName, hs.LaneClass, before, len(cands), candidateSummary(cands)))
+	} else {
+		trace = append(trace, fmt.Sprintf("lane %d (%s): no heat sheet lane class for this lane", lane, entry.SchoolName))
+	}
+
+	return cands, trace
+}
+
+// traceRace prints, to w, matchLane's step-by-step trace for every lane in
+// race - school/org names, entry ids and counts only, never an athlete's
+// name - so a specific lane's non-match can be diagnosed against a real
+// capture without exposing anything sensitive. See --debug-race.
+func traceRace(w io.Writer, race reader.RaceData, entries []rcEntry, events map[string]string, heatSheet map[[2]int]heatSheetLane) {
+	pool := entriesForRace(entries, race, events)
+	fmt.Fprintf(w, "[debug] race %d: nominal boat class=%q, race-scoped pool size=%d\n", race.RaceNumber, race.BoatClass, len(pool))
+	for lane, entry := range race.OrderedLanes() {
+		_, trace := matchLane(race, lane, entry, pool, entries, events, heatSheet)
+		for _, line := range trace {
+			fmt.Fprintln(w, "[debug] "+line)
+		}
+	}
+}
+
+// candidateSummary renders cands as entry ids and organization names only -
+// never an athlete's name - for --debug-race output.
+func candidateSummary(cands []rcEntry) string {
+	if len(cands) == 0 {
+		return "[]"
+	}
+	parts := make([]string, len(cands))
+	for i, c := range cands {
+		org := c.OrgName
+		if org == "" {
+			org = "unknown org"
+		}
+		parts[i] = fmt.Sprintf("id=%s org=%q event=%s", c.ID, org, c.EventID)
+	}
+	return "[" + strings.Join(parts, ", ") + "]"
 }
 
 // entriesForRace scopes the candidate pool to one RC event's entries, tried in
@@ -378,6 +444,37 @@ func disambiguateByRowerLastName(cands []rcEntry, lastName string) []rcEntry {
 	var narrowed []rcEntry
 	for _, c := range cands {
 		if entryHasParticipantToken(c, want) {
+			narrowed = append(narrowed, c)
+		}
+	}
+	if len(narrowed) == 1 {
+		return narrowed
+	}
+	return cands
+}
+
+// disambiguateByBoatClass narrows more-than-one candidate down to one using
+// the Heat Sheet tab's row-2 per-lane text (heatSheetLane.LaneClass) - set
+// when the RD combines a different class into this race's open lanes (see
+// readHeatSheet), but that same cell can just as easily hold "A"/"B",
+// "SCRATCHED", or an advancement note, which is why this only narrows on an
+// EXACT normalized match (unlike disambiguateByRowerLastName's whole-token
+// check) - a short boat-class code is too easy to coincidentally
+// half-match another one, the same risk matchingEventIDs guards against for
+// event labels. Tries each candidate's own BoatClass field first, then its
+// resolved event's label (via events) - PROVISIONAL like every other
+// field-shape guess in this tool.
+func disambiguateByBoatClass(cands []rcEntry, laneClass string, events map[string]string) []rcEntry {
+	if len(cands) <= 1 {
+		return cands
+	}
+	n := normalize(laneClass)
+	if n == "" {
+		return cands
+	}
+	var narrowed []rcEntry
+	for _, c := range cands {
+		if normalize(c.BoatClass) == n || normalize(events[c.EventID]) == n {
 			narrowed = append(narrowed, c)
 		}
 	}

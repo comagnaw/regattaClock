@@ -107,7 +107,7 @@ func TestMatchRacesWidensPoolAndDisambiguatesByRowerName(t *testing.T) {
 			6: {SchoolName: "Team B"}, // combined in on an open lane
 		}),
 	}
-	heatSheet := map[[2]int]string{{6, 6}: "Mihalovich"}
+	heatSheet := map[[2]int]heatSheetLane{{6, 6}: {RowerLastName: "Mihalovich"}}
 
 	matches, _ := matchRaces(races, entries, nil, heatSheet)
 
@@ -143,6 +143,63 @@ func TestDisambiguateByRowerLastName(t *testing.T) {
 	}
 	if got := disambiguateByRowerLastName([]rcEntry{cands[0]}, "Mihalovich"); len(got) != 1 {
 		t.Errorf("single candidate: got %+v, want it returned untouched regardless of name", got)
+	}
+}
+
+func TestDisambiguateByBoatClass(t *testing.T) {
+	events := map[string]string{"20": "Junior Men's 1x", "30": "Men's 4+"}
+	cands := []rcEntry{
+		{ID: "1", EventID: "20", BoatClass: "M-Jr-1x"},
+		{ID: "2", EventID: "30"}, // no inline BoatClass - falls back to its event's label
+	}
+
+	if got := disambiguateByBoatClass(cands, "M-Jr-1x", events); len(got) != 1 || got[0].ID != "1" {
+		t.Errorf("exact BoatClass match: got %+v, want just entry 1", got)
+	}
+	if got := disambiguateByBoatClass(cands, "Men's 4+", events); len(got) != 1 || got[0].ID != "2" {
+		t.Errorf("exact event-label match: got %+v, want just entry 2", got)
+	}
+	if got := disambiguateByBoatClass(cands, "", events); len(got) != 2 {
+		t.Errorf("blank lane class: got %+v, want cands unchanged", got)
+	}
+	if got := disambiguateByBoatClass(cands, "A", events); len(got) != 2 {
+		t.Errorf("an A/B label, not a class: got %+v, want cands unchanged (no coincidental match)", got)
+	}
+	if got := disambiguateByBoatClass([]rcEntry{cands[0]}, "M-Jr-1x", events); len(got) != 1 {
+		t.Errorf("single candidate: got %+v, want it returned untouched", got)
+	}
+}
+
+// TestMatchRacesWidensPoolAndDisambiguatesByBoatClass covers the mash-up case
+// via the Heat Sheet's row-2 lane class alone (e.g. a bigger boat with no
+// rower name available) - the RD combines a different class into this race's
+// open lanes for lack of entries, and the lane's real entry only turns up
+// once the pool widens past the race-scoped one.
+func TestMatchRacesWidensPoolAndDisambiguatesByBoatClass(t *testing.T) {
+	events := map[string]string{"20": "Junior Men's 1x", "30": "Men's 4+"}
+	entries := []rcEntry{
+		{ID: "1", EventID: "10", OrgName: "Team A"},
+		{ID: "4", EventID: "10", OrgName: "Team C"},
+		{ID: "2", EventID: "20", OrgName: "Team B", BoatClass: "M-Jr-1x"},
+		{ID: "3", EventID: "30", OrgName: "Team B"}, // same school, a different boat entirely
+	}
+	races := []reader.RaceData{
+		raceWithLanes(6, "M-2x", map[int]reader.RaceEntry{
+			1: {SchoolName: "Team A"},
+			2: {SchoolName: "Team C"},
+			6: {SchoolName: "Team B"}, // combined in on an open lane
+		}),
+	}
+	heatSheet := map[[2]int]heatSheetLane{{6, 6}: {LaneClass: "M-Jr-1x"}}
+
+	matches, _ := matchRaces(races, entries, events, heatSheet)
+
+	byLane := map[int]laneMatch{}
+	for _, m := range matches {
+		byLane[m.Lane] = m
+	}
+	if got := byLane[6]; got.Status != statusMatched || got.Candidates[0].ID != "2" {
+		t.Errorf("lane 6 = %+v, want matched to entry 2 (Team B / M-Jr-1x) after widening + boat-class disambiguation", got)
 	}
 }
 
