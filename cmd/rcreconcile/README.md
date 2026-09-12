@@ -122,6 +122,19 @@ Four more things `reconcile` handles that came up on real regattas:
   still show up as "ambiguous, needs a quick check" — that is the correct
   answer when RegattaCentral's own data doesn't distinguish them, not a bug
   to chase.
+- **`EventID` has to survive the entry merge even when `bulk.json` "wins."**
+  `entriesFromDir`'s dedupe is first-occurrence-wins in sorted-filename order
+  — `bulk.json` sorts ahead of every `entries-<id>.json` file, and once an
+  entry can be recognized from an org-id reference alone (the org-id join
+  above), `bulk.json` turned out to nest the same entries every
+  `entries-<id>.json` file does. `bulk.json` has no filename to derive an
+  `EventID` from, so its winning copy always carried a blank one — on a real
+  regatta this silently zeroed `EventID` for nearly every entry, so
+  `bestMatchingEvent` never had anything to count and roster overlap had no
+  observable effect at all, identical to the pre-fix symptom. Fixed by
+  exempting `EventID` alone from first-occurrence-wins: a later duplicate's
+  non-blank `EventID` backfills an earlier blank one, while every other field
+  (org name, etc.) keeps the original, tested behavior.
 - **Short abbreviations don't substring-match.** A real mismatch: "Bishop
   Ireton" (xlsm) was showing "Osbourn Park" as a candidate, because
   normalize("Bishop Ireton") happens to contain "op" (the tail end of

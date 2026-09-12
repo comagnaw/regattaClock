@@ -67,9 +67,21 @@ type rcOrg struct {
 // and events, then: tags each entry found in an "entries-<id>.json" file with
 // that id as EventID; merges entries (first occurrence of an ID wins, in
 // sorted-filename order, so "bulk.json" sorts ahead of "entries-*.json" and is
-// treated as the more authoritative source); and resolves any entry that only
-// has an OrgID against the merged rcOrg index. Also returns the merged
-// eventID -> label index for entriesForRace to scope pools by event.
+// treated as the more authoritative source for name fields); and resolves any
+// entry that only has an OrgID against the merged rcOrg index. Also returns
+// the merged eventID -> label index for entriesForRace to scope pools by
+// event.
+//
+// EventID is the one field exempt from "first occurrence wins": bulk.json
+// nests the same entries the per-event entries-<id>.json files do (confirmed
+// once asEntry started accepting an org-id-only reference - see Milestone
+// 1.6), and bulk.json's copy never carries a filename-derived EventID. Without
+// this exemption, bulk.json's blank EventID would win the merge for nearly
+// every real entry, silently starving entriesForRace's event-scoping
+// (bestMatchingEvent) of the one signal it depends on - reproducing the exact
+// "every school shows N duplicate copies of itself as ambiguous" symptom
+// event-scoping was built to fix. So a later duplicate's non-blank EventID
+// always backfills an earlier, blank one.
 func entriesFromDir(dir string) (entries []rcEntry, events map[string]string, err error) {
 	files, err := os.ReadDir(dir)
 	if err != nil {
@@ -84,7 +96,7 @@ func entriesFromDir(dir string) (entries []rcEntry, events map[string]string, er
 	}
 	sort.Strings(names)
 
-	seenEntry := map[string]bool{}
+	seenEntry := map[string]int{} // entry ID -> its index in merged
 	orgs := map[string]rcOrg{}
 	events = map[string]string{}
 	var merged []rcEntry
@@ -106,13 +118,16 @@ func entriesFromDir(dir string) (entries []rcEntry, events map[string]string, er
 		var found []rcEntry
 		walkForEntries(v, &found)
 		for _, e := range found {
-			if seenEntry[e.ID] {
-				continue
-			}
-			seenEntry[e.ID] = true
 			if fileEventID != "" {
 				e.EventID = fileEventID
 			}
+			if idx, ok := seenEntry[e.ID]; ok {
+				if merged[idx].EventID == "" && e.EventID != "" {
+					merged[idx].EventID = e.EventID
+				}
+				continue
+			}
+			seenEntry[e.ID] = len(merged)
 			merged = append(merged, e)
 		}
 

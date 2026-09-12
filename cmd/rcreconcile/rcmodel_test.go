@@ -181,6 +181,41 @@ func TestEntriesFromDirBuildsEventsIndex(t *testing.T) {
 	}
 }
 
+// TestEntriesFromDirBackfillsEventIDAcrossDuplicates is a regression test for
+// a real-world bug: bulk.json sorts ahead of entries-<id>.json and nests the
+// same entries (asEntry now matches an org-id-only reference, so bulk.json's
+// copy is recognized too), but bulk.json's copy never carries a
+// filename-derived EventID. Before this fix, "first occurrence wins" meant
+// bulk.json's blank EventID always won, silently starving entriesForRace's
+// event-scoping (bestMatchingEvent) for every real entry - reproducing
+// "every school shows N duplicate copies of itself as ambiguous" even after
+// event-scoping was added. EventID must backfill from a later duplicate
+// while other fields (here, OrgName) keep the documented first-occurrence-wins
+// behavior.
+func TestEntriesFromDirBackfillsEventIDAcrossDuplicates(t *testing.T) {
+	dir := t.TempDir()
+	writeJSON(t, dir, "bulk.json", `{"entries":[
+		{"id":"1","organization":{"name":"Springfield High School"}}
+	]}`)
+	writeJSON(t, dir, "entries-10.json", `[
+		{"id":"1","organization":{"name":"SHOULD NOT WIN - bulk.json sorts first"}}
+	]`)
+
+	entries, _, err := entriesFromDir(dir)
+	if err != nil {
+		t.Fatalf("entriesFromDir: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("got %d entries, want 1: %+v", len(entries), entries)
+	}
+	if got := entries[0].OrgName; got != "Springfield High School" {
+		t.Errorf("OrgName = %q, want the bulk.json version to still win", got)
+	}
+	if got := entries[0].EventID; got != "10" {
+		t.Errorf("EventID = %q, want backfilled from entries-10.json", got)
+	}
+}
+
 func TestEventIDFromFilename(t *testing.T) {
 	tests := map[string]string{
 		"entries-10.json":    "10",

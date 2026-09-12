@@ -74,13 +74,13 @@ Full detail in [`cmd/rcprobe`'s README](../../../cmd/rcprobe/README.md) and
 
 _(filled in as the investigation proceeds)_
 
-- **Real matches are expected** as of the sixth real run (after the org-id
+- **Real matches are expected** as of the seventh real run (after the org-id
   join, the "St."/"Saint" fix, the short-abbreviation guard, file-scoped
-  org/event extraction, and - the fix that actually made event-scoping work -
-  roster-overlap event resolution). Exact match-rate, remaining "needs a
-  quick check" / "not found" causes, whether RC already had any
-  `Event`/`Race`/`Lane` data for this regatta, and RD/executive feedback:
-  still to be recorded here.
+  org/event extraction, roster-overlap event resolution, and the EventID
+  merge-priority fix below - the one that actually let roster-overlap see any
+  data). Exact match-rate, remaining "needs a quick check" / "not found"
+  causes, whether RC already had any `Event`/`Race`/`Lane` data for this
+  regatta, and RD/executive feedback: still to be recorded here.
 - Go / no-go recommendation for a real Phase C/D: —
 
 ## Open items
@@ -149,6 +149,27 @@ _(filled in as the investigation proceeds)_
   lead over every other event before scoping to it. Event-label matching is
   kept as a second-opinion fallback behind it, in case a future regatta's
   labels do line up with the xlsm's codes.
+- **Sixth real run: roster overlap changed nothing - identical duplicate
+  counts, before and after.** The exact same schools showed the exact same
+  number of duplicate self-matches as before the roster-overlap fix, which
+  ruled out a per-race coincidence (a real per-race tie would vary race to
+  race, not reproduce an identical count everywhere). Root cause:
+  `entriesFromDir`'s entry merge (`cmd/rcreconcile/rcmodel.go`) dedupes by
+  entry ID with "first occurrence wins, sorted-filename order" -
+  `bulk.json` sorts ahead of every `entries-<id>.json` file. Once the org-id
+  relaxation (Milestone 1.6) let `asEntry` match an entry from its org-id
+  reference alone, `bulk.json` - which nests the same entries every
+  `entries-<id>.json` file does - started winning the merge for essentially
+  every real entry. But `bulk.json` has no filename to derive an `EventID`
+  from, so its (winning) copy always carried a **blank** `EventID`, and the
+  `entries-<id>.json` copy that would have had the correct one was discarded
+  as a duplicate. `bestMatchingEvent` had nothing to count for any race, so
+  it silently returned `""` every time, falling all the way through to the
+  same unscoped pool as before event-scoping existed - explaining why the fix
+  had zero observable effect. Fixed by exempting `EventID` from "first
+  occurrence wins": a later duplicate's non-blank `EventID` now backfills an
+  earlier, blank one, while every other field (org name, etc.) keeps the
+  existing, tested first-occurrence-wins behavior.
 - The real `/bulk` / `entries` / `organizations` / `events` schema — confirm
   with `rcreconcile shape` against the author's local capture; correct
   `asEntry` / `asOrg` / `asEvent` in `cmd/rcreconcile/rcmodel.go` accordingly.
