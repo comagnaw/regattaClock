@@ -194,6 +194,31 @@ Four more things `reconcile` handles that came up on real regattas:
   ids, and event ids ever print - never an athlete's name - so a specific
   lane's non-match can be diagnosed against a real capture without sharing
   anything sensitive.
+- **`--guess-ties`** (off by default). A real regatta can still have a lane
+  where every signal above - event scoping, label, rower name, boat class,
+  even widening past the race-scoped pool - is exhausted and more than one
+  candidate remains: typically two boats from the same school in the same
+  class, which RegattaCentral's own data genuinely doesn't distinguish. With
+  this flag, `matchRaces` picks the first untaken candidate as a last resort
+  (`statusGuessed`) instead of leaving the lane ambiguous - specifically so
+  an otherwise-fully-resolved regatta can feed a real `EntryID` into the
+  upload preview (Milestone 2) for every lane, rather than a placeholder
+  UUID for the couple of ties that are genuinely unresolvable from data
+  alone. Two safeguards keep this from silently hiding uncertainty or
+  mis-assigning entries:
+  - If two different lanes end up with the *same* tied candidate set (the
+    exact scenario this exists for), the second lane skips whatever the
+    first already picked and takes the next untaken one instead - tracked
+    across the whole run, so no entry is ever guessed for two lanes. If
+    there are more tied lanes than distinct candidates left to give them,
+    the extra lane stays honestly `statusAmbiguous` rather than reusing an
+    id - a duplicate assignment would be outright wrong, not just imprecise.
+  - The report still labels a guessed lane "Best guess (RegattaCentral
+    doesn't distinguish these)" - distinct from a confident "Matches
+    RegattaCentral" - and shows which alternative it was picked over, so a
+    human reviewer always knows to double check it. The upload preview
+    likewise flags it in the "needs a human's judgment" section even though
+    it carries a real `EntryID`.
 - **Short abbreviations don't substring-match.** A real mismatch: "Bishop
   Ireton" (xlsm) was showing "Osbourn Park" as a candidate, because
   normalize("Bishop Ireton") happens to contain "op" (the tail end of

@@ -49,7 +49,7 @@ func buildUploadPreview(matches []laneMatch) (*regattacentral.UploadRequest, []s
 		}
 
 		switch m.Status {
-		case statusMatched:
+		case statusMatched, statusGuessed:
 			id, err := strconv.Atoi(m.Candidates[0].ID)
 			if err != nil {
 				lane.UUID = newPlaceholderUUID()
@@ -58,6 +58,11 @@ func buildUploadPreview(matches []laneMatch) (*regattacentral.UploadRequest, []s
 					m.RaceNumber, m.Lane, m.SchoolName, m.Candidates[0].ID))
 			} else {
 				lane.EntryID = id
+			}
+			if m.Status == statusGuessed {
+				warnings = append(warnings, fmt.Sprintf(
+					"Race %d Lane %d (%s): --guess-ties picked RegattaCentral entry id %s over an equally plausible alternative - not a confident match",
+					m.RaceNumber, m.Lane, m.SchoolName, m.Candidates[0].ID))
 			}
 		case statusAmbiguous:
 			lane.UUID = newPlaceholderUUID()

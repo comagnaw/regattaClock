@@ -42,6 +42,26 @@ func TestBuildReport(t *testing.T) {
 	}
 }
 
+func TestBuildReportGuessedShowsPickAndAlternative(t *testing.T) {
+	matches := []laneMatch{
+		{RaceNumber: 8, Lane: 3, SchoolName: "Justice High", Status: statusGuessed,
+			Candidates: []rcEntry{{ID: "64", OrgName: "Justice High"}, {ID: "65", OrgName: "Justice High"}}},
+	}
+
+	data := buildReport("Test Regatta", matches, nil)
+
+	if data.MatchedCount != 0 {
+		t.Errorf("MatchedCount = %d, want 0 - a guess is not a confident match", data.MatchedCount)
+	}
+	lane := data.Races[0].Lanes[0]
+	if lane.StatusClass != "warn" {
+		t.Errorf("guessed lane StatusClass = %q, want \"warn\"", lane.StatusClass)
+	}
+	if !strings.Contains(lane.MatchName, "Justice High") || !strings.Contains(lane.StatusLabel, "Best guess") {
+		t.Errorf("guessed lane = %+v, want the pick's name and a \"Best guess\" label", lane)
+	}
+}
+
 func TestBuildReportUnresolvedOrgIDGetsAFriendlyLabel(t *testing.T) {
 	unused := []rcEntry{
 		{ID: "9", OrgID: "77"},    // never resolved against organizations.json

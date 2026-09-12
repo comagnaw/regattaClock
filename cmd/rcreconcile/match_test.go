@@ -34,7 +34,7 @@ func TestMatchRaces(t *testing.T) {
 		}),
 	}
 
-	matches, unused := matchRaces(races, entries, nil, nil)
+	matches, unused := matchRaces(races, entries, nil, nil, false)
 	if len(matches) != 4 {
 		t.Fatalf("matches = %d, want 4", len(matches))
 	}
@@ -72,7 +72,7 @@ func TestMatchRacesAmbiguousWithoutLabel(t *testing.T) {
 			1: {SchoolName: "Springfield HS", AdditionalInfo: ""}, // two candidates, no label to disambiguate
 		}),
 	}
-	matches, _ := matchRaces(races, entries, nil, nil)
+	matches, _ := matchRaces(races, entries, nil, nil, false)
 	if matches[0].Status != statusAmbiguous || len(matches[0].Candidates) != 2 {
 		t.Fatalf("got %+v, want ambiguous with 2 candidates", matches[0])
 	}
@@ -109,7 +109,7 @@ func TestMatchRacesWidensPoolAndDisambiguatesByRowerName(t *testing.T) {
 	}
 	heatSheet := map[[2]int]heatSheetLane{{6, 6}: {RowerLastName: "Mihalovich"}}
 
-	matches, _ := matchRaces(races, entries, nil, heatSheet)
+	matches, _ := matchRaces(races, entries, nil, heatSheet, false)
 
 	byLane := map[int]laneMatch{}
 	for _, m := range matches {
@@ -203,7 +203,7 @@ func TestMatchRacesWidensPoolAndDisambiguatesByBoatClass(t *testing.T) {
 	}
 	heatSheet := map[[2]int]heatSheetLane{{6, 6}: {LaneClass: "M-Jr-1x"}}
 
-	matches, _ := matchRaces(races, entries, events, heatSheet)
+	matches, _ := matchRaces(races, entries, events, heatSheet, false)
 
 	byLane := map[int]laneMatch{}
 	for _, m := range matches {
@@ -244,7 +244,7 @@ func TestMatchRacesWidensEvenWhenScopedPoolIsNonEmpty(t *testing.T) {
 		{8, 2}: {LaneClass: "Exhibition M-1-4x"},
 	}
 
-	matches, _ := matchRaces(races, entries, nil, heatSheet)
+	matches, _ := matchRaces(races, entries, nil, heatSheet, false)
 
 	byLane := map[int]laneMatch{}
 	for _, m := range matches {
@@ -258,6 +258,104 @@ func TestMatchRacesWidensEvenWhenScopedPoolIsNonEmpty(t *testing.T) {
 	}
 	if got := byLane[4]; got.Status != statusMatched || got.Candidates[0].ID != "1" {
 		t.Errorf("lane 4 = %+v, want matched to entry 1 (Bishop Ireton)", got)
+	}
+}
+
+// TestMatchRacesGuessTiesResolvesWithoutColliding covers the exact scenario
+// --guess-ties exists for: two lanes (3 and 5, from the same fixture as
+// TestMatchRacesWidensEvenWhenScopedPoolIsNonEmpty) share the identical tied
+// candidate pair [64, 65] - RegattaCentral's data genuinely can't tell them
+// apart. With guessTies true, both must resolve to statusGuessed, and -
+// critically - to *different* entries: the collision this whole mechanism
+// exists to avoid would be both lanes picking the same "first" candidate and
+// leaving the other one behind unused.
+func TestMatchRacesGuessTiesResolvesWithoutColliding(t *testing.T) {
+	entries := []rcEntry{
+		{ID: "1", EventID: "10", OrgName: "Bishop Ireton"},
+		{ID: "64", EventID: "10", OrgName: "Justice High", BoatClass: "M-Jr-4x"},
+		{ID: "65", EventID: "10", OrgName: "Justice High", BoatClass: "M-Jr-4x"},
+		{ID: "70", EventID: "40", OrgName: "Justice High", BoatClass: "M-1-4x"},
+	}
+	races := []reader.RaceData{
+		raceWithLanes(8, "M-Jr-4x", map[int]reader.RaceEntry{
+			2: {SchoolName: "Justice High"},
+			3: {SchoolName: "Justice High"},
+			4: {SchoolName: "Bishop Ireton"},
+			5: {SchoolName: "Justice High"},
+		}),
+	}
+	heatSheet := map[[2]int]heatSheetLane{
+		{8, 2}: {LaneClass: "Exhibition M-1-4x"},
+	}
+
+	matches, unused := matchRaces(races, entries, nil, heatSheet, true)
+
+	byLane := map[int]laneMatch{}
+	for _, m := range matches {
+		byLane[m.Lane] = m
+	}
+	lane3, lane5 := byLane[3], byLane[5]
+	if lane3.Status != statusGuessed || lane5.Status != statusGuessed {
+		t.Fatalf("lane 3 = %+v, lane 5 = %+v; want both statusGuessed", lane3, lane5)
+	}
+	pick3, pick5 := lane3.Candidates[0].ID, lane5.Candidates[0].ID
+	if pick3 == pick5 {
+		t.Fatalf("lane 3 and lane 5 both picked entry %s - a collision, the exact bug this test guards against", pick3)
+	}
+	if (pick3 != "64" && pick3 != "65") || (pick5 != "64" && pick5 != "65") {
+		t.Errorf("lane 3 picked %s, lane 5 picked %s; want one each of 64 and 65", pick3, pick5)
+	}
+	// Both entries were "used" by a guessed pick, so neither should show up
+	// as an unused/possible-scratch entry at the bottom of the report.
+	for _, e := range unused {
+		if e.ID == "64" || e.ID == "65" {
+			t.Errorf("entry %s reported unused, want it consumed by a guessed pick", e.ID)
+		}
+	}
+}
+
+// TestMatchRacesGuessTiesFallsBackToAmbiguousWhenExhausted covers three lanes
+// sharing only two distinct tied candidates - reusing one for the third lane
+// would be an outright wrong duplicate assignment, not just an imprecise
+// guess, so it must stay honestly statusAmbiguous instead.
+func TestMatchRacesGuessTiesFallsBackToAmbiguousWhenExhausted(t *testing.T) {
+	entries := []rcEntry{
+		{ID: "64", EventID: "10", OrgName: "Justice High", BoatClass: "M-Jr-4x"},
+		{ID: "65", EventID: "10", OrgName: "Justice High", BoatClass: "M-Jr-4x"},
+	}
+	races := []reader.RaceData{
+		raceWithLanes(8, "M-Jr-4x", map[int]reader.RaceEntry{
+			1: {SchoolName: "Justice High"},
+			2: {SchoolName: "Justice High"},
+			3: {SchoolName: "Justice High"},
+		}),
+	}
+
+	matches, _ := matchRaces(races, entries, nil, nil, true)
+
+	byLane := map[int]laneMatch{}
+	for _, m := range matches {
+		byLane[m.Lane] = m
+	}
+	guessedFor := map[string]bool{}
+	ambiguousCount := 0
+	for _, lane := range []int{1, 2, 3} {
+		m := byLane[lane]
+		switch m.Status {
+		case statusGuessed:
+			id := m.Candidates[0].ID
+			if guessedFor[id] {
+				t.Fatalf("entry %s guessed for more than one lane - a collision", id)
+			}
+			guessedFor[id] = true
+		case statusAmbiguous:
+			ambiguousCount++
+		default:
+			t.Errorf("lane %d = %+v, want statusGuessed or statusAmbiguous", lane, m)
+		}
+	}
+	if ambiguousCount != 1 {
+		t.Errorf("got %d ambiguous lane(s), want exactly 1 (only 2 distinct entries for 3 tied lanes)", ambiguousCount)
 	}
 }
 

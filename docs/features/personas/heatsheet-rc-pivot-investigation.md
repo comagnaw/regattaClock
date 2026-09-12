@@ -80,20 +80,22 @@ Full detail in [`cmd/rcprobe`'s README](../../../cmd/rcprobe/README.md) and
   extraction, roster-overlap event resolution, the `EventID` merge-priority
   fix, and the Heat Sheet tab's rower-name and boat-class disambiguation for
   RD-combined lanes.
-- **What's left unresolved falls into two kinds, and only one of them is a
-  real gap:**
+- **What's left unresolved falls into two kinds, and neither is a gap in the
+  tool's logic:**
   1. Two boats from the same school in the same event, where RegattaCentral's
-     own data may not distinguish them at all - correctly flagged
-     "ambiguous, needs a quick check" rather than guessed, per this tool's
-     whole design philosophy (see the fifth real run). Not a gap to close;
-     this is the intended, honest outcome.
+     own data may not distinguish them at all (see the fifth real run). As
+     of the twelfth real run, `--guess-ties` can resolve this - opt-in, off
+     by default - as a last resort, specifically to unblock testing an
+     upload-preview push; the default report still honestly reports it as
+     "ambiguous, needs a quick check" (or, with the flag, "best guess").
   2. A small-boat race with few schools, each already racing in several
      other events, where roster overlap can tie and neither the rower name
      (absent for boats bigger than a double) nor the boat-class text (no
      override present, since the boat wasn't actually combined in) can
      rescue it (the ninth real run). This is a genuine algorithmic
      limitation - fixing it means reworking roster overlap's tie-breaking
-     for thin-roster races, not something the Heat Sheet tab can supply.
+     for thin-roster races, not something the Heat Sheet tab can supply, and
+     `--guess-ties` reaches it too once every other signal is exhausted.
   Note, from the ninth real run: the boat-class signal is a data-quality
   dependency, not just a code path - it only works when the RD filled in
   the Heat Sheet's per-lane class completely (including the gender prefix),
@@ -296,6 +298,25 @@ Full detail in [`cmd/rcprobe`'s README](../../../cmd/rcprobe/README.md) and
   never put at risk. `candidateSummary` (the `--debug-race` trace helper)
   now also prints each candidate's `BoatClass` field, which is what made
   this shape visible in the first place.
+- **Twelfth real run: everything resolvable from data now matches - the
+  only outliers are two boats from the same school in the same class, which
+  RegattaCentral's data genuinely doesn't distinguish.** The author's own
+  framing: acceptable to resolve with a "pick the first entry" last resort,
+  specifically to get to a state where an upload-preview test push becomes
+  possible, but scoped narrowly so it can't affect any of the other corner
+  cases already fixed. Added `--guess-ties` (off by default) rather than
+  changing default behavior: `matchRaces` picks the first untaken candidate
+  only after every other signal (event scoping, label, rower name, boat
+  class, widening) has already failed to narrow to one -
+  `statusGuessed`, a new status distinct from both `statusMatched` and
+  `statusAmbiguous`, so the report keeps saying "best guess" rather than a
+  confident match. The real risk the author called out directly: two tied
+  lanes sharing the identical candidate pair could both naively pick the
+  same "first" entry and leave the other one behind unused. Fixed by
+  tracking already-guessed entry ids across the whole run, so a second tied
+  lane skips to the next untaken candidate instead of colliding; if there
+  are more tied lanes than distinct candidates left (rare), the extra lane
+  stays honestly ambiguous rather than reusing an id outright wrong.
 - The real `/bulk` / `entries` / `organizations` / `events` schema — confirm
   with `rcreconcile shape` against the author's local capture; correct
   `asEntry` / `asOrg` / `asEvent` in `cmd/rcreconcile/rcmodel.go` accordingly.

@@ -67,6 +67,19 @@ func buildReport(regattaName string, matches []laneMatch, unused []rcEntry) repo
 			data.MatchedCount++
 			lane.StatusLabel, lane.StatusClass = "Matches RegattaCentral", "ok"
 			lane.MatchName = m.Candidates[0].OrgName
+		case statusGuessed:
+			// Candidates[0] is the pick (see matchRaces/lastResortPick);
+			// the rest are the untaken, equally-plausible alternative(s) -
+			// shown so a human can still see what this was chosen over.
+			lane.StatusLabel, lane.StatusClass = "Best guess (RegattaCentral doesn't distinguish these)", "warn"
+			lane.MatchName = m.Candidates[0].OrgName
+			if len(m.Candidates) > 1 {
+				alts := make([]string, len(m.Candidates)-1)
+				for i, c := range m.Candidates[1:] {
+					alts[i] = c.OrgName
+				}
+				lane.MatchName += " (picked over " + strings.Join(alts, " / ") + ")"
+			}
 		case statusAmbiguous:
 			lane.StatusLabel, lane.StatusClass = "Needs a quick check (more than one possible match)", "warn"
 			names := make([]string, len(m.Candidates))

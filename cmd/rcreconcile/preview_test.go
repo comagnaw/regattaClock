@@ -85,6 +85,23 @@ func TestBuildUploadPreviewMatchedLaneGetsRealEntryID(t *testing.T) {
 	}
 }
 
+func TestBuildUploadPreviewGuessedLaneGetsRealEntryIDAndAWarning(t *testing.T) {
+	matches := []laneMatch{
+		{
+			RaceNumber: 8, Lane: 3, SchoolName: "Justice High",
+			Status:     statusGuessed,
+			Candidates: []rcEntry{{ID: "64"}, {ID: "65"}},
+		},
+	}
+	req, warnings := buildUploadPreview(matches)
+	if len(req.Lanes) != 1 || req.Lanes[0].EntryID != 64 || req.Lanes[0].UUID != "" {
+		t.Errorf("lane = %+v, want the picked EntryID 64 and no placeholder UUID", req.Lanes[0])
+	}
+	if len(warnings) != 1 || !strings.Contains(warnings[0], "not a confident match") {
+		t.Errorf("warnings = %v, want one flagging this as a guess, not a confident match", warnings)
+	}
+}
+
 func TestBuildUploadPreviewAmbiguousAndUnmatchedGetPlaceholders(t *testing.T) {
 	matches := []laneMatch{
 		{

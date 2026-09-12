@@ -19,6 +19,14 @@ const (
 	statusMatched   matchStatus = "matched"
 	statusAmbiguous matchStatus = "ambiguous"
 	statusUnmatched matchStatus = "unmatched"
+	// statusGuessed is statusAmbiguous's last-resort sibling: every
+	// narrowing signal (event scoping, label, rower name, boat class) was
+	// tried and still left more than one candidate - genuinely
+	// indistinguishable from the data available (typically two boats from
+	// the same school in the same class). Only produced when matchRaces is
+	// called with guessTies true (see --guess-ties); Candidates[0] is the
+	// picked entry, with the untaken alternative(s) following it.
+	statusGuessed matchStatus = "guessed"
 )
 
 // laneMatch is one xlsm lane and what it resolved to on RegattaCentral.
@@ -50,9 +58,12 @@ type laneMatch struct {
 // pass nil to fall back to the plain boat-class filter. heatSheet is the
 // (raceNumber, lane) -> heatSheetLane index from readHeatSheet
 // (heatsheet.go), used only to disambiguate; pass nil if the xlsm has no
-// Heat Sheet tab.
-func matchRaces(races []reader.RaceData, entries []rcEntry, events map[string]string, heatSheet map[[2]int]heatSheetLane) (matches []laneMatch, unused []rcEntry) {
+// Heat Sheet tab. guessTies opts into a last-resort tie-break (see
+// statusGuessed) for whatever stays ambiguous after every other signal has
+// been tried; false preserves the default, always-honest "ambiguous" status.
+func matchRaces(races []reader.RaceData, entries []rcEntry, events map[string]string, heatSheet map[[2]int]heatSheetLane, guessTies bool) (matches []laneMatch, unused []rcEntry) {
 	used := map[string]bool{}
+	guessed := map[string]bool{} // entry ids already given to another tied lane, so ties never collide
 
 	for _, race := range races {
 		pool := entriesForRace(entries, race, events)
@@ -70,12 +81,25 @@ func matchRaces(races []reader.RaceData, entries []rcEntry, events map[string]st
 				Time:           entry.Time,
 				Candidates:     cands,
 			}
-			switch len(cands) {
-			case 0:
+			switch {
+			case len(cands) == 0:
 				lm.Status = statusUnmatched
-			case 1:
+			case len(cands) == 1:
 				lm.Status = statusMatched
 				used[cands[0].ID] = true
+			case guessTies:
+				if pick, ok := lastResortPick(cands, guessed); ok {
+					lm.Status = statusGuessed
+					lm.Candidates = reorderPickFirst(cands, pick)
+					guessed[pick.ID] = true
+					used[pick.ID] = true
+				} else {
+					// More tied lanes than distinct candidates left to give
+					// them - reusing one would be an outright wrong
+					// duplicate assignment, not just an imprecise guess, so
+					// this lane stays honestly ambiguous instead.
+					lm.Status = statusAmbiguous
+				}
 			default:
 				lm.Status = statusAmbiguous
 			}
@@ -89,6 +113,35 @@ func matchRaces(races []reader.RaceData, entries []rcEntry, events map[string]st
 		}
 	}
 	return matches, unused
+}
+
+// lastResortPick returns the first of cands not already in guessed, so two
+// lanes that end up with the exact same tied candidate set (the real
+// scenario this exists for - two boats from the same school in the same
+// class, which RegattaCentral's own data doesn't distinguish) don't collide
+// on the same entry. ok is false when every candidate is already spoken for.
+func lastResortPick(cands []rcEntry, guessed map[string]bool) (pick rcEntry, ok bool) {
+	for _, c := range cands {
+		if !guessed[c.ID] {
+			return c, true
+		}
+	}
+	return rcEntry{}, false
+}
+
+// reorderPickFirst returns cands with pick moved to index 0 - so
+// Candidates[0] is conventionally "the selection" (buildUploadPreview reads
+// it that way for statusMatched already) while the untaken alternative(s)
+// stay visible after it for the report's transparency.
+func reorderPickFirst(cands []rcEntry, pick rcEntry) []rcEntry {
+	out := make([]rcEntry, 0, len(cands))
+	out = append(out, pick)
+	for _, c := range cands {
+		if c.ID != pick.ID {
+			out = append(out, c)
+		}
+	}
+	return out
 }
 
 // matchLane resolves one lane's candidates, in the same narrowing order
