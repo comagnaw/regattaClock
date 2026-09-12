@@ -6,8 +6,14 @@ against one real, already-completed regatta before any of it becomes a real
 feature. Companion to
 [regattacentral-integration.md](regattacentral-integration.md) (Phase C/D,
 which this investigation's findings will confirm or revise) and
-[`cmd/rcreconcile`](../../../cmd/rcreconcile/README.md) (the tool this doc
-describes the use of).
+`cmd/rcreconcile` (the tool this doc describes the use of).
+
+> **`cmd/rcreconcile` (and this investigation's `internal/regattacentral`
+> changes) live on the long-lived `regattacentral-heatsheet-investigation`
+> branch, not `develop`.** This doc is promoted ahead of that source code -
+> see [the Findings section](#findings) - so links to `cmd/rcreconcile`'s own
+> README are named, not hyperlinked, below; they'll resolve once that branch
+> lands.
 
 **Status:** investigation, in progress. No product code changes; a dev tool
 and its findings only.
@@ -46,7 +52,7 @@ served by the current manual process.
 ## The tools: `cmd/rcprobe walk` and `cmd/rcreconcile`
 
 Full detail in [`cmd/rcprobe`'s README](../../../cmd/rcprobe/README.md) and
-[`cmd/rcreconcile`'s README](../../../cmd/rcreconcile/README.md). Summary:
+`cmd/rcreconcile`'s README (not hyperlinked - see the note above). Summary:
 
 1. **`rcprobe walk <regattaID> --out DIR`** pulls `/bulk` and
    `organizations.json`, then structurally discovers event ids in the bulk
@@ -69,8 +75,8 @@ Full detail in [`cmd/rcprobe`'s README](../../../cmd/rcprobe/README.md) and
    local, human-readable preview of what a heat-sheet-and-results "publish"
    would look like, built from the xlsm and `reconcile`'s matches, using the
    already-typed, already-tested `regattacentral.UploadRequest`. `Client.Upload`
-   is never called - see [`cmd/rcreconcile`'s README](../../../cmd/rcreconcile/README.md)
-   for exactly what it does and does not resolve confidently.
+   is never called - see `cmd/rcreconcile`'s README (not hyperlinked - see
+   the note above) for exactly what it does and does not resolve confidently.
 
 ## Findings
 
