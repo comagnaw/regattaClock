@@ -76,13 +76,14 @@ Full detail in [`cmd/rcprobe`'s README](../../../cmd/rcprobe/README.md) and
 
 _(filled in as the investigation proceeds)_
 
-- **Real matches are expected** as of the seventh real run (after the org-id
-  join, the "St."/"Saint" fix, the short-abbreviation guard, file-scoped
-  org/event extraction, roster-overlap event resolution, and the EventID
-  merge-priority fix below - the one that actually let roster-overlap see any
-  data). Exact match-rate, remaining "needs a quick check" / "not found"
-  causes, whether RC already had any `Event`/`Race`/`Lane` data for this
-  regatta, and RD/executive feedback: still to be recorded here.
+- **Confirmed on the real regatta (after the seventh real run, below): the
+  majority of boats now match RegattaCentral automatically.** The only
+  remaining "needs a quick check" cases the author found: two boats from the
+  same school in the same event (expected — see the fifth real run), and
+  boat classes the RD combined into a race's open lanes for lack of entries
+  (the eighth real run, below, targets exactly this). Exact match-rate,
+  whether RC already had any `Event`/`Race`/`Lane` data for this regatta, and
+  RD/executive feedback beyond the author's own: still to be recorded here.
 - Go / no-go recommendation for a real Phase C/D: —
 
 ## Open items
@@ -172,6 +173,34 @@ _(filled in as the investigation proceeds)_
   occurrence wins": a later duplicate's non-blank `EventID` now backfills an
   earlier, blank one, while every other field (org name, etc.) keeps the
   existing, tested first-occurrence-wins behavior.
+- **Seventh real run: confirmed on the real regatta - the majority of boats
+  now match RegattaCentral automatically.** The only remaining "needs a quick
+  check" cases: two boats from the same school in the same event (expected -
+  see the fifth real run), and boat classes the RD combined into a race's
+  open lanes for lack of entries (e.g. the regatta's only Junior Men's 1x
+  raced as an extra lane in a Men's 2x).
+- **Eighth real run, in progress: resolving RD-combined lanes via the Heat
+  Sheet tab's rower name - built, not yet confirmed against the real
+  regatta.** A combined lane's real RegattaCentral entry belongs to an event
+  `bestMatchingEvent` correctly excludes from the rest of that race, so it's
+  structurally unmatchable from the Results tab alone. The xlsm's separate
+  "Heat Sheet" tab (never read by `internal/reader` — a different, 3-row
+  block layout) carries the one signal that resolves it: a rower's last
+  name, listed for 1x/2x boats. Confirmed against a real RD-authored
+  template (`cmd/rcreconcile/Heat Sheet Input Examples.xlsx`), not guessed:
+  row 1 of each block is the boat class and per-lane school names, row 2 is a
+  free-text per-lane annotation (alternate class, "A"/"B", "SCRATCHED") left
+  uninterpreted on purpose, row 3 is the rower's last name.
+  `cmd/rcreconcile/heatsheet.go` reads just that — a small, standalone parser
+  kept out of `internal/reader` deliberately, so this one-off investigation
+  signal doesn't grow the shipped app's Excel-parsing surface. `matchRaces`
+  widens a lane's candidate pool to the whole regatta when the race-scoped
+  pool finds nothing, then `disambiguateByRowerLastName` narrows the result
+  using the entry's `entryParticipants` names (confirmed real, from tracing a
+  real `entryId`'s structure). Separately: an RD can hand-type
+  "SCR"/"SCRATCHED" into the Results tab's Place column for a scratched boat
+  (not something `internal/clock`'s live timing ever writes) —
+  `preview.go`'s `laneStatusForPlace` (Milestone 2) now recognizes it too.
 - The real `/bulk` / `entries` / `organizations` / `events` schema — confirm
   with `rcreconcile shape` against the author's local capture; correct
   `asEntry` / `asOrg` / `asEvent` in `cmd/rcreconcile/rcmodel.go` accordingly.

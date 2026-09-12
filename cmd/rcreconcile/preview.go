@@ -88,17 +88,24 @@ func buildUploadPreview(matches []laneMatch) (*regattacentral.UploadRequest, []s
 
 // laneStatusForPlace maps the xlsm's Place field to a RegattaCentral
 // LaneStatus. common.RaceDisqualification/DidNotFinish/DidNotStart ("DQ" /
-// "DNF" / "DNS") are the only non-place values ever written there (see
-// internal/clock/laps.go's isNonPlace); anything else - a real finishing
-// place, or blank for a race that hasn't happened - reports as LaneOK.
+// "DNF" / "DNS") are the values internal/clock's live timing UI writes there
+// (see laps.go's isNonPlace); "SCR"/"SCRATCHED" are not part of that app
+// vocabulary - a scratch is known before the race even starts, at the
+// Heat Sheet stage (see heatsheet.go), not something the finish-line clock
+// marks - but an RD can still hand-type either into the post-race Results
+// tab for a boat that never rowed, so both are recognized here too. Anything
+// else - a real finishing place, or blank for a race that hasn't happened -
+// reports as LaneOK.
 func laneStatusForPlace(place string) regattacentral.LaneStatus {
-	switch strings.TrimSpace(place) {
+	switch strings.ToUpper(strings.TrimSpace(place)) {
 	case common.RaceDisqualification:
 		return regattacentral.LaneDisqualified
 	case common.RaceDidNotFinish:
 		return regattacentral.LaneDidNotFinish
 	case common.RaceDidNotStart:
 		return regattacentral.LaneDidNotStart
+	case "SCR", "SCRATCHED":
+		return regattacentral.LaneScratched
 	default:
 		return regattacentral.LaneOK
 	}

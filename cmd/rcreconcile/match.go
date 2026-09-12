@@ -2,6 +2,7 @@ package main
 
 import (
 	"regexp"
+	"slices"
 	"strings"
 	"unicode"
 
@@ -44,14 +45,30 @@ type laneMatch struct {
 // any lane - a possible scratch, or a boat RC has that the lineup never
 // included. events is the eventID -> label index from entriesFromDir, used to
 // scope each race's candidate pool to its own RC event (see entriesForRace);
-// pass nil to fall back to the plain boat-class filter.
-func matchRaces(races []reader.RaceData, entries []rcEntry, events map[string]string) (matches []laneMatch, unused []rcEntry) {
+// pass nil to fall back to the plain boat-class filter. heatSheet is the
+// (raceNumber, lane) -> rower's last name index from readHeatSheet
+// (heatsheet.go), used only to disambiguate; pass nil if the xlsm has no
+// Heat Sheet tab.
+func matchRaces(races []reader.RaceData, entries []rcEntry, events map[string]string, heatSheet map[[2]int]string) (matches []laneMatch, unused []rcEntry) {
 	used := map[string]bool{}
 
 	for _, race := range races {
 		pool := entriesForRace(entries, race, events)
 		for lane, entry := range race.OrderedLanes() {
 			cands := disambiguateByLabel(candidatesFor(entry.SchoolName, pool), entry.AdditionalInfo)
+			if len(cands) == 0 {
+				// This lane's school may not actually race in the event
+				// entriesForRace resolved for the rest of the race - e.g.
+				// the RD combined a small class into open lanes for lack of
+				// entries (see heatsheet-rc-pivot-investigation.md). Retry
+				// against every entry in the regatta before giving up; this
+				// can only ever find more candidates, never regress a lane
+				// that already matched within the race-scoped pool.
+				cands = disambiguateByLabel(candidatesFor(entry.SchoolName, entries), entry.AdditionalInfo)
+			}
+			if rower := heatSheet[[2]int{race.RaceNumber, lane}]; rower != "" {
+				cands = disambiguateByRowerLastName(cands, rower)
+			}
 			lm := laneMatch{
 				RaceNumber:     race.RaceNumber,
 				Lane:           lane,
@@ -339,6 +356,46 @@ func disambiguateByLabel(cands []rcEntry, additionalInfo string) []rcEntry {
 		return narrowed
 	}
 	return cands
+}
+
+// disambiguateByRowerLastName narrows more-than-one candidate down to one
+// using a rower's last name from the xlsm's Heat Sheet tab (listed only for
+// 1x/2x boats - see readHeatSheet, heatsheet.go). Matches when the name
+// appears as a whole token in any of the entry's participant names
+// (normalized) - PROVISIONAL like every other name-shape guess in this tool,
+// since the real API's name format ("First Last" vs "Last, First", etc.) is
+// unconfirmed. A blank lastName, or anything that isn't really a name (an
+// advancement note, "Exhibition", "SCRATCHED"), simply won't match any
+// participant and leaves cands untouched, same as disambiguateByLabel.
+func disambiguateByRowerLastName(cands []rcEntry, lastName string) []rcEntry {
+	if len(cands) <= 1 {
+		return cands
+	}
+	want := tokens(lastName)
+	if len(want) == 0 {
+		return cands
+	}
+	var narrowed []rcEntry
+	for _, c := range cands {
+		if entryHasParticipantToken(c, want) {
+			narrowed = append(narrowed, c)
+		}
+	}
+	if len(narrowed) == 1 {
+		return narrowed
+	}
+	return cands
+}
+
+func entryHasParticipantToken(e rcEntry, want []string) bool {
+	for _, name := range e.ParticipantNames {
+		for _, t := range tokens(name) {
+			if slices.Contains(want, t) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 var boatLabelRe = regexp.MustCompile(`(?i)\b([A-Z])\b`)

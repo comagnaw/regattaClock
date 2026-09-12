@@ -34,7 +34,7 @@ func TestMatchRaces(t *testing.T) {
 		}),
 	}
 
-	matches, unused := matchRaces(races, entries, nil)
+	matches, unused := matchRaces(races, entries, nil, nil)
 	if len(matches) != 4 {
 		t.Fatalf("matches = %d, want 4", len(matches))
 	}
@@ -72,9 +72,77 @@ func TestMatchRacesAmbiguousWithoutLabel(t *testing.T) {
 			1: {SchoolName: "Springfield HS", AdditionalInfo: ""}, // two candidates, no label to disambiguate
 		}),
 	}
-	matches, _ := matchRaces(races, entries, nil)
+	matches, _ := matchRaces(races, entries, nil, nil)
 	if matches[0].Status != statusAmbiguous || len(matches[0].Candidates) != 2 {
 		t.Fatalf("got %+v, want ambiguous with 2 candidates", matches[0])
+	}
+}
+
+// TestMatchRacesWidensPoolAndDisambiguatesByRowerName reproduces the real
+// scenario that motivated heatsheet.go: the RD combines a small class into a
+// race's open lanes for lack of entries (e.g. "event 6, Lane 6 is a M-Jr-1x
+// but racing in a M-2x"), so that lane's real RegattaCentral entry belongs to
+// a completely different event than the one entriesForRace resolves for the
+// rest of the race - the race-scoped pool correctly excludes it. Without any
+// heat sheet data this lane would be unmatched; with the rower's last name
+// from the Heat Sheet tab, it should resolve to exactly one entry even though
+// that school has entries in two other events.
+func TestMatchRacesWidensPoolAndDisambiguatesByRowerName(t *testing.T) {
+	entries := []rcEntry{
+		// Team A and Team C anchor roster overlap cleanly to event "10" for
+		// this race (2 schools vs. 1 for any other event, so no tie).
+		{ID: "1", EventID: "10", OrgName: "Team A"},
+		{ID: "4", EventID: "10", OrgName: "Team C"},
+		// Team B's real entry is NOT in event 10 at all - roster overlap
+		// correctly excludes it from the race-scoped pool, and it only shows
+		// up once that pool is widened back to every entry (see
+		// matchRaces's len(cands) == 0 fallback).
+		{ID: "2", EventID: "20", OrgName: "Team B", ParticipantNames: []string{"Alex Mihalovich"}},
+		{ID: "3", EventID: "30", OrgName: "Team B", ParticipantNames: []string{"Jamie Smith"}},
+	}
+	races := []reader.RaceData{
+		raceWithLanes(6, "M-2x", map[int]reader.RaceEntry{
+			1: {SchoolName: "Team A"},
+			2: {SchoolName: "Team C"},
+			6: {SchoolName: "Team B"}, // combined in on an open lane
+		}),
+	}
+	heatSheet := map[[2]int]string{{6, 6}: "Mihalovich"}
+
+	matches, _ := matchRaces(races, entries, nil, heatSheet)
+
+	byLane := map[int]laneMatch{}
+	for _, m := range matches {
+		byLane[m.Lane] = m
+	}
+	if got := byLane[1]; got.Status != statusMatched || got.Candidates[0].ID != "1" {
+		t.Errorf("lane 1 = %+v, want matched to entry 1 (event 10)", got)
+	}
+	if got := byLane[2]; got.Status != statusMatched || got.Candidates[0].ID != "4" {
+		t.Errorf("lane 2 = %+v, want matched to entry 4 (event 10)", got)
+	}
+	if got := byLane[6]; got.Status != statusMatched || got.Candidates[0].ID != "2" {
+		t.Errorf("lane 6 = %+v, want matched to entry 2 (Team B / Mihalovich) after widening + rower-name disambiguation", got)
+	}
+}
+
+func TestDisambiguateByRowerLastName(t *testing.T) {
+	cands := []rcEntry{
+		{ID: "1", ParticipantNames: []string{"Alex Mihalovich"}},
+		{ID: "2", ParticipantNames: []string{"Jamie Smith"}},
+	}
+
+	if got := disambiguateByRowerLastName(cands, "Mihalovich"); len(got) != 1 || got[0].ID != "1" {
+		t.Errorf("Mihalovich: got %+v, want just entry 1", got)
+	}
+	if got := disambiguateByRowerLastName(cands, ""); len(got) != 2 {
+		t.Errorf("blank last name: got %+v, want cands unchanged", got)
+	}
+	if got := disambiguateByRowerLastName(cands, "Exhibition"); len(got) != 2 {
+		t.Errorf("no participant named Exhibition: got %+v, want cands unchanged", got)
+	}
+	if got := disambiguateByRowerLastName([]rcEntry{cands[0]}, "Mihalovich"); len(got) != 1 {
+		t.Errorf("single candidate: got %+v, want it returned untouched regardless of name", got)
 	}
 }
 

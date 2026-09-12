@@ -51,7 +51,12 @@ func runReconcile(argv []string) error {
 		fmt.Fprintln(os.Stderr, "and share the (PII-free) key-path output so asEntry/asOrg can be corrected.")
 	}
 
-	matches, unused := matchRaces(rd.SortedRaces(), entries, events)
+	heatSheet, err := readHeatSheet(xlsmPath)
+	if err != nil {
+		return fmt.Errorf("read heat sheet: %w", err)
+	}
+
+	matches, unused := matchRaces(rd.SortedRaces(), entries, events, heatSheet)
 	if len(unused) > 0 || countUnmatched(matches) > 0 {
 		fmt.Fprintf(os.Stderr, "rcreconcile: %d lane(s) unmatched or ambiguous, %d RegattaCentral entr%s unused - see the report.\n",
 			countUnmatched(matches)+countAmbiguous(matches), len(unused), plural(len(unused)))

@@ -135,6 +135,40 @@ Four more things `reconcile` handles that came up on real regattas:
   exempting `EventID` alone from first-occurrence-wins: a later duplicate's
   non-blank `EventID` backfills an earlier blank one, while every other field
   (org name, etc.) keeps the original, tested behavior.
+- **A lane combined into a different event's race, by the RD, for lack of
+  entries.** Real example: a regatta's only Junior Men's 1x entry had no one
+  else to race, so the RD sent it down the course as an extra lane in a
+  Men's 2x race instead. That lane's real RegattaCentral entry belongs to a
+  completely different event than `bestMatchingEvent` correctly resolves for
+  the rest of the race - the race-scoped pool is *supposed* to exclude it.
+  `matchRaces` (`match.go`) handles this structurally, not by trying to read
+  the xlsm's boat-class text (a dead end - see roster overlap above): if a
+  lane's school has zero candidates in the race-scoped pool, it retries
+  against every entry in the regatta before giving up. That widened pool can
+  itself be ambiguous (the school may have several other entries across the
+  regatta), which is what the Heat Sheet tab's rower name is for, next.
+- **Disambiguating by the rower's name, from the Heat Sheet tab.** The xlsm's
+  "Heat Sheet" tab (a separate tab from "Results" - `internal/reader` never
+  reads it; see its `findRaceSheet` comment) lists a stroke/rower's last name
+  for 1x/2x boats, confirmed against a real RD-authored template
+  (`Heat Sheet Input Examples.xlsx`'s Instructions tab): every race is a
+  3-row block - row 1 is the boat class and per-lane school names, row 2 is a
+  free-text per-lane annotation (an alternate boat class, "A"/"B",
+  "SCRATCHED", ...) this tool deliberately does not try to interpret, and row
+  3 is the rower's last name. `readHeatSheet` (`heatsheet.go`) is a small,
+  standalone parser scoped to `cmd/rcreconcile` on purpose - not
+  `internal/reader` - since this investigation isn't meant to grow the
+  shipped app's Excel-parsing surface for a one-off disambiguation signal;
+  a workbook with no tab named exactly "Heat Sheet" (so "Referee Heat Sheet"
+  is never mistaken for it) simply yields no rower-name data, and reconcile
+  still works without it. `disambiguateByRowerLastName` narrows candidates
+  down when the name appears as a whole token in any of an entry's
+  `ParticipantNames` (`rcEntry`, from a confirmed-real `entryParticipants`
+  array on the entry) - PROVISIONAL like every other name-shape guess in this
+  tool, since the real API's name format ("First Last" vs "Last, First") is
+  unconfirmed. Anything that isn't really a name landing in that Heat Sheet
+  cell (blank, an advancement note, "Exhibition") simply won't match any
+  participant and is a harmless no-op.
 - **Short abbreviations don't substring-match.** A real mismatch: "Bishop
   Ireton" (xlsm) was showing "Osbourn Park" as a candidate, because
   normalize("Bishop Ireton") happens to contain "op" (the tail end of
@@ -216,8 +250,13 @@ shape are in one place.
 - A result (`AddFinish`) is only added for a lane with a parseable finish time
   (`parseRaceTime`, expects the xlsm's own `"M:SS.s"` format) - a race that
   hasn't happened yet, or a bye lane, still gets a lane record but no result.
-- `Place`'s `"DQ"`/`"DNF"`/`"DNS"` map to the matching `LaneStatus`; anything
-  else (a real finish place, or blank) reports as OK.
+- `Place`'s `"DQ"`/`"DNF"`/`"DNS"` (what `internal/clock`'s live timing UI
+  writes) and `"SCR"`/`"SCRATCHED"` (not part of that app's vocabulary - a
+  scratch is known before the race even starts, at the Heat Sheet stage, not
+  something the finish-line clock marks, but an RD can still hand-type it
+  into the post-race Results tab for a boat that never rowed) map to the
+  matching `LaneStatus`; anything else (a real finish place, or blank)
+  reports as OK.
 - `DisplayNumber` reuses `extractBoatLabel` ("A"/"B" from `AdditionalInfo`) -
   PROVISIONAL like everything else guessing at RegattaCentral's own field
   meanings, and known to occasionally false-positive when `AdditionalInfo`

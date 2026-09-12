@@ -216,6 +216,35 @@ func TestEntriesFromDirBackfillsEventIDAcrossDuplicates(t *testing.T) {
 	}
 }
 
+func TestAsEntryExtractsParticipantNames(t *testing.T) {
+	m := map[string]any{
+		"id":      "61",
+		"orgName": "Springfield High School",
+		"entryParticipants": []any{
+			map[string]any{"participantId": "1", "name": "Alex Mihalovich"},
+			map[string]any{"participantId": "2", "name": "Jamie Smith"},
+		},
+	}
+	e, ok := asEntry(m)
+	if !ok {
+		t.Fatal("asEntry() = false, want a recognized entry")
+	}
+	want := []string{"Alex Mihalovich", "Jamie Smith"}
+	if len(e.ParticipantNames) != len(want) || e.ParticipantNames[0] != want[0] || e.ParticipantNames[1] != want[1] {
+		t.Errorf("ParticipantNames = %v, want %v", e.ParticipantNames, want)
+	}
+}
+
+func TestAsEntryNoParticipantsFieldLeavesParticipantNamesNil(t *testing.T) {
+	e, ok := asEntry(map[string]any{"id": "1", "orgName": "Springfield High School"})
+	if !ok {
+		t.Fatal("asEntry() = false, want a recognized entry")
+	}
+	if e.ParticipantNames != nil {
+		t.Errorf("ParticipantNames = %v, want nil", e.ParticipantNames)
+	}
+}
+
 func TestEventIDFromFilename(t *testing.T) {
 	tests := map[string]string{
 		"entries-10.json":    "10",

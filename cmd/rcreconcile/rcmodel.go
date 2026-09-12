@@ -48,6 +48,15 @@ type rcEntry struct {
 	// a heat-sheet-authoring convention - so two same-event entries from one
 	// school can legitimately stay ambiguous; see disambiguateByLabel.
 	Label string
+
+	// ParticipantNames are the crew's rower/athlete names, if the entry
+	// carries a participants-shaped array under any of the guessed field
+	// names below - confirmed real on a live capture (an "entryParticipants"
+	// array, each with its own "name"). Used only by
+	// disambiguateByRowerLastName, matching against the Heat Sheet tab's
+	// stroke-name column (see heatsheet.go) - never surfaced in the
+	// reconciliation report itself.
+	ParticipantNames []string
 }
 
 // rcOrg is what an rcEntry's OrgID resolves against - a RegattaCentral
@@ -274,14 +283,42 @@ func asEntry(m map[string]any) (rcEntry, bool) {
 		return rcEntry{}, false
 	}
 	return rcEntry{
-		ID:           id,
-		OrgID:        orgID,
-		OrgName:      org,
-		OrgShortName: firstString(m, "shortName", "orgShortName", "organizationShortName"),
-		OrgAbbrev:    firstString(m, "abbreviation", "orgAbbreviation", "organizationAbbreviation"),
-		BoatClass:    firstString(m, "boatClass", "equipmentType", "eventName", "className"),
-		Label:        firstString(m, "label", "displayNumber", "boatLabel", "suffix"),
+		ID:               id,
+		OrgID:            orgID,
+		OrgName:          org,
+		OrgShortName:     firstString(m, "shortName", "orgShortName", "organizationShortName"),
+		OrgAbbrev:        firstString(m, "abbreviation", "orgAbbreviation", "organizationAbbreviation"),
+		BoatClass:        firstString(m, "boatClass", "equipmentType", "eventName", "className"),
+		Label:            firstString(m, "label", "displayNumber", "boatLabel", "suffix"),
+		ParticipantNames: participantNames(m),
 	}, true
+}
+
+// participantNames extracts each participant's name from an entry's
+// participants-shaped array, tried under a few guessed field names -
+// "entryParticipants" is the confirmed real one; the rest are PROVISIONAL
+// fallbacks, same pattern as every other field guess in this file.
+func participantNames(m map[string]any) []string {
+	for _, key := range []string{"entryParticipants", "participants", "crew", "athletes"} {
+		arr, ok := m[key].([]any)
+		if !ok {
+			continue
+		}
+		var names []string
+		for _, item := range arr {
+			p, ok := item.(map[string]any)
+			if !ok {
+				continue
+			}
+			if n := firstString(p, "name", "fullName", "athleteName"); n != "" {
+				names = append(names, n)
+			}
+		}
+		if len(names) > 0 {
+			return names
+		}
+	}
+	return nil
 }
 
 // asOrg heuristically recognizes a plain Organization object: an id-like
