@@ -141,12 +141,16 @@ Four more things `reconcile` handles that came up on real regattas:
   Men's 2x race instead. That lane's real RegattaCentral entry belongs to a
   completely different event than `bestMatchingEvent` correctly resolves for
   the rest of the race - the race-scoped pool is *supposed* to exclude it.
-  `matchRaces` (`match.go`) handles this structurally, not by trying to read
-  the xlsm's boat-class text (a dead end - see roster overlap above): if a
-  lane's school has zero candidates in the race-scoped pool, it retries
-  against every entry in the regatta before giving up. That widened pool can
-  itself be ambiguous (the school may have several other entries across the
-  regatta), which is what the Heat Sheet tab's rower name is for, next.
+  `matchLane` (`match.go`) handles this structurally, not by trying to read
+  the xlsm's boat-class text (a dead end - see roster overlap above):
+  whenever a lane's race-scoped candidates aren't already exactly one - zero
+  (nothing matched) *or* more than one (a real regatta shape: a school raced
+  three boats in one event, but only two of its RC entries actually belong
+  there, so all three lanes' org-name match returned the same wrong pair) -
+  it retries against every entry in the regatta. That widened pool is only
+  ever used if the Heat Sheet's rower name or boat class (next) narrows it to
+  exactly one; otherwise the original, already-bounded scoped result is kept
+  rather than reporting a much larger, unnarrowed candidate list.
 - **Disambiguating a widened lane by the rower's name and boat class, from
   the Heat Sheet tab.** The xlsm's "Heat Sheet" tab (a separate tab from
   "Results" - `internal/reader` never reads it; see its `findRaceSheet`

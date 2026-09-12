@@ -280,6 +280,22 @@ Full detail in [`cmd/rcprobe`'s README](../../../cmd/rcprobe/README.md) and
   `commonAbbrevExpansions`, deliberately not a switch to substring matching
   (which would reopen the "Varsity 8" vs. "Junior Varsity 8" collision risk
   `matchingEventIDs` already guards against for boat-class-like text).
+- **Eleventh real run: the decorator fix alone didn't resolve "Justice
+  (Exhibition M-1-4x)" - a real gap in when widening triggers, not the
+  decorator fix itself.** `--debug-race 8` showed the actual shape: a
+  school raced _three_ lanes in one race, but only _two_ of its RC entries
+  actually belonged to the event `bestMatchingEvent` resolved for that race
+  - so all three lanes' org-name match returned the same (non-empty, but
+  incomplete) pair of candidates, and the old "only widen when the
+  race-scoped pool is exactly zero" rule never looked further for the third
+  lane, since it already had 2 candidates. Fixed by widening whenever the
+  scoped result isn't already exactly one - zero _or_ more than one both
+  qualify now - and only keeping the wider result if the Heat Sheet's rower
+  name or boat class actually narrows it to exactly one; otherwise the
+  original scoped result is kept unchanged, so an already-correct match is
+  never put at risk. `candidateSummary` (the `--debug-race` trace helper)
+  now also prints each candidate's `BoatClass` field, which is what made
+  this shape visible in the first place.
 - The real `/bulk` / `entries` / `organizations` / `events` schema — confirm
   with `rcreconcile shape` against the author's local capture; correct
   `asEntry` / `asOrg` / `asEvent` in `cmd/rcreconcile/rcmodel.go` accordingly.

@@ -214,6 +214,53 @@ func TestMatchRacesWidensPoolAndDisambiguatesByBoatClass(t *testing.T) {
 	}
 }
 
+// TestMatchRacesWidensEvenWhenScopedPoolIsNonEmpty is a regression test for a
+// real shape found while debugging a real regatta: a school raced three
+// lanes in one event, but only two of its RC entries actually belong to that
+// event - so all three lanes' org-name match returned the same wrong pair
+// (a non-empty, but wrong, scoped pool), and the old "only widen on zero
+// candidates" rule never looked further. The third lane's real entry only
+// turns up once the pool widens past the (non-empty) race-scoped one.
+func TestMatchRacesWidensEvenWhenScopedPoolIsNonEmpty(t *testing.T) {
+	entries := []rcEntry{
+		{ID: "1", EventID: "10", OrgName: "Bishop Ireton"},
+		// Two Justice entries genuinely belong to event 10 (lanes 3 and 5,
+		// indistinguishable from each other - a real same-event pair).
+		{ID: "64", EventID: "10", OrgName: "Justice High", BoatClass: "M-Jr-4x"},
+		{ID: "65", EventID: "10", OrgName: "Justice High", BoatClass: "M-Jr-4x"},
+		// A third Justice entry belongs to a different event entirely - the
+		// RD combined it into this race's open lane 2 for lack of entries.
+		{ID: "70", EventID: "40", OrgName: "Justice High", BoatClass: "M-1-4x"},
+	}
+	races := []reader.RaceData{
+		raceWithLanes(8, "M-Jr-4x", map[int]reader.RaceEntry{
+			2: {SchoolName: "Justice High"}, // combined in on an open lane
+			3: {SchoolName: "Justice High"},
+			4: {SchoolName: "Bishop Ireton"},
+			5: {SchoolName: "Justice High"},
+		}),
+	}
+	heatSheet := map[[2]int]heatSheetLane{
+		{8, 2}: {LaneClass: "Exhibition M-1-4x"},
+	}
+
+	matches, _ := matchRaces(races, entries, nil, heatSheet)
+
+	byLane := map[int]laneMatch{}
+	for _, m := range matches {
+		byLane[m.Lane] = m
+	}
+	if got := byLane[2]; got.Status != statusMatched || got.Candidates[0].ID != "70" {
+		t.Errorf("lane 2 = %+v, want matched to entry 70 (M-1-4x) after widening past the non-empty scoped pool", got)
+	}
+	if got := byLane[3]; got.Status != statusAmbiguous || len(got.Candidates) != 2 {
+		t.Errorf("lane 3 = %+v, want still ambiguous between entries 64 and 65 - genuinely indistinguishable", got)
+	}
+	if got := byLane[4]; got.Status != statusMatched || got.Candidates[0].ID != "1" {
+		t.Errorf("lane 4 = %+v, want matched to entry 1 (Bishop Ireton)", got)
+	}
+}
+
 func TestCandidatesForNormalization(t *testing.T) {
 	pool := []rcEntry{{ID: "1", OrgName: "Saint Mary High School", OrgAbbrev: "SMHS"}}
 

@@ -97,43 +97,61 @@ func matchRaces(races []reader.RaceData, entries []rcEntry, events map[string]st
 // name) for --debug-race (see traceRace in reconcile.go). matchRaces ignores
 // the trace in normal operation.
 func matchLane(race reader.RaceData, lane int, entry reader.RaceEntry, pool, allEntries []rcEntry, events map[string]string, heatSheet map[[2]int]heatSheetLane) (cands []rcEntry, trace []string) {
-	cands = disambiguateByLabel(candidatesFor(entry.SchoolName, pool), entry.AdditionalInfo)
+	scoped := disambiguateByLabel(candidatesFor(entry.SchoolName, pool), entry.AdditionalInfo)
 	trace = append(trace, fmt.Sprintf("lane %d (%s): race-scoped pool -> %d candidate(s) %s",
-		lane, entry.SchoolName, len(cands), candidateSummary(cands)))
+		lane, entry.SchoolName, len(scoped), candidateSummary(scoped)))
 
-	if len(cands) == 0 {
-		// This lane's school may not actually race in the event
-		// entriesForRace resolved for the rest of the race - e.g. the RD
-		// combined a small class into open lanes for lack of entries (see
-		// heatsheet-rc-pivot-investigation.md). Retry against every entry in
-		// the regatta before giving up; this can only ever find more
-		// candidates, never regress a lane that already matched within the
-		// race-scoped pool.
-		cands = disambiguateByLabel(candidatesFor(entry.SchoolName, allEntries), entry.AdditionalInfo)
-		trace = append(trace, fmt.Sprintf("lane %d (%s): widened to full regatta -> %d candidate(s) %s",
-			lane, entry.SchoolName, len(cands), candidateSummary(cands)))
+	if len(scoped) == 1 {
+		return scoped, trace
 	}
 
+	// The race-scoped pool didn't resolve to exactly one candidate - either
+	// nothing matched at all (e.g. the RD combined a different class into
+	// this race's open lanes - heatsheet-rc-pivot-investigation.md), or it
+	// matched more than one entry sharing this school's name within the
+	// (possibly mis-resolved, or genuinely shared) scoped event - a real
+	// example: a school raced three boats in one event but only two of its
+	// RC entries actually belong there, so all three lanes' org-name match
+	// returned the same wrong two. Retry against every entry in the regatta
+	// and let the Heat Sheet's rower name / boat class try to narrow *that*
+	// wider set - it is discarded below unless it does strictly better than
+	// the scoped result, so this can never regress an already-good match.
+	widened := disambiguateByLabel(candidatesFor(entry.SchoolName, allEntries), entry.AdditionalInfo)
+	trace = append(trace, fmt.Sprintf("lane %d (%s): widened to full regatta -> %d candidate(s) %s",
+		lane, entry.SchoolName, len(widened), candidateSummary(widened)))
+
 	hs := heatSheet[[2]int{race.RaceNumber, lane}]
+	resolved := widened
 	if hs.RowerLastName != "" {
-		before := len(cands)
-		cands = disambiguateByRowerLastName(cands, hs.RowerLastName)
+		before := len(resolved)
+		resolved = disambiguateByRowerLastName(resolved, hs.RowerLastName)
 		trace = append(trace, fmt.Sprintf("lane %d (%s): heat sheet rower name present -> narrowed %d to %d %s",
-			lane, entry.SchoolName, before, len(cands), candidateSummary(cands)))
+			lane, entry.SchoolName, before, len(resolved), candidateSummary(resolved)))
 	} else {
 		trace = append(trace, fmt.Sprintf("lane %d (%s): no heat sheet rower name for this lane", lane, entry.SchoolName))
 	}
 
 	if hs.LaneClass != "" {
-		before := len(cands)
-		cands = disambiguateByBoatClass(cands, hs.LaneClass, events)
+		before := len(resolved)
+		resolved = disambiguateByBoatClass(resolved, hs.LaneClass, events)
 		trace = append(trace, fmt.Sprintf("lane %d (%s): heat sheet lane class %q present -> narrowed %d to %d %s",
-			lane, entry.SchoolName, hs.LaneClass, before, len(cands), candidateSummary(cands)))
+			lane, entry.SchoolName, hs.LaneClass, before, len(resolved), candidateSummary(resolved)))
 	} else {
 		trace = append(trace, fmt.Sprintf("lane %d (%s): no heat sheet lane class for this lane", lane, entry.SchoolName))
 	}
 
-	return cands, trace
+	switch {
+	case len(resolved) == 1:
+		return resolved, trace
+	case len(scoped) > 0:
+		// Widening + narrowing didn't do better than the scoped pool - keep
+		// reporting the scoped, already-bounded candidate set rather than a
+		// possibly much larger regatta-wide list that no signal could
+		// actually narrow.
+		return scoped, trace
+	default:
+		return resolved, trace
+	}
 }
 
 // traceRace prints, to w, matchLane's step-by-step trace for every lane in
@@ -163,7 +181,7 @@ func candidateSummary(cands []rcEntry) string {
 		if org == "" {
 			org = "unknown org"
 		}
-		parts[i] = fmt.Sprintf("id=%s org=%q event=%s", c.ID, org, c.EventID)
+		parts[i] = fmt.Sprintf("id=%s org=%q event=%s class=%q", c.ID, org, c.EventID, c.BoatClass)
 	}
 	return "[" + strings.Join(parts, ", ") + "]"
 }
