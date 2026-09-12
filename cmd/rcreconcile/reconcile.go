@@ -51,9 +51,19 @@ func runReconcile(argv []string) error {
 		fmt.Fprintln(os.Stderr, "and share the (PII-free) key-path output so asEntry/asOrg can be corrected.")
 	}
 
-	heatSheet, err := readHeatSheet(xlsmPath)
+	heatSheet, hsStats, err := readHeatSheet(xlsmPath)
 	if err != nil {
 		return fmt.Errorf("read heat sheet: %w", err)
+	}
+	switch {
+	case !hsStats.SheetFound:
+		fmt.Fprintln(os.Stderr, "rcreconcile: no worksheet named exactly \"Heat Sheet\" found - rower-name disambiguation is unavailable for this run.")
+	case hsStats.ThreeRowBlocks == 0:
+		fmt.Fprintf(os.Stderr, "rcreconcile: found the Heat Sheet tab (%d race block(s)), but none were the expected 3-row shape - rower-name disambiguation is unavailable. If this workbook's Heat Sheet layout differs from cmd/rcreconcile/heatsheet.go's assumption, share the row-count shape (no real values needed) so it can be adjusted.\n", hsStats.RaceBlocksSeen)
+	case hsStats.RowerNamesFound == 0:
+		fmt.Fprintf(os.Stderr, "rcreconcile: found the Heat Sheet tab (%d 3-row race block(s)), but no rower name in row 3 of any of them - rower-name disambiguation is unavailable for this run (expected if this regatta has no 1x/2x boats).\n", hsStats.ThreeRowBlocks)
+	default:
+		fmt.Fprintf(os.Stderr, "rcreconcile: found %d rower name(s) on the Heat Sheet tab.\n", hsStats.RowerNamesFound)
 	}
 
 	matches, unused := matchRaces(rd.SortedRaces(), entries, events, heatSheet)

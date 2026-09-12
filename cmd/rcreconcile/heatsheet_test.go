@@ -36,7 +36,7 @@ func writeHeatSheetFixture(t *testing.T, sheetName string) string {
 func TestReadHeatSheetExtractsRowerLastName(t *testing.T) {
 	path := writeHeatSheetFixture(t, "Heat Sheet")
 
-	got, err := readHeatSheet(path)
+	got, stats, err := readHeatSheet(path)
 	if err != nil {
 		t.Fatalf("readHeatSheet: %v", err)
 	}
@@ -49,6 +49,10 @@ func TestReadHeatSheetExtractsRowerLastName(t *testing.T) {
 	if len(got) != 1 {
 		t.Errorf("got %d entries, want exactly 1: %v", len(got), got)
 	}
+	want := heatSheetStats{SheetFound: true, RaceBlocksSeen: 1, ThreeRowBlocks: 1, RowerNamesFound: 1}
+	if stats != want {
+		t.Errorf("stats = %+v, want %+v", stats, want)
+	}
 }
 
 func TestReadHeatSheetIgnoresRefereeHeatSheet(t *testing.T) {
@@ -57,12 +61,15 @@ func TestReadHeatSheetIgnoresRefereeHeatSheet(t *testing.T) {
 	// rcmodel.go guard against the analogous mistake for captured JSON).
 	path := writeHeatSheetFixture(t, "Referee Heat Sheet")
 
-	got, err := readHeatSheet(path)
+	got, stats, err := readHeatSheet(path)
 	if err != nil {
 		t.Fatalf("readHeatSheet: %v", err)
 	}
 	if len(got) != 0 {
 		t.Errorf("got %v, want an empty map - no sheet named exactly \"Heat Sheet\"", got)
+	}
+	if stats.SheetFound {
+		t.Errorf("stats.SheetFound = true, want false")
 	}
 }
 
@@ -74,11 +81,45 @@ func TestReadHeatSheetNoSheetReturnsEmptyMapNotError(t *testing.T) {
 	}
 	f.Close()
 
-	got, err := readHeatSheet(path)
+	got, stats, err := readHeatSheet(path)
 	if err != nil {
 		t.Fatalf("readHeatSheet: %v", err)
 	}
 	if len(got) != 0 {
 		t.Errorf("got %v, want an empty map", got)
+	}
+	if stats.SheetFound {
+		t.Errorf("stats.SheetFound = true, want false")
+	}
+}
+
+// TestReadHeatSheetCountsBlocksOfTheWrongShape is a diagnostic test: a
+// workbook whose "Heat Sheet" tab exists but whose race blocks aren't the
+// expected 3 rows (e.g. a different RD's layout) should still report
+// SheetFound and RaceBlocksSeen, so reconcile.go's troubleshooting message
+// can tell "no such tab" apart from "tab exists, layout assumption is wrong."
+func TestReadHeatSheetCountsBlocksOfTheWrongShape(t *testing.T) {
+	f := excelize.NewFile()
+	defer f.Close()
+	sheetName := "Heat Sheet"
+	f.SetSheetName("Sheet1", sheetName)
+	f.SetCellValue(sheetName, "A1", "1")
+	f.MergeCell(sheetName, "A1", "A5") // 5 rows, not the expected 3
+
+	path := filepath.Join(t.TempDir(), "wrong-shape.xlsm")
+	if err := f.SaveAs(path); err != nil {
+		t.Fatalf("save fixture: %v", err)
+	}
+
+	got, stats, err := readHeatSheet(path)
+	if err != nil {
+		t.Fatalf("readHeatSheet: %v", err)
+	}
+	if len(got) != 0 {
+		t.Errorf("got %v, want no rower names from a mis-shaped block", got)
+	}
+	want := heatSheetStats{SheetFound: true, RaceBlocksSeen: 1, ThreeRowBlocks: 0, RowerNamesFound: 0}
+	if stats != want {
+		t.Errorf("stats = %+v, want %+v", stats, want)
 	}
 }

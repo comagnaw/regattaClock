@@ -8,6 +8,19 @@ import (
 	"github.com/xuri/excelize/v2"
 )
 
+// heatSheetStats reports what readHeatSheet actually saw, so reconcile.go can
+// tell the difference between "this regatta simply has no rower-name signal"
+// and "the parser's assumptions about this workbook's layout are wrong" -
+// the same distinguish-the-real-cause approach as reconcile's "found 0
+// RegattaCentral entries" troubleshooting. All PII-safe: counts only, never
+// names.
+type heatSheetStats struct {
+	SheetFound      bool // a worksheet named exactly "Heat Sheet" exists
+	RaceBlocksSeen  int  // any race-number merge in column A, any row count
+	ThreeRowBlocks  int  // blocks matching the expected 3-row shape
+	RowerNamesFound int  // non-blank cells found in row 3 of a 3-row block
+}
+
 // readHeatSheet opens xlsmPath a second time - internal/reader only parses
 // the Results tab (see its findRaceSheet comment: the Heat Sheet tab's 3-row
 // blocks are a different shape) - and returns, for every lane that has one,
@@ -30,10 +43,12 @@ import (
 // workbook with no sheet named exactly "Heat Sheet" (so "Referee Heat Sheet"
 // is never mistaken for it) returns an empty map, not an error - this signal
 // is optional and best-effort, and reconcile must still work without it.
-func readHeatSheet(xlsmPath string) (map[[2]int]string, error) {
+func readHeatSheet(xlsmPath string) (map[[2]int]string, heatSheetStats, error) {
+	var stats heatSheetStats
+
 	f, err := excelize.OpenFile(xlsmPath)
 	if err != nil {
-		return nil, fmt.Errorf("open %q: %w", xlsmPath, err)
+		return nil, stats, fmt.Errorf("open %q: %w", xlsmPath, err)
 	}
 	defer f.Close()
 
@@ -45,12 +60,13 @@ func readHeatSheet(xlsmPath string) (map[[2]int]string, error) {
 		}
 	}
 	if sheetName == "" {
-		return map[[2]int]string{}, nil
+		return map[[2]int]string{}, stats, nil
 	}
+	stats.SheetFound = true
 
 	merges, err := f.GetMergeCells(sheetName)
 	if err != nil {
-		return nil, fmt.Errorf("read %q merged cells: %w", sheetName, err)
+		return nil, stats, fmt.Errorf("read %q merged cells: %w", sheetName, err)
 	}
 
 	out := map[[2]int]string{}
@@ -61,23 +77,26 @@ func readHeatSheet(xlsmPath string) (map[[2]int]string, error) {
 			continue
 		}
 		startRow, endRow := heatSheetRowNumber(start), heatSheetRowNumber(end)
+		if _, err := strconv.Atoi(strings.TrimSpace(mc.GetCellValue())); err != nil {
+			continue
+		}
+		stats.RaceBlocksSeen++
 		if endRow-startRow != 2 { // 3 rows (inclusive) - a Heat Sheet lineup block
 			continue
 		}
-		raceNum, err := strconv.Atoi(strings.TrimSpace(mc.GetCellValue()))
-		if err != nil {
-			continue
-		}
+		stats.ThreeRowBlocks++
 
+		raceNum, _ := strconv.Atoi(strings.TrimSpace(mc.GetCellValue()))
 		rowerRow := startRow + 2
 		for lane, col := range laneCols {
 			name, _ := f.GetCellValue(sheetName, fmt.Sprintf("%s%d", col, rowerRow))
 			if name = strings.TrimSpace(name); name != "" {
 				out[[2]int{raceNum, lane + 1}] = name
+				stats.RowerNamesFound++
 			}
 		}
 	}
-	return out, nil
+	return out, stats, nil
 }
 
 func heatSheetRowNumber(cellRef string) int {
