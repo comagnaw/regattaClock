@@ -330,8 +330,8 @@ real capture, so keep it outside the repo or under a gitignored path.
 ### `publish-schedule` and `publish-results` (live write)
 
 ```sh
-go run ./cmd/rcreconcile publish-schedule --xlsm PATH --rc-dir DIR --regatta ID
-go run ./cmd/rcreconcile publish-results  --xlsm PATH --rc-dir DIR --regatta ID
+go run ./cmd/rcreconcile publish-schedule --xlsm PATH --rc-dir DIR --regatta ID [--dry-run | --confirm]
+go run ./cmd/rcreconcile publish-results  --xlsm PATH --rc-dir DIR --regatta ID [--dry-run | --confirm]
 ```
 
 **These two commands are the one deliberate exception to "never calls the
@@ -346,50 +346,115 @@ Both commands reuse `reconcile`'s exact matching pipeline
 always on - the author's decision was to include best-guess picks in a real
 push rather than only confident matches) so the write path can never
 disagree with what `reconcile` already showed. Only a lane with a
-confidently resolved, numeric RC `EntryID` (`statusMatched` or
-`statusGuessed`) is ever included - unlike `--upload-preview-out`, a lane
-with no resolvable entry is **excluded, not given a placeholder UUID**:
-inventing a new RC registration on a live regatta was never asked for.
-`classifyForPublish` (`publish.go`) does this split.
+confidently resolved, numeric RC `EntryID` **and** a numeric RC `EventID`
+(`statusMatched` or `statusGuessed`) is ever included - unlike
+`--upload-preview-out`, such a lane is **excluded, not given a
+placeholder**: inventing a new RC registration, or worse, writing into the
+wrong real event, was never asked for. `classifyForPublish` (`publish.go`)
+does this split.
 
-- **`publish-schedule`** sends one `LaneRecord` per included lane
+RegattaCentral separates **creating** a race from **maintaining** one already
+created - two different parts of its API, confirmed by reading its actual
+REST endpoint documentation as raw HTML
+(`api.regattacentral.com/v4/post.jsp`/`put.jsp`), not just the Cookbook PDF:
+
+- `Client.CreateRaces` / `Client.AssignLanes` - dedicated, per-resource POST
+  endpoints (`.../regattas/{id}/events/{eventId}/races`,
+  `.../regattas/{id}/races/{raceId}/lanes`) that create a brand-new race and
+  give it lanes, returning RegattaCentral's own real, newly-assigned
+  `raceId`. RC's own REST docs showed a **singular** `"regatta"` for these
+  two endpoints specifically - a real documentation bug, confirmed by the
+  author testing both directly with `curl` against the live API: the
+  singular path 404'd, the plural path reached the real controller. Each
+  new race is sent with `raceId: 0` and a
+  freshly-generated `uuid` - Cookbook page 2's general "assign a UUID for a
+  new entity" convention, applied to races even though its own worked
+  example only spells this out for events. The UUID is single-use: once
+  `CreateRaces` returns the real id, nothing ever references the race by
+  UUID again.
+- `Client.Upload` (the nested `events -> races -> lanes -> results` tree,
+  matching RegattaCentral's confirmed schema) is what *maintains* a race
+  that already exists - status changes, results - exactly as Cookbook
+  §9-§15 describes, once it has a real `raceId` to reference.
+
+**`publish-schedule` does both, in order:** first it creates any race
+`publishable` references that isn't already recorded from an earlier run
+(`CreateRaces` then `AssignLanes`, per RC event - skipped for a race already
+known, so re-running `publish-schedule` never creates duplicates), then it
+sends the same `/upload` status-update PUT this tool has always sent, now
+correctly addressed to the real `raceId` RegattaCentral just assigned.
+`publish-results` only ever uses `/upload` - it never creates anything - so
+it needs to already know every race's real id; see below.
+
+A single xlsm race number whose lanes resolve to more than one RC event (an
+RD combining a small class into another class's race for lack of entries)
+is **split**: `CreateRaces` is called once per event involved, so each
+portion becomes its own independent race with its own real id - there was
+never a shared identifier to manufacture once creation is a real, separate
+RC operation per event. This splitting behavior is this tool's best
+inference from available evidence, not something RegattaCentral's docs
+explicitly confirm - `publish-schedule` calls it out by name in its
+confirmation summary before any real write.
+
+- **A new file, `race-ids.json`, lives inside `--rc-dir` between the two
+  commands.** `publish-schedule` writes it right after `CreateRaces`
+  succeeds - one entry per `(eventId, xlsm raceNumber, real raceId)` -
+  and `publish-results` reads it back to resolve every race it needs to
+  reference. If `publish-results` finds a race `publishable` needs that
+  isn't in the file yet, it fails immediately with a clear, per-race
+  message telling the operator to run `publish-schedule` first, rather
+  than guessing or attempting to create it itself.
+- **`publish-schedule`** sends one lane record per included lane
   (`EntryID`, `DisplayNumber`, and `Status` via the existing `laneStatus` -
-  `SCR`/`EXH` are lane-level facts already known from the historical xlsm)
-  and a `StatusDraw` `RaceRecord` for every race that has one. No results.
-  `Client.Upload(..., assumeLanesUploaded: false)`.
-- **`publish-results`**, run only after `publish-schedule` and verifying the
-  schedule on RegattaCentral's own site, sends one `ResultRecord` per
-  included lane with a parseable finish time (`AddFinish`) and a
-  `StatusOfficial` `RaceRecord` for every race that gets one. No lanes -
-  those were already sent by `publish-schedule`.
-  `Client.Upload(..., assumeLanesUploaded: true)`. **Use the exact same
-  `--xlsm`/`--rc-dir` as the `publish-schedule` run** - results are keyed by
-  race + lane, and depend on that same pair having already been sent.
-- **`--confirm` gates everything.** Without it, both commands only print a
-  dry-run summary (races/lanes counted, guessed lanes and their picked
-  entry id, excluded lanes and why) and touch nothing - not even the
-  network, since the summary is built and printed before any client is
-  created. With `--confirm`, the summary is followed by an interactive
-  prompt requiring the operator to type the regatta id back exactly before
-  `Client.Upload` is ever called - two independent gates before a real
-  write happens. Credentials/config work exactly like `cmd/rcprobe`
+  `SCR`/`EXH` are lane-level facts already known from the historical xlsm),
+  nested under a `StatusDraw` race record for every (event, race) pair that
+  has one. No results.
+- **`publish-results`**, run after `publish-schedule` and verifying the
+  schedule on RegattaCentral's own site, sends the **full** lane record
+  again (not just the result) alongside each finish time, nested under a
+  `StatusOfficial` race record. The full lane is resent, not skipped,
+  because RegattaCentral's upload semantics overwrite a race record
+  wholesale (Cookbook §13) - sending a bare result with `entryId`/`status`
+  omitted risked blanking what `publish-schedule` already set. **Use the
+  exact same `--xlsm`/`--rc-dir` as the `publish-schedule` run** - both
+  commands must resolve the same lanes, and `publish-results` needs the
+  `race-ids.json` `publish-schedule` wrote into that same directory.
+- **`--confirm` gates everything, including race creation.** Without it,
+  both commands only print a dry-run summary (races/lanes counted, guessed
+  lanes and their picked entry id, excluded lanes and why, and any race
+  split across RC events) and touch nothing - not even the network, since
+  the summary is built and printed before any client is created. With
+  `--confirm`, the summary is followed by an interactive prompt requiring
+  the operator to type the regatta id back exactly before `CreateRaces`/
+  `AssignLanes`/`Upload` are ever called - two independent gates before any
+  real write happens. Credentials/config work exactly like `cmd/rcprobe`
   (`--secrets-file` or `RC_*` env vars, optional `--config`, optional
   `--origin`, optional `RC_API_KEY` - see `cmd/rcprobe/README.md`'s
   Credentials section for what's confirmed and what's still a guess about
   each of those).
-- **A real 404 from `Client.Upload` isn't necessarily a bug in this tool.**
-  The URL/path construction is identical to every already-working GET call
-  against the same regatta id; a 404 whose response body is RegattaCentral's
-  own API envelope (`{"success":false,"messages":[...]}`, not a bare
-  proxy/gateway 404 page) means the request reached RC's real application
-  code and was deliberately rejected - most likely a permission/entitlement
-  the account lacks for this specific regatta, or a business rule (e.g. a
-  completed regatta's upload window). Confirm the `LaneStatus` values being
-  sent match the Cookbook's own quoted table exactly first (see the
-  `model.go` doc comment - a wrong enum literal in even one lane could be
-  rejected as a whole-request failure), then check with RegattaCentral
-  support about account/regatta-level write entitlement before assuming the
-  request shape itself is wrong.
+- **`--dry-run` prints the exact URL and JSON body of every call
+  `--confirm` would make** - the `CreateRaces`/`AssignLanes` calls for any
+  race not already in `race-ids.json`, and the final `/upload` PUT - built
+  locally with `json.MarshalIndent`, exactly as they'd be marshaled for a
+  real request, without ever constructing a client or touching the
+  network. A race that hasn't been created yet can't have a real
+  `RaceId`, so its `AssignLanes` URL and its `/upload` `raceId` both show
+  a placeholder (`<real-race-id-for-xlsm-race-N>` / `0`) instead - a note
+  in the output says so. Overrides `--confirm` if both are given (it never
+  prompts or writes). Useful on its own, or as a closer look after the
+  regular summary above already looks right.
+- **A real, persistent 404 from `Client.Upload` led here.** Three
+  structurally different `/upload` payloads in a row - including the fully
+  nested `events -> races -> lanes -> results` shape RegattaCentral's
+  own schema docs confirmed - all produced the exact same byte-for-byte 404
+  envelope (`{"success":false,"messages":["Failed","HTTP 404 Not Found"]}`).
+  That identical, unchanging error across very different payload shapes was
+  the clue: it pointed away from a payload-content problem and toward
+  `/upload` simply being the wrong *endpoint* for a race that doesn't exist
+  yet - confirmed once RC's actual per-resource creation endpoints were
+  found in its raw REST API docs. See
+  [the investigation doc](../../docs/features/personas/heatsheet-rc-pivot-investigation.md)
+  for the full trail.
 
 ## Not yet built
 

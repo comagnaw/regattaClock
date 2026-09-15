@@ -500,3 +500,225 @@ Full detail in [`cmd/rcprobe`'s README](../../../cmd/rcprobe/README.md) and
   confirm is the actual fix remains open; the next real attempt should be a
   clean retry (`--confirm` alone, no `--origin`) to finally test the `DSQ`
   fix in isolation before layering on the API-key hypothesis.
+- **Seventeenth real run: going back to primary sources turned up something
+  more fundamental than any prior hypothesis - the upload payload's entire
+  shape was wrong.** Before spending another real `--confirm` attempt on
+  guesswork, re-read the Cookbook PDF's §11-§15 directly and cross-checked
+  RegattaCentral's own hosted XSD schema docs
+  (`api.regattacentral.com/v4/xsd_doc/{race,lane,result}.html`) across three
+  independently-fetched pages for internal consistency. Neither
+  `raceNumber` nor `raceId` appears anywhere in RC's real `Race`, `Lane`, or
+  `Result` schema types the way `internal/regattacentral/model.go` assumed;
+  instead the real shape is a nested tree, `events -> races -> lanes ->
+  results`, corroborated two ways: (1) a real local `bulk.json` capture
+  already shows RC's own `Event` objects nesting a `races` array (confirmed
+  empty for all 28 of this regatta's events - RC's race-scheduling feature
+  has never been used for this regatta before); (2) the Cookbook's own §4
+  `LaneConstructor` prose ends "The object created by this constructor can
+  then easily be added to the 'Race' object that you have created" - a lane
+  goes into a race, not beside it. This also explained a real gap: the old
+  flat model had no concept of which RC event a race or lane belongs to,
+  while the matching side (`cmd/rcreconcile/match.go`) already tracks this
+  per entry - and, per an existing real scenario already known to this
+  investigation (an RD combining a small class into another class's race
+  for lack of entries, marked "Exhibition"), a single xlsm race number can
+  legitimately contain lanes from more than one RC event.
+  `internal/regattacentral/model.go` was redesigned around this: `Race`
+  gained `EventID`/`UUID`/`DisplayNumber` fields nested under a new
+  `EventRecord`, `Lane` now nests its own `Results`, and a race whose lanes
+  span multiple events is split into multiple race records sharing one
+  client-assigned `RaceID` (Cookbook §13: unlike events/entries, `raceId`
+  is "maintained on the timing system," not allocated by RC from a UUID) -
+  this split is this tool's best inference from the evidence, not something
+  RC's docs explicitly confirm, so `printSummaryAndConfirm` now names it
+  out loud before any real write. One conflict surfaced between the two
+  sources: the xsd_doc's field list for `Result` (`splitLocation`,
+  `elapsedTime`, ...) disagrees with the Cookbook's own literally-quoted
+  §14 tag names (`"timingMilestoneId"`, `"time"`, `"splitTime"`,
+  `"adjustedTime"`) - given this investigation's own `DSQ`/`DQ` precedent
+  (a secondary-source xsd_doc fetch once "corrected" a real wire value to a
+  Java enum constant name that was never actually sent), the Cookbook's own
+  quoted prose was trusted for `Result`'s field names specifically; only
+  the nesting and the `Race`/`Lane` id fields were adopted from the
+  xsd_doc. `Client.Upload` dropped its `assumeLanesUploaded` parameter -
+  the "lanes MUST precede results" check it enforced is now structurally
+  impossible to violate - and `publish-results` now resends the full lane
+  record (not just the result) alongside each finish, since RC's own
+  "each time the race record is sent... the data overwrites the existing
+  record" (Cookbook §13) means a bare result-only lane record risked
+  blanking the `entryId`/`status` `publish-schedule` had already set.
+  Whether this redesign is itself correct remains unconfirmed - it is the
+  second unconfirmed structural guess in a row on a live, hard-to-reverse
+  write, following the flat model that produced the fifteenth run's 404 -
+  so the recommended next step, before spending another real `--confirm`
+  attempt on guesswork alone, is to weigh reaching out to RegattaCentral
+  support with a specific technical question about the exact `/upload`
+  shape, particularly for a race split across events.
+- **Eighteenth real run: the nested-shape redesign shipped, and a real
+  `publish-schedule --confirm` retry returned the exact same byte-for-byte
+  404 as the very first attempt.** Same envelope
+  (`{"data":null,"success":false,"count":0,"messages":["Failed","HTTP 404
+  Not Found"],"links":null}`), now unchanged across three structurally very
+  different payloads - the original flat model, then fully nested. URL
+  casing was checked and ruled out (`DefaultBaseURL` already uses the same
+  lowercase `v4.0/` every successful GET has always used). The author's
+  next hypothesis: this regatta has zero existing race objects for any
+  event, and RegattaCentral's general creation rule on Cookbook page 2 -
+  "When the timing system creates a new entity, it must assign a UUID...
+  RegattaCentral will use this UUID to create, assign and subsequently
+  locate an internal ID" - applies to races too, not only the "events,
+  entries and athletes" that page 2's prose names explicitly. This was in
+  real tension with §13's specific framing of `raceId` as "maintained on
+  the timing system" (client-chosen, unlike events/entries), and with the
+  identical-error-across-three-shapes pattern itself, which read more like
+  an entitlement/routing gate than a payload-content problem - both flagged
+  directly, and weighed, before proceeding anyway with a
+  deterministic-UUID design (a stable hash of `("race", eventID,
+  raceNumber)`, not `crypto/rand`, so `publish-schedule` and a later,
+  separate `publish-results` invocation could compute the identical id
+  without a shared state file). **This design was fully planned but never
+  implemented** - see the nineteenth run below, which superseded it before
+  any code was written.
+- **Nineteenth real run: RC's actual REST API documentation - not the
+  Cookbook PDF - turned out to have dedicated, per-resource creation
+  endpoints that have nothing to do with `/upload` at all.** The author
+  pointed directly at `api.regattacentral.com/v4/post.jsp`, prompted by a
+  hunch that `/upload` "is meant to be primarily for timing updates to
+  existing races," not creating new ones. A WebFetch summary of that page
+  first suggested this, but its own JS code example contradicted its prose
+  (one showed `.../regatta/{id}/events/{eventId}/races`, the other
+  `.../regatta/{id}/event-races` with no event id segment at all) - rather
+  than trust either half of a self-contradicting AI summary, the raw HTML
+  was downloaded directly (`curl`) and read without any summarization
+  pass, the same discipline that caught the `DSQ`/`DQ` regression earlier.
+  The raw HTML resolved the contradiction (the JS example was simply
+  broken/incomplete in RC's own docs; the prose URL was real) and confirmed
+  three real, dedicated endpoints:
+  `POST .../regatta/{RegattaId}/events/{EventId}/races` (create races in an
+  event, returning "a collection of newly created Races, including the
+  newly assigned RaceId"), `POST .../regatta/{RegattaId}/races/{RaceId}/lanes`
+  (assign lanes to an already-created race), and
+  `PUT .../regattas/{RegattaId}/races/{RaceId}` (update a race later -
+  note **plural** "regattas" here, unlike the two POSTs' consistently
+  **singular** "regatta," confirmed across three independent raw-HTML
+  extractions, not a one-off typo). A fourth documented endpoint,
+  `POST .../races/{RaceId}/results`, was **not** trusted or used - its own
+  "Data" field says "A structure of type Events," which doesn't match an
+  endpoint about one race's results, almost certainly a copy-paste error in
+  RC's own docs.
+
+  This reframed the entire investigation: **`/upload` was very likely never
+  the wrong shape - it was the wrong endpoint for a race that doesn't exist
+  yet.** Every one of the eighteen real attempts before this had asked
+  `/upload` to update a race id RC had never heard of. Implemented:
+  `Client.CreateRaces`/`Client.AssignLanes`
+  (`internal/regattacentral/api.go`), decoding their response through the
+  same `{success,count,data,...}` envelope every other confirmed RC v4
+  endpoint uses (including, fittingly, the 404 error bodies from every
+  earlier run in this list). `publish-schedule` now creates any race
+  `publishable` references that isn't already recorded from an earlier run
+  (skipping ones that are, so a re-run never creates duplicates - a real
+  risk once creation is a one-time operation, unlike the always-idempotent
+  `/upload`), assigns its lanes, persists a new `race-ids.json` inside
+  `--rc-dir` mapping `(eventId, xlsm raceNumber)` to RegattaCentral's real
+  `raceId`, and only then sends the existing `/upload` status PUT - now
+  correctly addressed to a race that actually exists. `publish-results`
+  reads `race-ids.json` back and fails immediately, per missing race, if
+  `publish-schedule` hasn't created it yet, rather than guessing. The
+  now-abandoned deterministic-UUID design from the eighteenth run is not
+  implemented; `RaceRecord.RaceID` is simply real once known, `0` before
+  creation - no UUID indirection needed, since RC's own docs describe
+  returning a real id specifically so the caller can reuse it directly.
+  This is the fourth structural theory in the investigation, but the first
+  one grounded in RC's own documented, dedicated endpoints rather than a
+  guess about `/upload`'s body shape - if `CreateRaces` itself 404s or
+  errors on the next real attempt, that would be much stronger evidence of
+  an account/regatta-level entitlement problem than any earlier attempt
+  produced, since it would no longer be a payload-shape guess against a
+  single endpoint every read has always worked against.
+- **A `--dry-run` flag was added to `publish-schedule`/`publish-results`**
+  so the author could inspect the exact URL and JSON body of every call
+  `--confirm` would make - `CreateRaces`/`AssignLanes` for any race not
+  already in `race-ids.json`, and the final `/upload` PUT - built locally
+  and never touching the network, before ever running `--confirm` for
+  real. Reviewing that output caught a real gap in the nineteenth run's
+  reasoning: **`CreateRaces` requests carried no `uuid` at all.** The
+  nineteenth run had concluded a UUID handshake was unnecessary because
+  the dedicated create endpoint returns the real id directly in its
+  response - but that conflates "the client doesn't need to look the race
+  up by UUID afterward" with "RegattaCentral doesn't require one in the
+  request to create the entity at all." Cookbook page 2's general rule
+  ("When the timing system creates a new entity, it must assign a UUID and
+  use this UUID whenever that entity is referenced") is not scoped to only
+  events/entries in its own wording, and `Race`'s own confirmed schema
+  (from the xsd_doc cross-check in the seventeenth run) already has a
+  `uuid` field alongside `raceId`. Fixed: `createRaces`
+  (`cmd/rcreconcile/publish.go`) now sends a freshly-generated UUID
+  (reusing `preview.go`'s existing `newPlaceholderUUID`) on every
+  `CreateRaces` request, single-use - once the real id comes back in the
+  response, nothing references the race by UUID again, unlike an Entry's
+  UUID (Cookbook §12), which stays live until RC allocates its id. Whether
+  RC's server actually requires this field, versus merely accepting it,
+  remains to be confirmed by an actual `--confirm` run.
+- **Twentieth real run: the author independently confirmed, with direct
+  `curl` calls against the live API (bypassing this tool entirely), that
+  `CreateRaces`'s URL had a real bug - and got back the first specific,
+  non-generic error this whole investigation has ever received.** RC's
+  OAuth2 token endpoint initially returned a Cloudflare "Just a moment..."
+  bot-challenge page to a bare `curl` request - unrelated to RegattaCentral
+  itself, just `curl`'s default `User-Agent` tripping a WAF rule; adding a
+  browser-shaped `User-Agent` header got past it. With a real token in
+  hand, a POST to `.../v4.0/regatta/10046/events/1/races` (singular
+  "regatta," per the raw-HTML docs the nineteenth run had cross-checked
+  three separate times) still 404'd - but the identical request against
+  `.../v4.0/regattas/10046/events/1/races` (**plural**) reached RC's real
+  controller and returned a Jackson deserialization error naming an actual
+  Java type: `Cannot deserialize value of type
+  java.util.ArrayList<com.regattacentral.api.v4.datamodel.Race> from
+  String value`. Two things confirmed at once: (1) the URL really is
+  plural `regattas` everywhere, including `CreateRaces`/`AssignLanes` - the
+  raw-HTML docs' singular path was a genuine documentation bug, consistent
+  (in hindsight) with the other self-contradicting example already caught
+  on that same page; cross-checking a claim three times _within one
+  document_ still isn't the same as testing it against the live server.
+  (2) the request body really is a bare JSON array, not wrapped in an
+  object - the error's own target type, `ArrayList<Race>`, is a raw list
+  type, matching what this tool's `CreateRaces` was already sending.
+  Fixed: `internal/regattacentral/api.go`'s `CreateRaces`/`AssignLanes`
+  now build their paths with `"regattas"` (plural), matching every other
+  method in the package. The Jackson error itself was caused by the
+  author's test `curl` body being malformed shell-quoted JSON (a JSON
+  string literal, not an array) rather than any real request-shape
+  problem - open item: a retry with just the bare array reportedly
+  produced the _same_ "String value" error, which shouldn't happen for
+  genuinely valid JSON, so the exact `curl` invocation and shell-quoting
+  needs to be checked next before concluding anything further about the
+  body shape itself.
+- **Twenty-first real run: the shell-quoting bug from the twentieth run was
+  a stray typo, not a real body-shape problem - a clean, validated bare
+  array (`[{"raceId":0,"uuid":"...","displayNumber":"9"}]`) against
+  `.../v4.0/regattas/10046/events/1/races` got a third, still more specific
+  response: `HTTP 400`, body `{"success":false,"messages":["Failed","Index
+  0 out of bounds for length 0"]}`.** The author first hypothesized event 1
+  had no entries - checked directly against the real local
+  `entries-1.json` capture and ruled out (`count: 4`, four real entries).
+  Event 1's own title is `W-3-8+` (a women's eight-oared shell, division/
+  level "3"). The more likely culprit, given evidence already on hand: this
+  regatta's events all have **zero existing races** (confirmed back in the
+  seventeenth run), and the confirmed **HTTP 400** (not a 500) means RC's
+  server is treating this as a deliberate request rejection, not an
+  unrelated crash - consistent with `CreateRaces`'s internal logic doing
+  something like "look at the event's first existing race" (`get(0)`) as
+  an implicit existence check, catching the resulting exception, and
+  reporting it as a 400 rather than validating with `isEmpty()` first.
+  Working theory, not yet confirmed: **`CreateRaces` may only support
+  adding races to an event that already has at least one, not originating
+  a schedule from zero.** If true, the practical path forward would be
+  either (a) asking the RD to create one race per event manually on RC's
+  own website first, then testing whether `CreateRaces` succeeds for
+  _additional_ races in that same event, or (b) taking this exact,
+  now well-characterized reproduction (URL, headers, body, and the precise
+  400 response) directly to RegattaCentral support, who can confirm
+  definitively whether the API supports bootstrapping a schedule from
+  nothing at all. No code change resulted from this run - it is still an
+  open question, not yet resolved.

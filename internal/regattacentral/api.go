@@ -3,8 +3,10 @@ package regattacentral
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -77,18 +79,71 @@ func (c *Client) SearchParticipants(ctx context.Context, lastname, birthdate str
 	return out, err
 }
 
-// Upload PUTs a combined body to /regattas/{id}/upload. It validates the
-// lanes-before-results rule first (pass assumeLanesUploaded when the draw was
-// sent in an earlier call).
-func (c *Client) Upload(ctx context.Context, regattaID string, req *UploadRequest, assumeLanesUploaded bool) error {
+// Upload PUTs a combined body to /regattas/{id}/upload. It runs
+// UploadRequest.Validate first.
+func (c *Client) Upload(ctx context.Context, regattaID string, req *UploadRequest) error {
 	id, err := c.regattaID(regattaID)
 	if err != nil {
 		return err
 	}
-	if err := req.Validate(assumeLanesUploaded); err != nil {
+	if err := req.Validate(); err != nil {
 		return err
 	}
 	return c.do(ctx, http.MethodPut, "regattas/"+url.PathEscape(id)+"/upload", "", req, nil)
+}
+
+// CreateRaces POSTs new races to an existing event and returns them with
+// RegattaCentral's real, newly-assigned RaceId populated. This is a
+// dedicated per-resource creation endpoint, separate from Upload - RC's own
+// REST API docs (api.regattacentral.com/v4/post.jsp#rc-post-event-races,
+// read as raw HTML, not summarized) document it as returning "a collection
+// of newly created Races, including the newly assigned RaceId." The
+// response is decoded through the same {success,count,data,...} envelope
+// every other confirmed RC v4 endpoint uses (see readmodel.go's Envelope).
+//
+// Uses "regattas" (plural), matching every other method in this file -
+// RC's own docs consistently showed a singular "regatta" for this endpoint
+// (checked via three independent raw-HTML extractions), but that turned out
+// to be a real documentation bug: a live POST against "regatta/{id}/..."
+// 404'd, while the identical request against "regattas/{id}/..." reached
+// the real controller and returned a Jackson deserialization error instead
+// (confirmed empirically by the author against the live API). The request
+// body is a bare JSON array - that same live error named the exact
+// deserialization target, `ArrayList<Race>`, confirming no wrapper object
+// is expected.
+func (c *Client) CreateRaces(ctx context.Context, regattaID, eventID string, races []RaceRecord) ([]RaceRecord, error) {
+	id, err := c.regattaID(regattaID)
+	if err != nil {
+		return nil, err
+	}
+	path := "regattas/" + url.PathEscape(id) + "/events/" + url.PathEscape(eventID) + "/races"
+	var resp Envelope[[]RaceRecord]
+	if err := c.do(ctx, http.MethodPost, path, "", races, &resp); err != nil {
+		return nil, err
+	}
+	if !resp.Success {
+		return nil, fmt.Errorf("regattacentral: create races for event %s: request returned success=false", eventID)
+	}
+	return resp.Data, nil
+}
+
+// AssignLanes POSTs lane assignments to an already-created race, identified
+// by its real RaceId (see CreateRaces), and returns the assigned lanes.
+// Uses "regattas" (plural) - see CreateRaces.
+func (c *Client) AssignLanes(ctx context.Context, regattaID string, raceID int, lanes []LaneRecord) ([]LaneRecord, error) {
+	id, err := c.regattaID(regattaID)
+	if err != nil {
+		return nil, err
+	}
+	path := "regattas/" + url.PathEscape(id) + "/races/" + strconv.Itoa(raceID) + "/lanes"
+	var resp Envelope[[]LaneRecord]
+	if err := c.do(ctx, http.MethodPost, path, "", lanes, &resp); err != nil {
+		return nil, err
+	}
+	if !resp.Success {
+		return nil, fmt.Errorf("regattacentral: assign lanes for race %d: request returned success=false", raceID)
+	}
+	return resp.Data, nil
 }
 
 // getRaw resolves the regatta id, joins "regattas/{id}/<segs...>" and GETs it.

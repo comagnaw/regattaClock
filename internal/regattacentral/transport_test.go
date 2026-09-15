@@ -253,11 +253,11 @@ func TestUploadPutsJSONBody(t *testing.T) {
 	c := ts.client(t, Config{})
 
 	req := &UploadRequest{}
-	req.SetRaceStatus(12, StatusDraw)
-	req.AddLane(LaneRecord{RaceNumber: 12, Lane: 3, EntryID: 555})
-	req.AddFinish(12, 3, 6*time.Minute+12500*time.Millisecond)
+	req.SetRaceStatus(100, 12, "12", StatusDraw)
+	req.AddLane(100, 12, LaneRecord{Lane: 3, EntryID: 555})
+	req.AddFinish(100, 12, 3, 6*time.Minute+12500*time.Millisecond)
 
-	if err := c.Upload(context.Background(), "R7", req, false); err != nil {
+	if err := c.Upload(context.Background(), "R7", req); err != nil {
 		t.Fatalf("Upload: %v", err)
 	}
 	if method != http.MethodPut || path != "/v4.0/regattas/R7/upload" {
@@ -266,32 +266,35 @@ func TestUploadPutsJSONBody(t *testing.T) {
 	if !strings.HasPrefix(ctype, "application/json") {
 		t.Errorf("Content-Type = %q", ctype)
 	}
-	if len(body.Races) != 1 || body.Races[0].Status != StatusDraw {
-		t.Errorf("races round-trip: %+v", body.Races)
+	if len(body.Events) != 1 || body.Events[0].EventID != 100 {
+		t.Fatalf("events round-trip: %+v", body.Events)
 	}
-	if len(body.Results) != 1 || body.Results[0].TimingMilestoneID != MilestoneFinish || body.Results[0].Time != 372500 {
-		t.Errorf("results round-trip: %+v", body.Results)
+	races := body.Events[0].Races
+	if len(races) != 1 || races[0].Status != StatusDraw || races[0].RaceID != 12 {
+		t.Errorf("races round-trip: %+v", races)
+	}
+	lanes := races[0].Lanes
+	if len(lanes) != 1 || lanes[0].EntryID != 555 {
+		t.Fatalf("lanes round-trip: %+v", lanes)
+	}
+	results := lanes[0].Results
+	if len(results) != 1 || results[0].TimingMilestoneID != MilestoneFinish || results[0].Time != 372500 {
+		t.Errorf("results round-trip: %+v", results)
 	}
 }
 
-func TestUploadValidatesLanesBeforeResults(t *testing.T) {
+func TestUploadRejectsInvalidRequestBeforeSendingHTTP(t *testing.T) {
 	var called bool
 	ts := newTestServer(t, func(w http.ResponseWriter, r *http.Request) { called = true })
 	c := ts.client(t, Config{})
 
-	req := &UploadRequest{}
-	req.AddFinish(4, 2, time.Minute) // result with no matching lane
+	req := &UploadRequest{Events: []EventRecord{{EventID: 0, Races: []RaceRecord{{RaceID: 1}}}}}
 
-	err := c.Upload(context.Background(), "R1", req, false)
-	if err == nil || !strings.Contains(err.Error(), "lanes MUST precede results") {
-		t.Fatalf("err = %v, want a lanes-before-results validation error", err)
+	err := c.Upload(context.Background(), "R1", req)
+	if err == nil || !strings.Contains(err.Error(), "eventId 0") {
+		t.Fatalf("err = %v, want a Validate() error about eventId 0", err)
 	}
 	if called {
 		t.Error("no HTTP request should be made when validation fails")
-	}
-
-	// assumeLanesUploaded bypasses the check.
-	if err := c.Upload(context.Background(), "R1", req, true); err != nil {
-		t.Fatalf("with assumeLanesUploaded: %v", err)
 	}
 }

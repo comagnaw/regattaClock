@@ -94,27 +94,40 @@ func TestNewPlaceholderUUIDLooksLikeAUUIDAndVaries(t *testing.T) {
 	}
 }
 
+// allLanes flattens a preview's nested events -> races -> lanes tree for
+// assertions that don't care about the event/race grouping itself.
+func allLanes(req *regattacentral.UploadRequest) []regattacentral.LaneRecord {
+	var out []regattacentral.LaneRecord
+	for _, ev := range req.Events {
+		for _, race := range ev.Races {
+			out = append(out, race.Lanes...)
+		}
+	}
+	return out
+}
+
 func TestBuildUploadPreviewMatchedLaneGetsRealEntryID(t *testing.T) {
 	matches := []laneMatch{
 		{
 			RaceNumber: 1, Lane: 1, SchoolName: "Springfield High School",
 			Place: "1", Time: "6:12.5",
 			Status:     statusMatched,
-			Candidates: []rcEntry{{ID: "4821"}},
+			Candidates: []rcEntry{{ID: "4821", EventID: "100"}},
 		},
 	}
 	req, warnings := buildUploadPreview(matches)
 	if len(warnings) != 0 {
 		t.Errorf("warnings = %v, want none for a confidently matched lane", warnings)
 	}
-	if len(req.Lanes) != 1 || req.Lanes[0].EntryID != 4821 || req.Lanes[0].UUID != "" {
-		t.Errorf("lane = %+v, want EntryID 4821 and no placeholder UUID", req.Lanes[0])
+	lanes := allLanes(req)
+	if len(lanes) != 1 || lanes[0].EntryID != 4821 || lanes[0].UUID != "" {
+		t.Errorf("lane = %+v, want EntryID 4821 and no placeholder UUID", lanes[0])
 	}
-	if len(req.Results) != 1 || req.Results[0].Time != (6*time.Minute+12*time.Second+500*time.Millisecond).Milliseconds() {
-		t.Errorf("results = %+v, want one finish result matching the parsed time", req.Results)
+	if len(lanes[0].Results) != 1 || lanes[0].Results[0].Time != (6*time.Minute+12*time.Second+500*time.Millisecond).Milliseconds() {
+		t.Errorf("results = %+v, want one finish result matching the parsed time", lanes[0].Results)
 	}
-	if len(req.Races) != 1 || req.Races[0].Status != regattacentral.StatusOfficial {
-		t.Errorf("races = %+v, want race 1 marked Official since it has a result", req.Races)
+	if len(req.Events) != 1 || len(req.Events[0].Races) != 1 || req.Events[0].Races[0].Status != regattacentral.StatusOfficial {
+		t.Errorf("events = %+v, want race 1 marked Official since it has a result", req.Events)
 	}
 }
 
@@ -124,12 +137,13 @@ func TestBuildUploadPreviewCarriesExhibitionFromHeatSheet(t *testing.T) {
 			RaceNumber: 6, Lane: 6, SchoolName: "Justice High",
 			LaneClass:  "Exhibition M-1-4x",
 			Status:     statusMatched,
-			Candidates: []rcEntry{{ID: "122"}},
+			Candidates: []rcEntry{{ID: "122", EventID: "100"}},
 		},
 	}
 	req, _ := buildUploadPreview(matches)
-	if len(req.Lanes) != 1 || req.Lanes[0].Status != regattacentral.LaneExhibition {
-		t.Errorf("lane = %+v, want Status LaneExhibition", req.Lanes[0])
+	lanes := allLanes(req)
+	if len(lanes) != 1 || lanes[0].Status != regattacentral.LaneExhibition {
+		t.Errorf("lane = %+v, want Status LaneExhibition", lanes[0])
 	}
 }
 
@@ -138,12 +152,13 @@ func TestBuildUploadPreviewGuessedLaneGetsRealEntryIDAndAWarning(t *testing.T) {
 		{
 			RaceNumber: 8, Lane: 3, SchoolName: "Justice High",
 			Status:     statusGuessed,
-			Candidates: []rcEntry{{ID: "64"}, {ID: "65"}},
+			Candidates: []rcEntry{{ID: "64", EventID: "100"}, {ID: "65", EventID: "100"}},
 		},
 	}
 	req, warnings := buildUploadPreview(matches)
-	if len(req.Lanes) != 1 || req.Lanes[0].EntryID != 64 || req.Lanes[0].UUID != "" {
-		t.Errorf("lane = %+v, want the picked EntryID 64 and no placeholder UUID", req.Lanes[0])
+	lanes := allLanes(req)
+	if len(lanes) != 1 || lanes[0].EntryID != 64 || lanes[0].UUID != "" {
+		t.Errorf("lane = %+v, want the picked EntryID 64 and no placeholder UUID", lanes[0])
 	}
 	if len(warnings) != 1 || !strings.Contains(warnings[0], "not a confident match") {
 		t.Errorf("warnings = %v, want one flagging this as a guess, not a confident match", warnings)
@@ -155,7 +170,7 @@ func TestBuildUploadPreviewAmbiguousAndUnmatchedGetPlaceholders(t *testing.T) {
 		{
 			RaceNumber: 2, Lane: 3, SchoolName: "Shelbyville Rowing Club",
 			Status:     statusAmbiguous,
-			Candidates: []rcEntry{{ID: "1"}, {ID: "2"}},
+			Candidates: []rcEntry{{ID: "1", EventID: "100"}, {ID: "2", EventID: "100"}},
 		},
 		{
 			RaceNumber: 2, Lane: 4, SchoolName: "Ogdenville Composite",
@@ -166,13 +181,14 @@ func TestBuildUploadPreviewAmbiguousAndUnmatchedGetPlaceholders(t *testing.T) {
 	if len(warnings) != 2 {
 		t.Fatalf("warnings = %v, want one per unresolved lane", warnings)
 	}
-	for _, l := range req.Lanes {
+	lanes := allLanes(req)
+	for _, l := range lanes {
 		if l.EntryID != 0 || l.UUID == "" {
 			t.Errorf("lane %+v: want a placeholder UUID and no real EntryID", l)
 		}
-	}
-	if len(req.Results) != 0 {
-		t.Errorf("results = %v, want none - neither lane had a finish time", req.Results)
+		if len(l.Results) != 0 {
+			t.Errorf("lane %+v: results = %v, want none - neither lane had a finish time", l, l.Results)
+		}
 	}
 }
 
@@ -181,15 +197,16 @@ func TestBuildUploadPreviewNonNumericEntryIDFallsBackToPlaceholder(t *testing.T)
 		{
 			RaceNumber: 1, Lane: 1, SchoolName: "Springfield High School",
 			Status:     statusMatched,
-			Candidates: []rcEntry{{ID: "not-a-number"}},
+			Candidates: []rcEntry{{ID: "not-a-number", EventID: "100"}},
 		},
 	}
 	req, warnings := buildUploadPreview(matches)
 	if len(warnings) != 1 {
 		t.Fatalf("warnings = %v, want one flagging the non-numeric id", warnings)
 	}
-	if req.Lanes[0].EntryID != 0 || req.Lanes[0].UUID == "" {
-		t.Errorf("lane = %+v, want a placeholder UUID since the real id isn't numeric", req.Lanes[0])
+	lanes := allLanes(req)
+	if len(lanes) != 1 || lanes[0].EntryID != 0 || lanes[0].UUID == "" {
+		t.Errorf("lane = %+v, want a placeholder UUID since the real id isn't numeric", lanes[0])
 	}
 }
 

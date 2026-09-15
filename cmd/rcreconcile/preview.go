@@ -32,7 +32,7 @@ import (
 func buildUploadPreview(matches []laneMatch) (*regattacentral.UploadRequest, []string) {
 	req := &regattacentral.UploadRequest{}
 	var warnings []string
-	hasResult := map[int]bool{}
+	hasResult := map[raceKey]bool{}
 
 	for _, m := range matches {
 		// DisplayNumber reuses extractBoatLabel (built for the "A"/"B" a
@@ -42,11 +42,17 @@ func buildUploadPreview(matches []laneMatch) (*regattacentral.UploadRequest, []s
 		// letter can produce a false "label" - acceptable for a preview
 		// that is never uploaded, but not something to trust blindly.
 		lane := regattacentral.LaneRecord{
-			RaceNumber:    m.RaceNumber,
 			Lane:          m.Lane,
 			DisplayNumber: extractBoatLabel(m.AdditionalInfo),
 			Status:        laneStatus(m.Place, m.LaneClass),
 		}
+
+		// eventID defaults to the sentinel 0 (grouped separately below) for
+		// anything not confidently resolved - unlike the real publish path
+		// (classifyForPublish), this preview is local-only and never
+		// transmitted, so a looser default here is fine: it just needs a
+		// container to nest the lane under, not a real, safe-to-write id.
+		eventID := 0
 
 		switch m.Status {
 		case statusMatched, statusGuessed:
@@ -58,6 +64,9 @@ func buildUploadPreview(matches []laneMatch) (*regattacentral.UploadRequest, []s
 					m.RaceNumber, m.Lane, m.SchoolName, m.Candidates[0].ID))
 			} else {
 				lane.EntryID = id
+			}
+			if eid, err := strconv.Atoi(m.Candidates[0].EventID); err == nil {
+				eventID = eid
 			}
 			if m.Status == statusGuessed {
 				warnings = append(warnings, fmt.Sprintf(
@@ -76,16 +85,16 @@ func buildUploadPreview(matches []laneMatch) (*regattacentral.UploadRequest, []s
 				m.RaceNumber, m.Lane, m.SchoolName))
 		}
 
-		req.AddLane(lane)
+		req.AddLane(eventID, m.RaceNumber, lane)
 
 		if d, ok := parseRaceTime(m.Time); ok {
-			req.AddFinish(m.RaceNumber, m.Lane, d)
-			hasResult[m.RaceNumber] = true
+			req.AddFinish(eventID, m.RaceNumber, m.Lane, d)
+			hasResult[raceKey{eventID, m.RaceNumber}] = true
 		}
 	}
 
-	for raceNumber := range hasResult {
-		req.SetRaceStatus(raceNumber, regattacentral.StatusOfficial)
+	for k := range hasResult {
+		req.SetRaceStatus(k.eventID, k.raceNumber, strconv.Itoa(k.raceNumber), regattacentral.StatusOfficial)
 	}
 
 	return req, warnings
@@ -158,10 +167,14 @@ func parseRaceTime(s string) (time.Duration, bool) {
 	return time.Duration(minutes)*time.Minute + time.Duration(seconds*float64(time.Second)), true
 }
 
-// newPlaceholderUUID generates a random RFC 4122 v4-shaped id to stand in for
-// a lane's real RegattaCentral EntryID when none is confidently known. It is
-// never sent anywhere - this preview is local-only - so it only needs to look
-// like the kind of id Cookbook §11 expects for a client-created entry.
+// newPlaceholderUUID generates a random RFC 4122 v4-shaped id. Two uses:
+// (1) here in the local-only upload preview, standing in for a lane's real
+// RegattaCentral EntryID when none is confidently known - never sent
+// anywhere; (2) in publish.go's createRaces, as the real UUID a live
+// CreateRaces request sends for each brand-new race (Cookbook page 2's
+// "assign a UUID for a new entity" convention) - genuinely sent, and
+// single-use, since the race's real id from CreateRaces's response is what
+// every subsequent call uses instead.
 func newPlaceholderUUID() string {
 	var b [16]byte
 	if _, err := rand.Read(b[:]); err != nil {
@@ -178,37 +191,48 @@ func newPlaceholderUUID() string {
 // anywhere in cmd/rcreconcile. Like --report-out, this names real people once
 // run against a real capture - keep it outside the repo or under a gitignored
 // path (see README.md's PII warning).
+// writeUploadPreview does not call req.Validate(): Validate is a safety net
+// for a real write (it rejects a zero EventID/RaceID), but buildUploadPreview
+// deliberately uses the sentinel EventID 0 for any lane it couldn't
+// confidently resolve to a real RC event - the normal, expected case this
+// preview exists to surface, not an error condition.
 func writeUploadPreview(path string, req *regattacentral.UploadRequest, warnings []string) error {
-	if err := req.Validate(false); err != nil {
-		return fmt.Errorf("upload preview would be invalid: %w", err)
-	}
-
 	var b strings.Builder
 	fmt.Fprintln(&b, "RegattaCentral upload preview - NOT sent, local dry-run only")
 	fmt.Fprintln(&b, strings.Repeat("=", 60))
 	fmt.Fprintln(&b)
 
-	resultByKey := map[[2]int]regattacentral.ResultRecord{}
-	for _, r := range req.Results {
-		resultByKey[[2]int{r.RaceNumber, r.Lane}] = r
+	// Flatten the nested events -> races -> lanes -> results tree into one
+	// sorted (raceID, lane) list, mirroring the flat rendering this preview
+	// has always produced.
+	type flatLane struct {
+		raceID int
+		lane   regattacentral.LaneRecord
 	}
-
-	lanes := append([]regattacentral.LaneRecord(nil), req.Lanes...)
-	sort.Slice(lanes, func(i, j int) bool {
-		if lanes[i].RaceNumber != lanes[j].RaceNumber {
-			return lanes[i].RaceNumber < lanes[j].RaceNumber
+	var lanes []flatLane
+	for _, ev := range req.Events {
+		for _, race := range ev.Races {
+			for _, l := range race.Lanes {
+				lanes = append(lanes, flatLane{raceID: race.RaceID, lane: l})
+			}
 		}
-		return lanes[i].Lane < lanes[j].Lane
+	}
+	sort.Slice(lanes, func(i, j int) bool {
+		if lanes[i].raceID != lanes[j].raceID {
+			return lanes[i].raceID < lanes[j].raceID
+		}
+		return lanes[i].lane.Lane < lanes[j].lane.Lane
 	})
 
-	for _, l := range lanes {
+	for _, fl := range lanes {
+		l := fl.lane
 		id := "would create new entry (" + l.UUID + ")"
 		if l.EntryID != 0 {
 			id = fmt.Sprintf("RC entry #%d", l.EntryID)
 		}
-		line := fmt.Sprintf("Race %d Lane %d - %s", l.RaceNumber, l.Lane, id)
-		if r, ok := resultByKey[[2]int{l.RaceNumber, l.Lane}]; ok {
-			line += fmt.Sprintf(" - %s", time.Duration(r.Time)*time.Millisecond)
+		line := fmt.Sprintf("Race %d Lane %d - %s", fl.raceID, l.Lane, id)
+		if len(l.Results) > 0 {
+			line += fmt.Sprintf(" - %s", time.Duration(l.Results[0].Time)*time.Millisecond)
 		}
 		if l.Status != regattacentral.LaneOK {
 			line += fmt.Sprintf(" [%s]", l.Status)
