@@ -156,3 +156,55 @@ func TestConfigMatchesChallenge(t *testing.T) {
 		t.Error("an empty config must delegate to the built-in code")
 	}
 }
+
+func TestLoad_RegattaCentral(t *testing.T) {
+	tests := []struct {
+		name    string
+		body    string
+		wantErr bool
+	}{
+		{name: "no section", body: `{"hosts":{"pc-1":"pst"}}`},
+		{name: "id only", body: `{"regattacentral":{"regattaID":"12345"}}`},
+		{name: "id and valid baseURL", body: `{"regattacentral":{"regattaID":"12345","baseURL":"https://api.regattacentral.com/v4.0/"}}`},
+		{name: "missing id", body: `{"regattacentral":{"baseURL":"https://api.regattacentral.com/v4.0/"}}`, wantErr: true},
+		{name: "blank id", body: `{"regattacentral":{"regattaID":"  "}}`, wantErr: true},
+		{name: "relative baseURL", body: `{"regattacentral":{"regattaID":"1","baseURL":"/v4.0/"}}`, wantErr: true},
+		{name: "non-http baseURL", body: `{"regattacentral":{"regattaID":"1","baseURL":"ftp://example.com/"}}`, wantErr: true},
+		{name: "baseURL no host", body: `{"regattacentral":{"regattaID":"1","baseURL":"https:///v4.0/"}}`, wantErr: true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg, err := Load(writeConfig(t, tc.body))
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("expected an error, got cfg %+v", cfg)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestConfigRegattaCentralConfig(t *testing.T) {
+	if _, ok := (*Config)(nil).RegattaCentralConfig(); ok {
+		t.Error("nil config must report no RegattaCentral config")
+	}
+	if _, ok := (&Config{}).RegattaCentralConfig(); ok {
+		t.Error("empty config must report no RegattaCentral config")
+	}
+
+	cfg, err := Load(writeConfig(t, `{"regattacentral":{"regattaID":"  99 ","baseURL":"  https://rc.example/v4/  "}}`))
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	rc, ok := cfg.RegattaCentralConfig()
+	if !ok {
+		t.Fatal("expected RegattaCentral config to be present")
+	}
+	if rc.RegattaID != "99" || rc.BaseURL != "https://rc.example/v4/" {
+		t.Errorf("values not trimmed: %+v", rc)
+	}
+}

@@ -7,8 +7,9 @@ system — without a second login and without disturbing their primary job.
 Companion to [future-result-driven-persona.md](future-result-driven-persona.md) (assesses
 *standalone* read-only publisher personas — this doc refines that into an attach-to-a-lead
 model), [reconciliation.md](reconciliation.md) (the future *producer* of the published
-set), and [persona-plan.md](persona-plan.md) §1 (the timer-priority rule a sidecar
-inherits) and §13.
+set), [regattacentral-integration.md](regattacentral-integration.md) (the API client and
+secret store that Increment 1 builds on), and [persona-plan.md](persona-plan.md) §1 (the
+timer-priority rule a sidecar inherits) and §13.
 
 **Status:** design assessment + phased build plan. No code yet.
 
@@ -158,13 +159,17 @@ Two kinds, kept apart:
 
 Automated publishing would be the codebase's **first outbound HTTP dependency and first
 secret storage** — call that out in the increment that introduces it.
+[regattacentral-integration.md](regattacentral-integration.md#internalsecretstore--os-keyring-wrapper)
+takes the **OS keyring** option and specifies `internal/secretstore` (service
+`"regattaClock"`, `regattacentral/*` keys, a typed `ErrUnavailable` for headless Linux);
+Increment 1 uses that package.
 
 ## Recommended increments
 
 | # | Scope | New surface |
 |---|-------|-------------|
 | **0** | Framework + **render-only**: capability seam, a menu toggle on a **Lead** session, per-race render to clipboard/file (text) and PNG (`internal/exporter`, extended to draw places + times), `{raceNumber: revision}` tracking. **No network, no secrets.** | `internal/publish`, `internal/regatta/sidecar.go`, `internal/exporter` addition, `menu.go` |
-| **1** | **Register Results** (automated) — push to the results service. Forces the config + secrets decision, an outbox/retry design, and a field-mapping spec. Own follow-up doc. | `internal/publish` `Target`, `internal/secretstore`, an outbox, `net/http` |
+| **1** | **Register Results** (automated) — push to RegattaCentral. Forces the config + secrets decision, an outbox/retry design, and a field-mapping spec. Detailed in [regattacentral-integration.md](regattacentral-integration.md#write-integration--register-results-phase-d) (Phase D). | `internal/publish` `Target`, `internal/regattacentral`, `internal/secretstore`, an outbox, `net/http` |
 | **2** | **Social Post** (automated) — X API: OAuth, media upload, rate limits. Own doc. | `golang.org/x/oauth2`, media upload |
 | later | **Standalone "Publisher" persona** (Media tab) for a publish-only machine — one capability, chosen at launch, attaches nothing. | a new `persona.Role`, a `Definition`, a picker entry, `startPublisherFlow` |
 | deferred | `regattaData/results/` materialization, reconciliation verdict, `disputed` handling — unchanged. **Streaming** and **Developer** — Standalone; each scoped in its own later doc. | — |
@@ -282,8 +287,13 @@ no new persona.
 
 ### Increment 1 sketch — Register Results
 
+Full design in
+[regattacentral-integration.md](regattacentral-integration.md#write-integration--register-results-phase-d).
+In brief:
+
 - `internal/publish`: `type Target interface { Name() string; Publish(ctx context.Context, r PublishableRace) error }`;
-  an HTTP `Target` (`net/http`; `httptest` in tests).
+  a `regattacentralTarget` backed by `internal/regattacentral` (`net/http`; `httptest` in
+  tests).
 - An **outbox**: a bounded channel plus a retry-with-backoff worker (the `internal/applog`
   async-writer pattern), so a per-race *Register* click only enqueues.
 - `internal/secretstore`: a thin wrapper over an OS-keyring library for the API key.

@@ -10,14 +10,16 @@ package personacfg
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/comagnaw/regattaClock/internal/filesystem"
 	"github.com/comagnaw/regattaClock/internal/persona"
 )
 
-// Config is the parsed deployment file. Both sections are optional: a file may
-// carry only host assignments, only challenge overrides, both, or neither.
+// Config is the parsed deployment file. Every section is optional: a file may
+// carry host assignments, challenge overrides, RegattaCentral config, any
+// combination, or none.
 type Config struct {
 	// Hosts maps a hostname to the persona ID that computer operates as. A
 	// match skips the picker entirely - no challenge is asked.
@@ -26,6 +28,26 @@ type Config struct {
 	// Challenges maps a persona ID to the challenge code that replaces its
 	// built-in rc-* code. Only consulted when the picker is shown.
 	Challenges map[string]string `json:"challenges"`
+
+	// RegattaCentral is the non-secret RegattaCentral API configuration for
+	// this deployment. Absent unless the section is present in the file.
+	RegattaCentral *RegattaCentral `json:"regattacentral,omitempty"`
+}
+
+// RegattaCentral is the non-secret half of the RegattaCentral API configuration:
+// which API to talk to and which regatta this deployment is timing. The secrets
+// (OAuth2 client id / secret, the operator's RegattaCentral login) never appear
+// in this file - they live in internal/secretstore.
+type RegattaCentral struct {
+	// BaseURL is the API root, e.g. "https://api.regattacentral.com/v4.0/".
+	// Optional: when empty the internal/regattacentral client uses its own
+	// default. When set it must be an absolute http(s) URL.
+	BaseURL string `json:"baseURL,omitempty"`
+
+	// RegattaID identifies the regatta on RegattaCentral. Required when the
+	// section is present - a RegattaCentral block that does not say which
+	// regatta is meaningless.
+	RegattaID string `json:"regattaID"`
 }
 
 // Load reads and validates the file at path. A missing file surfaces as an
@@ -58,6 +80,21 @@ func Load(path string) (*Config, error) {
 		}
 		if _, ok := persona.ByID(strings.TrimSpace(id)); !ok {
 			return nil, fmt.Errorf("persona config: unknown persona ID %q for host %q", id, host)
+		}
+	}
+
+	if rc := c.RegattaCentral; rc != nil {
+		if strings.TrimSpace(rc.RegattaID) == "" {
+			return nil, fmt.Errorf("persona config: \"regattacentral\" is present but has no \"regattaID\"")
+		}
+		if base := strings.TrimSpace(rc.BaseURL); base != "" {
+			u, err := url.Parse(base)
+			if err != nil {
+				return nil, fmt.Errorf("persona config: \"regattacentral.baseURL\" %q is not a valid URL: %w", base, err)
+			}
+			if !u.IsAbs() || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+				return nil, fmt.Errorf("persona config: \"regattacentral.baseURL\" %q must be an absolute http(s) URL", base)
+			}
 		}
 	}
 
@@ -108,4 +145,17 @@ func (c *Config) MatchesChallenge(def persona.Definition, input string) bool {
 		}
 	}
 	return def.MatchesChallenge(input)
+}
+
+// RegattaCentralConfig returns the deployment's RegattaCentral configuration and
+// whether it was supplied. Load has already validated a non-nil result:
+// RegattaID is non-empty and BaseURL, if set, is an absolute http(s) URL.
+func (c *Config) RegattaCentralConfig() (RegattaCentral, bool) {
+	if c == nil || c.RegattaCentral == nil {
+		return RegattaCentral{}, false
+	}
+	rc := *c.RegattaCentral
+	rc.BaseURL = strings.TrimSpace(rc.BaseURL)
+	rc.RegattaID = strings.TrimSpace(rc.RegattaID)
+	return rc, true
 }
