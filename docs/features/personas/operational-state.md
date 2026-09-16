@@ -23,7 +23,14 @@ all:
    RC-based ingest — but that phase is explicitly gated behind
    [heatsheet-rc-pivot-investigation.md](heatsheet-rc-pivot-investigation.md)
    concluding, per that doc's own text: "Before committing to Phase C/D: an
-   investigation is underway…"
+   investigation is underway…" **Update (2026-09-16):** the persona
+   behind this ingest source is now scoped —
+   [new/heat-sheet-creator.md](new/heat-sheet-creator.md) (Heat Sheet
+   Creator, HSC) — staged so its read-only v1 (RC pull, local working
+   copy, RC-id fields added directly to `store.ScheduleRace`/
+   `store.ScheduleEntry`) does not depend on the investigation; only
+   HSC's own write-back v2, and the actual `heatsheet` origin wiring
+   this axis describes, remain gated on it concluding.
 2. **Results publish destination** — where official, approved results go
    once a race is signed off. **Not modeled anywhere today.** The current
    real-world process is manual: copy/paste from a pre-formatted results

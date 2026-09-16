@@ -18,6 +18,12 @@ which this investigation's findings will confirm or revise) and
 **Status:** investigation, in progress. No product code changes; a dev tool
 and its findings only.
 
+**Referenced by (2026-09-16):**
+[new/heat-sheet-creator.md](new/heat-sheet-creator.md) — the persona
+spec for RegattaCentral-originated regatta data — stages its own work so
+that only its write-back slice (HSC v2) is gated on this investigation
+concluding; its read-only slice (v1) does not wait on this.
+
 ## The question
 
 `regattacentral-integration.md` established that RegattaCentral models a race
