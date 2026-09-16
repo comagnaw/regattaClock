@@ -10,6 +10,7 @@ ideas belong in the relevant design doc first, then here.
 - [ ] Activate the `sign-windows` job — `signtool` / `osslsigncode` (self-signed) or `azure/trusted-signing-action` + OIDC — RFC 3161 timestamped, signing the exe then the installer built around it — [ci-and-provenance.md](trusted-distribution/ci-and-provenance.md#secrets-vs-oidc)
 - [ ] Push the cert to the managed fleet via Intune — a Trusted-certificate profile for the root plus a platform script for the Trusted Publishers store; deliver releases from an internal share / Intune so Mark-of-the-Web never engages — [windows-internal-pki.md](trusted-distribution/windows-internal-pki.md#deploying-trust-to-the-fleet)
 - [ ] Add a WiX / MSI build alongside the Inno installer for silent `msiexec /qn` deployment via GPO / Intune / SCCM — [windows-packaging.md](trusted-distribution/windows-packaging.md)
+- [ ] Native Windows ARM64 build — today's release ships amd64 only; an ARM-based Windows machine (e.g. Surface Pro X, Surface Pro 9 5G/11 with Snapdragon) falls back to Windows' x64 emulation, untested with this app. Not pursued unless real demand shows up (no regatta hardware runs ARM today) — [README.md](../README.md#downloading-and-verifying)
 
 ## Trusted distribution — macOS
 
