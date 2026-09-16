@@ -15,11 +15,18 @@ the producer these content-consumer personas would depend on has been
 resolved — it is not a persona at all. See
 [new/results-publisher.md](new/results-publisher.md): official results
 publishing (spreadsheet, later RegattaCentral) is a native Primary Finish
-Timer feature. The content-consumer personas assessed below (social-text /
-social-image, aka Social Post / SOM) remain deferred and unaffected by that
-resolution — they would still read `finish.json`'s `RaceResult.Approved`
-directly, per this doc's own recommendation, not depend on the Publisher
-feature's internals.
+Timer feature. Of the content-consumer personas assessed below: the
+**social-text** one (aka Social Post / SOM) has since been scoped too —
+see [new/social-media.md](new/social-media.md) — as a sidecar capability
+attached to a Finish Timer, not a standalone persona either. It reads
+`finish.json`'s `RaceResult.Approved` directly (via the `internal/publish`
+package `social-media.md` depends on) rather than depending on the
+Results Publisher feature's internals. The **social-image** persona
+sketched below is no longer expected — the author has said it is not a
+necessity, and it is not carried forward as a placeholder in
+`docs/features/TODO.md`. If a PNG-rendering need surfaces later, it is
+the still-unscoped Streamer (STM) persona's job (see `social-media.md`),
+not a separate social-image publisher.
 
 **Recommendation up front: defer.** `timing/primary/finish.json` +
 `director/regattaSchedule.json` already carry everything a results-driven persona

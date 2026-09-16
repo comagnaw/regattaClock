@@ -22,6 +22,14 @@ why. The `social-post` capability and the general Lead / Standalone /
 Sidecar framework below remain the live design for future social-media
 publishing (SOM) and are unaffected by this.
 
+**Update (2026-09-16):** Social Media (SOM) has since been scoped and
+**confirms** this doc's `social-post` capability and its Phase 0 sketch
+(`internal/publish`, the sidecar lifecycle, the menu wiring) as the design
+to build on as-is — see [new/social-media.md](new/social-media.md) for the
+automated-X-post increment this doc only placeholder'd, plus one
+refinement: `social-post` specifically is hosted by **Finish Timers
+only** (PFT/SFT), narrower than the general `isLead()` guard below.
+
 **Recommendation up front.** Build a **sidecar capability** seam: a publishing task
 attached to whichever **lead** persona is logged in (Regatta Director or a Timer), never
 its own `persona.Definition` / `Team` / `Challenge` / `Session`. The first version
@@ -371,7 +379,10 @@ all of `internal/publish`.
 ## Open decisions
 
 - **Which Leads may toggle a sidecar** — any Lead, or Finish-Timers only to match today's
-  duties. (The Lead / Standalone / Sidecar split itself is settled.)
+  duties. **Resolved for `social-post` specifically: Finish-Timers only**
+  (see the 2026-09-16 update note above / `new/social-media.md`) — still
+  open for any other capability this framework grows later. (The Lead /
+  Standalone / Sidecar split itself is settled.)
 - Non-secret config location — extend `personacfg`, a new local JSON, or preferences.
 - Keyring library choice and the headless-Linux fallback.
 - Automated push: a synchronous outbox with retry, or fire-and-forget.
