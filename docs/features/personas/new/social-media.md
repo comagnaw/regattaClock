@@ -13,10 +13,10 @@ This resolves "Social Post" (`docs/features/TODO.md`) and the "social-text
 publisher" from
 [future-result-driven-persona.md](../future-result-driven-persona.md) —
 both are SOM; SOM is text-only. That doc also sketched a separate
-"social-image publisher" concept (PNG output) — the author has since said
-that is not an expected necessity, so it is not carried forward as a
-placeholder anywhere; a PNG-rendering need, if one arises, is the
-still-unscoped Streamer (STM) persona's job (see "Does not," above).
+"social-image publisher" concept (PNG output); that concept is now
+superseded by **Streamer (STM)** — see
+[new/streamer.md](streamer.md), a standalone Executive-team persona
+built specifically for a live OBS/YouTube feed, not a sidecar.
 
 ## Decisions made (author, 2026-09-16)
 
@@ -30,16 +30,13 @@ still-unscoped Streamer (STM) persona's job (see "Does not," above).
 - **Text format / shared package:** already satisfied. `internal/publish`'s
   Phase 0 sketch (`PublishableRace`, `BuildView`, `RenderText`) is the
   "standard results format" the author asked SOM to share — specifically
-  with the still-unscoped **Streamer (STM)** persona, not Results
-  Publisher (an earlier pass at this doc incorrectly linked it to REP;
-  the author corrected that). SOM posts `RenderText(pr)`'s plain-text
-  table as-is (plus any extra text the operator adds); STM's job, per the
-  author, is to take that **same shared text** and transform it into a
-  PNG — the same underlying per-race, per-lane joined data, two different
-  renderers. SOM depends on `internal/publish` as-is, no new package
-  designed here; STM's text-to-PNG transform is not designed further in
-  this doc either, since STM itself remains unscoped, but the dependency
-  target (`internal/publish`) is confirmed shared between the two.
+  with **Streamer (STM)**, not Results Publisher (an earlier pass at this
+  doc incorrectly linked it to REP; the author corrected that). SOM posts
+  `RenderText(pr)`'s plain-text table as-is (plus any extra text the
+  operator adds); STM's job is to take that **same shared text** and
+  transform it into a PNG — the same underlying per-race, per-lane joined
+  data, two different renderers. See [new/streamer.md](streamer.md) for
+  STM's own design, now scoped.
 - **X API authentication:** unresolved, and deliberately **not**
   researched as part of this doc — flagged as its own prerequisite
   investigation (OAuth flow, developer account/API tier, cost, rate
@@ -71,9 +68,9 @@ still-unscoped Streamer (STM) persona's job (see "Does not," above).
   rendering — plain ASCII-range text is sufficient; nothing in this
   design assumes emoji support anywhere in the edit box, the character
   count, or the eventual X post. Attach to a Start Timer or the
-  Director. The image path is the still-unscoped Streamer (STM)
-  persona's job, per the author — STM takes the same shared text and
-  renders it as a PNG; not designed further here.
+  Director. The image path is [Streamer (STM)](streamer.md)'s job — it
+  takes the same shared text and renders it as a PNG, for its own
+  OBS/YouTube feed use case, not for X; not designed further here.
 - **Entry:** No new entry point or challenge — it's a capability opened
   from an already-running PFT/SFT session's menu
   (`publishMenu()`, Phase 0d), same mechanism as the render-only Phase 0

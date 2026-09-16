@@ -22,11 +22,23 @@ attached to a Finish Timer, not a standalone persona either. It reads
 `finish.json`'s `RaceResult.Approved` directly (via the `internal/publish`
 package `social-media.md` depends on) rather than depending on the
 Results Publisher feature's internals. The **social-image** persona
-sketched below is no longer expected — the author has said it is not a
-necessity, and it is not carried forward as a placeholder in
-`docs/features/TODO.md`. If a PNG-rendering need surfaces later, it is
-the still-unscoped Streamer (STM) persona's job (see `social-media.md`),
-not a separate social-image publisher.
+sketched below is superseded, not deferred: it is now **Streamer (STM)**
+— see [new/streamer.md](new/streamer.md), a standalone Executive-team
+persona (not a sidecar) that renders both lane-assignment and results
+PNGs for a live OBS/YouTube feed, gated on `RaceResult.Approved` the same
+way this doc's own recommendation anticipated.
+
+**Also retired by STM's resolution: the materialized `regattaData/results/`
+directory this doc reserves below ("What to reserve now").** That
+reservation was written for a results/publish persona that, per
+[new/results-publisher.md](new/results-publisher.md), turned out not to be
+a persona at all — and none of the three content-consumer features that
+were ultimately built (Results Publisher, SOM, STM) ever needed it: each
+reads `finish.json` + `regattaSchedule.json` directly via `internal/publish`
+instead. The author confirmed there is no remaining need for this
+directory or the single-writer-cache design below — treat the "What to
+reserve now" section as historical record of a design considered and not
+taken, not live guidance.
 
 **Recommendation up front: defer.** `timing/primary/finish.json` +
 `director/regattaSchedule.json` already carry everything a results-driven persona
@@ -157,6 +169,10 @@ consumer later is cheap and isolated. Roll `results/` into the same feature that
 adds the personas, and treat this doc as the placeholder for that decision.
 
 ## What to reserve now (no code)
+
+**Retired (2026-09-16)** — see the update note near the top of this doc.
+Nothing built ended up needing this reservation; kept below only as a
+record of the design that was considered.
 
 - **Directory:** `regattaData/results/`, reserved for the materialized published
   set — per-race `results/race_NN.json` (matches "one persona targets one race
