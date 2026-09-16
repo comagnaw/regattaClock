@@ -10,6 +10,17 @@ consumers*; the *results/publish persona* named there is the *producer* they
 depend on. See also [persona-plan.md](persona-plan.md) §9 (Director progress
 tree), §13 (open items), and [schedule-data-model.md](schedule-data-model.md).
 
+**Update (2026-09-16):** the "results/publish persona" referenced above as
+the producer these content-consumer personas would depend on has been
+resolved — it is not a persona at all. See
+[new/results-publisher.md](new/results-publisher.md): official results
+publishing (spreadsheet, later RegattaCentral) is a native Primary Finish
+Timer feature. The content-consumer personas assessed below (social-text /
+social-image, aka Social Post / SOM) remain deferred and unaffected by that
+resolution — they would still read `finish.json`'s `RaceResult.Approved`
+directly, per this doc's own recommendation, not depend on the Publisher
+feature's internals.
+
 **Recommendation up front: defer.** `timing/primary/finish.json` +
 `director/regattaSchedule.json` already carry everything a results-driven persona
 needs, including enough to detect a post-approval edit. Introduce a materialized

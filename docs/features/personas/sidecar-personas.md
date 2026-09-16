@@ -13,6 +13,15 @@ timer-priority rule a sidecar inherits) and §13.
 
 **Status:** design assessment + phased build plan. No code yet.
 
+**Update (2026-09-16):** the `register-results` capability sketched below
+(Increment 1, "push official results to RegattaCentral") is **superseded**
+for that specific use case — publishing official results resolved instead
+to a native Primary Finish Timer feature, not a sidecar capability. See
+[new/results-publisher.md](new/results-publisher.md) for the decision and
+why. The `social-post` capability and the general Lead / Standalone /
+Sidecar framework below remain the live design for future social-media
+publishing (SOM) and are unaffected by this.
+
 **Recommendation up front.** Build a **sidecar capability** seam: a publishing task
 attached to whichever **lead** persona is logged in (Regatta Director or a Timer), never
 its own `persona.Definition` / `Team` / `Challenge` / `Session`. The first version
@@ -286,6 +295,13 @@ Update this file's status to "phase 0 shipped". `README.md` and the picker are u
 no new persona.
 
 ### Increment 1 sketch — Register Results
+
+> **Superseded** for the "publish official results" use case — see the
+> update note near the top of this file and
+> [new/results-publisher.md](new/results-publisher.md). Kept below for the
+> RegattaCentral-specific plumbing ideas (`internal/publish` `Target`
+> interface, the outbox/retry shape), which may still be reusable once
+> Results Publisher adds a RegattaCentral destination.
 
 Full design in
 [regattacentral-integration.md](regattacentral-integration.md#write-integration--register-results-phase-d).
