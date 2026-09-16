@@ -176,7 +176,17 @@ implementation. When asked to add one:
    Follow the shape of an existing persona write-up (see the RD/ST/FT entries
    in [personas/README.md](docs/features/personas/README.md)) — what it does,
    what it does not do, its entry point, its constraints — plus whatever the
-   proposal still leaves open.
+   proposal still leaves open. The doc must also include:
+   - **Existing-code reuse analysis** — what's already in the codebase
+     (the persona registry, session/write-path plumbing, `internal/uitheme`,
+     sidecar patterns, …) this persona can build on rather than duplicate.
+   - **A high-level implementation plan** — the shape of the work, weighed
+     against (a) dependencies on existing system architecture and (b) any
+     `docs/features/TODO.md` items this persona's delivery is blocked on or
+     would benefit from landing first. Close the plan with a rough read on
+     *when* the persona could realistically be started, given those
+     dependencies — an ordering, not a date (e.g. "after the
+     `ScheduleOrigin` TODO item lands" or "no blockers, can start now").
 2. **Reference it from `docs/features/TODO.md`** — add a bullet pointing at
    the new doc (the "Persona additions — requirements & constraints not yet
    charted" section is the natural home, matching the existing
