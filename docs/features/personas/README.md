@@ -6,8 +6,9 @@ High-level requirements for multi-persona operation of Regatta Clock.
 
 - [persona-plan.md](persona-plan.md) — implementation plan
 - [schedule-data-model.md](schedule-data-model.md) — slim `regattaSchedule.json` vs start/finish SoT
+- [race-state-machine.md](race-state-machine.md) — the canonical race-lifecycle state machine, attribute ownership, the in-memory-vs-watcher rule, and the pane-of-glass race-tree redesign; the next architecture feature to land, before any not-yet-built persona's implementation
 - [operational-state.md](operational-state.md) — the RD's regatta-creation-time choice of schedule-ingest source and results-publish destination, plus social platform selection
-- [reconciliation.md](reconciliation.md) — combining the two finish teams into one published set
+- [reconciliation.md](reconciliation.md) — how the primary FT manually reconciles the two finish teams (permanently resolved; superseded for state-transition modeling by race-state-machine.md)
 - [future-result-driven-persona.md](future-result-driven-persona.md) — assessment: content-publishing personas downstream of results
 - [logging-options.md](logging-options.md) — JSON event logging design
 - [shared-storage-options.md](shared-storage-options.md) — SMB / spare-PC vs cloud sync
