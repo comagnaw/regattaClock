@@ -55,6 +55,31 @@ func TestThemedColor_LightDefersToDefault(t *testing.T) {
 	}
 }
 
+func TestThemedColor_LightDisabledIsDarkerThanDefault(t *testing.T) {
+	light := Themed(theme.VariantLight)
+
+	got := light.Color(theme.ColorNameDisabled, theme.VariantLight)
+	if got != color.Color(disabledLight) {
+		t.Errorf("light disabled = %v, want disabledLight %v", got, disabledLight)
+	}
+
+	// Fyne's own default light disabled grey (#E3E3E3) has too little contrast
+	// against a light background to read reliably - assert the override is
+	// meaningfully darker, not just different.
+	def := theme.DefaultTheme().Color(theme.ColorNameDisabled, theme.VariantLight)
+	gr, gg, gb, _ := got.RGBA()
+	dr, dg, db, _ := def.RGBA()
+	if gr >= dr || gg >= dg || gb >= db {
+		t.Errorf("light disabled %v is not darker than the default %v", got, def)
+	}
+
+	// Semantic colours stay untouched in light mode too.
+	if got, want := light.Color(theme.ColorNameError, theme.VariantLight),
+		theme.DefaultTheme().Color(theme.ColorNameError, theme.VariantLight); got != want {
+		t.Errorf("light error = %v, want the default %v (semantic colours are not retinted)", got, want)
+	}
+}
+
 func TestReverseCardColors_SwapByVariant(t *testing.T) {
 	card, ink := ReverseCardColors(theme.VariantLight)
 	if card != color.Color(BrandNavy) || ink != color.Color(White) {
