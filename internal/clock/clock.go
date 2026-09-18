@@ -320,6 +320,7 @@ func (c *Clock) OpenRaceClock() {
 	c.applyWindowTitle()
 	c.window.SetContent(c.content())
 	c.window.Resize(fyne.NewSize(clockWidth, clockHeight))
+	c.window.CenterOnScreen()
 
 	// Lap widgets exist only after content() runs, so a saved race is restored
 	// here rather than in NewClock.

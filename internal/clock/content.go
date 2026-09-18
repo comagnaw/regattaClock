@@ -71,12 +71,22 @@ func bandLogo(height float32) *canvas.Image {
 	return img
 }
 
-// content - the race clock laid out in two banded zones: a "Timing" band (which
-// also carries the race title and the wordmark, so it doubles as the window
-// heading) over the stopwatch / run controls / lap grid / winning-time field,
-// then a "Results" band over a reverse-contrast card (the per-lane readout),
-// matching the race tree's accent-band / reverse-card visual language. The
-// referee / save panel sits below on the plain surface.
+// content - the race clock laid out as a fixed top over a scrollable bottom,
+// so a high-DPI-scaled display (e.g. Windows at 150%) that can't fit the
+// whole window on screen loses the least-time-critical content first rather
+// than clipping unreachable content with no way to get to it. The top -
+// the "Timing" band (which also carries the race title and the wordmark, so
+// it doubles as the window heading), the stopwatch, run controls, lap grid,
+// and winning-time field - is never scrolled: per AGENTS.md, timing clicks
+// are the highest-priority path and must always be reachable at full size.
+// Below that, the referee/save panel comes first, then the "Results" band
+// over a reverse-contrast card (the per-lane readout) - approval is the
+// thing an operator still needs to *act on*; results are already known (the
+// operator just captured them), so it is the part most likely to be
+// scrolled past if the window is cut off. Both sit inside one
+// container.NewVScroll, which - per Fyne's own behavior, not any custom
+// screen-size detection - only shows a scrollbar when its content doesn't
+// fit; on a normal-DPI display this renders identically to before.
 func (c *Clock) content() *fyne.Container {
 	variant := clockThemeVariant()
 
@@ -87,22 +97,26 @@ func (c *Clock) content() *fyne.Container {
 		c.winningTimeInput(),
 	)
 
-	results := container.NewVBox(
-		container.NewPadded(c.resultsPanel()),
-	)
-
-	root := container.NewVBox(
+	top := container.NewVBox(
 		c.skewBannerWidget(),
 		c.scheduleBannerWidget(),
 
 		c.timingBand(),
 		timing,
+	)
+
+	results := container.NewVBox(
+		container.NewPadded(c.resultsPanel()),
+	)
+
+	bottom := container.NewVBox(
+		c.approvalPanel(),
 
 		uitheme.AccentBand(text.BoldLabelCenter(common.ClockResultsZoneLabel), zoneBandVPad),
 		uitheme.FullBleed(uitheme.ReverseCard(variant, results)),
-
-		c.approvalPanel(),
 	)
+
+	root := container.NewBorder(top, nil, nil, nil, container.NewVScroll(bottom))
 	c.refreshCompareButton()
 	return root
 }
