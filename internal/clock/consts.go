@@ -6,7 +6,7 @@ const (
 	// smaller than the pre-polish 1240x800: the inputs no longer stretch the
 	// whole frame and the results columns are capped with ellipsis truncation.
 	clockWidth  = float32(880)
-	clockHeight = float32(962)
+	clockHeight = float32(920)
 
 	// The lanes table has seven columns (a narrow row-label column + six lanes).
 	// resultsPanel() derives the lane-column width and the exact viewport size
@@ -47,6 +47,11 @@ const (
 	// Clear buttons so the rapid-tap targets are not crowded together.
 	controlGap = float32(24)
 
+	// controlRowSideMargin - breathing room between the controls+approval row
+	// and the window's left/right edges, so the outermost buttons (Start,
+	// Close) don't sit flush against the frame.
+	controlRowSideMargin = float32(16)
+
 	// comparePaneWidth / comparePaneHeight - the independent, non-blocking
 	// Compare Secondary window the PFT opens beside the clock. Width matches the
 	// clock so the two read as one surface; height leaves room for the skew
@@ -57,6 +62,10 @@ const (
 	// winningEntryWidth - the Winning Time entry is a fixed narrow field beside
 	// its label, not a full-width form row.
 	winningEntryWidth = float32(150)
+
+	// winningNoteWidth - fixed width for the helper note beside the Winning
+	// Time field, so its text changing doesn't shift the entry field itself.
+	winningNoteWidth = float32(300)
 
 	// winningTopGap - extra space above the Winning Time row so it reads as its
 	// own step, set apart from the lap grid.

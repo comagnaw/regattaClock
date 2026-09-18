@@ -76,23 +76,22 @@ func bandLogo(height float32) *canvas.Image {
 // whole window on screen loses the least-time-critical content first rather
 // than clipping unreachable content with no way to get to it. The top -
 // the "Timing" band (which also carries the race title and the wordmark, so
-// it doubles as the window heading), the stopwatch, run controls, lap grid,
-// and winning-time field - is never scrolled: per AGENTS.md, timing clicks
-// are the highest-priority path and must always be reachable at full size.
-// Below that, the referee/save panel comes first, then the "Results" band
-// over a reverse-contrast card (the per-lane readout) - approval is the
-// thing an operator still needs to *act on*; results are already known (the
-// operator just captured them), so it is the part most likely to be
-// scrolled past if the window is cut off. Both sit inside one
-// container.NewVScroll, which - per Fyne's own behavior, not any custom
-// screen-size detection - only shows a scrollbar when its content doesn't
-// fit; on a normal-DPI display this renders identically to before.
+// it doubles as the window heading), the stopwatch, run controls beside the
+// approval buttons with the commit-status line under them, lap grid, and
+// winning-time field - is never scrolled: per AGENTS.md, timing clicks are
+// the highest-priority path, and the approval buttons (Referee/Save/Close)
+// are exactly what an operator still needs to *act on*, so both must always
+// be reachable at full size. Below that, only the "Results" band over a
+// reverse-contrast card (the per-lane readout, already known once captured)
+// sits inside container.NewVScroll, which - per Fyne's own behavior, not any
+// custom screen-size detection - only shows a scrollbar when its content
+// doesn't fit; on a normal-DPI display this renders identically to before.
 func (c *Clock) content() *fyne.Container {
 	variant := clockThemeVariant()
 
 	timing := container.NewVBox(
 		container.NewCenter(c.clock),
-		c.controlPanel(),
+		c.controlsAndApprovalPanel(),
 		c.lapsContainer(),
 		c.winningTimeInput(),
 	)
@@ -110,8 +109,6 @@ func (c *Clock) content() *fyne.Container {
 	)
 
 	bottom := container.NewVBox(
-		c.approvalPanel(),
-
 		uitheme.AccentBand(text.BoldLabelCenter(common.ClockResultsZoneLabel), zoneBandVPad),
 		uitheme.FullBleed(uitheme.ReverseCard(variant, results)),
 	)
@@ -193,10 +190,17 @@ func (c *Clock) skewBannerWidget() fyne.CanvasObject {
 	return c.skewBanner
 }
 
-// controlPanel - the run controls, at their natural size and centred rather than
-// stretched across the whole frame.
-func (c *Clock) controlPanel() *fyne.Container {
-	return container.NewCenter(container.NewHBox(
+// controlsAndApprovalPanel - the run controls (Start/Lap/Stop/Clear) beside
+// whichever approval buttons currently apply, on one row, with the
+// commit-status line directly under it. The primary FT gets Compare
+// Secondary (only once there is a secondary mirror to compare) and Referee
+// Approval + Close (Close disabled until approved); the Secondary Finish
+// Timer has no Referee Approval step (reconciliation.md) - just Save.
+// Keeping this whole block out of the scrollable region means the buttons
+// an operator must act on are always reachable regardless of window height
+// (the PC-scale overflow fix).
+func (c *Clock) controlsAndApprovalPanel() *fyne.Container {
+	controls := container.NewHBox(
 		c.buttons.start,
 		hgap(controlGap),
 		c.buttons.lap,
@@ -204,7 +208,27 @@ func (c *Clock) controlPanel() *fyne.Container {
 		c.buttons.stop,
 		hgap(controlGap),
 		c.buttons.clear,
-	))
+	)
+
+	var approval []fyne.CanvasObject
+	if c.isPrimaryFinish() && c.secondaryFinish != nil {
+		approval = append(approval, c.buttons.compare, hgap(controlGap))
+	}
+	if c.isSecondaryFinish() {
+		approval = append(approval, c.buttons.save)
+	} else {
+		approval = append(approval, c.buttons.referee, hgap(controlGap), c.buttons.close)
+	}
+
+	row := container.New(
+		layout.NewCustomPaddedLayout(0, 0, controlRowSideMargin, controlRowSideMargin),
+		container.NewBorder(nil, nil, controls, container.NewHBox(approval...)),
+	)
+
+	return container.NewVBox(
+		row,
+		uitheme.AccentBand(c.commitStatus, zoneBandVPad),
+	)
 }
 
 // lapsContainer - the lap grid: a bold header row over six fixed-width data
@@ -229,32 +253,26 @@ func (c *Clock) lapsContainer() *fyne.Container {
 }
 
 // winningTimeInput - a compact labelled field for the official winning time of
-// the first boat across the line (the total from race start to finish). The
-// note line under it says where a pre-filled value came from, or why there is
-// none (persona-plan.md 2.1); its space is reserved up front so the window
-// geometry never changes after Start is pressed.
+// the first boat across the line (the total from race start to finish),
+// with a note to its right saying where a pre-filled value came from, or why
+// there is none (persona-plan.md 2.1). The note has a fixed width so its text
+// changing doesn't shift the entry field.
 func (c *Clock) winningTimeInput() *fyne.Container {
+	label := text.BoldLabel(common.WinningTimeInputText)
 	entry := container.NewGridWrap(
 		fyne.NewSize(winningEntryWidth, c.winningTime.MinSize().Height),
 		c.winningTime,
 	)
-	label := text.BoldLabel(common.WinningTimeInputText)
-	inner := container.NewHBox(label, entry)
-
-	// Left-align the label with the lap grid's left edge by sizing the row to the
-	// lap-grid width and letting the HBox pack left inside it, then centring that
-	// block the same way the lap grid is centred.
-	gridW := lapGridWidth()
-	row := container.NewCenter(container.NewGridWrap(fyne.NewSize(gridW, inner.MinSize().Height), inner))
 
 	c.winningNote = text.Wrapping(common.EmptyString)
 	c.winningNote.Importance = widget.MediumImportance
-	noteArea := container.NewGridWrap(fyne.NewSize(gridW, winningNoteHeight), c.winningNote)
+	noteArea := container.NewGridWrap(fyne.NewSize(winningNoteWidth, c.winningTime.MinSize().Height), c.winningNote)
+
+	row := container.NewCenter(container.NewHBox(label, entry, hgap(controlGap), noteArea))
 
 	return container.NewVBox(
 		vgap(winningTopGap),
 		row,
-		container.NewCenter(noteArea),
 	)
 }
 
@@ -266,31 +284,3 @@ func (c *Clock) initCommitStatus() {
 	c.commitStatus.Importance = widget.MediumImportance
 }
 
-// approvalPanel - the panel that makes the results official, with a status line
-// under it. The primary FT gets Referee Approval + Close (Close disabled until
-// approved); the Secondary Finish Timer has no Referee Approval step
-// (reconciliation.md) - its panel is a single Save and Close button.
-func (c *Clock) approvalPanel() *fyne.Container {
-	var row *fyne.Container
-	if c.isSecondaryFinish() {
-		row = container.NewHBox(layout.NewSpacer(), c.buttons.save, layout.NewSpacer())
-	} else {
-		row = container.NewHBox(
-			layout.NewSpacer(),
-			c.buttons.referee,
-			layout.NewSpacer(),
-			c.buttons.close,
-			layout.NewSpacer(),
-		)
-	}
-
-	panel := container.NewVBox()
-	// The primary FT gets a Compare Secondary toggle on its own row above the
-	// commit buttons, but only once there is a secondary mirror to compare.
-	if c.isPrimaryFinish() && c.secondaryFinish != nil {
-		panel.Add(container.NewCenter(c.buttons.compare))
-	}
-	panel.Add(row)
-	panel.Add(uitheme.AccentBand(c.commitStatus, zoneBandVPad))
-	return panel
-}
