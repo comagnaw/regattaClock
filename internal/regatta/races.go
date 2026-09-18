@@ -51,25 +51,43 @@ func (r *Regatta) showRaceTree() {
 	r.window.SetContent(r.treeContent)
 }
 
-// treeTitle - the loaded regatta's details as a framed card: a 2x2 grid of
-// left-aligned "Key: Value" lines (Regatta / Scheduled Races on the first row,
-// Date / Role on the second). The card is painted in reverse contrast against
-// the window - a white card with brand-navy text on the dark theme, a brand-navy
-// card with white text on the light theme - so it stands clearly apart from the
-// wordmark above and the race list below. The colours key off the in-app theme
-// choice (r.themeVariant), not Fyne's builtin palette, which tracks the OS
-// appearance and can disagree; they are re-applied on every build so a theme
-// switch followed by a navigation picks up the change.
+// treeTitle - the loaded regatta's details as a framed card: two independently
+// sized Key:/Value column blocks side by side - the left holding Regatta and
+// Date, the right holding Scheduled Races and Role - so each column's own
+// colons line up regardless of how long its two keys are. A single
+// leading-aligned "Key: Value" string per cell left the colons staggered; a
+// single uniform 8-column grid instead sized every column to the single
+// widest cell, ballooning the card's width, so each side is its own
+// layout.FormLayout (label column sized to its own two keys, value column
+// taking the rest). The card is painted in reverse contrast against the
+// window - a white card with brand-navy text on the dark theme, a brand-navy
+// card with white text on the light theme - so it stands clearly apart from
+// the wordmark above and the race list below. The colours key off the in-app
+// theme choice (r.themeVariant), not Fyne's builtin palette, which tracks the
+// OS appearance and can disagree; they are re-applied on every build so a
+// theme switch followed by a navigation picks up the change.
 func (r *Regatta) treeTitle() *fyne.Container {
 	card, ink := uitheme.ReverseCardColors(r.themeVariant)
 	for _, t := range []*canvas.Text{r.title, r.subtitle, r.date, r.persona} {
 		t.Color = ink
 	}
 
-	grid := container.NewGridWithColumns(2,
-		r.title, r.subtitle,
-		r.date, r.persona,
+	key := func(label string) *canvas.Text {
+		t := text.Header3(label)
+		t.Alignment = fyne.TextAlignTrailing
+		t.Color = ink
+		return t
+	}
+
+	left := container.New(layout.NewFormLayout(),
+		key(common.TreeRegattaKey), r.title,
+		key(common.TreeDateKey), r.date,
 	)
+	right := container.New(layout.NewFormLayout(),
+		key(common.TreeScheduledRacesKey), r.subtitle,
+		key(common.TreeRoleKey), r.persona,
+	)
+	grid := container.NewHBox(left, right)
 	body := container.New(
 		layout.NewCustomPaddedLayout(viewMargin, viewMargin, viewMargin, viewMargin),
 		grid,

@@ -136,17 +136,16 @@ const (
 	NumScheduledRacesTitle = "Scheduled Races: %d"
 	ScheduledRacesTile     = "Scheduled Races"
 
-	// TreeRegattaLabel / TreeDateLabel - the race-tree details panel shows the
-	// regatta name and date in the same "Key: Value" form as PersonaHeaderFormat
-	// and NumScheduledRacesTitle, so the four fields read as one 2x2 block.
-	TreeRegattaLabel = "Regatta: %s"
-	TreeDateLabel    = "Date: %s"
+	// TreeRegattaKey / TreeScheduledRacesKey / TreeDateKey / TreeRoleKey - the
+	// race-tree details panel's four "Key:" labels, rendered as their own
+	// right-aligned column so the colons line up against a left-aligned value
+	// column regardless of how long each key is (treeTitle in races.go).
+	TreeRegattaKey        = "Regatta:"
+	TreeScheduledRacesKey = "Scheduled Races:"
+	TreeDateKey           = "Date:"
+	TreeRoleKey           = "Role:"
 
-	// PersonaHeaderFormat labels the race-tree header with the operator's role;
-	// WindowTitleFormat puts it in the OS title bar next to the app name, and is
-	// reused for the race-clock window ("Race N Clock — <role>").
-	PersonaHeaderFormat = "Role: %s"
-	WindowTitleFormat   = "%s — %s"
+	WindowTitleFormat = "%s — %s"
 
 	// ClockWindowTitleFormat - the race-clock window's OS title bar before the
 	// persona is known. Once it is, the role is appended via WindowTitleFormat.
