@@ -72,8 +72,13 @@ func (c *Clock) recordFirstFinish() {
 //     recompute when UpdateStartTime delivers one (persona-plan.md 2.2).
 //   - Negative or implausibly long: the ST time is bad or stale; suppress the
 //     auto-fill and leave manual entry.
+//   - skipAutoWinningTime: the operator confirmed re-timing a previously
+//     approved race (initClear) - the ST's recorded start is not a
+//     meaningful reference point for a race that already happened, so the
+//     field is left for the referee's own entry for the rest of this
+//     session.
 func (c *Clock) deriveWinningTime() bool {
-	if !c.canPersist() {
+	if !c.canPersist() || c.clockState.skipAutoWinningTime {
 		return false
 	}
 	n := c.raceData.RaceNumber

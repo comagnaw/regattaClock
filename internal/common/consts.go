@@ -168,6 +168,8 @@ const (
 	StartTimeButtonText      = "Start Time"
 	ClearButtonText          = "Clear"
 	RestoreButtonText        = "Restore"
+	ClearApprovedRaceTitle   = "Discard the approved result?"
+	ClearApprovedRaceMessage = "Race %d was already approved with winning time %s. Clearing it now will discard that approved result so it can be re-timed. This should be rare - are you sure?"
 	NoStartTimeText          = "—"
 	WaitingForStartText      = "awaiting start"          // FT race-tree Start Time cell before the peer start lands (fits the start-time column)
 	StartNotCollectedText    = "no start time"           // FT race-tree Start Time cell once a result is saved/approved and no start was recorded
