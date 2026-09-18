@@ -69,6 +69,7 @@ stateDiagram-v2
     StartRecorded --> TimingInProgress: FT clicks clock Start
     TimingInProgress --> Saved: Secondary FT clicks Save and Close (terminal)
     TimingInProgress --> Approved: Primary FT clicks Referee Approval (terminal)
+    Approved --> NotStarted: Primary FT confirms Clear (rare, guarded)
 ```
 
 This is [reconciliation.md](reconciliation.md)'s existing milestone ladder,
@@ -81,6 +82,18 @@ commit path is Referee Approval); **`Approved` is reachable only by the
 primary team** (the secondary FT's clock has no Referee Approval control at
 all — `RaceResult.Approved` is permanently `false` in
 `timing/secondary/finish.json`).
+
+**`Approved` is terminal in the ordinary flow, with one explicit, guarded
+exception.** The primary FT's Clear button, reopened against an already-
+approved race, requires confirmation before it fully resets the in-memory
+`RaceResult` (not just UI state) — a deliberate re-time, not a routine
+action. Confirming it also suppresses winning-time auto-derivation for the
+rest of that clock session: the Start Timer's original start time is not a
+meaningful reference point for a race that already happened, so the
+winning time is left for the referee's own direct entry rather than
+re-trusting stale timing data. Clear on a *not-yet-approved* race needs no
+confirmation and behaves exactly as the ordinary "mistaken first Start
+click" case always has.
 
 **Derived, not stored.** No field named "state" exists anywhere — every
 consumer derives it from `RaceResult`/`StartRecord` on the fly. Today this

@@ -10,6 +10,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/comagnaw/regattaClock/internal/common"
+	"github.com/comagnaw/regattaClock/internal/persona/store"
 )
 
 type buttons struct {
@@ -128,35 +129,71 @@ func (c *Clock) initStop() *widget.Button {
 	})
 }
 
-// initClear - initialize clear button
+// initClear - initialize clear button. Fully resets this race's in-memory
+// timing state, not just the UI, so a fresh Start click always derives a
+// fresh winning time rather than reusing a stale FirstFinishAt left over
+// from a previous run in this same session. If the race was already
+// approved, discarding it requires explicit confirmation first: Clear is
+// meant for a mistaken first run before anything is committed, not a
+// casual way to flush an official result. Like before, nothing is written
+// to disk here - Clear stays purely in-memory until the operator actually
+// starts timing again.
 func (c *Clock) initClear() *widget.Button {
-	return widget.NewButton("Clear", func() {
-		if c.isNotRunning() {
-
-			c.clockState.isRunning = false
-			c.clockState.isCleared = true
-			if c.compareWindow != nil {
-				c.compareWindow.Close() // this race is being started over
-			}
-
-			c.clock.Text = common.ZeroTime
-
-			c.lapCount = 1
-
-			c.results = initResults(c.raceData)
-
-			c.initWinningTime()
-
-			c.initButtons()
-
-			c.initCommitStatus()
-
-			c.window.SetContent(c.content())
-
-			c.window.Content().Refresh()
-
+	return widget.NewButton(common.ClearButtonText, func() {
+		if !c.isNotRunning() {
+			return
 		}
+		if c.raceCommitState() == stateApproved {
+			res := c.finishLog.Races[c.raceData.RaceNumber]
+			dialog.ShowConfirm(
+				common.ClearApprovedRaceTitle,
+				fmt.Sprintf(common.ClearApprovedRaceMessage, c.raceData.RaceNumber, res.WinningTime),
+				func(yes bool) {
+					if !yes {
+						return
+					}
+					// The ST's recorded start is not a meaningful reference
+					// point for a race that already happened - manual entry
+					// only for the rest of this session (deriveWinningTime).
+					c.clockState.skipAutoWinningTime = true
+					c.performClear()
+				},
+				c.window,
+			)
+			return
+		}
+		c.performClear()
 	})
+}
+
+// performClear resets this race's in-memory timing state and UI to a fresh,
+// never-started state. Called directly for a not-yet-approved race, or
+// after operator confirmation for an approved one (initClear).
+func (c *Clock) performClear() {
+	c.clockState.isRunning = false
+	c.clockState.isCleared = true
+	if c.compareWindow != nil {
+		c.compareWindow.Close() // this race is being started over
+	}
+
+	n := c.raceData.RaceNumber
+	c.setRace(n, store.RaceResult{RaceNumber: n})
+
+	c.clock.Text = common.ZeroTime
+
+	c.lapCount = 1
+
+	c.results = initResults(c.raceData)
+
+	c.initWinningTime()
+
+	c.initButtons()
+
+	c.initCommitStatus()
+
+	c.window.SetContent(c.content())
+
+	c.window.Content().Refresh()
 }
 
 // initStart - initialize referee button.

@@ -90,6 +90,105 @@ func TestClockApprovalWritesFullResult(t *testing.T) {
 	}
 }
 
+// approveRace1 times and approves race 1 with a known winning time, the
+// shared setup for the Clear-after-approval tests below.
+func approveRace1(clk *Clock) {
+	clk.buttons.start.OnTapped()
+	clk.laps.setOOFLaneNum(0, "3")
+	clk.laps.setPlace(0, "1")
+	clk.laps.setSplit(0, "00:05.0")
+	clk.laps.setCalculatedTime(0, "01:05.0")
+	clk.buttons.stop.OnTapped()
+	clk.winningTime.SetText("01:00.0")
+	clk.refereeApprovalFunc(1)(true)
+}
+
+// TestClearOnApprovedRace_RequiresConfirmation - docs/features/PRE-RELEASE-BUGS.md
+// corner case: Clear must not silently discard an approved result. Tapping
+// it should raise a confirm dialog and change nothing until answered.
+func TestClearOnApprovedRace_RequiresConfirmation(t *testing.T) {
+	s := pftSession(t)
+	log := &store.FinishLog{Races: map[int]store.RaceResult{}}
+	clk := openBoundClock(t, s, log)
+	approveRace1(clk)
+	before := log.Races[1]
+
+	clk.buttons.clear.OnTapped()
+
+	got := log.Races[1]
+	if got.Approved != before.Approved || got.WinningTime != before.WinningTime ||
+		got.FirstFinishAt != before.FirstFinishAt || len(got.Rows) != len(before.Rows) {
+		t.Errorf("Clear on an approved race must not mutate anything before confirmation: got %+v, want %+v", got, before)
+	}
+	if len(clk.window.Canvas().Overlays().List()) == 0 {
+		t.Error("Clear on an approved race should raise a confirm dialog")
+	}
+}
+
+// TestClearOnApprovedRace_ConfirmedResetFixesStaleFirstFinish - the actual
+// bug: after a confirmed re-time, the previous approved FirstFinishAt must
+// not survive to corrupt the next winning-time calculation, and the winning
+// time must be left for manual entry (the ST's old start time is not a
+// meaningful reference point for a race that already happened).
+func TestClearOnApprovedRace_ConfirmedResetFixesStaleFirstFinish(t *testing.T) {
+	s := pftSession(t)
+	log := &store.FinishLog{Races: map[int]store.RaceResult{}}
+	clk := openBoundClock(t, s, log)
+	approveRace1(clk)
+	staleFinish := log.Races[1].FirstFinishAt
+
+	// What initClear's confirm callback does once the operator answers Yes.
+	clk.clockState.skipAutoWinningTime = true
+	clk.performClear()
+
+	if res := log.Races[1]; res.FirstFinishAt != nil || res.WinningTime != "" || res.Approved {
+		t.Fatalf("performClear should fully reset the race, got %+v", res)
+	}
+
+	clk.buttons.start.OnTapped()
+
+	res := log.Races[1]
+	if res.FirstFinishAt == nil {
+		t.Fatal("a fresh Start click should record a new FirstFinishAt")
+	}
+	if staleFinish != nil && res.FirstFinishAt.Equal(*staleFinish) {
+		t.Error("FirstFinishAt still matches the pre-Clear approved value - the stale-data bug is back")
+	}
+	if res.WinningTime != "" || clk.winningTime.Text != "" {
+		t.Errorf("winning time should stay manual-entry only after a confirmed re-time, got record=%q field=%q",
+			res.WinningTime, clk.winningTime.Text)
+	}
+}
+
+// TestClearOnUnapprovedRace_NoConfirmationNeeded - the ordinary "I
+// mis-clicked Start" case stays exactly as before: Clear resets instantly,
+// no dialog, and now also fully resets the in-memory RaceResult (not just
+// UI state) so a stale FirstFinishAt can never survive a Clear regardless
+// of approval state.
+func TestClearOnUnapprovedRace_NoConfirmationNeeded(t *testing.T) {
+	s := pftSession(t)
+	log := &store.FinishLog{Races: map[int]store.RaceResult{}}
+	clk := openBoundClock(t, s, log)
+
+	clk.buttons.start.OnTapped()
+	if log.Races[1].FirstFinishAt == nil {
+		t.Fatal("precondition: Start should have recorded FirstFinishAt")
+	}
+	clk.buttons.stop.OnTapped()
+
+	clk.buttons.clear.OnTapped()
+
+	if len(clk.window.Canvas().Overlays().List()) != 0 {
+		t.Error("Clear on a not-yet-approved race should not raise a confirm dialog")
+	}
+	if res := log.Races[1]; res.FirstFinishAt != nil || res.WinningTime != "" {
+		t.Errorf("Clear should fully reset the race even before approval, got %+v", res)
+	}
+	if !clk.clockState.isCleared {
+		t.Error("clockState.isCleared should be true after Clear")
+	}
+}
+
 func TestClockStampsLaneMapHash(t *testing.T) {
 	s := pftSession(t)
 	log := &store.FinishLog{Races: map[int]store.RaceResult{}}
