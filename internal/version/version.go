@@ -85,9 +85,6 @@ func Get() Current {
 	}
 
 	c.Source = RepoURL
-	if RepoURL != dev && RepoURL != "" && c.Commit != dev && c.Commit != "" {
-		c.Source = RepoURL + "/commit/" + c.Commit
-	}
 	return c
 }
 
