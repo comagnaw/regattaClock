@@ -16,7 +16,7 @@ import (
 
 func TestPrimaryFinish_PanelHasRefereeAndClose(t *testing.T) {
 	clk := openBoundClock(t, pftSession(t), &store.FinishLog{Races: map[int]store.RaceResult{}})
-	labels := buttonLabels(clk.approvalPanel())
+	labels := buttonLabels(clk.controlsAndApprovalPanel())
 
 	if !slices.Contains(labels, common.RefereeButtonText) || !slices.Contains(labels, common.CloseButtonText) {
 		t.Errorf("primary approval panel should have Referee Approval + Close: %v", labels)
@@ -49,7 +49,7 @@ func TestPrimaryFinish_CommitStatusOnAccentBand(t *testing.T) {
 			walk(v.Content)
 		}
 	}
-	walk(clk.approvalPanel())
+	walk(clk.controlsAndApprovalPanel())
 
 	if !found {
 		t.Error("approval panel should carry an AccentBand (LogoWaterBlue fill) under the commit status line")

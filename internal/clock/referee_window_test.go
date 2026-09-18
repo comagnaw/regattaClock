@@ -249,39 +249,33 @@ func TestScalingGridLayout_FontScalesWithWidth(t *testing.T) {
 	}
 }
 
-// TestContent_TimingStaysFixedApprovalBeforeResults - the fix for the
-// PC-scale window-overflow bug: timing controls (Start/Lap/Stop/Clear)
-// must never require a scroll to reach, and within the scrollable region
-// the approval panel comes before the results card, so a cut-off window
-// still shows the actionable buttons before the already-known results.
-func TestContent_TimingStaysFixedApprovalBeforeResults(t *testing.T) {
+// TestContent_TimingAndApprovalStayFixedAboveResults - the fix for the
+// PC-scale window-overflow bug: timing controls (Start/Lap/Stop/Clear) and
+// the approval buttons (Referee/Close) sit together above the scrollable
+// region and must never require a scroll to reach; only the Results card,
+// already-known information rather than something to act on, may scroll.
+func TestContent_TimingAndApprovalStayFixedAboveResults(t *testing.T) {
 	clk := openBoundClock(t, pftSession(t), &store.FinishLog{Races: map[int]store.RaceResult{}})
 	root := clk.window.Content()
 
 	for _, label := range []string{
 		common.StartButtonText, common.LapButtonText, common.StopButtonText, common.ClearButtonText,
+		common.RefereeButtonText, common.CloseButtonText,
 	} {
 		found, inScroll := findButtonScrollAware(root, label, false)
 		if !found {
 			t.Errorf("%q should be reachable", label)
 		}
 		if inScroll {
-			t.Errorf("%q must stay outside the scroll region (timing controls are never scrolled)", label)
+			t.Errorf("%q must stay outside the scroll region (timing and approval controls are never scrolled)", label)
 		}
 	}
 
 	scroll := findScroll(root)
 	if scroll == nil {
-		t.Fatal("expected a scrollable region under the results/approval area")
+		t.Fatal("expected a scrollable region under the results area")
 	}
-	bottom, ok := scroll.Content.(*fyne.Container)
-	if !ok || len(bottom.Objects) < 2 {
-		t.Fatalf("scroll content shape = %+v, want a multi-item container", scroll.Content)
-	}
-	if found, _ := findButtonScrollAware(bottom.Objects[0], common.RefereeButtonText, true); !found {
-		t.Error("the approval panel should be the first item in the scrollable region, ahead of Results")
-	}
-	if found, _ := findButtonScrollAware(bottom.Objects[0], common.ClockResultsZoneLabel, true); found {
-		t.Error("Results should not appear before the approval panel in the scrollable region")
+	if found, _ := findButtonScrollAware(scroll.Content, common.RefereeButtonText, true); found {
+		t.Error("the approval panel should not be inside the scrollable region")
 	}
 }
