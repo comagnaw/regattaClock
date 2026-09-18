@@ -60,6 +60,7 @@ remaining work:
 - [ ] Timer-side staleness indicator in the race tree — "start times last updated N s ago" from the watcher's last-change time — [persona-plan.md](personas/persona-plan.md#12-windows-storage-modes-cloud-synced-folder-and-local-smb)
 - [ ] Resolve the remaining open items — cross-team FT→ST start fallback (with explicit confirmation) and an RD override for an ST locked on the wrong race — [persona-plan.md](personas/persona-plan.md#13-open-items)
 - [ ] Optional niceties — a user-initiated `w32tm /resync` button in Director config; size-based log rotation plus a Director "collect logs" (clipboard / zip) action; remote syslog export behind a second preference — [persona-plan.md](personas/persona-plan.md#13-open-items), [logging-options.md](personas/logging-options.md)
+- [ ] Windows folder-picker hang on a stale/disconnected mapped network drive — `dialog.NewFolderOpen`'s sidebar enumerates every drive letter and calls `os.Stat` on each before showing, which can hang indefinitely (docs/features/PRE-RELEASE-BUGS.md, Bug 3). Current mitigation is operator-side (README.md's Troubleshooting section); investigate a Fyne version bump that might fix this upstream, or a custom enumeration-free directory picker, before this becomes an app-level fix — [README.md](../README.md#troubleshooting)
 
 ## Persona additions — requirements & constraints not yet charted
 
