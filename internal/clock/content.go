@@ -277,6 +277,6 @@ func (c *Clock) approvalPanel() *fyne.Container {
 		panel.Add(container.NewCenter(c.buttons.compare))
 	}
 	panel.Add(row)
-	panel.Add(c.commitStatus)
+	panel.Add(uitheme.AccentBand(c.commitStatus, zoneBandVPad))
 	return panel
 }
