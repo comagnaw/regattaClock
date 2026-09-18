@@ -78,6 +78,13 @@ var darkSurfaces = map[fyne.ThemeColorName]color.Color{
 	theme.ColorNameSeparator:           shade(BrandNavy, -0.09),
 }
 
+// disabledLight - Fyne's default light-theme disabled color (#E3E3E3) is
+// nearly indistinguishable from a white background, which made read-only
+// fields like the RD's xlsx/directory readouts (widget.Entry.Disable()) hard
+// to read. A neutral dark grey, not tied to BrandNavy since the light theme's
+// other surfaces stay neutral (see the dark-mode-only comment below).
+var disabledLight = color.NRGBA{R: 0x5C, G: 0x5C, B: 0x5C, A: 0xFF}
+
 // Color on Theme resolves the brand overrides, then defers to the default theme.
 func (t *Theme) Color(name fyne.ThemeColorName, _ fyne.ThemeVariant) color.Color {
 	// The accent is branding rather than a surface, so it applies to both variants.
@@ -91,6 +98,12 @@ func (t *Theme) Color(name fyne.ThemeColorName, _ fyne.ThemeVariant) color.Color
 		if tinted, ok := darkSurfaces[name]; ok {
 			return tinted
 		}
+	}
+
+	// The one light-mode exception: Fyne's default disabled grey has too little
+	// contrast against a light background to read reliably.
+	if t.variant == theme.VariantLight && name == theme.ColorNameDisabled {
+		return disabledLight
 	}
 
 	return t.Theme.Color(name, t.variant)
