@@ -53,7 +53,7 @@ func (r *Regatta) showRaceTree() {
 
 // treeTitle - the loaded regatta's details as a framed card: two independently
 // sized Key:/Value column blocks side by side - the left holding Regatta and
-// Date, the right holding Scheduled Races and Role - so each column's own
+// Scheduled Races, the right holding Date and Role - so each column's own
 // colons line up regardless of how long its two keys are. A single
 // leading-aligned "Key: Value" string per cell left the colons staggered; a
 // single uniform 8-column grid instead sized every column to the single
@@ -81,10 +81,10 @@ func (r *Regatta) treeTitle() *fyne.Container {
 
 	left := container.New(layout.NewFormLayout(),
 		key(common.TreeRegattaKey), r.title,
-		key(common.TreeDateKey), r.date,
+		key(common.TreeScheduledRacesKey), r.subtitle,
 	)
 	right := container.New(layout.NewFormLayout(),
-		key(common.TreeScheduledRacesKey), r.subtitle,
+		key(common.TreeDateKey), r.date,
 		key(common.TreeRoleKey), r.persona,
 	)
 	grid := container.NewHBox(left, right)

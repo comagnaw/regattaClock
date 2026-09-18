@@ -388,8 +388,8 @@ func TestRegatta_TreeTitleKeysAlignPerColumn(t *testing.T) {
 		t.Fatalf("expected 4 key labels, got %d", len(keys))
 	}
 
-	// keys[0..1] = left column (Regatta:, Date:); keys[2..3] = right column
-	// (Scheduled Races:, Role:) - see treeTitle's left/right construction order.
+	// keys[0..1] = left column (Regatta:, Scheduled Races:); keys[2..3] = right
+	// column (Date:, Role:) - see treeTitle's left/right construction order.
 	if w0, w1 := keys[0].Size().Width, keys[1].Size().Width; w0 != w1 {
 		t.Errorf("left column keys %q/%q have different widths (%v/%v) - colons will not align",
 			keys[0].Text, keys[1].Text, w0, w1)
