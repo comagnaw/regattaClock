@@ -70,6 +70,9 @@ stateDiagram-v2
     TimingInProgress --> Saved: Secondary FT clicks Save and Close (terminal)
     TimingInProgress --> Approved: Primary FT clicks Referee Approval (terminal)
     Approved --> NotStarted: Primary FT confirms Clear (rare, guarded)
+    StartRecorded --> Stopped: ST clicks Restart Race (an already-recorded start being cleared)
+    TimingInProgress --> Stopped: ST clicks Restart Race (an already-recorded start being cleared)
+    Stopped --> StartRecorded: ST records a new start time
 ```
 
 This is [reconciliation.md](reconciliation.md)'s existing milestone ladder,
@@ -95,6 +98,29 @@ re-trusting stale timing data. Clear on a *not-yet-approved* race needs no
 confirmation and behaves exactly as the ordinary "mistaken first Start
 click" case always has.
 
+**`Stopped` is a genuinely new concept: an on-water safety halt** (the
+referees stopping the race — possibly needing medics or other officials
+present), not a routine data-entry correction. It has no dedicated field —
+it's **inferred** from data that already exists:
+`StartRecord.Cleared []ClearedStart`
+(`internal/persona/store/log.go`) already accumulates every start the ST
+has cleared (the RD tree's existing "Restarts" column,
+`internal/regatta/director_tree.go:80-90`'s `directorStartCells`, is
+already `len(rec.Cleared)`). The distinction that matters:
+
+- `StartedAt == nil && len(Cleared) == 0` — never started — `NotStarted`.
+- `StartedAt == nil && len(Cleared) > 0` — a start *was* recorded, then
+  cleared — `Stopped`.
+
+Per-race, ST-triggered only, by clicking the same button that has always
+cleared a recorded start — **the underlying action does not change**
+(`clearStartConfirmed`, `internal/regatta/start_timing.go:73-102`: zeroes
+`StartRecord.StartedAt`, moves the old value into `Cleared[]`, persists via
+`store.SaveStart`). Only its label changes, from "Clear" to **"Restart
+Race"** — clicking it when a start already exists now explicitly reads as
+"this race is restarting," matching what it has always inferred once a
+prior start existed.
+
 **Derived, not stored.** No field named "state" exists anywhere — every
 consumer derives it from `RaceResult`/`StartRecord` on the fly. Today this
 happens in **two places that compute the same thing independently**:
@@ -104,8 +130,37 @@ three-way switch: `Approved` → `RaceApprovedText`, `WinningTime != ""` →
 `internal/common/consts.go:175,176,188`) and
 `internal/clock/clock.go:143-172`'s `commitState` type +
 `raceCommitState()` method (the identical three-way switch, its own
-`statePending`/`stateSaved`/`stateApproved` enum). See "Redesign: one
-canonical `TeamState`" below.
+`statePending`/`stateSaved`/`stateApproved` enum). Neither distinguishes
+`NotStarted` from `TimingInProgress` from `Stopped` today — seen
+identically as "Pending." See "Redesign: one canonical `TeamState`" below,
+and the display-vocabulary table next.
+
+### Display vocabulary — one set of labels, race tree and FT clock alike
+
+**Update (2026-09-18):** the internal state names above are not what an
+operator sees. Every persona's race tree and the FT clock's own status
+line (`c.commitStatus`, today literally showing "Pending") render one
+shared, five-label vocabulary — replacing `RaceInProgressText`/
+`RaceSavedText`/`RaceApprovedText`/`CommitStatusPending` et al.
+(`internal/common/consts.go`) with team-aware labels:
+
+| Internal state | Primary team shows | Secondary team shows | Trigger |
+|---|---|---|---|
+| `NotStarted` | **Pending Start** | **Pending Start** | No `StartRecord.StartedAt`, no `Cleared` history. |
+| `StartRecorded` / `TimingInProgress` | **On the Water** | **On the Water** | A start is recorded (`StartedAt != nil`) — reused for both a first run and after an ST restart; the FT need not have clicked Start yet for the ST-side tree row, but the FT's own clock reaches this once `FirstFinishAt` is set. |
+| `Stopped` | **Stopped** | **Stopped** | `StartedAt == nil && len(Cleared) > 0` — see above. |
+| `TimingInProgress` with `WinningTime != ""`, not yet `Approved` | **Pending Approval** | **Saved** | Primary: winning time entered (derived or manual), awaiting Referee Approval — genuinely "pending." Secondary: this *is* their terminal state (Save and Close) — "pending" would be inaccurate, so the existing `Saved` label stays. |
+| `Approved` | **Official** | *(unreachable)* | Referee Approval clicked — `RaceResult.Approved = true`, exactly as today. Renamed display text only; no new field, no new button, no new confirmation step. |
+
+**"Official" terminology is an open research item, not fully settled.**
+"Official" matches RegattaCentral's own vocabulary and the referee's real
+phrase ("make it official") — the same milestone that already tells the
+primary FT's own tree and the proposed Social Media (SOM) persona that a
+result is ready to publish. But decorating results for an eventual
+RegattaCentral push will need review against US Rowing's official
+officiating rulebook, which has not been done yet — treat "Official" as
+the working term until that review happens, not a final decision on every
+possible milestone RC's own model might expect.
 
 ### Phase 2 — Official result lifecycle
 
@@ -299,6 +354,7 @@ change," not just what it documents:
 
    const (
        StateNotStarted TeamState = iota
+       StateStopped          // start was recorded, then cleared - an on-water halt
        StateStartRecorded
        StateTimingInProgress
        StateSaved    // reachable by the secondary team only
@@ -306,14 +362,22 @@ change," not just what it documents:
    )
 
    func DeriveTeamState(start *StartRecord, res RaceResult) TeamState
+
+   // DisplayText renders the team-aware label from the "Display vocabulary"
+   // table above - Team matters because StateSaved/StateApproved read
+   // "Saved"/"Official" for the primary team but "Saved" alone (no
+   // "Pending Approval"/"Official") for the secondary, which never
+   // approves.
+   func (s TeamState) DisplayText(team persona.Team) string
    ```
 
    Lives in `internal/persona/store`, next to `StartRecord`/`RaceResult`
    themselves, so both `internal/regatta` and `internal/clock` import it
    without a new cross-package dependency. `raceProgressStatus` and
-   `commitState` become thin display-text wrappers over `TeamState` (or
-   are deleted in favor of a shared `TeamState.DisplayText()`), not
-   independent derivations.
+   `commitState` become thin wrappers over `TeamState`/`DisplayText` (or
+   are deleted in favor of calling it directly), not independent
+   derivations. `StateStopped` is derived per `DeriveTeamState` exactly as
+   described above (`StartedAt == nil && len(Cleared) > 0`).
 
 2. **One shared button-gating helper**, replacing every persona doc's own
    `res.Approved == true`:
@@ -393,10 +457,28 @@ change," not just what it documents:
    columns they already show, same buttons), just built from shared code
    instead of duplicated switches, since today's union of columns already
    matches what each role shows.
-5. **Docs** (once built): update this doc's own status; each not-yet-built
+5. **Live-update wiring for the FT's own status line** — today
+   `c.commitStatus` only refreshes on `persistFinish` (approve/save),
+   `rehydrate` (reopen), and the referee-approval window; it never
+   reflects the FT's own Start click or a live peer ST-restart while the
+   window is already open, so `NotStarted` and `TimingInProgress` both
+   currently show identically as "Pending." Two small additions, both
+   riding on work already happening (no new goroutine, no risk to the
+   Start/Lap/Stop capture path itself): `recordFirstFinish`
+   (`internal/clock/persist.go:31-63`) gains a `refreshCommitStatus()`
+   call so **On the Water** shows live on Start; `UpdateStartTime`'s peer
+   ST-watcher callback (`persist.go:152-172`, reached via
+   `onPeerStartChanged` in `internal/regatta/persona_startup.go`) gains
+   one too, so **Stopped** shows live if the ST restarts while the FT's
+   clock is already open.
+6. **Rename the ST's "Clear" button/label to "Restart Race"** — label
+   only, `clearStartConfirmed`
+   (`internal/regatta/start_timing.go:73-102`) is otherwise unchanged.
+7. **Docs** (once built): update this doc's own status; each not-yet-built
    persona doc's "Existing-code reuse analysis" gets a line pointing at
    `store.CanPublish`/`TeamState` and `publish.IsStale` instead of its own
-   bespoke check.
+   bespoke check; revisit the "Official" terminology once reviewed against
+   US Rowing's officiating rulebook.
 
 ## Dependencies and sequencing
 
