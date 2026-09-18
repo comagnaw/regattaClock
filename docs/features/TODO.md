@@ -27,6 +27,7 @@ ideas belong in the relevant design doc first, then here.
 
 - [ ] `check-secrets` job that maps `secrets.*` into outputs so every `sign-*` job's `if:` **skips** (not fails) on fork / PR runs — [ci-and-provenance.md](trusted-distribution/ci-and-provenance.md#fork--pr-safety-c9)
 - [ ] Produce an SBOM per release (`cyclonedx-gomod` or `syft`) and attach it to the GitHub release — [ci-and-provenance.md](trusted-distribution/ci-and-provenance.md)
+- [ ] In-app "check for updates" — notify-and-link (GitHub releases API + `internal/version.Current.Version` compare, a dialog linking to the release page) is small and independent; auto-download-and-install is deferred until code signing lands (an unsigned auto-updater fetching and running new code is the same trust problem the rest of trusted-distribution/ exists to close). Note: GitHub's `releases/latest` endpoint skips pre-releases, and every tag so far is `-alpha` — the check needs the full `releases` list, not `/latest` — [update-checking.md](trusted-distribution/update-checking.md)
 
 ## Testing — integration lane (proposed, not built)
 
