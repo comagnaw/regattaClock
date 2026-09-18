@@ -40,6 +40,46 @@ func findButton(o fyne.CanvasObject, label string) *widget.Button {
 	return nil
 }
 
+// findButtonScrollAware is findButton, but also reports whether the match
+// was found while already inside a *container.Scroll - used to assert the
+// timing-critical controls stay outside any scroll region.
+func findButtonScrollAware(o fyne.CanvasObject, label string, inScroll bool) (found, wasInScroll bool) {
+	switch v := o.(type) {
+	case *widget.Button:
+		if v.Text == label {
+			return true, inScroll
+		}
+	case *fyne.Container:
+		for _, c := range v.Objects {
+			if f, s := findButtonScrollAware(c, label, inScroll); f {
+				return f, s
+			}
+		}
+	case *container.ThemeOverride:
+		return findButtonScrollAware(v.Content, label, inScroll)
+	case *container.Scroll:
+		return findButtonScrollAware(v.Content, label, true)
+	}
+	return false, false
+}
+
+// findScroll returns the first *container.Scroll found under o, if any.
+func findScroll(o fyne.CanvasObject) *container.Scroll {
+	switch v := o.(type) {
+	case *container.Scroll:
+		return v
+	case *fyne.Container:
+		for _, c := range v.Objects {
+			if s := findScroll(c); s != nil {
+				return s
+			}
+		}
+	case *container.ThemeOverride:
+		return findScroll(v.Content)
+	}
+	return nil
+}
+
 func openReferee(t *testing.T, clk *Clock) {
 	t.Helper()
 	clk.refereeFunc()()
@@ -206,5 +246,42 @@ func TestScalingGridLayout_FontScalesWithWidth(t *testing.T) {
 	}
 	if wide <= narrow {
 		t.Errorf("font should grow with width: narrow %v, wide %v", narrow, wide)
+	}
+}
+
+// TestContent_TimingStaysFixedApprovalBeforeResults - the fix for the
+// PC-scale window-overflow bug: timing controls (Start/Lap/Stop/Clear)
+// must never require a scroll to reach, and within the scrollable region
+// the approval panel comes before the results card, so a cut-off window
+// still shows the actionable buttons before the already-known results.
+func TestContent_TimingStaysFixedApprovalBeforeResults(t *testing.T) {
+	clk := openBoundClock(t, pftSession(t), &store.FinishLog{Races: map[int]store.RaceResult{}})
+	root := clk.window.Content()
+
+	for _, label := range []string{
+		common.StartButtonText, common.LapButtonText, common.StopButtonText, common.ClearButtonText,
+	} {
+		found, inScroll := findButtonScrollAware(root, label, false)
+		if !found {
+			t.Errorf("%q should be reachable", label)
+		}
+		if inScroll {
+			t.Errorf("%q must stay outside the scroll region (timing controls are never scrolled)", label)
+		}
+	}
+
+	scroll := findScroll(root)
+	if scroll == nil {
+		t.Fatal("expected a scrollable region under the results/approval area")
+	}
+	bottom, ok := scroll.Content.(*fyne.Container)
+	if !ok || len(bottom.Objects) < 2 {
+		t.Fatalf("scroll content shape = %+v, want a multi-item container", scroll.Content)
+	}
+	if found, _ := findButtonScrollAware(bottom.Objects[0], common.RefereeButtonText, true); !found {
+		t.Error("the approval panel should be the first item in the scrollable region, ahead of Results")
+	}
+	if found, _ := findButtonScrollAware(bottom.Objects[0], common.ClockResultsZoneLabel, true); found {
+		t.Error("Results should not appear before the approval panel in the scrollable region")
 	}
 }
