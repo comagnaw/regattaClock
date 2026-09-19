@@ -126,6 +126,7 @@ func (c *Clock) initStop() *widget.Button {
 		c.clockState.isRunning = false
 		c.refreshContent()
 		c.winningTime.Enable()
+		c.recordStop()
 	})
 }
 

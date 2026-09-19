@@ -62,6 +62,31 @@ func (c *Clock) recordFirstFinish() {
 	applog.Info("clock started", "component", "clock", "race", n)
 }
 
+// recordStop stamps StoppedAt on finish.json once the primary FT is done
+// collecting times and clicks Stop - the signal other personas can observe
+// as "Pending Approval" without seeing the winning time itself early (that's
+// still written only at Approval, persistFinish). No-op for the secondary
+// team - it has no approval gate to await.
+func (c *Clock) recordStop() {
+	if !c.canPersist() || !c.isPrimaryFinish() {
+		return
+	}
+	n := c.raceData.RaceNumber
+
+	res := c.finishLog.Races[n]
+	res.RaceNumber = n
+	stopped := time.Now().UTC()
+	res.StoppedAt = &stopped
+	c.setRace(n, res)
+
+	if err := store.SaveFinish(c.session, c.finishLog); err != nil {
+		applog.Error("finish log write failed", "component", "clock", "race", n, "err", err)
+		return
+	}
+	applog.Info("clock stopped", "component", "clock", "race", n)
+	c.refreshCommitStatus()
+}
+
 // deriveWinningTime pre-fills winningTime with the finish timer's Start click
 // minus the start timer's start time, each shifted by its own machine's measured
 // offset (persona-plan.md 2.1). The field stays editable and a referee override

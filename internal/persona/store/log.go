@@ -84,6 +84,11 @@ type RaceResult struct {
 	FirstFinishAt    *time.Time
 	FirstFinishClock timesync.ClockRef
 
+	// StoppedAt is when the primary FT clicked Stop, done collecting times and
+	// awaiting Referee Approval - the "Pending Approval" signal other personas
+	// can observe. Never set for the secondary team (no approval gate to await).
+	StoppedAt *time.Time
+
 	WinningTime string // referee time; auto-filled but user-editable
 	Rows        []LapRow
 
