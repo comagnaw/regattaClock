@@ -169,6 +169,7 @@ const (
 	// Role-aware timer race tree (internal/regatta timer_races.go / start_timing.go).
 	StartTimeButtonText      = "Start Time"
 	ClearButtonText          = "Clear"
+	RestartRaceButtonText    = "Restart Race" // clearBtn once a start already exists - same action, reads as a restart
 	RestoreButtonText        = "Restore"
 	ClearApprovedRaceTitle   = "Discard the approved result?"
 	ClearApprovedRaceMessage = "Race %d was already approved with winning time %s. Clearing it now will discard that approved result so it can be re-timed. This should be rare - are you sure?"
