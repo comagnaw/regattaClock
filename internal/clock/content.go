@@ -13,6 +13,7 @@ import (
 
 	"github.com/comagnaw/regattaClock/internal/assets"
 	"github.com/comagnaw/regattaClock/internal/common"
+	"github.com/comagnaw/regattaClock/internal/persona/store"
 	"github.com/comagnaw/regattaClock/internal/text"
 	"github.com/comagnaw/regattaClock/internal/uitheme"
 )
@@ -279,7 +280,7 @@ func (c *Clock) winningTimeInput() *fyne.Container {
 // initCommitStatus - build the status line under the approval panel. It starts
 // at Pending and refreshCommitStatus advances it as the race is persisted.
 func (c *Clock) initCommitStatus() {
-	c.commitStatus = widget.NewLabel(common.CommitStatusPending)
+	c.commitStatus = widget.NewLabel(store.StateNotStarted.DisplayText(c.session.Team))
 	c.commitStatus.Alignment = fyne.TextAlignCenter
 	c.commitStatus.Importance = widget.MediumImportance
 }

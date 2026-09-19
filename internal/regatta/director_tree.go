@@ -89,22 +89,31 @@ func (r *Regatta) directorStartCells(n int) (restarts, start string) {
 	return strconv.Itoa(len(rec.Cleared)), start
 }
 
-// directorFinishCells returns the winning-time and status text for race n from
-// the primary team's finish.json.
+// directorFinishCells returns the winning-time and status text for race n
+// from the primary team's timing files. Status always reflects the
+// canonical team state (race-state-machine.md), not just whether the finish
+// timer has begun - the RD sees "On the Water" the moment the ST records a
+// start, same as every other persona's tree, via the zero-value RaceResult
+// DeriveTeamState falls through to when no finish.json entry exists yet.
 func (r *Regatta) directorFinishCells(n int) (win, status string) {
 	tt := r.teamLogs[persona.TeamPrimary]
-	if tt == nil || tt.finish == nil {
-		return common.NoStartTimeText, common.EmptyString
+
+	var start store.StartRecord
+	var res store.RaceResult
+	if tt != nil {
+		if tt.start != nil {
+			start = tt.start.Races[n]
+		}
+		if tt.finish != nil {
+			res = tt.finish.Races[n]
+		}
 	}
-	res, ok := tt.finish.Races[n]
-	if !ok || (res.WinningTime == common.EmptyString && !res.Approved && res.FirstFinishAt == nil) {
-		return common.NoStartTimeText, common.EmptyString
-	}
+
 	win = common.NoStartTimeText
 	if res.WinningTime != common.EmptyString {
 		win = res.WinningTime
 	}
-	return win, raceProgressStatus(res)
+	return win, raceProgressStatus(start, res, persona.TeamPrimary)
 }
 
 // --- watcher plumbing -----------------------------------------------------

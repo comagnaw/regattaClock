@@ -10,6 +10,7 @@ import (
 	"fyne.io/fyne/v2/container"
 
 	"github.com/comagnaw/regattaClock/internal/common"
+	"github.com/comagnaw/regattaClock/internal/persona"
 	"github.com/comagnaw/regattaClock/internal/persona/store"
 	"github.com/comagnaw/regattaClock/internal/uitheme"
 )
@@ -62,14 +63,15 @@ func TestPrimaryFinish_CloseDisabledUntilApproved(t *testing.T) {
 	if !clk.buttons.close.Disabled() {
 		t.Fatal("Close should start disabled")
 	}
-	if clk.commitStatus.Text != common.CommitStatusPending {
-		t.Errorf("commit status = %q, want %q", clk.commitStatus.Text, common.CommitStatusPending)
+	wantPending := store.StateNotStarted.DisplayText(persona.TeamPrimary)
+	if clk.commitStatus.Text != wantPending {
+		t.Errorf("commit status = %q, want %q", clk.commitStatus.Text, wantPending)
 	}
 
 	clk.buttons.start.OnTapped()
 	clk.winningTime.SetText("01:00.0")
 	if !clk.buttons.close.Disabled() {
-		t.Error("Close stays disabled while the race is only Pending (winning time entered, not approved)")
+		t.Error("Close stays disabled while the race is only On the Water (winning time entered, not approved)")
 	}
 	if clk.buttons.referee.Disabled() {
 		t.Error("a valid winning time should enable Referee Approval")

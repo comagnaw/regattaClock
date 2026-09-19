@@ -87,6 +87,27 @@ func TestRecordStartWritesAndRefreshes(t *testing.T) {
 	}
 }
 
+// TestRecordStartShowsOnTheWaterBeforeFinishTimerBegins - the ST's own row
+// must reflect the canonical team state (race-state-machine.md), not stay
+// blank until the FT locks the row: a recorded start alone already reaches
+// StateStartRecorded, which displays as "On the Water".
+func TestRecordStartShowsOnTheWaterBeforeFinishTimerBegins(t *testing.T) {
+	r, _, _ := startedTimer(t, "pst")
+
+	before := r.rows[1].progress.Text
+	wantNotStarted := store.StateNotStarted.DisplayText(persona.TeamPrimary)
+	if before != wantNotStarted {
+		t.Fatalf("before Start, status = %q, want %q", before, wantNotStarted)
+	}
+
+	r.recordStart(1)
+
+	wantOnTheWater := store.StateStartRecorded.DisplayText(persona.TeamPrimary)
+	if got := r.rows[1].progress.Text; got != wantOnTheWater {
+		t.Errorf("status after Start = %q, want %q", got, wantOnTheWater)
+	}
+}
+
 func TestRecordStartIsOneShot(t *testing.T) {
 	r, _, _ := startedTimer(t, "pst")
 
@@ -237,8 +258,9 @@ func TestFinishTreeShowsPeerStartAndProgress(t *testing.T) {
 	if r.rows[1].startTime.Text != "09:00:00.0" {
 		t.Errorf("row 1 start label = %q, want the peer time", r.rows[1].startTime.Text)
 	}
-	if r.rows[1].progress.Text != "approved" {
-		t.Errorf("row 1 progress = %q, want approved", r.rows[1].progress.Text)
+	wantApproved := store.StateApproved.DisplayText(persona.TeamPrimary)
+	if r.rows[1].progress.Text != wantApproved {
+		t.Errorf("row 1 progress = %q, want %q", r.rows[1].progress.Text, wantApproved)
 	}
 }
 
@@ -292,6 +314,74 @@ func TestFinishRowNoStartTimeOnceCommitted(t *testing.T) {
 	}
 }
 
+// TestFinishRowShowsOnTheWaterBeforeOwnClockOpens - the PFT's own row must
+// reflect the canonical team state (race-state-machine.md), not stay blank
+// until this FT's own finish.json has an entry: a peer ST's recorded start
+// alone already reaches StateStartRecorded, which displays as "On the Water".
+func TestFinishRowShowsOnTheWaterBeforeOwnClockOpens(t *testing.T) {
+	app := test.NewTempApp(t)
+	sch := testSchedule()
+	root := seedRegatta(t, sch)
+
+	pst := timerSession(t, "pst", root)
+	at := time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
+	startLog := &store.StartLog{Races: map[int]store.StartRecord{
+		1: {RaceNumber: 1, StartedAt: &at, Display: "09:00:00.0"},
+	}}
+	startLog.RegattaKey = store.RegattaKey(sch.Name, sch.Date)
+	if err := store.SaveStart(pst, startLog); err != nil {
+		t.Fatal(err)
+	}
+
+	pft := timerSession(t, "pft", root)
+	r := NewTimer(app)
+	stopWatch(t, r)
+	r.startSession(pft, sch)
+
+	wantOnTheWater := store.StateStartRecorded.DisplayText(persona.TeamPrimary)
+	if got := r.rows[1].progress.Text; got != wantOnTheWater {
+		t.Errorf("status before this FT's own clock opens = %q, want %q", got, wantOnTheWater)
+	}
+}
+
+// TestFinishRowShowsOnTheWater_SecondaryTeam - the fix above is role-generic,
+// not primary-specific: it must hold identically for the secondary team's
+// own tree (SST/SFT), which reads its own start.json/finish.json, not the
+// primary's.
+func TestFinishRowShowsOnTheWater_SecondaryTeam(t *testing.T) {
+	app := test.NewTempApp(t)
+	sch := testSchedule()
+	root := seedRegatta(t, sch)
+
+	sst := timerSession(t, "sst", root)
+	at := time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
+	startLog := &store.StartLog{Races: map[int]store.StartRecord{
+		1: {RaceNumber: 1, StartedAt: &at, Display: "09:00:00.0"},
+	}}
+	startLog.RegattaKey = store.RegattaKey(sch.Name, sch.Date)
+	if err := store.SaveStart(sst, startLog); err != nil {
+		t.Fatal(err)
+	}
+
+	// The secondary ST's own row should show On the Water too.
+	rst := NewTimer(app)
+	stopWatch(t, rst)
+	rst.startSession(sst, sch)
+	wantOnTheWater := store.StateStartRecorded.DisplayText(persona.TeamSecondary)
+	if got := rst.rows[1].progress.Text; got != wantOnTheWater {
+		t.Errorf("SST status = %q, want %q", got, wantOnTheWater)
+	}
+
+	// The secondary FT's own row, before its own clock has opened, should too.
+	sft := timerSession(t, "sft", root)
+	rft := NewTimer(app)
+	stopWatch(t, rft)
+	rft.startSession(sft, sch)
+	if got := rft.rows[1].progress.Text; got != wantOnTheWater {
+		t.Errorf("SFT status before its own clock opens = %q, want %q", got, wantOnTheWater)
+	}
+}
+
 func TestFinishRowShowsInProgressStatus(t *testing.T) {
 	app := test.NewTempApp(t)
 	sch := testSchedule()
@@ -310,8 +400,9 @@ func TestFinishRowShowsInProgressStatus(t *testing.T) {
 	stopWatch(t, r)
 	r.startSession(pft, sch)
 
-	if got := r.rows[1].progress.Text; got != common.RaceInProgressText {
-		t.Errorf("FT in-progress status = %q, want %q", got, common.RaceInProgressText)
+	wantInProgress := store.StateTimingInProgress.DisplayText(persona.TeamPrimary)
+	if got := r.rows[1].progress.Text; got != wantInProgress {
+		t.Errorf("FT in-progress status = %q, want %q", got, wantInProgress)
 	}
 }
 
