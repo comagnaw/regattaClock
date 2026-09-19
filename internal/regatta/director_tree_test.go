@@ -62,8 +62,8 @@ func TestDirectorRow_PrimaryValues(t *testing.T) {
 		t.Errorf("winning time = %q", row.winTime.Text)
 	}
 	wantApproved := store.StateApproved.DisplayText(persona.TeamPrimary)
-	if row.approved.Text != wantApproved {
-		t.Errorf("status = %q, want %q", row.approved.Text, wantApproved)
+	if row.progress.Text != wantApproved {
+		t.Errorf("status = %q, want %q", row.progress.Text, wantApproved)
 	}
 }
 
@@ -89,7 +89,7 @@ func TestDirectorRow_NoSecondaryFallback(t *testing.T) {
 		t.Errorf("race 2 winning time = %q, want a placeholder", got)
 	}
 	wantNotStarted := store.StateNotStarted.DisplayText(persona.TeamPrimary)
-	if got := r.rows[2].approved.Text; got != wantNotStarted {
+	if got := r.rows[2].progress.Text; got != wantNotStarted {
 		t.Errorf("race 2 status = %q, want %q", got, wantNotStarted)
 	}
 }
@@ -105,7 +105,7 @@ func TestDirectorRow_OnTheWaterBeforeFinishTimerBegins(t *testing.T) {
 		})},
 	)
 	wantOnTheWater := store.StateStartRecorded.DisplayText(persona.TeamPrimary)
-	if got := r.rows[1].approved.Text; got != wantOnTheWater {
+	if got := r.rows[1].progress.Text; got != wantOnTheWater {
 		t.Errorf("status = %q, want %q", got, wantOnTheWater)
 	}
 }
@@ -117,7 +117,7 @@ func TestDirectorRow_InProgressStatus(t *testing.T) {
 		})},
 	)
 	wantInProgress := store.StateTimingInProgress.DisplayText(persona.TeamPrimary)
-	if got := r.rows[1].approved.Text; got != wantInProgress {
+	if got := r.rows[1].progress.Text; got != wantInProgress {
 		t.Errorf("in-progress status = %q, want %q", got, wantInProgress)
 	}
 }
@@ -127,9 +127,9 @@ func TestDirectorRow_Placeholders(t *testing.T) {
 	row := r.rows[1]
 	wantNotStarted := store.StateNotStarted.DisplayText(persona.TeamPrimary)
 	if row.restarts.Text != common.NoStartTimeText || row.startTime.Text != common.NoStartTimeText ||
-		row.winTime.Text != common.NoStartTimeText || row.approved.Text != wantNotStarted {
+		row.winTime.Text != common.NoStartTimeText || row.progress.Text != wantNotStarted {
 		t.Errorf("placeholders wrong: %q %q %q %q",
-			row.restarts.Text, row.startTime.Text, row.winTime.Text, row.approved.Text)
+			row.restarts.Text, row.startTime.Text, row.winTime.Text, row.progress.Text)
 	}
 	if row.scheduledTime.Text != common.NoStartTimeText {
 		t.Errorf("scheduled time placeholder = %q, want %q", row.scheduledTime.Text, common.NoStartTimeText)

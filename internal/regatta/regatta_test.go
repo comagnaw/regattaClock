@@ -541,9 +541,9 @@ func TestRegatta_DirectorRow_LayoutAndPlaceholders(t *testing.T) {
 	if row.restarts.Text != common.NoStartTimeText ||
 		row.startTime.Text != common.NoStartTimeText ||
 		row.winTime.Text != common.NoStartTimeText ||
-		row.approved.Text != wantNotStarted {
+		row.progress.Text != wantNotStarted {
 		t.Errorf("placeholder cells wrong: restarts=%q start=%q win=%q status=%q",
-			row.restarts.Text, row.startTime.Text, row.winTime.Text, row.approved.Text)
+			row.restarts.Text, row.startTime.Text, row.winTime.Text, row.progress.Text)
 	}
 }
 

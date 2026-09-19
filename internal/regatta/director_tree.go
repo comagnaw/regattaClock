@@ -3,7 +3,6 @@ package regatta
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -68,25 +67,21 @@ func (r *Regatta) refreshDirectorRow(row *raceRow) {
 
 	win, status := r.directorFinishCells(n)
 	row.winTime.SetText(win)
-	row.approved.SetText(status)
+	row.progress.SetText(status)
 }
 
 // directorStartCells returns the restart count and start-time text for race n
 // from the primary team's start.json.
 func (r *Regatta) directorStartCells(n int) (restarts, start string) {
-	tt := r.teamLogs[persona.TeamPrimary]
-	if tt == nil || tt.start == nil {
-		return common.NoStartTimeText, common.NoStartTimeText
-	}
-	rec, ok := tt.start.Races[n]
-	if !ok || (rec.StartedAt == nil && len(rec.Cleared) == 0) {
-		return common.NoStartTimeText, common.NoStartTimeText
+	var rec store.StartRecord
+	if tt := r.teamLogs[persona.TeamPrimary]; tt != nil && tt.start != nil {
+		rec = tt.start.Races[n]
 	}
 	start = common.NoStartTimeText
 	if rec.StartedAt != nil {
 		start = rec.Display
 	}
-	return strconv.Itoa(len(rec.Cleared)), start
+	return restartsCell(rec), start
 }
 
 // directorFinishCells returns the winning-time and status text for race n
@@ -109,11 +104,7 @@ func (r *Regatta) directorFinishCells(n int) (win, status string) {
 		}
 	}
 
-	win = common.NoStartTimeText
-	if res.WinningTime != common.EmptyString {
-		win = res.WinningTime
-	}
-	return win, raceProgressStatus(start, res, persona.TeamPrimary)
+	return winningTimeCell(res), raceProgressStatus(start, res, persona.TeamPrimary)
 }
 
 // --- watcher plumbing -----------------------------------------------------

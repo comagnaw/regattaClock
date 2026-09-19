@@ -97,41 +97,41 @@ func (r *Regatta) treeTitle() *fyne.Container {
 	return uitheme.FullBleed(panel)
 }
 
-// raceListHeader is the bold column-header row above the race list. It uses the
-// same Border(nil,nil,nil,cluster,title) shape and the same fixed column widths
-// as a data row, so each label sits directly over its column and "Scheduled
-// Races" right-aligns to line up with the race titles below it.
+// raceListHeader is the bold column-header row above the race list. It uses
+// the same Border(nil,nil,left,cluster,title) shape and the same fixed
+// column widths as a data row (newRaceRow) - Race number and Scheduled Time
+// left-anchored ahead of the race title, the rest right-anchored - so each
+// label sits directly over its column: the same shared column set for every
+// role, plus a role-specific, unlabelled action cell where a data row has
+// its buttons.
 func (r *Regatta) raceListHeader() *fyne.Container {
 	race := text.BoldLabel(common.ScheduledRacesTile)
 	race.Alignment = fyne.TextAlignTrailing
 
-	var cluster *fyne.Container
+	var action *fyne.Container
 	switch r.session.Role {
 	case persona.RoleStart:
-		cluster = container.NewHBox(
-			fixedCell(scheduledTimeColWidth, text.BoldLabelCenter(common.ColScheduledTime)),
-			fixedCell(actionsColWidth, text.BoldLabel(common.EmptyString)),
-			fixedCell(startTimeColWidth, text.BoldLabel(common.ColStartTime)),
-			fixedCell(statusColWidth, text.BoldLabel(common.ColStatus)),
-		)
+		action = fixedCell(actionsColWidth, text.BoldLabel(common.EmptyString))
 	case persona.RoleFinish:
-		cluster = container.NewHBox(
-			fixedCell(scheduledTimeColWidth, text.BoldLabelCenter(common.ColScheduledTime)),
-			fixedCell(timeRaceColWidth, text.BoldLabel(common.EmptyString)),
-			fixedCell(startTimeColWidth, text.BoldLabel(common.ColStartTime)),
-			fixedCell(statusColWidth, text.BoldLabel(common.ColStatus)),
-		)
-	default: // RoleDirector - centred to sit over the centred read-only cells.
-		cluster = container.NewHBox(
-			fixedCell(scheduledTimeColWidth, text.BoldLabelCenter(common.ColScheduledTime)),
-			fixedCell(restartsColWidth, text.BoldLabelCenter(common.ColRestarts)),
-			fixedCell(startTimeColWidth, text.BoldLabelCenter(common.ColStartTime)),
-			fixedCell(winTimeColWidth, text.BoldLabelCenter(common.ColWinningTime)),
-			fixedCell(statusColWidth, text.BoldLabelCenter(common.ColStatus)),
-		)
+		action = fixedCell(timeRaceColWidth, text.BoldLabel(common.EmptyString))
 	}
 
-	return container.NewBorder(nil, nil, nil, cluster, race)
+	var cells []fyne.CanvasObject
+	if action != nil {
+		cells = append(cells, action)
+	}
+	cells = append(cells,
+		fixedCell(restartsColWidth, text.BoldLabelCenter(common.ColRestarts)),
+		fixedCell(startTimeColWidth, text.BoldLabelCenter(common.ColStartTime)),
+		fixedCell(winTimeColWidth, text.BoldLabelCenter(common.ColWinningTime)),
+		fixedCell(statusColWidth, text.BoldLabelCenter(common.ColStatus)),
+	)
+
+	leading := container.NewHBox(
+		fixedCell(raceNumColWidth, text.BoldLabelCenter(common.ColRace)),
+		fixedCell(scheduledTimeColWidth, text.BoldLabelCenter(common.ColScheduledTime)),
+	)
+	return container.NewBorder(nil, nil, leading, container.NewHBox(cells...), race)
 }
 
 // fixedCell wraps a widget at a fixed column width so headers and row values
