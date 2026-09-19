@@ -20,9 +20,10 @@ type raceRow struct {
 	raceNumber int
 	root       *fyne.Container
 
-	title     *widget.Label
-	startTime *widget.Label // start timer, finish timer, director
-	progress  *widget.Label // finish timer progress; start timer lock note
+	title         *widget.Label
+	scheduledTime *widget.Label // every role - workbook-sourced scheduled start
+	startTime     *widget.Label // start timer, finish timer, director
+	progress      *widget.Label // finish timer progress; start timer lock note
 
 	startBtn   *widget.Button // start timer
 	clearBtn   *widget.Button // start timer
@@ -62,6 +63,7 @@ func (r *Regatta) newRaceRow(race reader.RaceData) *raceRow {
 	n := race.RaceNumber
 	row := &raceRow{raceNumber: n, title: widget.NewLabel(race.RaceTitle())}
 	row.title.Alignment = fyne.TextAlignTrailing
+	row.scheduledTime = text.TruncatingCenter(race.ScheduledTimeDisplay())
 
 	var cluster *fyne.Container
 	switch r.session.Role {
@@ -74,6 +76,7 @@ func (r *Regatta) newRaceRow(race reader.RaceData) *raceRow {
 		row.clearBtn = widget.NewButton(common.ClearButtonText, func() { r.clearStart(n) })
 		row.restoreBtn = widget.NewButton(common.RestoreButtonText, func() { r.restoreStart(n) })
 		cluster = container.NewHBox(
+			fixedCell(scheduledTimeColWidth, row.scheduledTime),
 			fixedCell(actionsColWidth, container.NewGridWithColumns(3, row.startBtn, row.clearBtn, row.restoreBtn)),
 			fixedCell(startTimeColWidth, row.startTime),
 			fixedCell(statusColWidth, row.progress),
@@ -84,6 +87,7 @@ func (r *Regatta) newRaceRow(race reader.RaceData) *raceRow {
 		row.progress = text.Truncating(common.EmptyString)
 		row.timeBtn = widget.NewButton(common.TimeRaceButtonText, func() { r.openClock(n) })
 		cluster = container.NewHBox(
+			fixedCell(scheduledTimeColWidth, row.scheduledTime),
 			fixedCell(timeRaceColWidth, row.timeBtn),
 			fixedCell(startTimeColWidth, row.startTime),
 			fixedCell(statusColWidth, row.progress),
@@ -95,6 +99,7 @@ func (r *Regatta) newRaceRow(race reader.RaceData) *raceRow {
 		row.winTime = text.TruncatingCenter(common.NoStartTimeText)
 		row.approved = text.TruncatingCenter(common.EmptyString)
 		cluster = container.NewHBox(
+			fixedCell(scheduledTimeColWidth, row.scheduledTime),
 			fixedCell(restartsColWidth, row.restarts),
 			fixedCell(startTimeColWidth, row.startTime),
 			fixedCell(winTimeColWidth, row.winTime),
@@ -122,6 +127,7 @@ func (r *Regatta) refreshRow(n int) {
 			title = common.ScheduleConflictMark + title
 		}
 		row.title.SetText(title)
+		row.scheduledTime.SetText(race.ScheduledTimeDisplay())
 	}
 
 	switch r.session.Role {

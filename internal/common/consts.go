@@ -136,17 +136,16 @@ const (
 	NumScheduledRacesTitle = "Scheduled Races: %d"
 	ScheduledRacesTile     = "Scheduled Races"
 
-	// TreeRegattaLabel / TreeDateLabel - the race-tree details panel shows the
-	// regatta name and date in the same "Key: Value" form as PersonaHeaderFormat
-	// and NumScheduledRacesTitle, so the four fields read as one 2x2 block.
-	TreeRegattaLabel = "Regatta: %s"
-	TreeDateLabel    = "Date: %s"
+	// TreeRegattaKey / TreeScheduledRacesKey / TreeDateKey / TreeRoleKey - the
+	// race-tree details panel's four "Key:" labels, rendered as their own
+	// right-aligned column so the colons line up against a left-aligned value
+	// column regardless of how long each key is (treeTitle in races.go).
+	TreeRegattaKey        = "Regatta:"
+	TreeScheduledRacesKey = "Scheduled Races:"
+	TreeDateKey           = "Date:"
+	TreeRoleKey           = "Role:"
 
-	// PersonaHeaderFormat labels the race-tree header with the operator's role;
-	// WindowTitleFormat puts it in the OS title bar next to the app name, and is
-	// reused for the race-clock window ("Race N Clock — <role>").
-	PersonaHeaderFormat = "Role: %s"
-	WindowTitleFormat   = "%s — %s"
+	WindowTitleFormat = "%s — %s"
 
 	// ClockWindowTitleFormat - the race-clock window's OS title bar before the
 	// persona is known. Once it is, the role is appended via WindowTitleFormat.
@@ -160,15 +159,18 @@ const (
 
 	// Race-tree column headers (internal/regatta races.go / timer_races.go). The
 	// race column reuses ScheduledRacesTile.
-	ColStartTime   = "Start Time"
-	ColStatus      = "Status"
-	ColRestarts    = "Restarts"
-	ColWinningTime = "Winning Time"
+	ColScheduledTime = "Scheduled Time"
+	ColStartTime     = "Start Time"
+	ColStatus        = "Status"
+	ColRestarts      = "Restarts"
+	ColWinningTime   = "Winning Time"
 
 	// Role-aware timer race tree (internal/regatta timer_races.go / start_timing.go).
 	StartTimeButtonText      = "Start Time"
 	ClearButtonText          = "Clear"
 	RestoreButtonText        = "Restore"
+	ClearApprovedRaceTitle   = "Discard the approved result?"
+	ClearApprovedRaceMessage = "Race %d was already approved with winning time %s. Clearing it now will discard that approved result so it can be re-timed. This should be rare - are you sure?"
 	NoStartTimeText          = "—"
 	WaitingForStartText      = "awaiting start"          // FT race-tree Start Time cell before the peer start lands (fits the start-time column)
 	StartNotCollectedText    = "no start time"           // FT race-tree Start Time cell once a result is saved/approved and no start was recorded

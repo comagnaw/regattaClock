@@ -189,6 +189,14 @@ type clockState struct {
 	// stopOnce guards stopChan so the ticker can be stopped more than once (the
 	// window close handler, and tests) without a double-close panic.
 	stopOnce sync.Once
+
+	// skipAutoWinningTime is set only when the operator confirmed discarding
+	// an already-approved result to re-time the race (initClear). The Start
+	// Timer's recorded start is not a meaningful reference point for a race
+	// that already happened, so deriveWinningTime leaves the field for
+	// manual entry for the rest of this clock session rather than
+	// auto-filling from stale/irrelevant timing data.
+	skipAutoWinningTime bool
 }
 
 // stopTicker signals the 100ms update goroutine to exit. Idempotent.

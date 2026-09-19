@@ -164,3 +164,41 @@ CI, pre-release suffix stripped) is a separate OS-level version resource — the
 Windows `VERSIONINFO` and the macOS `CFBundleShortVersionString`. It is derived,
 never hand-edited. See
 `docs/features/trusted-distribution/windows-packaging.md`.
+
+## New personas
+
+A **new persona** request is a design proposal first, not an immediate
+implementation. When asked to add one:
+
+1. **Write a stand-alone design doc**, not a section tacked onto an existing
+   file: `docs/features/personas/new/<persona-name-kebab>.md` (kebab-case the
+   persona's name — create the `new/` directory if it doesn't exist yet).
+   Follow the shape of an existing persona write-up (see the RD/ST/FT entries
+   in [personas/README.md](docs/features/personas/README.md)) — what it does,
+   what it does not do, its entry point, its constraints — plus whatever the
+   proposal still leaves open. The doc must also include:
+   - **Existing-code reuse analysis** — what's already in the codebase
+     (the persona registry, session/write-path plumbing, `internal/uitheme`,
+     sidecar patterns, …) this persona can build on rather than duplicate.
+   - **A high-level implementation plan** — the shape of the work, weighed
+     against (a) dependencies on existing system architecture and (b) any
+     `docs/features/TODO.md` items this persona's delivery is blocked on or
+     would benefit from landing first. Close the plan with a rough read on
+     *when* the persona could realistically be started, given those
+     dependencies — an ordering, not a date (e.g. "after the
+     `ScheduleOrigin` TODO item lands" or "no blockers, can start now").
+2. **Reference it from `docs/features/TODO.md`** — add a bullet pointing at
+   the new doc (the "Persona additions — requirements & constraints not yet
+   charted" section is the natural home, matching the existing
+   Result-publishing / Register Results / Social Post placeholder entries).
+3. **Once the persona is actually implemented in source** (not before, and
+   not as part of writing the proposal):
+   - Fold its description into `docs/features/personas/README.md`'s persona
+     table and per-persona sections, in the same voice as the existing
+     personas (Does / Does not / Entry / Constraint).
+   - Update the `docs/features/TODO.md` entry to reflect that it's done —
+     remove the placeholder bullet rather than leaving a stale "not yet
+     charted" note.
+   - **Delete** `docs/features/personas/new/<persona-name-kebab>.md` — its
+     content now lives in README.md, so the stand-alone doc no longer serves
+     a purpose.

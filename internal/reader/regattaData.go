@@ -98,6 +98,11 @@ type RaceData struct {
 	// RaceNumber - integer value of race number
 	RaceNumber int
 
+	// ScheduledTime - the race's scheduled start time as read from the
+	// workbook's Time column (e.g. "09:00 AM"), stored as-is with no parsing
+	// into time.Time. Empty when the workbook has no value for this race.
+	ScheduledTime string
+
 	// Lanes -  lane number (1-6) as key for each RaceEntry
 	Lanes map[int]RaceEntry
 
@@ -170,6 +175,15 @@ func (r *RaceData) RaceTitle() string {
 		titleText = fmt.Sprintf("%s - %s", titleText, r.FlightInfo)
 	}
 	return titleText
+}
+
+// ScheduledTimeDisplay - the race's scheduled start time, or the shared "no
+// time" placeholder when the workbook did not have one for this race.
+func (r *RaceData) ScheduledTimeDisplay() string {
+	if r.ScheduledTime == common.EmptyString {
+		return common.NoStartTimeText
+	}
+	return r.ScheduledTime
 }
 
 // HasBoats - returns true if row from RaceData has boats

@@ -361,8 +361,20 @@ requirement.
 
 ### Phase C — in-app heat-sheet authoring
 
-Retires Excel; gets its own persona doc. The reframe: authoring produces a
-local schedule **and** seeds RegattaCentral.
+**Update (2026-09-16):** the persona this phase named but left unspecified
+now has that doc — see
+[new/heat-sheet-creator.md](new/heat-sheet-creator.md) (Heat Sheet
+Creator, HSC). It resolves this phase's "standalone machine?" question
+(yes) and the RC-id-placement open item below (fields directly on
+`store.ScheduleRace`/`store.ScheduleEntry`), stages the work into a
+read-only v1 (no dependency on this doc's Phase D / the write-path
+investigation) and a write-back v2 (gated on it), and deliberately leaves
+this section's "retires Excel" framing as one of two still-open UI
+options rather than a settled decision — see that doc's "Decisions made."
+
+Retires Excel — **or does not**, per the update above; gets its own
+persona doc. The original reframe: authoring produces a local schedule
+**and** seeds RegattaCentral.
 
 - The RD / Heat Sheet Author assembles races and lanes from the `/bulk` roster
   in-app. The app builds a `store.Schedule` directly, and derives the in-memory
@@ -571,13 +583,20 @@ Phase C / later:
   Its findings (real match rate, RC heat-sheet fit/finish gaps, RD/executive
   feedback) are meant to confirm or revise everything below before any of it is
   built.
-- Where RegattaCentral ids / UUIDs live on the schedule model (fields on
-  `store.ScheduleRace` / `store.ScheduleEntry` vs a sidecar map).
+- ~~Where RegattaCentral ids / UUIDs live on the schedule model~~ —
+  **resolved**: fields directly on `store.ScheduleRace` /
+  `store.ScheduleEntry`, not a sidecar map. See
+  [new/heat-sheet-creator.md](new/heat-sheet-creator.md).
 - Heat-sheet authoring UX, and whether the in-app schedule must still be
-  exportable to the RD's Excel format during the transition.
-- Whether a dedicated Standalone "Heat Sheet Author" / "Publisher" machine is
-  ever wanted (ties to the Standalone-persona question in
-  [sidecar-personas.md](sidecar-personas.md#open-decisions)).
+  exportable to the RD's Excel format during the transition — **still
+  open**, deliberately, per `new/heat-sheet-creator.md`'s own "Decisions
+  made."
+- ~~Whether a dedicated Standalone "Heat Sheet Author" / "Publisher"
+  machine is ever wanted~~ — **resolved for Heat Sheet Author**:
+  standalone persona (HSC), not a sidecar — see
+  `new/heat-sheet-creator.md`. The separate Standalone "Publisher"
+  question remains open, in
+  [sidecar-personas.md](sidecar-personas.md#open-decisions).
 - **Follow-up doc edit:** [persona-plan.md](persona-plan.md) still describes
   RegattaCentral as "a roster source … not a schedule origin" (§ "Non-Excel
   schedule origin" and the `ScheduleOrigin` scope note). Reconcile it with this

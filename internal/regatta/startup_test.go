@@ -1,6 +1,7 @@
 package regatta
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -263,5 +264,23 @@ func TestStartup_WelcomeFolderCallbackCompletesStepTwo(t *testing.T) {
 	start := findButtonByLabel(r.window.Content(), common.StartRegattaButtonText)
 	if start == nil || !start.Disabled() {
 		t.Error("Start Regatta needs the workbook step too, so it must stay disabled")
+	}
+}
+
+// TestStartup_WelcomeFolderCallbackDoesNotCreateRegattaData - choosing a save
+// folder is not a commitment: the operator may have picked the wrong one and
+// wants to change it before Start Regatta. Only Start Regatta (via
+// startDirectorFlow's startLogging / the store's first write) may create the
+// regattaData tree.
+func TestStartup_WelcomeFolderCallbackDoesNotCreateRegattaData(t *testing.T) {
+	app := test.NewTempApp(t)
+	parent := t.TempDir()
+
+	r := NewDirector(app)
+	r.welcomeFolderCallback()(listerFor(t, parent), nil)
+
+	if _, err := os.Stat(filepath.Join(parent, common.RegattaDataDir)); !os.IsNotExist(err) {
+		t.Errorf("picking a folder must not create %s until Start Regatta is pressed (stat err: %v)",
+			common.RegattaDataDir, err)
 	}
 }

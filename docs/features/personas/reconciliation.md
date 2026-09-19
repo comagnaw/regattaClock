@@ -6,15 +6,21 @@ skew, §3c lane-map hash) and [schedule-data-model.md](schedule-data-model.md).
 
 ## Status
 
-**The reconciliation approach is settled.** The primary FT opens the read-only
-**Compare Secondary** window (persona-plan.md §9), reads the secondary's numbers
-off it, and re-keys anything that needs reconciling into the primary
-`finish.json` by hand. That is the accepted, working solution — the digital form
-of the historical "read it off and hand-type it" step. An **automated
-read-time-selection consumer** (per-race verdict column, disputed-race
-resolution screen, provenance-tagged publish) is **not planned** as its own
-work; if a future results/publish persona is ever built, the model below is its
-spec. No further SFT→PFT reconciliation features are intended.
+**Update (2026-09-18): fully and permanently resolved — not an interim
+step.** The primary FT reviewing the read-only **Compare Secondary** window
+(persona-plan.md §9) and re-keying anything that needs reconciling into the
+primary `finish.json` by hand **is the accepted, final design**, not an MVP
+awaiting a future automated feature. There is **no planned programmatic
+resolution work of any kind** — no verdict column, no disputed-race
+resolution screen, no provenance-tagged auto-publish. The "verdict" model
+below (and "Where the authoritative set lives") describe a
+programmatic-resolution feature that was considered and **will not be
+built**; they are kept only as a record of that design, not live
+guidance — see the notes on those sections. The one piece of this doc that
+*is* reused going forward is the per-team milestone ladder
+("Per-race timing state" below), now the canonical timing state machine in
+[race-state-machine.md](race-state-machine.md). No further SFT→PFT
+reconciliation features — automated or otherwise — are intended.
 
 ## Purpose and scope
 
@@ -24,22 +30,19 @@ independently, each writing its own `timing/<team>/finish.json`
 has to turn those two files into the single set of race results that gets
 published.
 
-**In scope:** the model for choosing, per race, which team's `RaceResult` is
-authoritative, and how disagreements surface.
-
-**Out of scope:** the export / publish mechanism itself. `internal/exporter`
-today renders lane images from the schedule only; the results-publishing surface
-(places, times, a per-race verdict column, a disputed-race resolution screen)
-will land with a future results/publish persona that does not exist yet. This
-document is that persona's spec. What *has* shipped is the primary FT's
-read-only **Compare Secondary** window (persona-plan.md §9): a visually parallel
-rendering of the secondary team's committed `RaceResult` for a race, the surface
-that lets the primary FT eyeball the two and re-key the secondary's numbers into
-the primary `finish.json`. It makes no reconciliation decision and publishes
-nothing. [future-result-driven-persona.md](future-result-driven-persona.md) assesses
-the *content* personas downstream of it (a social-media text table, the same as a
-PNG) and whether Referee Approval should materialize a per-race `results/` file —
-recommendation: defer, keep `finish.json` the only source of truth.
+**Resolved:** which team's `RaceResult` is authoritative is always the
+primary's, once approved — there is no per-race "choosing" step and no
+programmatic disagreement surfacing. The primary FT's read-only **Compare
+Secondary** window (persona-plan.md §9) is the entire mechanism: a visually
+parallel rendering of the secondary team's committed `RaceResult`, letting
+the primary FT eyeball the two and re-key the secondary's numbers into the
+primary `finish.json` by hand. It makes no reconciliation decision itself
+and publishes nothing — the primary FT does both, manually.
+[results-publisher.md](new/results-publisher.md) is the actual results-
+publishing feature (a native Primary Finish Timer "Publish" button,
+resolved as its own doc) — it reads the primary's already-final `Approved`
+result directly and has no reconciliation logic of its own to spec, since
+by the time a race is `Approved` there is nothing left to reconcile.
 
 ## Operating model
 
@@ -89,6 +92,14 @@ progress* / *saved* / *approved* — in
 
 ## The reconciliation verdict
 
+**Not pursued (2026-09-18).** This table describes a programmatic
+disagreement-resolution feature — automatically classifying each race as
+`primary`/`secondary`/`disputed`/`gap` for an automated publish step. The
+author has decided against building any such feature: the primary FT's
+manual review via Compare Secondary is the permanent design. Kept below
+only as a record of the design that was considered, not live guidance —
+see the "Status" section above.
+
 Per race, from `(primary state, secondary state)`. The secondary column tops out
 at `saved` — it has no `approved` state; the primary column starts at `approved`
 — with no Save action the primary FT never produces a complete-but-unapproved
@@ -108,6 +119,9 @@ result, so its only pre-`approved` states are `none` / `start-recorded` /
 **and** the same order of finish and per-boat splits (`Rows` compared by lane).
 
 ## Where the authoritative set lives — read-time auto-selection
+
+**Not pursued (2026-09-18), for the same reason as the verdict table
+above — kept as a record of the design considered, not live guidance.**
 
 **No new file. The Regatta Director persists no reconciliation decision.**
 One-writer-per-file stays intact; the only cross-file identity is `RegattaKey` +
@@ -166,9 +180,11 @@ secondary team's offset.)
 If the two teams' `RaceResult.LaneMapHash` for the same race differ, they timed
 against **different lane maps** — one applied a schedule change the other did not.
 `Rows` key by lane number, so the order of finish cannot be compared or merged
-mechanically. Verdict: **disputed**, needs a human. (8d flags the primary
-team's committed result against the *live* schedule in the RD tree, and the FT's
-own in the FT tree; this primary-vs-secondary check is the consumer's job.)
+mechanically — worth the primary FT knowing before re-keying the secondary's
+numbers in. (8d flags the primary team's committed result against the *live*
+schedule in the RD tree, and the FT's own in the FT tree; a
+primary-vs-secondary lane-map mismatch is something only Compare Secondary
+surfaces today, so the primary FT is the one who needs to notice it.)
 
 ### OOF / split disagreement with a matching winning time
 
@@ -184,8 +200,9 @@ hydration and never entered into reconciliation.
 
 A committed result whose `Envelope.WrittenAt` is hours old while racing continues
 is probably abandoned. The RD staleness banner (8b-2) warns on the primary
-team's files; the consumer, which reads both, should treat a stale `approved`
-primary against a fresh `saved` secondary as *flag for RD review*, not automatic.
+team's files; a stale `approved` primary sitting next to a fresh `saved`
+secondary is a real signal worth the RD or primary FT noticing and
+reviewing by hand, not something to act on automatically.
 
 ### Partial secondary
 
@@ -216,11 +233,16 @@ Nothing to publish; the RD tree already shows the state.
 - `†` mark on primary-team races whose committed result no longer matches the
   live lane map (8d).
 
-**Deferred to the results/publish persona:**
+**Not being built (2026-09-18) — not deferred, decided against:**
 
 - A per-race **verdict** column (`primary` / `secondary` / `disputed` / `gap`).
 - A `disputed`-race resolution screen.
-- The actual export / publish with places and times and the provenance tag.
+- A provenance tag on published results.
+
+The actual results export/publish **did** land, as
+[results-publisher.md](new/results-publisher.md)'s native Primary Finish
+Timer "Publish" feature — it has no reconciliation logic of its own,
+because it only ever reads the primary's already-final `Approved` result.
 
 ## Data available for reconciliation
 
@@ -242,6 +264,14 @@ From `FinishLog.Envelope`: `Machine` (which laptop), `WrittenAt`, `Sequence`
 Join: `RegattaKey` + `RaceNumber` only.
 
 ## Open questions for the results persona
+
+**Moot (2026-09-18).** These questions only made sense for the
+verdict/disputed-resolution feature decided against above — there is no
+"results persona" left to answer them, and the primary FT's manual review
+resolves all three in practice (they eyeball the comparison themselves, at
+whatever tolerance they judge, and know exactly which races are
+secondary-sourced because they typed them in). Kept only as a record of
+the design considered.
 
 - **Winning-time comparison tolerance.** Recompute from `ClockRef`s (precise) or
   compare strings with a fixed tolerance? A policy is needed before "values

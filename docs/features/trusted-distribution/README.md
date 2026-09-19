@@ -11,6 +11,7 @@ public distribution — at zero recurring cost for the near term.
 - [windows-packaging.md](windows-packaging.md) — portable `.exe` vs a real installer (Inno Setup / WiX MSI)
 - [macos-notarization.md](macos-notarization.md) — mid term: Developer ID signing + Apple notarization
 - [ci-and-provenance.md](ci-and-provenance.md) — how `release.yml` changes; checksums + build provenance as the zero‑cost baseline
+- [update-checking.md](update-checking.md) — in-app "check for updates": notify-and-link is a small, independent addition; download-and-install is deferred until code signing lands
 
 > Dates and prices below are current as of 2026‑09. Signing‑program rules change often —
 > confirm with the vendor before acting.

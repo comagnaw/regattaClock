@@ -48,7 +48,7 @@ func buttonLabels(o fyne.CanvasObject) []string {
 
 func TestSecondaryFinish_NoRefereeButton(t *testing.T) {
 	sec := openSecondaryClock(t, sftSession(t), &store.FinishLog{Races: map[int]store.RaceResult{}})
-	labels := buttonLabels(sec.approvalPanel())
+	labels := buttonLabels(sec.controlsAndApprovalPanel())
 	if slices.Contains(labels, common.RefereeButtonText) {
 		t.Errorf("secondary approval panel has the Referee button: %v", labels)
 	}
@@ -57,7 +57,7 @@ func TestSecondaryFinish_NoRefereeButton(t *testing.T) {
 	}
 
 	pri := openBoundClock(t, pftSession(t), &store.FinishLog{Races: map[int]store.RaceResult{}})
-	priLabels := buttonLabels(pri.approvalPanel())
+	priLabels := buttonLabels(pri.controlsAndApprovalPanel())
 	if !slices.Contains(priLabels, common.RefereeButtonText) || !slices.Contains(priLabels, common.CloseButtonText) {
 		t.Errorf("primary approval panel should have Referee Approval + Close: %v", priLabels)
 	}
