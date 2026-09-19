@@ -155,8 +155,13 @@ func (r *Regatta) refreshStartRow(row *raceRow) {
 
 	if rec.StartedAt != nil {
 		row.startTime.SetText(rec.Display)
+		// Once a start exists, clicking this button again is a restart, not a
+		// mistaken-first-click correction - relabel to say so. The action
+		// itself is unchanged (clearStartConfirmed); only what it reads as.
+		row.clearBtn.SetText(common.RestartRaceButtonText)
 	} else {
 		row.startTime.SetText(common.NoStartTimeText)
+		row.clearBtn.SetText(common.ClearButtonText)
 	}
 	row.restarts.SetText(restartsCell(rec))
 

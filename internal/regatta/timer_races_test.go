@@ -54,8 +54,30 @@ func TestTimerStartTreeRowsAndButtons(t *testing.T) {
 	if !row.clearBtn.Disabled() {
 		t.Error("Clear should be disabled with no start time")
 	}
+	if row.clearBtn.Text != common.ClearButtonText {
+		t.Errorf("clear button label = %q, want %q before any start is recorded", row.clearBtn.Text, common.ClearButtonText)
+	}
 	if !row.restoreBtn.Hidden {
 		t.Error("Restore should be hidden with no cleared history")
+	}
+}
+
+// TestClearButtonRelabelsToRestartRaceOnceStarted - the action stays the
+// same (clearStartConfirmed), but once a start exists, clicking it again is
+// a restart, not a mistaken-first-click correction, so the label changes.
+func TestClearButtonRelabelsToRestartRaceOnceStarted(t *testing.T) {
+	r, _, _ := startedTimer(t, "pst")
+
+	r.recordStart(1)
+
+	row := r.rows[1]
+	if row.clearBtn.Text != common.RestartRaceButtonText {
+		t.Errorf("clear button label = %q, want %q once a start is recorded", row.clearBtn.Text, common.RestartRaceButtonText)
+	}
+
+	r.clearStartConfirmed(1)
+	if row.clearBtn.Text != common.ClearButtonText {
+		t.Errorf("clear button label = %q, want %q after the start is cleared", row.clearBtn.Text, common.ClearButtonText)
 	}
 }
 
