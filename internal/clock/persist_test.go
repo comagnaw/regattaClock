@@ -56,6 +56,41 @@ func TestClockStartWritesInProgressResult(t *testing.T) {
 	}
 }
 
+func TestRecordStop_SetsFieldAndPersists(t *testing.T) {
+	s := pftSession(t)
+	log := &store.FinishLog{Races: map[int]store.RaceResult{}}
+	clk := openBoundClock(t, s, log)
+
+	clk.buttons.start.OnTapped()
+	clk.buttons.stop.OnTapped()
+
+	res, ok := log.Races[1]
+	if !ok || res.StoppedAt == nil {
+		t.Fatalf("Stop did not stamp StoppedAt: %+v", res)
+	}
+
+	onDisk, err := store.LoadFinish(s)
+	if err != nil {
+		t.Fatalf("LoadFinish: %v", err)
+	}
+	if onDisk.Races[1].StoppedAt == nil {
+		t.Error("finish.json on disk has no StoppedAt for race 1")
+	}
+}
+
+func TestRecordStop_SecondaryNoOp(t *testing.T) {
+	s := sftSession(t)
+	log := &store.FinishLog{Races: map[int]store.RaceResult{}}
+	clk := openSecondaryClock(t, s, log)
+
+	clk.buttons.start.OnTapped()
+	clk.buttons.stop.OnTapped()
+
+	if res := log.Races[1]; res.StoppedAt != nil {
+		t.Errorf("secondary FT's Stop should not set StoppedAt: %+v", res)
+	}
+}
+
 func TestClockApprovalWritesFullResult(t *testing.T) {
 	s := pftSession(t)
 	log := &store.FinishLog{Races: map[int]store.RaceResult{}}
@@ -141,7 +176,7 @@ func TestClearOnApprovedRace_ConfirmedResetFixesStaleFirstFinish(t *testing.T) {
 	clk.clockState.skipAutoWinningTime = true
 	clk.performClear()
 
-	if res := log.Races[1]; res.FirstFinishAt != nil || res.WinningTime != "" || res.Approved {
+	if res := log.Races[1]; res.FirstFinishAt != nil || res.WinningTime != "" || res.Approved || res.StoppedAt != nil {
 		t.Fatalf("performClear should fully reset the race, got %+v", res)
 	}
 
@@ -153,6 +188,9 @@ func TestClearOnApprovedRace_ConfirmedResetFixesStaleFirstFinish(t *testing.T) {
 	}
 	if staleFinish != nil && res.FirstFinishAt.Equal(*staleFinish) {
 		t.Error("FirstFinishAt still matches the pre-Clear approved value - the stale-data bug is back")
+	}
+	if res.StoppedAt != nil {
+		t.Error("StoppedAt still matches the pre-Clear approved value - a re-time should not look Pending Approval before Stop is clicked again")
 	}
 	if res.WinningTime != "" || clk.winningTime.Text != "" {
 		t.Errorf("winning time should stay manual-entry only after a confirmed re-time, got record=%q field=%q",
