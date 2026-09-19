@@ -111,6 +111,22 @@ func TestDirectorRow_Placeholders(t *testing.T) {
 		t.Errorf("placeholders wrong: %q %q %q %q",
 			row.restarts.Text, row.startTime.Text, row.winTime.Text, row.approved.Text)
 	}
+	if row.scheduledTime.Text != common.NoStartTimeText {
+		t.Errorf("scheduled time placeholder = %q, want %q", row.scheduledTime.Text, common.NoStartTimeText)
+	}
+}
+
+// TestDirectorRow_ScheduledTime - the workbook-sourced scheduled start time
+// shows on the RD's row the same way it does on the ST/FT trees.
+func TestDirectorRow_ScheduledTime(t *testing.T) {
+	r := directorWithRaces(t, []reader.RaceData{
+		{RaceNumber: 1, ScheduledTime: "09:00 AM", BoatCount: 4, Lanes: map[int]reader.RaceEntry{1: {SchoolName: "A"}}},
+	})
+	r.raceListBody()
+
+	if got := r.rows[1].scheduledTime.Text; got != "09:00 AM" {
+		t.Errorf("scheduled time = %q, want %q", got, "09:00 AM")
+	}
 }
 
 // TestDirectorHydratesPrimary - the RD mirrors the primary team's timing files

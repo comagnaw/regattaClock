@@ -94,7 +94,10 @@ Builds are attached to each [GitHub release](https://github.com/comagnaw/regatta
 - **Windows** — `regattaClock-<version>-windows-amd64-portable.zip` (unzip and
   run) or `regattaClock-<version>-windows-setup.exe` (per-user installer, Start
   Menu entry, uninstaller). Not yet code-signed, so SmartScreen shows a
-  "Windows protected your PC" warning — **More info → Run anyway**.
+  "Windows protected your PC" warning — **More info → Run anyway**. **amd64
+  only** — there is no native ARM64 build. On an ARM-based Windows machine
+  (e.g. Surface Pro X, Surface Pro 9 5G/11 with Snapdragon), this runs only
+  under Windows' x64 emulation, which is untested with this app.
 
 `regattaClock -v` prints the running build's version, commit, and build date.
 
@@ -175,6 +178,18 @@ enter its default challenge each launch.
 Both sections are optional. If the file is missing or invalid, regattaClock falls
 back to the normal persona picker. Full details are in
 [docs/features/personas/persona-config-file.md](docs/features/personas/persona-config-file.md).
+
+## Troubleshooting
+
+**The app freezes right after entering a persona's challenge code, before the
+folder picker appears (Windows).** This is almost always a stale or
+disconnected mapped network drive on that machine — the folder picker builds
+its list of drives before it shows, and Windows can hang for a long time (or
+indefinitely) checking a mapped drive letter that is no longer reachable.
+Disconnect or remove any mapped network drives that are not currently
+connected (Windows Explorer → This PC, or `net use <drive>: /delete` at a
+command prompt), then try again. This is a Windows/Fyne folder-dialog
+behavior, not specific to a particular regattaData location.
 
 ## Documentation
 

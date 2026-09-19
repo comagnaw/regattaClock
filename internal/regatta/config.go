@@ -172,9 +172,11 @@ func (r *Regatta) welcomeDirButton(dirSet bool) *widget.Button {
 }
 
 // welcomeFolderCallback - as changeCallBack (persist PrefRegattaDir, enable the
-// loader, point logging at the new tree), then re-render the director setup view
-// so Step 2 shows its check mark and path and Start Regatta can ungate. Cancel
-// is a no-op that leaves the step incomplete.
+// loader), then re-render the director setup view so Step 2 shows its check
+// mark and path and Start Regatta can ungate. Cancel is a no-op that leaves
+// the step incomplete. Deliberately does not call startLogging - see the note
+// on changeCallBack: choosing a directory must not create it. startDirectorFlow
+// points logging at the new tree once Start Regatta actually proceeds.
 func (r *Regatta) welcomeFolderCallback() func(fyne.ListableURI, error) {
 	return func(dirReader fyne.ListableURI, err error) {
 		if err != nil {
@@ -191,7 +193,6 @@ func (r *Regatta) welcomeFolderCallback() func(fyne.ListableURI, error) {
 		r.loadState.loadButton.Enable()
 		r.loadState.dirChosen = true
 
-		r.startLogging()
 		applog.Info("regatta directory set", "component", "setup", "path", regattaDir)
 
 		r.showDirectorSetup()
@@ -218,9 +219,11 @@ func (r *Regatta) changeCallBack() func(fyne.ListableURI, error) {
 		r.App.Preferences().SetString(common.PrefRegattaDir, regattaDir)
 		r.loadState.loadButton.Enable()
 
-		r.startLogging()
 		applog.Info("regatta directory set", "component", "config", "path", regattaDir)
 
+		// Deliberately no startLogging()/directory creation here: picking a
+		// directory must not create it, only confirming Start Regatta may
+		// (startDirectorFlow calls startLogging once that actually happens).
 		// director/ and timing/<team>/ are created on first write by the store,
 		// so nothing needs pre-creating here now that results/ is gone.
 	}

@@ -83,14 +83,18 @@ func stub(t *testing.T) func() {
 	return func() { Version, BuildCommit, BuildCount, BuildDirty = v, c, n, d }
 }
 
-func TestGetSourceUsesCommit(t *testing.T) {
+// TestGetSourceIgnoresCommit - Source is always the bare repo URL, even when a
+// commit is known. Linking to a specific commit was confusing when clicked
+// (docs/features/PRE-RELEASE-BUGS.md, Feature 1); Commit is already shown as
+// its own field (Fields()) for anyone who wants it.
+func TestGetSourceIgnoresCommit(t *testing.T) {
 	origURL, origCommit := RepoURL, BuildCommit
 	t.Cleanup(func() { RepoURL, BuildCommit = origURL, origCommit })
 	RepoURL = "https://example.test/acme/widget"
 	BuildCommit = "abc1234"
 
-	if got, want := Get().Source, "https://example.test/acme/widget/commit/abc1234"; got != want {
-		t.Errorf("Source = %q, want %q", got, want)
+	if got, want := Get().Source, RepoURL; got != want {
+		t.Errorf("Source = %q, want the bare repo URL %q even with a known commit", got, want)
 	}
 }
 

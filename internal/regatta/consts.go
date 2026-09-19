@@ -43,6 +43,11 @@ const (
 	// Shared by ST, FT and RD.
 	startTimeColWidth = float32(130)
 
+	// scheduledTimeColWidth - the workbook-sourced scheduled start time, shown
+	// to every role. Wider than startTimeColWidth since its header ("Scheduled
+	// Time") is the longer string.
+	scheduledTimeColWidth = float32(140)
+
 	// actionsColWidth - the start timer's Start Time / Clear / Restore button
 	// group (three equal cells).
 	actionsColWidth = float32(300)

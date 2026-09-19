@@ -184,17 +184,17 @@ func TestRegatta_RefreshContent(t *testing.T) {
 	regatta.showRaceTree()
 	regatta.refreshContent()
 
-	expectedTitle := "Regatta: Test Regatta"
+	expectedTitle := "Test Regatta"
 	if regatta.title.Text != expectedTitle {
 		t.Errorf("Expected title %q, got %q", expectedTitle, regatta.title.Text)
 	}
 
-	expectedDate := "Date: 2024-01-15"
+	expectedDate := "2024-01-15"
 	if regatta.date.Text != expectedDate {
 		t.Errorf("Expected date %q, got %q", expectedDate, regatta.date.Text)
 	}
 
-	expectedSubtitle := "Scheduled Races: 2"
+	expectedSubtitle := "2"
 	if regatta.subtitle.Text != expectedSubtitle {
 		t.Errorf("Expected subtitle %q, got %q", expectedSubtitle, regatta.subtitle.Text)
 	}
@@ -215,11 +215,11 @@ func TestRegatta_RefreshContent_NoRaces(t *testing.T) {
 	regatta.showRaceTree()
 	regatta.refreshContent()
 
-	if regatta.title.Text != "Regatta: Empty Regatta" {
-		t.Errorf("Expected title 'Regatta: Empty Regatta', got %q", regatta.title.Text)
+	if regatta.title.Text != "Empty Regatta" {
+		t.Errorf("Expected title 'Empty Regatta', got %q", regatta.title.Text)
 	}
 
-	expectedSubtitle := "Scheduled Races: 0"
+	expectedSubtitle := "0"
 	if regatta.subtitle.Text != expectedSubtitle {
 		t.Errorf("Expected subtitle %q, got %q", expectedSubtitle, regatta.subtitle.Text)
 	}
@@ -257,7 +257,7 @@ func TestRegatta_RefreshContent_SomeEmptyRaces(t *testing.T) {
 	regatta.refreshContent()
 
 	// Should only count races with boats
-	expectedSubtitle := "Scheduled Races: 2"
+	expectedSubtitle := "2"
 	if regatta.subtitle.Text != expectedSubtitle {
 		t.Errorf("Expected subtitle %q, got %q", expectedSubtitle, regatta.subtitle.Text)
 	}
@@ -343,10 +343,60 @@ func TestRegatta_TreeTitle(t *testing.T) {
 		t.Errorf("treeTitle should carry no image, got %d", images)
 	}
 
-	// regatta / scheduled races / date / role - four cells, always present
-	// (the role cell is an empty *canvas.Text when no session is bound).
-	if texts != 4 {
-		t.Errorf("Expected the four Key: Value fields, got %d text objects", texts)
+	// regatta / scheduled races / date / role - four Key:/Value pairs, always
+	// present (the role value is an empty *canvas.Text when no session is
+	// bound; its "Role:" key still renders).
+	if texts != 8 {
+		t.Errorf("Expected the four Key: Value pairs (8 text objects), got %d", texts)
+	}
+}
+
+// keyTexts collects every right-aligned "Key:" *canvas.Text under o, in tree
+// order - the four labels treeTitle builds, grouped two-by-two per column.
+func keyTexts(o fyne.CanvasObject) []*canvas.Text {
+	var out []*canvas.Text
+	switch v := o.(type) {
+	case *canvas.Text:
+		if v.Alignment == fyne.TextAlignTrailing {
+			out = append(out, v)
+		}
+	case *fyne.Container:
+		for _, c := range v.Objects {
+			out = append(out, keyTexts(c)...)
+		}
+	}
+	return out
+}
+
+// TestRegatta_TreeTitleKeysAlignPerColumn - docs/features/PRE-RELEASE-BUGS.md
+// Feature 6: a single 8-column grid sized every column to the single widest
+// cell (ballooning the card), so treeTitle instead uses one layout.FormLayout
+// per column (Regatta/Date on the left, Scheduled Races/Role on the right).
+// Each FormLayout sizes its own label column to the wider of its own two
+// keys, so within a column both keys end up the same width - the colons line
+// up - without forcing the *other* column's keys to match too.
+func TestRegatta_TreeTitleKeysAlignPerColumn(t *testing.T) {
+	app := test.NewApp()
+	defer app.Quit()
+
+	regatta := NewDirector(app)
+	panel := regatta.treeTitle()
+	panel.Resize(panel.MinSize())
+
+	keys := keyTexts(panel)
+	if len(keys) != 4 {
+		t.Fatalf("expected 4 key labels, got %d", len(keys))
+	}
+
+	// keys[0..1] = left column (Regatta:, Scheduled Races:); keys[2..3] = right
+	// column (Date:, Role:) - see treeTitle's left/right construction order.
+	if w0, w1 := keys[0].Size().Width, keys[1].Size().Width; w0 != w1 {
+		t.Errorf("left column keys %q/%q have different widths (%v/%v) - colons will not align",
+			keys[0].Text, keys[1].Text, w0, w1)
+	}
+	if w2, w3 := keys[2].Size().Width, keys[3].Size().Width; w2 != w3 {
+		t.Errorf("right column keys %q/%q have different widths (%v/%v) - colons will not align",
+			keys[2].Text, keys[3].Text, w2, w3)
 	}
 }
 
@@ -374,10 +424,10 @@ func TestRegatta_TreeTitleWithRole(t *testing.T) {
 	defer app.Quit()
 
 	regatta := NewDirector(app)
-	regatta.persona.Text = "Role: Whatever"
+	regatta.persona.Text = "Whatever"
 
-	if _, texts := countObjects(regatta.treeTitle()); texts != 4 {
-		t.Errorf("Expected the role line plus title, subtitle and date, got %d text objects", texts)
+	if _, texts := countObjects(regatta.treeTitle()); texts != 8 {
+		t.Errorf("Expected the role pair plus title, subtitle and date pairs (8 text objects), got %d", texts)
 	}
 }
 
@@ -388,8 +438,8 @@ func TestDirector_ShowsRoleAfterRestore(t *testing.T) {
 
 	r := NewDirector(app)
 
-	if r.persona.Text != "Role: Regatta Director" {
-		t.Errorf("header role line = %q, want %q", r.persona.Text, "Role: Regatta Director")
+	if r.persona.Text != "Regatta Director" {
+		t.Errorf("header role line = %q, want %q", r.persona.Text, "Regatta Director")
 	}
 	if got := r.window.Title(); got != "Regatta Clock — Regatta Director" {
 		t.Errorf("window title = %q, want %q", got, "Regatta Clock — Regatta Director")

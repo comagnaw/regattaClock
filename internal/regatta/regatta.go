@@ -73,17 +73,18 @@ type Regatta struct {
 	// challenge codes; nil means the normal persona picker.
 	personaCfg *personacfg.Config
 
-	// persona - race-tree header line naming the operator's role, e.g.
-	// "Role: Primary Start Timer". Empty until a session is bound.
+	// persona - race-tree header value naming the operator's role, e.g.
+	// "Primary Start Timer" (treeTitle renders the "Role:" key separately, so
+	// the two align in their own column). Empty until a session is bound.
 	persona *canvas.Text
 
-	// title - text field that represents imported title from RegattaData
+	// title - value field for the imported regatta name from RegattaData
 	title *canvas.Text
 
-	// date - text field that represents imported date from RegattaData
+	// date - value field for the imported date from RegattaData
 	date *canvas.Text
 
-	// subtitle - text field that represents imported number of races from RegattaData
+	// subtitle - value field for the imported number of scheduled races
 	subtitle *canvas.Text
 
 	// themeVariant - the app's chosen theme (VariantLight / VariantDark), set by
@@ -247,7 +248,8 @@ func newRegatta(app fyne.App) *Regatta {
 		date:        text.Header3(common.EmptyString),
 		RegattaData: reader.NewRegattaData(),
 	}
-	// The four race-tree details fields sit in a left-aligned 2x2 grid.
+	// The four race-tree details values sit left-aligned, each paired with its
+	// own right-aligned "Key:" label in treeTitle's 8-column grid.
 	for _, t := range []*canvas.Text{regattaApp.persona, regattaApp.title, regattaApp.subtitle, regattaApp.date} {
 		t.Alignment = fyne.TextAlignLeading
 	}
@@ -273,12 +275,12 @@ func (r *Regatta) refreshContent() {
 		r.session, _ = r.directorSession()
 	}
 
-	r.title.Text = fmt.Sprintf(common.TreeRegattaLabel, r.RegattaData.Name)
-	r.subtitle.Text = fmt.Sprintf(common.NumScheduledRacesTitle, r.RegattaData.ScheduledRaces())
-	r.date.Text = fmt.Sprintf(common.TreeDateLabel, r.RegattaData.Date)
+	r.title.Text = r.RegattaData.Name
+	r.subtitle.Text = fmt.Sprintf("%d", r.RegattaData.ScheduledRaces())
+	r.date.Text = r.RegattaData.Date
 
 	if r.session.Label != common.EmptyString {
-		r.persona.Text = fmt.Sprintf(common.PersonaHeaderFormat, r.session.Label)
+		r.persona.Text = r.session.Label
 		r.window.SetTitle(fmt.Sprintf(common.WindowTitleFormat, common.AppTitle, r.session.Label))
 	}
 

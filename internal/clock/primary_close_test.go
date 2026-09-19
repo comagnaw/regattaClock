@@ -5,19 +5,54 @@ import (
 	"strings"
 	"testing"
 
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/container"
+
 	"github.com/comagnaw/regattaClock/internal/common"
 	"github.com/comagnaw/regattaClock/internal/persona/store"
+	"github.com/comagnaw/regattaClock/internal/uitheme"
 )
 
 func TestPrimaryFinish_PanelHasRefereeAndClose(t *testing.T) {
 	clk := openBoundClock(t, pftSession(t), &store.FinishLog{Races: map[int]store.RaceResult{}})
-	labels := buttonLabels(clk.approvalPanel())
+	labels := buttonLabels(clk.controlsAndApprovalPanel())
 
 	if !slices.Contains(labels, common.RefereeButtonText) || !slices.Contains(labels, common.CloseButtonText) {
 		t.Errorf("primary approval panel should have Referee Approval + Close: %v", labels)
 	}
 	if slices.Contains(labels, common.SaveButtonText) || slices.Contains(labels, common.SaveAndCloseButtonText) {
 		t.Errorf("primary approval panel should have no Save button: %v", labels)
+	}
+}
+
+// TestPrimaryFinish_CommitStatusOnAccentBand - the status line under the
+// approval buttons should carry the same blue-band contrast as the rest of
+// the window (docs/features/PRE-RELEASE-BUGS.md, Feature 2), not sit as a
+// plain label on the window background.
+func TestPrimaryFinish_CommitStatusOnAccentBand(t *testing.T) {
+	clk := openBoundClock(t, pftSession(t), &store.FinishLog{Races: map[int]store.RaceResult{}})
+
+	found := false
+	var walk func(fyne.CanvasObject)
+	walk = func(o fyne.CanvasObject) {
+		switch v := o.(type) {
+		case *canvas.Rectangle:
+			if sameColor(v.FillColor, uitheme.LogoWaterBlue) {
+				found = true
+			}
+		case *fyne.Container:
+			for _, c := range v.Objects {
+				walk(c)
+			}
+		case *container.ThemeOverride:
+			walk(v.Content)
+		}
+	}
+	walk(clk.controlsAndApprovalPanel())
+
+	if !found {
+		t.Error("approval panel should carry an AccentBand (LogoWaterBlue fill) under the commit status line")
 	}
 }
 

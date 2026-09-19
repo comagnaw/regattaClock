@@ -13,6 +13,39 @@ timer-priority rule a sidecar inherits) and §13.
 
 **Status:** design assessment + phased build plan. No code yet.
 
+**Update (2026-09-16):** the `register-results` capability sketched below
+(Increment 1, "push official results to RegattaCentral") is **superseded**
+for that specific use case — publishing official results resolved instead
+to a native Primary Finish Timer feature, not a sidecar capability. See
+[new/results-publisher.md](new/results-publisher.md) for the decision and
+why. The `social-post` capability and the general Lead / Standalone /
+Sidecar framework below remain the live design for future social-media
+publishing (SOM) and are unaffected by this.
+
+**Update (2026-09-16):** Social Media (SOM) has since been scoped and
+**confirms** this doc's `social-post` capability and its Phase 0 sketch
+(`internal/publish`, the sidecar lifecycle, the menu wiring) as the design
+to build on as-is — see [new/social-media.md](new/social-media.md) for the
+automated-X-post increment this doc only placeholder'd, plus one
+refinement: `social-post` specifically is hosted by **Finish Timers
+only** (PFT/SFT), narrower than the general `isLead()` guard below.
+
+**Update (2026-09-16):** the image side of Phase 0 has a resolution too.
+The "social-image publisher" this doc's Phase 0 table and Phase 0b left as
+an unnamed future consumer of a "Save image" sidecar button is now
+**Streamer (STM)** — see [new/streamer.md](new/streamer.md) — and STM is a
+**standalone persona, not a sidecar**. Phase 0b's `RenderResult` function
+(`internal/exporter`) is still reused as designed, but STM builds and
+calls it directly rather than through the sidecar's own Phase 0c "Save
+image" button, so it does **not** depend on Phase 0c landing first. SOM's
+own resolution excludes the image path entirely, so that sidecar "Save
+image" button currently has no real consumer — it stays sketched below as
+a legitimate future option for some other sidecar capability, just not one
+either SOM or STM need. Also: the deferred `regattaData/results/`
+materialization referenced just below is **retired**, not merely deferred
+— see the update note near the top of
+[future-result-driven-persona.md](future-result-driven-persona.md).
+
 **Recommendation up front.** Build a **sidecar capability** seam: a publishing task
 attached to whichever **lead** persona is logged in (Regatta Director or a Timer), never
 its own `persona.Definition` / `Team` / `Challenge` / `Session`. The first version
@@ -43,22 +76,22 @@ thing that is *not* a persona.
 | Class | Examples | Hosts a sidecar? | Is a sidecar? |
 |-------|----------|------------------|---------------|
 | **Lead** | Regatta Director; Primary/Secondary Start & Finish Timer | yes — at most one | no |
-| **Standalone** *(non-lead)* | Streaming *(unscoped)*; a dedicated "Publisher" persona *(optional, later)* | no | no |
+| **Standalone** *(non-lead)* | Streamer (STM) *(scoped, [new/streamer.md](new/streamer.md))*; a dedicated "Publisher" persona *(optional, later)* | no | no |
 | **Sidecar capability** *(not a persona)* | `social-post`, `register-results` | — it *is* the attachment | onto a **Lead** only |
 
 - A **Lead** has a primary duty that is timing or directing. It may additionally enable
   **one** publish sidecar. It is never itself a sidecar.
 - A **Standalone** persona is chosen at startup and is the entire job for that app
   instance. It **does not participate in the sidecar mechanism in either direction** — it
-  neither hosts a sidecar nor is one. **Streaming** is the worked example: whenever it is
-  scoped, it manages its own external surface (stream / overlay) and hosts nothing. A
-  dedicated **Publisher** persona (below) is also Standalone — its job *is* one publish
-  capability, run alone.
+  neither hosts a sidecar nor is one. **Streamer (STM)** is the worked example: it manages
+  its own external surface (the OBS/YouTube feed) and hosts nothing — see
+  [new/streamer.md](new/streamer.md) now that it's scoped. A dedicated **Publisher** persona
+  (below) is also Standalone — its job *is* one publish capability, run alone.
 - A **Sidecar capability** never runs alone and never nests.
 
 **Invariant:** one persona per process; a Lead may carry one sidecar; Standalone personas
 and sidecar capabilities never combine — at most one publish task per process, and a
-publisher never side-cars another publisher. Every future persona (Streaming, Developer, a
+publisher never side-cars another publisher. Every future persona (Developer, a
 Publisher) is classified Lead or Standalone when it is scoped, and **Standalone is the
 default** for a new self-contained persona. That single choice settles, once, whether the
 persona touches the sidecar mechanism at all.
@@ -172,7 +205,7 @@ Increment 1 uses that package.
 | **1** | **Register Results** (automated) — push to RegattaCentral. Forces the config + secrets decision, an outbox/retry design, and a field-mapping spec. Detailed in [regattacentral-integration.md](regattacentral-integration.md#write-integration--register-results-phase-d) (Phase D). | `internal/publish` `Target`, `internal/regattacentral`, `internal/secretstore`, an outbox, `net/http` |
 | **2** | **Social Post** (automated) — X API: OAuth, media upload, rate limits. Own doc. | `golang.org/x/oauth2`, media upload |
 | later | **Standalone "Publisher" persona** (Media tab) for a publish-only machine — one capability, chosen at launch, attaches nothing. | a new `persona.Role`, a `Definition`, a picker entry, `startPublisherFlow` |
-| deferred | `regattaData/results/` materialization, reconciliation verdict, `disputed` handling — unchanged. **Streaming** and **Developer** — Standalone; each scoped in its own later doc. | — |
+| deferred | reconciliation verdict, `disputed` handling — unchanged. **Developer** — Standalone; scoped in its own later doc. **Streamer (STM)** — Standalone; now scoped, see [new/streamer.md](new/streamer.md). `regattaData/results/` materialization — retired, not deferred; see [future-result-driven-persona.md](future-result-driven-persona.md). | — |
 
 ## Implementation steps
 
@@ -287,6 +320,13 @@ no new persona.
 
 ### Increment 1 sketch — Register Results
 
+> **Superseded** for the "publish official results" use case — see the
+> update note near the top of this file and
+> [new/results-publisher.md](new/results-publisher.md). Kept below for the
+> RegattaCentral-specific plumbing ideas (`internal/publish` `Target`
+> interface, the outbox/retry shape), which may still be reusable once
+> Results Publisher adds a RegattaCentral destination.
+
 Full design in
 [regattacentral-integration.md](regattacentral-integration.md#write-integration--register-results-phase-d).
 In brief:
@@ -349,13 +389,17 @@ all of `internal/publish`.
 - **Invariant:** a Lead may carry one sidecar; a Standalone persona carries none and is
   none.
 - The Media-tab `Register Results` / `Social Media` buttons are sidecar capabilities (and,
-  standalone, the Publisher persona) — **not** new personas yet. `Streaming` (Standalone,
-  hosts no sidecar) and `Developer` stay unscoped.
+  standalone, the Publisher persona) — **not** new personas yet. `Developer` stays
+  unscoped; `Streaming` is now scoped as **Streamer (STM)**, Standalone, hosts no
+  sidecar — see [new/streamer.md](new/streamer.md).
 
 ## Open decisions
 
 - **Which Leads may toggle a sidecar** — any Lead, or Finish-Timers only to match today's
-  duties. (The Lead / Standalone / Sidecar split itself is settled.)
+  duties. **Resolved for `social-post` specifically: Finish-Timers only**
+  (see the 2026-09-16 update note above / `new/social-media.md`) — still
+  open for any other capability this framework grows later. (The Lead /
+  Standalone / Sidecar split itself is settled.)
 - Non-secret config location — extend `personacfg`, a new local JSON, or preferences.
 - Keyring library choice and the headless-Linux fallback.
 - Automated push: a synchronous outbox with retry, or fire-and-forget.

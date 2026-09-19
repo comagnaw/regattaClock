@@ -81,19 +81,19 @@ func labelTexts(o fyne.CanvasObject) []string {
 
 func TestCompareButton_OnlyForPrimaryFinishWithSecondary(t *testing.T) {
 	pft := openPFTWithSecondary(t, emptyFinish(), secResult("05:00.0"))
-	if !slices.Contains(buttonLabels(pft.approvalPanel()), common.CompareSecondaryButtonText) {
+	if !slices.Contains(buttonLabels(pft.controlsAndApprovalPanel()), common.CompareSecondaryButtonText) {
 		t.Error("PFT with a secondary mirror should show the Compare Secondary button")
 	}
 
 	// PFT with no secondary mirror at all: no button in the panel.
 	noSec := openBoundClock(t, pftSession(t), emptyFinish())
-	if slices.Contains(buttonLabels(noSec.approvalPanel()), common.CompareSecondaryButtonText) {
+	if slices.Contains(buttonLabels(noSec.controlsAndApprovalPanel()), common.CompareSecondaryButtonText) {
 		t.Error("PFT without a secondary mirror should not show the button")
 	}
 
 	// Secondary FT never sees it.
 	sft := openSecondaryClock(t, sftSession(t), emptyFinish())
-	if slices.Contains(buttonLabels(sft.approvalPanel()), common.CompareSecondaryButtonText) {
+	if slices.Contains(buttonLabels(sft.controlsAndApprovalPanel()), common.CompareSecondaryButtonText) {
 		t.Error("the secondary FT must not get a Compare Secondary button")
 	}
 }

@@ -294,14 +294,14 @@ func TestStartSessionSetsRoleLabels(t *testing.T) {
 	stopWatch(t, r)
 	r.startSession(pst, sch)
 
-	if r.persona.Text != "Role: Primary Start Timer" {
-		t.Errorf("header role line = %q, want %q", r.persona.Text, "Role: Primary Start Timer")
+	if r.persona.Text != "Primary Start Timer" {
+		t.Errorf("header role line = %q, want %q", r.persona.Text, "Primary Start Timer")
 	}
 	if got := r.window.Title(); got != "Regatta Clock — Primary Start Timer" {
 		t.Errorf("window title = %q, want %q", got, "Regatta Clock — Primary Start Timer")
 	}
-	if _, texts := countObjects(r.treeTitle()); texts != 4 {
-		t.Errorf("tree title text objects = %d, want 4 (role, name, subtitle, date)", texts)
+	if _, texts := countObjects(r.treeTitle()); texts != 8 {
+		t.Errorf("tree title text objects = %d, want 8 (role, name, subtitle, date, each with its own key)", texts)
 	}
 }
 
