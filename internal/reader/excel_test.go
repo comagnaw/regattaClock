@@ -70,10 +70,11 @@ func TestFindRaceSheet(t *testing.T) {
 // raceFixture is the expected shape of one scheduled race - a race that carries
 // lane data on the Results worksheet.
 type raceFixture struct {
-	number int
-	boats  int
-	class  string
-	flight string
+	number        int
+	boats         int
+	class         string
+	flight        string
+	scheduledTime string
 }
 
 // workbookFixtures are the sample regattas under testdata/, one per supported
@@ -112,8 +113,8 @@ var workbookFixtures = []struct {
 		totalRaces:  120,
 		scheduled:   2,
 		races: []raceFixture{
-			{number: 1, boats: 4, class: "M-1x"},
-			{number: 2, boats: 5, class: "M-Jr-4+", flight: "Heat 1"},
+			{number: 1, boats: 4, class: "M-1x", scheduledTime: "09:00 AM"},
+			{number: 2, boats: 5, class: "M-Jr-4+", flight: "Heat 1", scheduledTime: "09:05 AM"},
 		},
 	},
 }
@@ -199,6 +200,9 @@ func TestReadExcelFile_ScheduledRaceContents(t *testing.T) {
 				}
 				if race.FlightInfo != want.flight {
 					t.Errorf("race %d: FlightInfo = %q, want %q", want.number, race.FlightInfo, want.flight)
+				}
+				if race.ScheduledTime != want.scheduledTime {
+					t.Errorf("race %d: ScheduledTime = %q, want %q", want.number, race.ScheduledTime, want.scheduledTime)
 				}
 				if len(race.Lanes) != want.boats {
 					t.Errorf("race %d: %d lanes, want %d", want.number, len(race.Lanes), want.boats)

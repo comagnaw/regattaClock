@@ -109,18 +109,21 @@ func (r *Regatta) raceListHeader() *fyne.Container {
 	switch r.session.Role {
 	case persona.RoleStart:
 		cluster = container.NewHBox(
+			fixedCell(scheduledTimeColWidth, text.BoldLabelCenter(common.ColScheduledTime)),
 			fixedCell(actionsColWidth, text.BoldLabel(common.EmptyString)),
 			fixedCell(startTimeColWidth, text.BoldLabel(common.ColStartTime)),
 			fixedCell(statusColWidth, text.BoldLabel(common.ColStatus)),
 		)
 	case persona.RoleFinish:
 		cluster = container.NewHBox(
+			fixedCell(scheduledTimeColWidth, text.BoldLabelCenter(common.ColScheduledTime)),
 			fixedCell(timeRaceColWidth, text.BoldLabel(common.EmptyString)),
 			fixedCell(startTimeColWidth, text.BoldLabel(common.ColStartTime)),
 			fixedCell(statusColWidth, text.BoldLabel(common.ColStatus)),
 		)
 	default: // RoleDirector - centred to sit over the centred read-only cells.
 		cluster = container.NewHBox(
+			fixedCell(scheduledTimeColWidth, text.BoldLabelCenter(common.ColScheduledTime)),
 			fixedCell(restartsColWidth, text.BoldLabelCenter(common.ColRestarts)),
 			fixedCell(startTimeColWidth, text.BoldLabelCenter(common.ColStartTime)),
 			fixedCell(winTimeColWidth, text.BoldLabelCenter(common.ColWinningTime)),

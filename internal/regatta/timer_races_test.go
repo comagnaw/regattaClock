@@ -45,6 +45,9 @@ func TestTimerStartTreeRowsAndButtons(t *testing.T) {
 	if row.startTime.Text != "—" {
 		t.Errorf("start time label = %q, want the no-time dash", row.startTime.Text)
 	}
+	if row.scheduledTime.Text != common.NoStartTimeText {
+		t.Errorf("scheduled time label = %q, want the no-time dash", row.scheduledTime.Text)
+	}
 	if row.startBtn.Disabled() {
 		t.Error("Start Time should be enabled")
 	}
@@ -318,11 +321,15 @@ func TestOnScheduleChangedRefreshesTitleInPlace(t *testing.T) {
 	next := *sch
 	next.Races = append([]store.ScheduleRace(nil), sch.Races...)
 	next.Races[0].BoatClass = "JV8"
+	next.Races[0].ScheduledTime = "09:30 AM"
 
 	r.onScheduleChanged(&next)
 
 	if !strings.Contains(r.rows[1].title.Text, "JV8") {
 		t.Errorf("row 1 title = %q, want it to reflect the new class", r.rows[1].title.Text)
+	}
+	if r.rows[1].scheduledTime.Text != "09:30 AM" {
+		t.Errorf("row 1 scheduled time = %q, want it to reflect the reload", r.rows[1].scheduledTime.Text)
 	}
 }
 
