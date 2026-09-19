@@ -48,7 +48,7 @@ func diffSchedule(old, cur *reader.RegattaData) map[int]scheduleChange {
 			continue
 		}
 		ch := scheduleChange{lanes: map[int]bool{}}
-		if o.BoatClass != race.BoatClass || o.FlightInfo != race.FlightInfo {
+		if o.BoatClass != race.BoatClass || o.FlightInfo != race.FlightInfo || o.ScheduledTime != race.ScheduledTime {
 			ch.meta = true
 		}
 		for lane := 1; lane <= 6; lane++ {
@@ -89,11 +89,12 @@ func scheduleFromRegattaData(rd *reader.RegattaData) *store.Schedule {
 
 	for _, race := range rd.Races {
 		out := store.ScheduleRace{
-			RaceNumber: race.RaceNumber,
-			BoatClass:  race.BoatClass,
-			FlightInfo: race.FlightInfo,
-			BoatCount:  race.BoatCount,
-			Lanes:      make(map[int]store.ScheduleEntry, len(race.Lanes)),
+			RaceNumber:    race.RaceNumber,
+			ScheduledTime: race.ScheduledTime,
+			BoatClass:     race.BoatClass,
+			FlightInfo:    race.FlightInfo,
+			BoatCount:     race.BoatCount,
+			Lanes:         make(map[int]store.ScheduleEntry, len(race.Lanes)),
 		}
 		for lane, entry := range race.Lanes {
 			out.Lanes[lane] = store.ScheduleEntry{
@@ -136,11 +137,12 @@ func regattaDataFromSchedule(sch *store.Schedule) *reader.RegattaData {
 
 	for _, race := range sch.Races {
 		out := reader.RaceData{
-			RaceNumber: race.RaceNumber,
-			BoatClass:  race.BoatClass,
-			FlightInfo: race.FlightInfo,
-			BoatCount:  race.BoatCount,
-			Lanes:      make(map[int]reader.RaceEntry, len(race.Lanes)),
+			RaceNumber:    race.RaceNumber,
+			ScheduledTime: race.ScheduledTime,
+			BoatClass:     race.BoatClass,
+			FlightInfo:    race.FlightInfo,
+			BoatCount:     race.BoatCount,
+			Lanes:         make(map[int]reader.RaceEntry, len(race.Lanes)),
 		}
 		for lane, entry := range race.Lanes {
 			out.Lanes[lane] = reader.RaceEntry{

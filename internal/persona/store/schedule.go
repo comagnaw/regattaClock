@@ -34,11 +34,12 @@ type Origin struct {
 
 // ScheduleRace is one race's schedule row.
 type ScheduleRace struct {
-	RaceNumber int
-	BoatClass  string
-	FlightInfo string
-	BoatCount  int
-	Lanes      map[int]ScheduleEntry // lane number (1-6) -> entry
+	RaceNumber    int
+	ScheduledTime string
+	BoatClass     string
+	FlightInfo    string
+	BoatCount     int
+	Lanes         map[int]ScheduleEntry // lane number (1-6) -> entry
 }
 
 // ScheduleEntry is one lane's schedule assignment. A scratched lane is an empty
@@ -53,8 +54,8 @@ type ScheduleEntry struct {
 func (s *Schedule) Key() string { return RegattaKey(s.Name, s.Date) }
 
 // ContentHash is a canonical fingerprint of the schedule's meaningful payload -
-// name, date, and every race's number, class, flight, boat count and ordered
-// lane assignments - excluding Origin metadata. Two schedules with the same
+// name, date, and every race's number, scheduled time, class, flight, boat
+// count and ordered lane assignments - excluding Origin metadata. Two schedules with the same
 // ContentHash describe the same regatta program regardless of which workbook
 // (or workbook save) produced them; the Regatta Director's origin-refresh
 // detector compares this, not the Excel file hash (persona-plan.md 3b).
@@ -65,8 +66,8 @@ func (s *Schedule) ContentHash() string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s\x00%s\x1d", s.Name, s.Date)
 	for _, r := range races {
-		fmt.Fprintf(&b, "%d\x1e%s\x1e%s\x1e%d\x1e%s\x1d",
-			r.RaceNumber, r.BoatClass, r.FlightInfo, r.BoatCount, r.LaneMapHash())
+		fmt.Fprintf(&b, "%d\x1e%s\x1e%s\x1e%s\x1e%d\x1e%s\x1d",
+			r.RaceNumber, r.ScheduledTime, r.BoatClass, r.FlightInfo, r.BoatCount, r.LaneMapHash())
 	}
 	return filesystem.HashBytes([]byte(b.String()))[:16]
 }

@@ -200,6 +200,7 @@ func TestContentHash(t *testing.T) {
 	}{
 		{"lane move", func(s *Schedule) { s.Races[0].Lanes[1] = ScheduleEntry{SchoolName: "Moved"} }},
 		{"scratch", func(s *Schedule) { s.Races[0].Lanes[2] = ScheduleEntry{SchoolName: ""} }},
+		{"scheduled time", func(s *Schedule) { s.Races[0].ScheduledTime = "10:00 AM" }},
 		{"class", func(s *Schedule) { s.Races[0].BoatClass = "Junior 8" }},
 		{"flight", func(s *Schedule) { s.Races[0].FlightInfo = "Final" }},
 		{"boat count", func(s *Schedule) { s.Races[0].BoatCount = 6 }},

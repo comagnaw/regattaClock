@@ -22,10 +22,11 @@ func legacyRegattaData() *reader.RegattaData {
 	rd.SourceInfo = reader.SourceInfo{Type: "excel", URI: "old.xlsx", Hash: "deadbeef"}
 	rd.Races = []reader.RaceData{
 		{
-			RaceNumber: 4,
-			BoatClass:  "Varsity 8",
-			FlightInfo: "Final",
-			BoatCount:  2,
+			RaceNumber:    4,
+			ScheduledTime: "09:00 AM",
+			BoatClass:     "Varsity 8",
+			FlightInfo:    "Final",
+			BoatCount:     2,
 			Approved:   true,
 			Saved:      true,
 			RawData:    reader.RawData{{"Varsity 8"}, {"Final"}, {"", "1"}, {"", "00:00.0"}, {"", "06:00.0"}},
@@ -47,6 +48,9 @@ func TestScheduleConversionDropsResultFields(t *testing.T) {
 	if len(sch.Races) != 1 || sch.Races[0].BoatCount != 2 {
 		t.Fatalf("race not carried: %+v", sch.Races)
 	}
+	if sch.Races[0].ScheduledTime != "09:00 AM" {
+		t.Fatalf("scheduled time not carried: %+v", sch.Races[0])
+	}
 	if sch.Races[0].Lanes[1] != (store.ScheduleEntry{SchoolName: "Alpha", AdditionalInfo: "A"}) {
 		t.Fatalf("lane 1 = %+v, want school/additional only", sch.Races[0].Lanes[1])
 	}
@@ -61,6 +65,27 @@ func TestScheduleConversionDropsResultFields(t *testing.T) {
 	}
 	if rd.Races[0].Lanes[2].SchoolName != "Beta" {
 		t.Fatalf("schedule fields lost: %+v", rd.Races[0].Lanes[2])
+	}
+	if rd.Races[0].ScheduledTime != "09:00 AM" {
+		t.Fatalf("scheduled time not carried back: %+v", rd.Races[0])
+	}
+}
+
+// TestDiffSchedule_ScheduledTimeChangeSetsMeta - a scheduled-time-only edit
+// should trip the same "Schedule changed" conflict mark as a BoatClass or
+// FlightInfo edit (both are race metadata, not lane/result data).
+func TestDiffSchedule_ScheduledTimeChangeSetsMeta(t *testing.T) {
+	old := &reader.RegattaData{Races: []reader.RaceData{
+		{RaceNumber: 1, ScheduledTime: "09:00 AM"},
+	}}
+	cur := &reader.RegattaData{Races: []reader.RaceData{
+		{RaceNumber: 1, ScheduledTime: "09:15 AM"},
+	}}
+
+	changes := diffSchedule(old, cur)
+	ch, ok := changes[1]
+	if !ok || !ch.meta {
+		t.Fatalf("expected race 1 to be flagged with meta = true, got %+v (ok=%v)", ch, ok)
 	}
 }
 

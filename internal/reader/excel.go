@@ -153,6 +153,12 @@ func (e excel) loadLanes(raceNum, startRow, endRow int) RaceData {
 
 	raceData := newRaceData(raceNum)
 
+	// Column B holds the scheduled start time, merged across the whole 5-row
+	// block the same way column A holds the race number - read once here, not
+	// inside the per-row loop below (the other rows in the merge are blank).
+	scheduledTime, _ := e.file.GetCellValue(e.sheetName, fmt.Sprintf("B%d", startRow))
+	raceData.ScheduledTime = strings.TrimSpace(scheduledTime)
+
 	// Get data for each row in the lane
 	for row := startRow; row <= endRow; row++ {
 		rawDataCols := []string{"C", "D", "E", "F", "G", "H", "I"}
