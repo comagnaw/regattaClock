@@ -108,6 +108,28 @@ func TestRecordStartShowsOnTheWaterBeforeFinishTimerBegins(t *testing.T) {
 	}
 }
 
+// TestStartRow_RestartsAndWinningTimeAreVisible - the "pane of glass" column
+// unification: the ST's own row now shows the same Restarts and Winning Time
+// data the RD tree already showed, not just Start Time and Status.
+func TestStartRow_RestartsAndWinningTimeAreVisible(t *testing.T) {
+	r, _, _ := startedTimer(t, "pst")
+
+	r.recordStart(1)
+	r.clearStartConfirmed(1)
+	r.recordStart(1)
+
+	if got := r.rows[1].restarts.Text; got != "1" {
+		t.Errorf("restarts = %q, want 1 after one clear", got)
+	}
+
+	r.onPeerFinishChanged(&store.FinishLog{Races: map[int]store.RaceResult{
+		1: {RaceNumber: 1, WinningTime: "06:00.0", Approved: true},
+	}})
+	if got := r.rows[1].winTime.Text; got != "06:00.0" {
+		t.Errorf("winning time = %q, want the peer FT's committed value", got)
+	}
+}
+
 func TestRecordStartIsOneShot(t *testing.T) {
 	r, _, _ := startedTimer(t, "pst")
 
@@ -341,6 +363,45 @@ func TestFinishRowShowsOnTheWaterBeforeOwnClockOpens(t *testing.T) {
 	wantOnTheWater := store.StateStartRecorded.DisplayText(persona.TeamPrimary)
 	if got := r.rows[1].progress.Text; got != wantOnTheWater {
 		t.Errorf("status before this FT's own clock opens = %q, want %q", got, wantOnTheWater)
+	}
+}
+
+// TestFinishRow_RestartsAndWinningTimeAreVisible - the "pane of glass" column
+// unification: the FT's own row now shows the peer ST's Restarts count and
+// this FT's own Winning Time, not just Start Time and Status.
+func TestFinishRow_RestartsAndWinningTimeAreVisible(t *testing.T) {
+	app := test.NewTempApp(t)
+	sch := testSchedule()
+	root := seedRegatta(t, sch)
+
+	pst := timerSession(t, "pst", root)
+	at := time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
+	startLog := &store.StartLog{Races: map[int]store.StartRecord{
+		1: {RaceNumber: 1, StartedAt: &at, Cleared: []store.ClearedStart{{}}},
+	}}
+	startLog.RegattaKey = store.RegattaKey(sch.Name, sch.Date)
+	if err := store.SaveStart(pst, startLog); err != nil {
+		t.Fatal(err)
+	}
+
+	pft := timerSession(t, "pft", root)
+	finishLog := &store.FinishLog{Races: map[int]store.RaceResult{
+		1: {RaceNumber: 1, WinningTime: "06:00.0", Approved: true},
+	}}
+	finishLog.RegattaKey = store.RegattaKey(sch.Name, sch.Date)
+	if err := store.SaveFinish(pft, finishLog); err != nil {
+		t.Fatal(err)
+	}
+
+	r := NewTimer(app)
+	stopWatch(t, r)
+	r.startSession(pft, sch)
+
+	if got := r.rows[1].restarts.Text; got != "1" {
+		t.Errorf("restarts = %q, want the peer ST's cleared-start count", got)
+	}
+	if got := r.rows[1].winTime.Text; got != "06:00.0" {
+		t.Errorf("winning time = %q, want this FT's own committed value", got)
 	}
 }
 

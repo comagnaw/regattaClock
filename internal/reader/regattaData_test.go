@@ -251,6 +251,44 @@ func TestRaceData_RaceTitle(t *testing.T) {
 	}
 }
 
+func TestRaceData_RaceDetail(t *testing.T) {
+	tests := []struct {
+		name     string
+		race     RaceData
+		expected string
+	}{
+		{
+			name:     "no boat class or flight info",
+			race:     RaceData{RaceNumber: 1, BoatClass: common.EmptyString, FlightInfo: common.EmptyString},
+			expected: "",
+		},
+		{
+			name:     "boat class only",
+			race:     RaceData{RaceNumber: 2, BoatClass: "Varsity 8", FlightInfo: common.EmptyString},
+			expected: "Varsity 8",
+		},
+		{
+			name:     "flight info only",
+			race:     RaceData{RaceNumber: 3, BoatClass: common.EmptyString, FlightInfo: "Heat 1"},
+			expected: "Heat 1",
+		},
+		{
+			name:     "both boat class and flight info",
+			race:     RaceData{RaceNumber: 4, BoatClass: "JV 4", FlightInfo: "Final"},
+			expected: "JV 4 - Final",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.race.RaceDetail()
+			if result != tt.expected {
+				t.Errorf("Expected %q, got %q", tt.expected, result)
+			}
+		})
+	}
+}
+
 func TestRaceData_ScheduledTimeDisplay(t *testing.T) {
 	tests := []struct {
 		name     string

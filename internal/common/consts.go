@@ -159,6 +159,7 @@ const (
 
 	// Race-tree column headers (internal/regatta races.go / timer_races.go). The
 	// race column reuses ScheduledRacesTile.
+	ColRace          = "Race"
 	ColScheduledTime = "Scheduled Time"
 	ColStartTime     = "Start Time"
 	ColStatus        = "Status"

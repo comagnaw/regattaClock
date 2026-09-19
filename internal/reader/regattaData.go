@@ -177,6 +177,26 @@ func (r *RaceData) RaceTitle() string {
 	return titleText
 }
 
+// RaceDetail is RaceTitle() without the leading "Race N" - just the boat
+// class / flight info portion (e.g. "Varsity 8 - Heat 1"), empty if neither
+// is set. For a view that already has the race number in its own column
+// (the race tree), where repeating it in the title would be redundant.
+// Every other caller keeps using RaceTitle() unchanged.
+func (r *RaceData) RaceDetail() string {
+	detail := common.EmptyString
+	if r.BoatClass != common.EmptyString {
+		detail = r.BoatClass
+	}
+	if r.FlightInfo != common.EmptyString {
+		if detail != common.EmptyString {
+			detail = fmt.Sprintf("%s - %s", detail, r.FlightInfo)
+		} else {
+			detail = r.FlightInfo
+		}
+	}
+	return detail
+}
+
 // ScheduledTimeDisplay - the race's scheduled start time, or the shared "no
 // time" placeholder when the workbook did not have one for this race.
 func (r *RaceData) ScheduledTimeDisplay() string {

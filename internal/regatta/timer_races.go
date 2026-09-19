@@ -1,6 +1,8 @@
 package regatta
 
 import (
+	"strconv"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
@@ -15,24 +17,26 @@ import (
 // raceRow holds the widgets for one race row. Every role lays its row out as
 // Border(nil,nil,nil,cluster,title) with the title right-aligned, so the race
 // column reads straight into the fixed-width columns to its right and the header
-// labels line up over them. Only the fields the row's role uses are non-nil.
+// labels line up over them. Every role shows the same data columns
+// (scheduledTime, restarts, startTime, winTime, progress) - the "pane of
+// glass" race tree (race-state-machine.md); only the action buttons differ
+// per role, and only those fields are ever nil.
 type raceRow struct {
 	raceNumber int
 	root       *fyne.Container
 
+	raceNum       *widget.Label
 	title         *widget.Label
-	scheduledTime *widget.Label // every role - workbook-sourced scheduled start
-	startTime     *widget.Label // start timer, finish timer, director
-	progress      *widget.Label // finish timer progress; start timer lock note
+	scheduledTime *widget.Label
+	restarts      *widget.Label
+	startTime     *widget.Label
+	winTime       *widget.Label
+	progress      *widget.Label
 
 	startBtn   *widget.Button // start timer
 	clearBtn   *widget.Button // start timer
 	restoreBtn *widget.Button // start timer
 	timeBtn    *widget.Button // finish timer
-
-	restarts *widget.Label // director
-	winTime  *widget.Label // director
-	approved *widget.Label // director
 }
 
 // raceListBody builds the scrolling race list and records a raceRow per race so
@@ -59,55 +63,60 @@ func (r *Regatta) raceListBody() *container.Scroll {
 	return scroll
 }
 
+// newRaceRow builds one race's row: Race number, then Scheduled Time
+// (left-anchored, fixed width) - Title (flexible width, fills the middle,
+// RaceDetail() rather than RaceTitle() since the race number already has
+// its own column) - the role's action, then Restarts, Start Time, Winning
+// Time, Status (right-anchored). Every role shows the same data columns in
+// the same order; only the action cell differs per role (Start/Clear/Restore
+// for the ST, Time Race for the FT, none for the read-only RD). This is the
+// "pane of glass" race tree (race-state-machine.md): one shared row shape,
+// a per-role action, not three independent layouts.
 func (r *Regatta) newRaceRow(race reader.RaceData) *raceRow {
 	n := race.RaceNumber
-	row := &raceRow{raceNumber: n, title: widget.NewLabel(race.RaceTitle())}
+	row := &raceRow{raceNumber: n, title: widget.NewLabel(race.RaceDetail())}
 	row.title.Alignment = fyne.TextAlignTrailing
+	row.raceNum = text.TruncatingCenter(strconv.Itoa(n))
 	row.scheduledTime = text.TruncatingCenter(race.ScheduledTimeDisplay())
+	row.restarts = text.TruncatingCenter(common.NoStartTimeText)
+	row.startTime = text.TruncatingCenter(common.NoStartTimeText)
+	row.winTime = text.TruncatingCenter(common.NoStartTimeText)
+	row.progress = text.TruncatingCenter(common.EmptyString)
 
-	var cluster *fyne.Container
+	var action fyne.CanvasObject
 	switch r.session.Role {
 	case persona.RoleStart:
-		// Start / Clear / Restore, then the collected time, then the lock note.
-		// Restore keeps its slot when hidden so the time never shifts.
-		row.startTime = text.TruncatingTrailing(common.NoStartTimeText)
-		row.progress = text.Truncating(common.EmptyString) // lock note when the FT is timing this race
+		// Restore keeps its slot when hidden so the row never shifts.
 		row.startBtn = widget.NewButton(common.StartTimeButtonText, func() { r.recordStart(n) })
 		row.clearBtn = widget.NewButton(common.ClearButtonText, func() { r.clearStart(n) })
 		row.restoreBtn = widget.NewButton(common.RestoreButtonText, func() { r.restoreStart(n) })
-		cluster = container.NewHBox(
-			fixedCell(scheduledTimeColWidth, row.scheduledTime),
-			fixedCell(actionsColWidth, container.NewGridWithColumns(3, row.startBtn, row.clearBtn, row.restoreBtn)),
-			fixedCell(startTimeColWidth, row.startTime),
-			fixedCell(statusColWidth, row.progress),
-		)
+		action = fixedCell(actionsColWidth, container.NewGridWithColumns(3, row.startBtn, row.clearBtn, row.restoreBtn))
 
 	case persona.RoleFinish:
-		row.startTime = text.TruncatingTrailing(common.WaitingForStartText)
-		row.progress = text.Truncating(common.EmptyString)
+		// Matches refreshFinishRow's own "nothing collected yet" default, so
+		// there is no flash of different text between construction and the
+		// first refresh (raceListBody calls refreshRow immediately after).
+		row.startTime.SetText(common.WaitingForStartText)
 		row.timeBtn = widget.NewButton(common.TimeRaceButtonText, func() { r.openClock(n) })
-		cluster = container.NewHBox(
-			fixedCell(scheduledTimeColWidth, row.scheduledTime),
-			fixedCell(timeRaceColWidth, row.timeBtn),
-			fixedCell(startTimeColWidth, row.startTime),
-			fixedCell(statusColWidth, row.progress),
-		)
-
-	default: // RoleDirector - read-only progress, no buttons.
-		row.restarts = text.TruncatingCenter(common.NoStartTimeText)
-		row.startTime = text.TruncatingCenter(common.NoStartTimeText)
-		row.winTime = text.TruncatingCenter(common.NoStartTimeText)
-		row.approved = text.TruncatingCenter(common.EmptyString)
-		cluster = container.NewHBox(
-			fixedCell(scheduledTimeColWidth, row.scheduledTime),
-			fixedCell(restartsColWidth, row.restarts),
-			fixedCell(startTimeColWidth, row.startTime),
-			fixedCell(winTimeColWidth, row.winTime),
-			fixedCell(statusColWidth, row.approved),
-		)
+		action = fixedCell(timeRaceColWidth, row.timeBtn)
 	}
 
-	row.root = container.NewBorder(nil, nil, nil, cluster, row.title)
+	var cells []fyne.CanvasObject
+	if action != nil {
+		cells = append(cells, action)
+	}
+	cells = append(cells,
+		fixedCell(restartsColWidth, row.restarts),
+		fixedCell(startTimeColWidth, row.startTime),
+		fixedCell(winTimeColWidth, row.winTime),
+		fixedCell(statusColWidth, row.progress),
+	)
+
+	leading := container.NewHBox(
+		fixedCell(raceNumColWidth, row.raceNum),
+		fixedCell(scheduledTimeColWidth, row.scheduledTime),
+	)
+	row.root = container.NewBorder(nil, nil, leading, container.NewHBox(cells...), row.title)
 	return row
 }
 
@@ -119,7 +128,7 @@ func (r *Regatta) refreshRow(n int) {
 		return
 	}
 	if race, ok := r.raceByNumber(n); ok {
-		title := race.RaceTitle()
+		title := race.RaceDetail()
 		if r.staleLaneMap(n, race) {
 			title = common.StaleLaneMapMark + title
 		}
@@ -149,6 +158,7 @@ func (r *Regatta) refreshStartRow(row *raceRow) {
 	} else {
 		row.startTime.SetText(common.NoStartTimeText)
 	}
+	row.restarts.SetText(restartsCell(rec))
 
 	// Status always reflects the canonical team state (race-state-machine.md),
 	// not just whether the finish timer has locked this row - the ST's own
@@ -160,6 +170,7 @@ func (r *Regatta) refreshStartRow(row *raceRow) {
 	if r.finishLog != nil {
 		res = r.finishLog.Races[n]
 	}
+	row.winTime.SetText(winningTimeCell(res))
 	row.progress.SetText(raceProgressStatus(rec, res, r.session.Team))
 
 	// Locked once the finish timer has begun this race (persona-plan.md
@@ -219,11 +230,31 @@ func (r *Regatta) refreshFinishRow(row *raceRow) {
 	default:
 		row.startTime.SetText(common.WaitingForStartText)
 	}
+	row.restarts.SetText(restartsCell(rec))
+	row.winTime.SetText(winningTimeCell(res))
 
 	// Status always reflects the canonical team state (race-state-machine.md),
 	// not just whether this FT has opened its own clock - a peer ST recording
 	// a start already moves the race to StateStartRecorded ("On the Water").
 	row.progress.SetText(raceProgressStatus(rec, res, r.session.Team))
+}
+
+// restartsCell renders a StartRecord's restart count, or the shared
+// placeholder when nothing has happened for this race yet.
+func restartsCell(rec store.StartRecord) string {
+	if rec.StartedAt == nil && len(rec.Cleared) == 0 {
+		return common.NoStartTimeText
+	}
+	return strconv.Itoa(len(rec.Cleared))
+}
+
+// winningTimeCell renders a RaceResult's winning time, or the shared
+// placeholder when none has been committed yet.
+func winningTimeCell(res store.RaceResult) string {
+	if res.WinningTime == common.EmptyString {
+		return common.NoStartTimeText
+	}
+	return res.WinningTime
 }
 
 func (r *Regatta) refreshAllRows() {
