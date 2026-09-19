@@ -144,7 +144,7 @@ func (c *Clock) initClear() *widget.Button {
 		if !c.isNotRunning() {
 			return
 		}
-		if c.raceCommitState() == stateApproved {
+		if c.raceTeamState() == store.StateApproved {
 			res := c.finishLog.Races[c.raceData.RaceNumber]
 			dialog.ShowConfirm(
 				common.ClearApprovedRaceTitle,

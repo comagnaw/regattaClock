@@ -150,16 +150,26 @@ func (r *Regatta) refreshStartRow(row *raceRow) {
 		row.startTime.SetText(common.NoStartTimeText)
 	}
 
+	// Status always reflects the canonical team state (race-state-machine.md),
+	// not just whether the finish timer has locked this row - the ST's own
+	// Start click already moves the race to StateStartRecorded ("On the
+	// Water"), before the FT ever opens its clock. res stays the zero value
+	// until a finish.json entry exists, which DeriveTeamState already treats
+	// as "nothing from the finish side yet" and falls through to rec's state.
+	var res store.RaceResult
+	if r.finishLog != nil {
+		res = r.finishLog.Races[n]
+	}
+	row.progress.SetText(raceProgressStatus(rec, res, r.session.Team))
+
 	// Locked once the finish timer has begun this race (persona-plan.md
 	// section 9): no changes to the start time while a result is in progress.
-	if note, locked := r.finishLockNote(n); locked {
-		row.progress.SetText(note)
+	if r.raceLockedByFinish(n) {
 		setEnabled(row.startBtn, false)
 		setEnabled(row.clearBtn, false)
 		row.restoreBtn.Hide()
 		return
 	}
-	row.progress.SetText(common.EmptyString)
 
 	// Once a start time exists the button is done: changing it goes through
 	// Clear (non-destructive) then Start Time again, not a second click.
@@ -174,39 +184,23 @@ func (r *Regatta) refreshStartRow(row *raceRow) {
 	}
 }
 
-// finishLockNote reports whether the finish timer has begun race n (a
-// RaceResult exists in the mirrored finish.json) and the status to show. The
-// note is the shared race-progress vocabulary (timing in progress / saved /
-// approved); the ST is locked out of the row in every one of those states, so
-// the disabled buttons - not the wording - carry the "locked" meaning.
-func (r *Regatta) finishLockNote(n int) (string, bool) {
-	if r.finishLog == nil {
-		return "", false
-	}
-	res, ok := r.finishLog.Races[n]
-	if !ok {
-		return "", false
-	}
-	return raceProgressStatus(res), true
+// raceProgressStatus maps a team's timing state to the shared display text
+// every race tree uses.
+func raceProgressStatus(start store.StartRecord, res store.RaceResult, team persona.Team) string {
+	return store.DeriveTeamState(start, res).DisplayText(team)
 }
 
-// raceProgressStatus maps a committed RaceResult to the shared status text used
-// by all three race trees.
-func raceProgressStatus(res store.RaceResult) string {
-	switch {
-	case res.Approved:
-		return common.RaceApprovedText
-	case res.WinningTime != common.EmptyString:
-		return common.RaceSavedText
-	default:
-		return common.RaceInProgressText
-	}
-}
-
-// raceLockedByFinish - guard for the ST mutators.
+// raceLockedByFinish reports whether the finish timer has begun race n (a
+// RaceResult exists in the mirrored finish.json) - guard for the ST
+// mutators. The ST is locked out of the row for every state that implies,
+// so the disabled buttons - not the status wording - carry the "locked"
+// meaning.
 func (r *Regatta) raceLockedByFinish(n int) bool {
-	_, locked := r.finishLockNote(n)
-	return locked
+	if r.finishLog == nil {
+		return false
+	}
+	_, ok := r.finishLog.Races[n]
+	return ok
 }
 
 func (r *Regatta) refreshFinishRow(row *raceRow) {
@@ -216,7 +210,8 @@ func (r *Regatta) refreshFinishRow(row *raceRow) {
 	// say so rather than leaving the transient "awaiting start" placeholder.
 	committed := timed && (res.WinningTime != common.EmptyString || res.Approved)
 
-	switch rec := r.startLog.Races[row.raceNumber]; {
+	rec := r.startLog.Races[row.raceNumber]
+	switch {
 	case rec.StartedAt != nil:
 		row.startTime.SetText(rec.Display)
 	case committed:
@@ -225,11 +220,10 @@ func (r *Regatta) refreshFinishRow(row *raceRow) {
 		row.startTime.SetText(common.WaitingForStartText)
 	}
 
-	if timed {
-		row.progress.SetText(raceProgressStatus(res))
-	} else {
-		row.progress.SetText(common.EmptyString)
-	}
+	// Status always reflects the canonical team state (race-state-machine.md),
+	// not just whether this FT has opened its own clock - a peer ST recording
+	// a start already moves the race to StateStartRecorded ("On the Water").
+	row.progress.SetText(raceProgressStatus(rec, res, r.session.Team))
 }
 
 func (r *Regatta) refreshAllRows() {

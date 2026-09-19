@@ -60,6 +60,7 @@ func (c *Clock) recordFirstFinish() {
 		return
 	}
 	applog.Info("clock started", "component", "clock", "race", n)
+	c.refreshCommitStatus()
 }
 
 // recordStop stamps StoppedAt on finish.json once the primary FT is done
@@ -176,6 +177,11 @@ func (c *Clock) noteWinningTime(msg string) {
 // the watcher reports a fresh start.json (persona-plan.md 2.2).
 func (c *Clock) UpdateStartTime(log *store.StartLog) {
 	c.startLog = log
+	// The status line reads c.startLog too (race-state-machine.md), so a
+	// fresh peer start/restart must refresh it even before this FT begins
+	// timing - refreshCommitStatus is a no-op if there's no status line to
+	// update (a read-only clock, or no finishLog bound at all).
+	c.refreshCommitStatus()
 	if !c.canPersist() {
 		return
 	}
@@ -274,19 +280,20 @@ func (c *Clock) refreshCommitStatus() {
 	}
 	stampText := func(t time.Time) string { return t.Local().Format(common.CommitStatusTimeFormat) }
 
-	switch c.raceCommitState() {
-	case stateApproved:
+	state := c.raceTeamState()
+	switch state {
+	case store.StateApproved:
 		stamp := time.Now()
 		if res.ApprovedAt != nil {
 			stamp = *res.ApprovedAt
 		}
 		c.commitStatus.SetText(fmt.Sprintf(common.CommitStatusApprovedFormat, stampText(stamp), host))
 		c.buttons.close.Enable()
-	case stateSaved:
+	case store.StateSaved:
 		c.commitStatus.SetText(fmt.Sprintf(common.CommitStatusSavedFormat, stampText(res.UpdatedAt), host))
 		c.buttons.close.Enable()
 	default:
-		c.commitStatus.SetText(common.CommitStatusPending)
+		c.commitStatus.SetText(state.DisplayText(c.session.Team))
 		c.buttons.close.Disable()
 	}
 }
@@ -359,6 +366,10 @@ func (c *Clock) rehydrate() {
 	}
 	res, ok := c.finishLog.Races[c.raceData.RaceNumber]
 	if !ok {
+		// Nothing of this FT's own to restore yet, but the status line should
+		// still reflect the canonical team state - a peer ST's recorded start
+		// alone already reaches "On the Water" (race-state-machine.md).
+		c.refreshCommitStatus()
 		return
 	}
 

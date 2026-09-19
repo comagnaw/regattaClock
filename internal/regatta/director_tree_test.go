@@ -61,8 +61,9 @@ func TestDirectorRow_PrimaryValues(t *testing.T) {
 	if row.winTime.Text != "06:00.0" {
 		t.Errorf("winning time = %q", row.winTime.Text)
 	}
-	if row.approved.Text != common.RaceApprovedText {
-		t.Errorf("status = %q, want %q", row.approved.Text, common.RaceApprovedText)
+	wantApproved := store.StateApproved.DisplayText(persona.TeamPrimary)
+	if row.approved.Text != wantApproved {
+		t.Errorf("status = %q, want %q", row.approved.Text, wantApproved)
 	}
 }
 
@@ -87,8 +88,25 @@ func TestDirectorRow_NoSecondaryFallback(t *testing.T) {
 	if got := r.rows[2].winTime.Text; got != common.NoStartTimeText {
 		t.Errorf("race 2 winning time = %q, want a placeholder", got)
 	}
-	if got := r.rows[2].approved.Text; got != common.EmptyString {
-		t.Errorf("race 2 status = %q, want empty", got)
+	wantNotStarted := store.StateNotStarted.DisplayText(persona.TeamPrimary)
+	if got := r.rows[2].approved.Text; got != wantNotStarted {
+		t.Errorf("race 2 status = %q, want %q", got, wantNotStarted)
+	}
+}
+
+// TestDirectorRow_OnTheWaterBeforeFinishTimerBegins - the RD's row must
+// reflect the canonical team state (race-state-machine.md), not stay blank
+// until the finish timer opens its clock: a recorded ST start alone already
+// reaches StateStartRecorded, which displays as "On the Water".
+func TestDirectorRow_OnTheWaterBeforeFinishTimerBegins(t *testing.T) {
+	r := directorWithPrimaryLog(t,
+		&teamTiming{start: startLogWith(map[int]store.StartRecord{
+			1: {RaceNumber: 1, StartedAt: tm(-2), Display: "09:00:00.0"},
+		})},
+	)
+	wantOnTheWater := store.StateStartRecorded.DisplayText(persona.TeamPrimary)
+	if got := r.rows[1].approved.Text; got != wantOnTheWater {
+		t.Errorf("status = %q, want %q", got, wantOnTheWater)
 	}
 }
 
@@ -98,16 +116,18 @@ func TestDirectorRow_InProgressStatus(t *testing.T) {
 			1: {RaceNumber: 1, FirstFinishAt: tm(-1)}, // started, nothing saved
 		})},
 	)
-	if got := r.rows[1].approved.Text; got != common.RaceInProgressText {
-		t.Errorf("in-progress status = %q, want %q", got, common.RaceInProgressText)
+	wantInProgress := store.StateTimingInProgress.DisplayText(persona.TeamPrimary)
+	if got := r.rows[1].approved.Text; got != wantInProgress {
+		t.Errorf("in-progress status = %q, want %q", got, wantInProgress)
 	}
 }
 
 func TestDirectorRow_Placeholders(t *testing.T) {
 	r := directorWithPrimaryLog(t, &teamTiming{})
 	row := r.rows[1]
+	wantNotStarted := store.StateNotStarted.DisplayText(persona.TeamPrimary)
 	if row.restarts.Text != common.NoStartTimeText || row.startTime.Text != common.NoStartTimeText ||
-		row.winTime.Text != common.NoStartTimeText || row.approved.Text != common.EmptyString {
+		row.winTime.Text != common.NoStartTimeText || row.approved.Text != wantNotStarted {
 		t.Errorf("placeholders wrong: %q %q %q %q",
 			row.restarts.Text, row.startTime.Text, row.winTime.Text, row.approved.Text)
 	}

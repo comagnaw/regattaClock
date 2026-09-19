@@ -175,20 +175,13 @@ const (
 	WaitingForStartText      = "awaiting start"          // FT race-tree Start Time cell before the peer start lands (fits the start-time column)
 	StartNotCollectedText    = "no start time"           // FT race-tree Start Time cell once a result is saved/approved and no start was recorded
 	WaitingForStartTimeText  = "waiting for start time…" // FT clock winning-time placeholder until the ST start lands
-	RaceSavedText            = "saved"
-	RaceApprovedText         = "approved"
-	StartTimeDisplayLayout   = "15:04:05.0" // wall clock with tenths, as StartRecord.Display
+	StartTimeDisplayLayout   = "15:04:05.0"              // wall clock with tenths, as StartRecord.Display
 	ClearStartTitle          = "Clear start time"
 	ClearStartMessage        = "Clear the recorded start for race %d?"
 	RestoreStartTitle        = "Restore start time"
 	RestoreStartPlainMessage = "Restore the previously collected start time %s for race %d?"
 	RestoreStartMessage      = "Replace the current start time %s with the previously collected %s for race %d?"
 	WritesBlockedMessage     = "Recording is blocked because a timing file could not be read at startup. Resolve the file set aside for recovery and restart."
-
-	// Race-progress status, one vocabulary across the ST, FT and RD race trees:
-	// FirstFinishAt set -> RaceInProgressText, a winning time saved ->
-	// RaceSavedText (above), referee-approved -> RaceApprovedText (above).
-	RaceInProgressText = "timing in progress"
 
 	// Schedule-conflict notices (persona-plan.md 3c). A schedule change that
 	// touches a race with timing (or an open clock) never rewrites start.json /
@@ -231,13 +224,11 @@ const (
 	WinningTimeStaleNote    = "Auto winning time skipped: the recorded start time is about %s old. Enter the referee's time."
 	WinningTimeNegativeNote = "Auto winning time skipped: the start time is %s later than the first finish (clock skew?). Enter the referee's time."
 
-	// FT clock commit-status line, under the approval panel. A race is Pending
-	// until it is persisted: the primary FT reaches Approved via Referee
-	// Approval, the secondary FT reaches Saved via Save and Close. The primary
-	// FT's Close button stays disabled until the line leaves Pending. The
-	// non-Pending lines are "<state> at <time> by <host>"; args are the local
-	// timestamp then the writing machine's hostname.
-	CommitStatusPending        = "Pending"
+	// FT clock commit-status line, under the approval panel. Its text is
+	// store.TeamState.DisplayText for every state except Saved/Approved,
+	// which use these formats instead: "<state> on <time> by <host>". The
+	// primary FT's Close button stays disabled until the state leaves
+	// Approved's precursors.
 	CommitStatusSavedFormat    = "Saved on %s by %s"
 	CommitStatusApprovedFormat = "Approved on %s by %s"
 	CommitStatusTimeFormat     = "Mon, 02 Jan 2006 15:04:05 MST" // time.RFC1123

@@ -56,6 +56,19 @@ func TestClockStartWritesInProgressResult(t *testing.T) {
 	}
 }
 
+// TestClockStartUpdatesStatusLineImmediately - clicking Start must refresh
+// the status line right away, not just on the next Stop/Approve/reopen.
+func TestClockStartUpdatesStatusLineImmediately(t *testing.T) {
+	clk := openBoundClock(t, pftSession(t), &store.FinishLog{Races: map[int]store.RaceResult{}})
+
+	clk.buttons.start.OnTapped()
+
+	want := store.StateTimingInProgress.DisplayText(persona.TeamPrimary)
+	if clk.commitStatus.Text != want {
+		t.Errorf("commit status right after Start = %q, want %q", clk.commitStatus.Text, want)
+	}
+}
+
 func TestRecordStop_SetsFieldAndPersists(t *testing.T) {
 	s := pftSession(t)
 	log := &store.FinishLog{Races: map[int]store.RaceResult{}}
@@ -270,6 +283,53 @@ func TestClockStampsLaneMapHash(t *testing.T) {
 	clk.refereeApprovalFunc(1)(true)
 	if log.Races[1].LaneMapHash == want {
 		t.Error("LaneMapHash should change after the lane map changed and the result was re-saved")
+	}
+}
+
+// TestClockStatusReflectsPeerStartBeforeOwnClockTimes - the FT's own status
+// line must reflect the canonical team state (race-state-machine.md) on
+// open, not stay at the "no data" default: a peer ST's already-recorded
+// start alone already reaches StateStartRecorded ("On the Water"), even
+// though this FT has not clicked its own clock's Start yet.
+func TestClockStatusReflectsPeerStartBeforeOwnClockTimes(t *testing.T) {
+	s := pftSession(t)
+	app := test.NewTempApp(t)
+	at := time.Now().UTC()
+	startLog := &store.StartLog{Races: map[int]store.StartRecord{
+		1: {RaceNumber: 1, StartedAt: &at, Display: "09:00:00.0"},
+	}}
+	clk := NewClock(app, createTestRegattaData(), createTestRaceData()).
+		WithFinishLog(s, &store.FinishLog{Races: map[int]store.RaceResult{}}).
+		WithStartLog(startLog)
+	clk.OpenRaceClock()
+	t.Cleanup(clk.closeWindow)
+
+	want := store.StateStartRecorded.DisplayText(persona.TeamPrimary)
+	if clk.commitStatus.Text != want {
+		t.Errorf("commit status on open = %q, want %q", clk.commitStatus.Text, want)
+	}
+}
+
+// TestClockStatusUpdatesLiveOnPeerStart - if the FT's clock is already open
+// (with no peer start yet, so the status line reads Pending Start) and the
+// watcher then delivers a fresh peer start.json, the status line must update
+// live, not just on the next Start/Stop/Approve/reopen.
+func TestClockStatusUpdatesLiveOnPeerStart(t *testing.T) {
+	clk := openBoundClock(t, pftSession(t), &store.FinishLog{Races: map[int]store.RaceResult{}})
+
+	before := store.StateNotStarted.DisplayText(persona.TeamPrimary)
+	if clk.commitStatus.Text != before {
+		t.Fatalf("commit status before any peer start = %q, want %q", clk.commitStatus.Text, before)
+	}
+
+	at := time.Now().UTC()
+	clk.UpdateStartTime(&store.StartLog{Races: map[int]store.StartRecord{
+		1: {RaceNumber: 1, StartedAt: &at, Display: "09:00:00.0"},
+	}})
+
+	want := store.StateStartRecorded.DisplayText(persona.TeamPrimary)
+	if clk.commitStatus.Text != want {
+		t.Errorf("commit status after live peer start = %q, want %q", clk.commitStatus.Text, want)
 	}
 }
 

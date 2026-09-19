@@ -12,6 +12,7 @@ import (
 
 	"github.com/comagnaw/regattaClock/internal/common"
 	"github.com/comagnaw/regattaClock/internal/persona"
+	"github.com/comagnaw/regattaClock/internal/persona/store"
 	"github.com/comagnaw/regattaClock/internal/reader"
 )
 
@@ -536,10 +537,11 @@ func TestRegatta_DirectorRow_LayoutAndPlaceholders(t *testing.T) {
 		t.Error("a director row has no buttons")
 	}
 	// No timing logs bound yet: every metric cell shows its placeholder.
+	wantNotStarted := store.StateNotStarted.DisplayText(persona.TeamPrimary)
 	if row.restarts.Text != common.NoStartTimeText ||
 		row.startTime.Text != common.NoStartTimeText ||
 		row.winTime.Text != common.NoStartTimeText ||
-		row.approved.Text != common.EmptyString {
+		row.approved.Text != wantNotStarted {
 		t.Errorf("placeholder cells wrong: restarts=%q start=%q win=%q status=%q",
 			row.restarts.Text, row.startTime.Text, row.winTime.Text, row.approved.Text)
 	}
