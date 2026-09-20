@@ -73,6 +73,19 @@ point here rather than duplicate this design.
   `Approved` result is the official one (`reconciliation.md`); the
   secondary FT's terminal action never sets `Approved: true`.
 
+**Confirmed (2026-09-20): this decision fully resolves the circular-file
+concern raised about the RD's read and REP's write ever touching the same
+workbook.** No Excel-writing code exists anywhere in the repo today (REP
+is unbuilt), and even if it did, `store.ScheduleRace`/`ScheduleEntry`
+structurally have no Place/Split/Time fields, and `Schedule.ContentHash()`
+— what actually gates the RD's "apply this schedule change?" banner —
+never hashes a result cell. This "Does not: write to the RD's own source
+workbook" decision, made independently of that analysis, was already the
+right one; see
+[schedule-data-model.md](../schedule-data-model.md#ingest-source-results-tab-vs-heat-sheet-tab-flagged-2026-09-20)
+for the fuller trail and the one gap that *is* still real — on the RD's
+read side, not REP's write side.
+
 ## Existing-code reuse analysis
 
 - **Approval gating** — `store.CanPublish(res)`
