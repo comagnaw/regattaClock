@@ -134,7 +134,7 @@ func (r RawData) getFlightInfo() string {
 // getRaceEntryByLane - for given column (lane), pull raceEntry attributes
 // from the respective row. The Heat Sheet worksheet carries no result data -
 // RaceEntry has no field for it
-// (docs/features/personas/schedule-data-model.md's "Remove from schedule"
+// (docs/features/personas/closed/schedule-data-model.md's "Remove from schedule"
 // section).
 func (r RawData) getRaceEntryByLane(lane int) RaceEntry {
 	raceEntry := RaceEntry{}

@@ -10,7 +10,7 @@ persona (Developer, Results Publisher, Social Media, Streamer, Heat Sheet
 Creator) should now be written against the model this doc defines, not the
 other way around. Awards (AWD) has since shipped against it (PRs #105-#107)
 — see "What's next for not-yet-built personas" below. Companion to
-[persona-plan.md](persona-plan.md) and [schedule-data-model.md](schedule-data-model.md).
+[persona-plan.md](../persona-plan.md) and [schedule-data-model.md](schedule-data-model.md).
 
 One correction from the original design, made during implementation:
 `StatePendingApproval` needed its own persisted signal
@@ -62,7 +62,7 @@ stateDiagram-v2
 ```
 
 `Unscheduled` does not exist in the codebase today — it is reserved for
-[heat-sheet-creator.md](new/heat-sheet-creator.md)'s v3 progression work
+[heat-sheet-creator.md](../new/heat-sheet-creator.md)'s v3 progression work
 (a Semi-Final/Final race created before its feeding heat has run). Every
 race in the system today starts `Scheduled`. Orthogonal to both states: a
 later lane-map edit re-stamps `ScheduleRace.LaneMapHash()`
@@ -220,13 +220,13 @@ The shape above repeats once per consumer, all keyed off the same
 `Revision`:
 
 - **Results Publisher (REP)** — spreadsheet now, RegattaCentral later, per
-  [results-publisher.md](new/results-publisher.md).
+  [results-publisher.md](../new/results-publisher.md).
 - **Social Media (SOM)** — posted to X, per
-  [social-media.md](new/social-media.md).
+  [social-media.md](../new/social-media.md).
 - **Streamer (STM)** — *two* independent sub-states, not one: lane-image
   freshness (keyed off `ScheduleRace.LaneMapHash`, tracks Phase 0, not
   Phase 2) and results-image freshness (keyed off `Revision`, tracks Phase
-  2), per [streamer.md](new/streamer.md).
+  2), per [streamer.md](../new/streamer.md).
 
 **Awards (AWD) and Developer (DEV) are pure read-only viewers with no
 persisted state of their own** — they render whatever `Approved`/`Revision`
@@ -242,7 +242,7 @@ flowchart LR
 
 This is the one place a race's own state transition has an edge into a
 *different* race's state — a heat reaching `Approved` is what lets
-[heat-sheet-creator.md](new/heat-sheet-creator.md)'s v3 increment propose
+[heat-sheet-creator.md](../new/heat-sheet-creator.md)'s v3 increment propose
 lane assignments for the Semi-Final/Final it feeds, following the VASRA
 progression algorithm already documented there. HSC never writes
 `regattaSchedule.json` directly (one-writer-per-file, unchanged); it
@@ -441,7 +441,7 @@ pattern; those should be replaced with a line pointing here as each persona
 gets built.
 
 **Awards (AWD) shipped this way (PRs #105-#107, see
-[personas/README.md](README.md#awards-awd))**: its View Results button
+[personas/README.md](../README.md#awards-awd))**: its View Results button
 gates on `store.CanPublish(res)` directly, the first real caller of that
 helper — confirming the pattern this section anticipates. It needed no
 `publish.IsStale` staleness tracking, since a read-only viewer has nothing

@@ -78,7 +78,7 @@ func initExcel(file *excelize.File) (excel, error) {
 // name one. This is the RD's schedule source - race number, boat class,
 // flight/heat, and lane assignments in 3-row blocks - never a "Results"
 // worksheet, which mixes in result columns
-// (docs/features/personas/schedule-data-model.md's "Ingest source"
+// (docs/features/personas/closed/schedule-data-model.md's "Ingest source"
 // section).
 func findRaceSheet(file *excelize.File) (string, error) {
 	sheets := file.GetSheetList()

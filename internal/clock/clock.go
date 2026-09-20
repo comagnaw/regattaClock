@@ -283,7 +283,7 @@ func (c *Clock) canPersist() bool {
 // Timer. Its results are a backup data source for the primary FT and for
 // reconciliation, never presented to a referee, so it has no Referee Approval
 // step: Save is the terminal action and it writes RaceResult.Approved = false
-// (docs/features/personas/reconciliation.md).
+// (docs/features/personas/closed/reconciliation.md).
 func (c *Clock) isSecondaryFinish() bool {
 	return c.session.Role == persona.RoleFinish && c.session.Team == persona.TeamSecondary
 }
