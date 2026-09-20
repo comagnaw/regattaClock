@@ -172,8 +172,8 @@ func TestNewRaceData(t *testing.T) {
 		t.Fatal("RawData should be initialized")
 	}
 
-	if len(rd.RawData) != 5 {
-		t.Fatalf("Expected 5 rows in RawData, got %d", len(rd.RawData))
+	if len(rd.RawData) != 3 {
+		t.Fatalf("Expected 3 rows in RawData, got %d", len(rd.RawData))
 	}
 
 	for i, row := range rd.RawData {
@@ -397,8 +397,6 @@ func TestRawData_getBoatClass(t *testing.T) {
 		{"Varsity 8", "col1", "col2", "col3", "col4", "col5", "col6"},
 		{"row1", "", "", "", "", "", ""},
 		{"row2", "", "", "", "", "", ""},
-		{"row3", "", "", "", "", "", ""},
-		{"row4", "", "", "", "", "", ""},
 	}
 
 	boatClass := rawData.getBoatClass()
@@ -414,8 +412,6 @@ func TestRawData_getFlightInfo(t *testing.T) {
 		{"row0", "", "", "", "", "", ""},
 		{"Heat 1", "col1", "col2", "col3", "col4", "col5", "col6"},
 		{"row2", "", "", "", "", "", ""},
-		{"row3", "", "", "", "", "", ""},
-		{"row4", "", "", "", "", "", ""},
 	}
 
 	flightInfo := rawData.getFlightInfo()
@@ -426,13 +422,15 @@ func TestRawData_getFlightInfo(t *testing.T) {
 	}
 }
 
+// TestRawData_getRaceEntryByLane - the Heat Sheet worksheet's 3-row block
+// carries no result data, so Place/Split/Time must stay unset regardless of
+// what row 2 (a rower's last name, for 1x/2x boats) holds - there is no
+// RaceEntry field for it today.
 func TestRawData_getRaceEntryByLane(t *testing.T) {
 	rawData := RawData{
 		{"Class", "School 1", "School 2", "School 3", "School 4", "School 5", "School 6"},
 		{"Flight", "Info 1", "Info 2", "Info 3", "Info 4", "Info 5", "Info 6"},
-		{"Place", "1", "2", "3", "4", "5", "6"},
-		{"Split", "0.0", "0.5", "1.0", "1.5", "2.0", "2.5"},
-		{"Time", "6:00.0", "6:00.5", "6:01.0", "6:01.5", "6:02.0", "6:02.5"},
+		{"Rower", "Rower 1", "Rower 2", "Rower 3", "Rower 4", "Rower 5", "Rower 6"},
 	}
 
 	tests := []struct {
@@ -444,9 +442,6 @@ func TestRawData_getRaceEntryByLane(t *testing.T) {
 			expected: RaceEntry{
 				SchoolName:     "School 1",
 				AdditionalInfo: "Info 1",
-				Place:          "1",
-				Split:          "0.0",
-				Time:           "6:00.0",
 			},
 		},
 		{
@@ -454,9 +449,6 @@ func TestRawData_getRaceEntryByLane(t *testing.T) {
 			expected: RaceEntry{
 				SchoolName:     "School 3",
 				AdditionalInfo: "Info 3",
-				Place:          "3",
-				Split:          "1.0",
-				Time:           "6:01.0",
 			},
 		},
 		{
@@ -464,9 +456,6 @@ func TestRawData_getRaceEntryByLane(t *testing.T) {
 			expected: RaceEntry{
 				SchoolName:     "School 6",
 				AdditionalInfo: "Info 6",
-				Place:          "6",
-				Split:          "2.5",
-				Time:           "6:02.5",
 			},
 		},
 	}
@@ -481,14 +470,14 @@ func TestRawData_getRaceEntryByLane(t *testing.T) {
 			if entry.AdditionalInfo != tt.expected.AdditionalInfo {
 				t.Errorf("Expected AdditionalInfo %q, got %q", tt.expected.AdditionalInfo, entry.AdditionalInfo)
 			}
-			if entry.Place != tt.expected.Place {
-				t.Errorf("Expected Place %q, got %q", tt.expected.Place, entry.Place)
+			if entry.Place != "" {
+				t.Errorf("Expected Place to be unset, got %q", entry.Place)
 			}
-			if entry.Split != tt.expected.Split {
-				t.Errorf("Expected Split %q, got %q", tt.expected.Split, entry.Split)
+			if entry.Split != "" {
+				t.Errorf("Expected Split to be unset, got %q", entry.Split)
 			}
-			if entry.Time != tt.expected.Time {
-				t.Errorf("Expected Time %q, got %q", tt.expected.Time, entry.Time)
+			if entry.Time != "" {
+				t.Errorf("Expected Time to be unset, got %q", entry.Time)
 			}
 		})
 	}

@@ -125,7 +125,14 @@ type RaceData struct {
 	FlightInfo string
 }
 
-// RawData - 5 row x 7 column table which represents sourceData for a race
+// RawData - 3 row x 7 column table which represents sourceData for a race,
+// read from the Heat Sheet worksheet's 3-row block: row 0 is boat class
+// (col 0) and per-lane school name; row 1 is flight/heat info for a team
+// boat (col 0) or a per-lane note - A/B flight, an alternate class,
+// "SCRATCHED" - otherwise; row 2 is a per-lane rower's last name (1x/2x
+// boats only) or an advancement note for a team boat (col 0). Row 2 is
+// captured here but not mapped into RaceEntry - no field for it exists
+// today.
 type RawData [][]string
 
 // getBoatClass - position 0x0 of table holds BoatClass value
@@ -138,22 +145,23 @@ func (r RawData) getFlightInfo() string {
 	return r[1][0]
 }
 
-// getRaceEntryByLane - for given column (lane), pull raceEntry attributes from the repsective row
+// getRaceEntryByLane - for given column (lane), pull raceEntry attributes
+// from the respective row. Place/Split/Time are never set here - the Heat
+// Sheet worksheet carries no result data; those fields stay their zero
+// value (docs/features/personas/schedule-data-model.md's "Remove from
+// schedule" section).
 func (r RawData) getRaceEntryByLane(lane int) RaceEntry {
 	raceEntry := RaceEntry{}
 
 	raceEntry.SchoolName = r[0][lane]
 	raceEntry.AdditionalInfo = r[1][lane]
-	raceEntry.Place = r[2][lane]
-	raceEntry.Split = r[3][lane]
-	raceEntry.Time = r[4][lane]
 	return raceEntry
 }
 
 // newRaceData - init RaceData with provided raceNum
 func newRaceData(raceNum int) RaceData {
-	// make 5 rows of empty entries
-	rawData := make([][]string, 5)
+	// make 3 rows of empty entries
+	rawData := make([][]string, 3)
 	for i := range rawData {
 		// make 7 columns of empty entries
 		rawData[i] = make([]string, 7)

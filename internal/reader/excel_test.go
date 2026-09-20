@@ -14,27 +14,27 @@ func TestFindRaceSheet(t *testing.T) {
 		want   string
 	}{
 		{
-			name:   "results is the only sheet",
-			sheets: []string{"Results"},
-			want:   "Results",
+			name:   "heat sheet is the only sheet",
+			sheets: []string{"Heat Sheet"},
+			want:   "Heat Sheet",
 		},
 		{
-			name:   "results sits at the regatta workbook position",
+			name:   "heat sheet sits at the regatta workbook position",
 			sheets: []string{"Change Log", "Regatta Attributes", "Heat Sheet", "Results", "Referee Heat Sheet"},
-			want:   "Results",
+			want:   "Heat Sheet",
 		},
 		{
-			name:   "heat sheet is not mistaken for the results sheet",
-			sheets: []string{"Heat Sheet", "Referee Heat Sheet", "Results"},
-			want:   "Results",
+			name:   "referee heat sheet is not mistaken for the heat sheet",
+			sheets: []string{"Referee Heat Sheet", "Heat Sheet", "Results"},
+			want:   "Heat Sheet",
 		},
 		{
-			name:   "results name differs in case and padding",
-			sheets: []string{"Heat Sheet", " results "},
-			want:   " results ",
+			name:   "heat sheet name differs in case and padding",
+			sheets: []string{"Results", " heat sheet "},
+			want:   " heat sheet ",
 		},
 		{
-			name:   "no results sheet falls back to the first sheet",
+			name:   "no heat sheet falls back to the first sheet",
 			sheets: []string{"Entries", "Lineups"},
 			want:   "Entries",
 		},
@@ -77,11 +77,12 @@ type raceFixture struct {
 	scheduledTime string
 }
 
-// workbookFixtures are the sample regattas under testdata/, one per supported
-// Excel extension. Both files carry a "Results" worksheet; the reader tests
-// exercise only that sheet's contents - the regatta title and date and the races
-// that have lane data. The .xlsm additionally holds macros and formulas, which
-// the reader ignores and which are not tested here.
+// workbookFixtures are the sample regattas under testdata/, one per
+// supported Excel extension. Both files carry a "Heat Sheet" worksheet; the
+// reader tests exercise only that sheet's contents - the regatta title and
+// date and the races that have lane data. The .xlsm additionally holds
+// macros, formulas, and a separate Results worksheet, all of which the
+// reader ignores and which are not tested here.
 var workbookFixtures = []struct {
 	name        string // subtest label
 	path        string
@@ -92,29 +93,44 @@ var workbookFixtures = []struct {
 	races       []raceFixture // the scheduled races, in race-number order
 }{
 	{
-		name:        "xlsx",
-		path:        "testdata/Example Regatta Input Table.xlsx",
-		regattaName: "Test Name",
-		regattaDate: "March 13, 2025",
-		totalRaces:  65,
-		scheduled:   4,
-		races: []raceFixture{
-			{number: 1, boats: 4, flight: "M-1x"},
-			{number: 2, boats: 5, flight: "W-JR-1x"},
-			{number: 3, boats: 6, flight: "M-2x"},
-			{number: 4, boats: 5, flight: "W-2x"},
-		},
-	},
-	{
 		name:        "xlsm",
 		path:        "testdata/Example Heat Sheets and Results With Macros.xlsm",
 		regattaName: "Charlie Brown Classic",
 		regattaDate: "Saturday, May 01, 2027",
-		totalRaces:  120,
+		totalRaces:  50,
 		scheduled:   2,
 		races: []raceFixture{
 			{number: 1, boats: 4, class: "M-1x", scheduledTime: "09:00 AM"},
 			{number: 2, boats: 5, class: "M-Jr-4+", flight: "Heat 1", scheduledTime: "09:05 AM"},
+		},
+	},
+	{
+		// Race 1 here is the workbook's own yellow-highlighted legend row
+		// (its Instructions sheet explains this) - placeholder text like
+		// "Class"/"School A", not real race data. Parsed the same as every
+		// other race, deliberately: see schedule-data-model.md's "Ingest
+		// source" section on why the reader does not special-case it.
+		name:        "xlsx",
+		path:        "testdata/Heat Sheet Input Examples.xlsx",
+		regattaName: "Example",
+		regattaDate: "Saturday, May 20, 2045",
+		totalRaces:  69,
+		scheduled:   14,
+		races: []raceFixture{
+			{number: 1, boats: 6, class: "Class", flight: "Heat/Flight/Final", scheduledTime: "09:00"},
+			{number: 2, boats: 4, class: "M-1x", scheduledTime: "09:07"},
+			{number: 3, boats: 5, class: "W-JR-1x", scheduledTime: "09:14"},
+			{number: 4, boats: 6, class: "M-2x", scheduledTime: "09:21"},
+			{number: 5, boats: 5, class: "W-2x", scheduledTime: "09:28"},
+			{number: 6, boats: 5, class: "M-Jr-4+", flight: "Heat 1", scheduledTime: "09:35"},
+			{number: 7, boats: 4, class: "M-Jr-4+", flight: "Heat 2", scheduledTime: "09:42"},
+			{number: 8, boats: 5, class: "W-JR-4+", flight: "Heat 1", scheduledTime: "09:49"},
+			{number: 9, boats: 4, class: "W-JR-4+", flight: "Heat 2", scheduledTime: "09:56"},
+			{number: 10, boats: 6, class: "W-1-4x", scheduledTime: "10:03"},
+			{number: 11, boats: 4, class: "W-N-4+", flight: "Flight 2", scheduledTime: "10:10"},
+			{number: 12, boats: 5, class: "M-JR-4+", flight: "Final", scheduledTime: "10:17"},
+			{number: 13, boats: 6, class: "W-JR-4+", flight: "Final", scheduledTime: "10:24"},
+			{number: 14, boats: 5, class: "M-1-4+", flight: "Final", scheduledTime: "10:31"},
 		},
 	},
 }
@@ -238,8 +254,8 @@ func TestReadExcelFile_RaceData(t *testing.T) {
 			if first.RawData == nil {
 				t.Fatal("RawData should not be nil")
 			}
-			if len(first.RawData) != 5 {
-				t.Errorf("RawData rows = %d, want 5", len(first.RawData))
+			if len(first.RawData) != 3 {
+				t.Errorf("RawData rows = %d, want 3", len(first.RawData))
 			}
 			for i, row := range first.RawData {
 				if len(row) != 7 {
@@ -451,8 +467,8 @@ func TestReadExcelFile_RawDataIntegrity(t *testing.T) {
 		t.Run(wb.name, func(t *testing.T) {
 			data := mustReadWorkbook(t, wb.path)
 			for _, race := range data.Races {
-				if len(race.RawData) != 5 {
-					t.Errorf("race %d: RawData rows = %d, want 5", race.RaceNumber, len(race.RawData))
+				if len(race.RawData) != 3 {
+					t.Errorf("race %d: RawData rows = %d, want 3", race.RaceNumber, len(race.RawData))
 					continue
 				}
 				for rowIdx, row := range race.RawData {

@@ -140,7 +140,7 @@ func TestRegatta_SetRegattaData_ValidFile(t *testing.T) {
 	regatta := NewDirector(app)
 
 	// Use the test file from reader package
-	testFile := "../reader/testdata/Example Regatta Input Table.xlsx"
+	testFile := "../reader/testdata/Example Heat Sheets and Results With Macros.xlsm"
 
 	err := regatta.setRegattaData(testFile)
 
@@ -259,7 +259,7 @@ func TestRegatta_Callback_ValidFile(t *testing.T) {
 	regatta.showRaceTree()
 
 	// Create a mock file reader with valid xlsx extension
-	testFile := "../reader/testdata/Example Regatta Input Table.xlsx"
+	testFile := "../reader/testdata/Example Heat Sheets and Results With Macros.xlsm"
 	mock := newMockURIReadCloser(testFile)
 
 	callback := regatta.callback(false)
