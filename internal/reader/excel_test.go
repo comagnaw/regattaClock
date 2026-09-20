@@ -407,45 +407,6 @@ func TestReadExcelFile_AdditionalInfos(t *testing.T) {
 	}
 }
 
-func TestReadExcelFile_ApprovalWorkflow(t *testing.T) {
-	for _, wb := range workbookFixtures {
-		t.Run(wb.name, func(t *testing.T) {
-			data := mustReadWorkbook(t, wb.path)
-			if len(data.Races) == 0 {
-				t.Fatal("no races loaded")
-			}
-
-			for _, race := range data.Races {
-				if race.Approved {
-					t.Errorf("race %d should start unapproved", race.RaceNumber)
-				}
-			}
-
-			first := data.Races[0].RaceNumber
-			data.ApproveRace(first)
-			for _, race := range data.Races {
-				want := race.RaceNumber == first
-				if race.Approved != want {
-					t.Errorf("race %d: Approved = %v, want %v", race.RaceNumber, race.Approved, want)
-				}
-			}
-		})
-	}
-}
-
-func TestReadExcelFile_SavedStatus(t *testing.T) {
-	for _, wb := range workbookFixtures {
-		t.Run(wb.name, func(t *testing.T) {
-			data := mustReadWorkbook(t, wb.path)
-			for _, race := range data.Races {
-				if race.Saved {
-					t.Errorf("race %d should start not saved", race.RaceNumber)
-				}
-			}
-		})
-	}
-}
-
 func TestReadExcelFile_EmptyLanes(t *testing.T) {
 	for _, wb := range workbookFixtures {
 		t.Run(wb.name, func(t *testing.T) {

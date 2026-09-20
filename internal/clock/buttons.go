@@ -224,7 +224,6 @@ func (c *Clock) refereeFunc() func() {
 func (c *Clock) refereeApprovalFunc(raceNumber int) func(approve bool) {
 	return func(approve bool) {
 		if approve {
-			c.RegattaData.ApproveRace(raceNumber)
 			c.persistFinish(true)
 		}
 	}

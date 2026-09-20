@@ -63,15 +63,6 @@ func NewRegattaData() *RegattaData {
 	}
 }
 
-func (r *RegattaData) ApproveRace(raceNumber int) {
-	for i := range r.Races {
-		if r.Races[i].RaceNumber == raceNumber {
-			r.Races[i].Approved = true
-			break
-		}
-	}
-}
-
 // ScheduleRaces - count number of Races with more 1 or more Lanes with boats return integer
 func (r *RegattaData) ScheduledRaces() int {
 	scheduledRaces := 0
@@ -110,12 +101,6 @@ type RaceData struct {
 	// Rawdata - can be used to store raw table of sourceData for a race
 	RawData
 
-	// Saved - whether the race data has been saved to disk
-	Saved bool
-
-	// Approved - has the race data been approved by referee
-	Approved bool
-
 	// BoatCount - how many boats are in the race
 	BoatCount int
 
@@ -147,10 +132,10 @@ func (r RawData) getFlightInfo() string {
 }
 
 // getRaceEntryByLane - for given column (lane), pull raceEntry attributes
-// from the respective row. Place/Split/Time are never set here - the Heat
-// Sheet worksheet carries no result data; those fields stay their zero
-// value (docs/features/personas/schedule-data-model.md's "Remove from
-// schedule" section).
+// from the respective row. The Heat Sheet worksheet carries no result data -
+// RaceEntry has no field for it
+// (docs/features/personas/schedule-data-model.md's "Remove from schedule"
+// section).
 func (r RawData) getRaceEntryByLane(lane int) RaceEntry {
 	raceEntry := RaceEntry{}
 
@@ -269,15 +254,6 @@ type RaceEntry struct {
 	// but distinct type from store.ScheduleEntryStatus - reader must never
 	// import store (regattaData.go's own package doc).
 	Status RaceEntryStatus
-
-	// Place - what place did this boat finish in
-	Place string
-
-	// Split - what is the difference in time betwen this boat and the first place boat
-	Split string
-
-	// Time - what is the toal time for this boat to finish the race
-	Time string
 }
 
 // RaceEntryStatus mirrors store.ScheduleEntryStatus - see that type's doc
