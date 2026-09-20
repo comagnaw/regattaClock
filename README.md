@@ -77,11 +77,12 @@ difference re-keyed into the primary result.
 The schedule input today is an Excel workbook (`.xlsx`, or macro-enabled `.xlsm`),
 because the organization regattaClock was first built for organizes its race
 information in spreadsheets; a structured or API-based input may come later.
-regattaClock reads the worksheet named **Results**, or the first worksheet if the
-workbook has no sheet by that name, and derives the regatta title, date, and
-per-race lane assignments from its layout. The Regatta Director imports the
-workbook once into the shared folder; timers then read the shared schedule, never
-the workbook itself.
+regattaClock reads the worksheet named **Heat Sheet**, or the first worksheet if
+the workbook has no sheet by that name, and derives the regatta title, date, and
+each race's boat class, flight/heat, and lane assignments from its layout — never
+a results-shaped worksheet, which mixes in result columns the RD's ingest has no
+business reading. The Regatta Director imports the workbook once into the shared
+folder; timers then read the shared schedule, never the workbook itself.
 
 ![Example schedule](docs/img/example-schedule.png)
 
