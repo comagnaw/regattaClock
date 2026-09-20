@@ -6,10 +6,11 @@ learns about its own writes versus a peer's, and the shared "pane of glass"
 race-tree model every persona (built or proposed) renders through.
 
 **Status:** implemented (2026-09-19, PRs #99-#103) — every not-yet-built
-persona (Awards, Developer, Results Publisher, Social Media, Streamer, Heat
-Sheet Creator) should now be written against the model this doc defines,
-not the other way around. Companion to [persona-plan.md](persona-plan.md)
-and [schedule-data-model.md](schedule-data-model.md).
+persona (Developer, Results Publisher, Social Media, Streamer, Heat Sheet
+Creator) should now be written against the model this doc defines, not the
+other way around. Awards (AWD) has since shipped against it (PRs #105-#107)
+— see "What's next for not-yet-built personas" below. Companion to
+[persona-plan.md](persona-plan.md) and [schedule-data-model.md](schedule-data-model.md).
 
 One correction from the original design, made during implementation:
 `StatePendingApproval` needed its own persisted signal
@@ -17,7 +18,10 @@ One correction from the original design, made during implementation:
 just a live-only preview — see the "Display vocabulary" table and the
 Phase 1 state diagram below for the corrected model. `internal/publish`
 (Phase 3 below) is built but has no consumer yet, by design — it still
-gates the personas above, none of which are built.
+gates the not-yet-built personas above. Awards shipped without needing
+it — its read-only results grid only needed `store.CanPublish`, not the
+schedule-join `internal/publish` provides for a rank-ordered text/image
+output.
 
 **Supersedes [reconciliation.md](reconciliation.md)** for state-transition
 modeling — this doc reuses its per-team milestone ladder (see below) as the
@@ -31,10 +35,10 @@ sees the one, already-reconciled primary result.
 
 ## Why this document, why now
 
-Every not-yet-built persona doc in this directory (`awards.md`,
-`results-publisher.md`, `social-media.md`, `streamer.md`,
-`heat-sheet-creator.md`) independently re-derives the same handful of
-things: "is this race's result official yet" (`res.Approved`), "has my own
+Every not-yet-built persona doc in this directory (`results-publisher.md`,
+`social-media.md`, `streamer.md`, `heat-sheet-creator.md`) independently
+re-derives the same handful of things: "is this race's result official
+yet" (`res.Approved`), "has my own
 output gone stale since I last acted on this race" (a `{raceNumber:
 revision}` staleness pattern, sketched three separate times), and "how does
 my own tree learn about a value I just wrote." None of that is
@@ -428,13 +432,20 @@ Four concrete, named pieces — delivered across PRs #99-#103:
 
 ## What's next for not-yet-built personas
 
-Every not-yet-built persona (Awards, Developer, Results Publisher, Social
-Media, Streamer, Heat Sheet Creator v1) should be built against
+Every not-yet-built persona (Developer, Results Publisher, Social Media,
+Streamer, Heat Sheet Creator v1) should be built against
 `store.TeamState`/`CanPublish`/`CanTrackWallClock` and `publish.IsStale`
 from the start, not retrofitted onto them later — each one's own doc still
 independently sketches a `res.Approved == true` check or a staleness
 pattern; those should be replaced with a line pointing here as each persona
 gets built.
+
+**Awards (AWD) shipped this way (PRs #105-#107, see
+[personas/README.md](README.md#awards-awd))**: its View Results button
+gates on `store.CanPublish(res)` directly, the first real caller of that
+helper — confirming the pattern this section anticipates. It needed no
+`publish.IsStale` staleness tracking, since a read-only viewer has nothing
+of its own to compare a fresh render against.
 
 **HSC v3's cross-race edge** (Phase 0/"Cross-race edge" above) has its own
 separate design gap already flagged in `heat-sheet-creator.md`
