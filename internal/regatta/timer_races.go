@@ -28,6 +28,7 @@ type raceRow struct {
 	raceNum       *widget.Label
 	title         *widget.Label
 	scheduledTime *widget.Label
+	boatCount     *widget.Label
 	restarts      *widget.Label
 	startTime     *widget.Label
 	winTime       *widget.Label
@@ -78,6 +79,7 @@ func (r *Regatta) newRaceRow(race reader.RaceData) *raceRow {
 	row.title.Alignment = fyne.TextAlignTrailing
 	row.raceNum = text.TruncatingCenter(strconv.Itoa(n))
 	row.scheduledTime = text.TruncatingCenter(race.ScheduledTimeDisplay())
+	row.boatCount = text.TruncatingCenter(strconv.Itoa(race.BoatCount))
 	row.restarts = text.TruncatingCenter(common.NoStartTimeText)
 	row.startTime = text.TruncatingCenter(common.NoStartTimeText)
 	row.winTime = text.TruncatingCenter(common.NoStartTimeText)
@@ -115,6 +117,7 @@ func (r *Regatta) newRaceRow(race reader.RaceData) *raceRow {
 	leading := container.NewHBox(
 		fixedCell(raceNumColWidth, row.raceNum),
 		fixedCell(scheduledTimeColWidth, row.scheduledTime),
+		fixedCell(boatCountColWidth, row.boatCount),
 	)
 	row.root = container.NewBorder(nil, nil, leading, container.NewHBox(cells...), row.title)
 	return row
@@ -137,6 +140,7 @@ func (r *Regatta) refreshRow(n int) {
 		}
 		row.title.SetText(title)
 		row.scheduledTime.SetText(race.ScheduledTimeDisplay())
+		row.boatCount.SetText(strconv.Itoa(race.BoatCount))
 	}
 
 	switch r.session.Role {

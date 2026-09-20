@@ -134,7 +134,6 @@ const (
 	OriginUnchangedMessage    = "The workbook has not changed the schedule."
 
 	NumScheduledRacesTitle = "Scheduled Races: %d"
-	ScheduledRacesTile     = "Scheduled Races"
 
 	// TreeRegattaKey / TreeScheduledRacesKey / TreeDateKey / TreeRoleKey - the
 	// race-tree details panel's four "Key:" labels, rendered as their own
@@ -157,10 +156,13 @@ const (
 	// VersionTitle is both the menu label and the title of the build-info window.
 	VersionTitle = "Version"
 
-	// Race-tree column headers (internal/regatta races.go / timer_races.go). The
-	// race column reuses ScheduledRacesTile.
-	ColRace          = "Race"
+	// Race-tree column headers (internal/regatta races.go / timer_races.go),
+	// left to right: Num, Scheduled Time, Entries, Event, then the role's
+	// action and the Restarts/Start Time/Winning Time/Status cluster.
+	ColNum           = "Num"
 	ColScheduledTime = "Scheduled Time"
+	ColEntries       = "Entries"
+	ColEvent         = "Event"
 	ColStartTime     = "Start Time"
 	ColStatus        = "Status"
 	ColRestarts      = "Restarts"

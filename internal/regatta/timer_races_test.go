@@ -507,6 +507,29 @@ func TestOnScheduleChangedRefreshesTitleInPlace(t *testing.T) {
 	}
 }
 
+// TestOnScheduleChangedRefreshesBoatCountInPlace - a partial scratch (fewer
+// lanes, but still HasBoats()) doesn't trigger a tree rebuild, only
+// refreshRow, so the Entries column must be re-set there rather than only at
+// construction (unlike raceNum, which never changes for a given row).
+func TestOnScheduleChangedRefreshesBoatCountInPlace(t *testing.T) {
+	r, sch, _ := startedTimer(t, "pst")
+
+	if got := r.rows[1].boatCount.Text; got != "2" {
+		t.Fatalf("boat count before scratch = %q, want %q", got, "2")
+	}
+
+	next := *sch
+	next.Races = append([]store.ScheduleRace(nil), sch.Races...)
+	next.Races[0].BoatCount = 1
+	next.Races[0].Lanes = map[int]store.ScheduleEntry{1: {SchoolName: "Alpha"}}
+
+	r.onScheduleChanged(&next)
+
+	if got := r.rows[1].boatCount.Text; got != "1" {
+		t.Errorf("boat count after scratch = %q, want %q", got, "1")
+	}
+}
+
 func TestOnScheduleChangedRebuildsWhenRaceSetChanges(t *testing.T) {
 	r, sch, _ := startedTimer(t, "pst")
 	if len(r.rows) != 1 {

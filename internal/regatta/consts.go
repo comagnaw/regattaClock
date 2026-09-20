@@ -48,10 +48,14 @@ const (
 	// Time") is the longer string.
 	scheduledTimeColWidth = float32(140)
 
-	// raceNumColWidth - the race tree's leading "Race" column, just the race
+	// raceNumColWidth - the race tree's leading "Num" column, just the race
 	// number (RaceDetail() drops it from the title text since it has its own
 	// column here).
 	raceNumColWidth = float32(60)
+
+	// boatCountColWidth - the race tree's "Entries" column (reader.RaceData.
+	// BoatCount), narrow like raceNumColWidth since it's also a short integer.
+	boatCountColWidth = float32(60)
 
 	// actionsColWidth - the start timer's Start Time / Clear / Restore button
 	// group (three equal cells).

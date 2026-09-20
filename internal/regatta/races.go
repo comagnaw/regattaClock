@@ -105,7 +105,7 @@ func (r *Regatta) treeTitle() *fyne.Container {
 // role, plus a role-specific, unlabelled action cell where a data row has
 // its buttons.
 func (r *Regatta) raceListHeader() *fyne.Container {
-	race := text.BoldLabel(common.ScheduledRacesTile)
+	race := text.BoldLabel(common.ColEvent)
 	race.Alignment = fyne.TextAlignTrailing
 
 	var action *fyne.Container
@@ -128,8 +128,9 @@ func (r *Regatta) raceListHeader() *fyne.Container {
 	)
 
 	leading := container.NewHBox(
-		fixedCell(raceNumColWidth, text.BoldLabelCenter(common.ColRace)),
+		fixedCell(raceNumColWidth, text.BoldLabelCenter(common.ColNum)),
 		fixedCell(scheduledTimeColWidth, text.BoldLabelCenter(common.ColScheduledTime)),
+		fixedCell(boatCountColWidth, text.BoldLabelCenter(common.ColEntries)),
 	)
 	return container.NewBorder(nil, nil, leading, container.NewHBox(cells...), race)
 }
