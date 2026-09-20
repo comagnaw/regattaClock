@@ -27,11 +27,10 @@ other persona depends on it.
   not a new read path. AWD never calls a `store.Save*` write path, full stop.
 
 **"View Results" button gating:** enabled only when that race's primary-team
-finish result has `Approved == true` — not merely "has a winning time."
-`raceProgressStatus` (`internal/regatta/timer_races.go:187-198`) already
-distinguishes `RaceApprovedText` from `RaceSavedText` on exactly this field;
-AWD's button reuses the same check (`res.Approved`), not a new status
-computation.
+finish result is publish-ready — not merely "has a winning time." AWD's
+button calls `store.CanPublish(res)` (`internal/persona/store/state.go`,
+race-state-machine.md), the same named helper `raceProgressStatus` is built
+on internally, not a bespoke `res.Approved` check.
 
 ## Existing-code reuse analysis
 
@@ -50,11 +49,14 @@ computation.
   `sidecar-personas.md` already name for a future read-only Executive
   persona. AWD reuses it as-is rather than building a second watcher.
 - **Race-tree row shape** — `internal/regatta/races.go` /
-  `timer_races.go`'s `raceRow`/`newRaceRow`/`refreshRow` switch on
-  `r.session.Role`. Today `RoleDirector` falls into the `default` case, so
-  adding AWD means promoting RD to an explicit `case persona.RoleDirector:`
-  and adding a sibling `case` for AWD's role — `default` can no longer
-  silently mean "director."
+  `timer_races.go`'s unified `raceRow`/`newRaceRow`/`refreshRow`
+  (race-state-machine.md's "pane of glass" redesign): one shared column set
+  for every role, with only the action cell switching on `r.session.Role`.
+  Today `RoleDirector` falls into the `default` case with no action cell at
+  all, so adding AWD means promoting RD to an explicit
+  `case persona.RoleDirector:` and adding a sibling `case` for AWD's role
+  (a "View Results" action) — `default` can no longer silently mean
+  "director."
 - **Read-only results window** — model this on `internal/clock/compare.go`'s
   `compareBody`/`compareLapGrid`/`compareWinningLine` and its window
   lifecycle (`compareWindow` field, `SetOnClosed` clearing it), **not** on
@@ -73,9 +75,10 @@ computation.
   is the closer visual template — but it is built from live laps via
   `asApprovals`, so reusing it means re-deriving it from a `store.RaceResult`
   first; Compare's pattern needs no such translation.)
-- **Approval gating** — `internal/persona/store/log.go`'s
-  `RaceResult.Approved`/`ApprovedAt`, the same field `raceProgressStatus` and
-  `director_tree.go`'s `directorFinishCells` already branch on.
+- **Approval gating** — `store.CanPublish(res)`
+  (`internal/persona/store/state.go`, race-state-machine.md), not a bespoke
+  `res.Approved == true` check: the same named helper `raceProgressStatus`
+  and `director_tree.go`'s `directorFinishCells` are built on internally.
 - **Startup wiring** — the RD's picker button already lives in the `admins`
   `VBox` in `internal/regatta/persona_startup.go`; AWD's button belongs
   alongside it, not a new tab.

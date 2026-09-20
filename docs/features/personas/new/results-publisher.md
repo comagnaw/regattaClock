@@ -54,9 +54,10 @@ point here rather than duplicate this design.
 - **Does:** Add a per-race **Publish** button to the PFT's existing race
   view (the same tree PFT already sees, not a new RD-style read-only tree —
   since this is now a PFT feature, not a separate read-only persona). The
-  button is enabled only when that race's result is officially approved
-  (`RaceResult.Approved == true`, the same field the RD/Awards proposal
-  already gate on). Pressing it renders that race's result into the
+  button is enabled only when `store.CanPublish(res)`
+  (`internal/persona/store/state.go`, race-state-machine.md) is true, the
+  same named helper the RD/Awards proposal already gate on. Pressing it
+  renders that race's result into the
   configured destination: initially, a new standalone results spreadsheet
   (same format as the current manual "results worksheet," but a dedicated
   file RegattaClock owns and writes, decoupled from the RD's source
@@ -74,10 +75,10 @@ point here rather than duplicate this design.
 
 ## Existing-code reuse analysis
 
-- **Approval gating** — `internal/persona/store/log.go`'s
-  `RaceResult.Approved`, already what `raceProgressStatus`
-  (`internal/regatta/timer_races.go:187-198`) and the Awards proposal both
-  gate on. Same one-line check here: no new state to invent.
+- **Approval gating** — `store.CanPublish(res)`
+  (`internal/persona/store/state.go`, race-state-machine.md), already what
+  `raceProgressStatus` and the Awards proposal both call. Same named check
+  here: no new state to invent.
 - **PFT's own race view already exists** — this is an addition to
   `internal/clock`/`internal/regatta`'s existing PFT flow, not a new tree
   to build (unlike Awards/Developer, which had to build a read-only tree
