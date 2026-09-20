@@ -155,7 +155,72 @@ func (r *Regatta) onPersonaChosen(def persona.Definition, challengeInput string)
 		r.startDirectorSetup()
 		return
 	}
-	r.pickPersonaDirectory(def)
+	r.startPersonaDirectory(def, r.showPersonaPicker)
+}
+
+// startPersonaDirectory is the entry point for a Start/Finish/Awards persona
+// that needs a regattaData folder: it offers the last one used
+// (PrefLastRegattaRoot) when it is still readable, otherwise it opens the
+// folder browser directly, exactly as before. back is where Cancel returns
+// to (the persona picker, or the pinned-host landing view).
+func (r *Regatta) startPersonaDirectory(def persona.Definition, back func()) {
+	lastRoot := r.App.Preferences().String(common.PrefLastRegattaRoot)
+	if lastRoot == common.EmptyString {
+		r.pickPersonaDirectory(def)
+		return
+	}
+	session := persona.Session{Definition: def, Root: lastRoot}
+	schedule, err := store.LoadSchedule(session)
+	if err != nil {
+		r.pickPersonaDirectory(def)
+		return
+	}
+	r.confirmPreviousRegatta(def, session, schedule, back)
+}
+
+// confirmPreviousRegatta offers to resume session (already confirmed readable
+// by startPersonaDirectory) with a three-way choice: dialog.ShowConfirm and
+// friends are two-button only, so this uses dialog.CustomDialog.SetButtons
+// directly. Load Previous Regatta routes through confirmRegattaDate - the
+// same past-date gate a freshly-browsed folder goes through. Choose a
+// Different Folder opens the normal folder browser. Cancel - the button,
+// Escape, or clicking away - calls back. handled guards against Fyne calling
+// SetOnClosed on every Hide(), including the ones our own buttons trigger.
+func (r *Regatta) confirmPreviousRegatta(def persona.Definition, session persona.Session, schedule *store.Schedule, back func()) {
+	handled := false
+
+	yesBtn := widget.NewButton(common.LoadPreviousRegattaButtonText, nil)
+	noBtn := widget.NewButton(common.ChooseAnotherFolderButtonText, nil)
+	cancelBtn := widget.NewButton(common.CancelButtonText, nil)
+
+	msg := widget.NewLabel(fmt.Sprintf(common.ConfirmPreviousRegattaMessage,
+		schedule.Name, schedule.Date, scheduledRaceCount(schedule), session.Root))
+
+	d := dialog.NewCustom(common.ConfirmPreviousRegattaTitle, common.CancelButtonText,
+		container.NewVBox(msg), r.window)
+	d.SetButtons([]fyne.CanvasObject{yesBtn, noBtn, cancelBtn})
+
+	yesBtn.OnTapped = func() {
+		handled = true
+		d.Hide()
+		r.confirmRegattaDate(def, session, schedule)
+	}
+	noBtn.OnTapped = func() {
+		handled = true
+		d.Hide()
+		r.pickPersonaDirectory(def)
+	}
+	cancelBtn.OnTapped = func() {
+		handled = true
+		d.Hide()
+		back()
+	}
+	d.SetOnClosed(func() {
+		if !handled {
+			back()
+		}
+	})
+	d.Show()
 }
 
 func (r *Regatta) pickPersonaDirectory(def persona.Definition) {
@@ -264,6 +329,7 @@ func (r *Regatta) startSession(session persona.Session, schedule *store.Schedule
 	r.mode = modeTimer
 	r.window.SetMainMenu(r.makeMenu()) // no loader items for a timer
 	r.App.Preferences().SetString(common.PrefLastPersonaID, session.ID)
+	r.App.Preferences().SetString(common.PrefLastRegattaRoot, session.Root)
 	r.startLogging()
 	applog.Info("persona session started", "component", "startup",
 		"root", session.Root, "regatta", schedule.Name)

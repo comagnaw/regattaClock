@@ -18,6 +18,14 @@ const (
 	// always re-pick.
 	PrefLastPersonaID = "LastPersonaID"
 
+	// PrefLastRegattaRoot - the resolved regattaData root bound by the last
+	// successful Start/Finish/Awards session (set in startSession). Offered as
+	// a "load previous regatta" shortcut before the folder browser opens for
+	// those personas (persona_startup.go startPersonaDirectory). The Regatta
+	// Director has its own separate resume mechanism via PrefRegattaDir /
+	// PrefLastPersonaID.
+	PrefLastRegattaRoot = "LastRegattaRoot"
+
 	// PrefPersonaConfigFile - absolute path to an optional deployment JSON
 	// (internal/personacfg) that pins this host to a persona (skipping the
 	// picker) and/or replaces the built-in challenge codes. Chosen on the
@@ -277,6 +285,14 @@ const (
 	ScheduleUnreadableMessage   = "Could not read the regatta schedule in that directory"
 	ConfirmRegattaTitle         = "Confirm regatta"
 	ConfirmRegattaMessage       = "%s\n%s\nScheduled races: %d\n\nTime this regatta?"
+
+	// Soft-load of the last regattaData folder used by a Start/Finish/Awards
+	// persona (PrefLastRegattaRoot, persona_startup.go startPersonaDirectory /
+	// confirmPreviousRegatta). Offered before the folder browser opens.
+	ConfirmPreviousRegattaTitle   = "Load previous regatta?"
+	ConfirmPreviousRegattaMessage = "%s\n%s\nScheduled races: %d\n\nSaved in: %s"
+	LoadPreviousRegattaButtonText = "Load Previous Regatta"
+	ChooseAnotherFolderButtonText = "Choose a Different Folder"
 
 	// Deployment persona config (internal/personacfg + internal/regatta
 	// persona_config.go). An organisation points the app at a JSON file on the
