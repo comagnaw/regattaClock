@@ -37,6 +37,18 @@ var (
 	backoffCap  = 30 * time.Second
 )
 
+// fastPathWindow bounds how long Write waits for the shared-write attempt it
+// just queued to resolve before giving up and returning anyway. Against any
+// healthy target - every existing SaveStart/SaveFinish test, and normal
+// operation - the attempt resolves in milliseconds and Write returns only
+// once the shared file actually holds the new value, exactly like the
+// pre-journal synchronous write did. Only a target that is genuinely stuck
+// (not just erroring - an unreachable share simply fails its open/write fast)
+// makes Write stop waiting early; the attempt keeps running in the
+// background regardless. A var, not a const, so a test can shrink it to
+// exercise that "stop waiting early" path without spending real time on it.
+var fastPathWindow = 2 * time.Second
+
 // State is where a Manager's latest write stands relative to the shared path.
 type State string
 
@@ -81,10 +93,16 @@ type Manager struct {
 	mu             sync.Mutex
 	pending        []byte // nil once the shared path has caught up
 	pendingVersion int64
-	recovered      []byte // set once by recoverPending; consumed by Recovered
-	status         Status
-	subs           map[int]func(Status)
-	nextSub        int
+	// completedVersion and completedCh let Write wait for its own
+	// pendingVersion to be attempted (successfully or not) without caring
+	// which: completedCh is closed and replaced every time run finishes an
+	// attempt, after advancing completedVersion to that attempt's version.
+	completedVersion int64
+	completedCh      chan struct{}
+	recovered        []byte // set once by recoverPending; consumed by Recovered
+	status           Status
+	subs             map[int]func(Status)
+	nextSub          int
 
 	wake      chan struct{}
 	quit      chan struct{}
@@ -94,10 +112,14 @@ type Manager struct {
 
 // Write durably stages v to local disk (always, synchronously - this is the
 // step the "timer click path is sacred" principle depends on, since local
-// disk is assumed always available) and hands the shared write to the
-// background flusher. It returns an error only when the local write itself
-// failed; a shared-write failure never blocks or fails this call - it becomes
-// a Status transition instead, observed via Subscribe.
+// disk is assumed always available), then hands the shared write to the
+// background flusher and waits up to fastPathWindow for that attempt to
+// resolve. It returns an error only when the local write itself failed - not
+// when the shared write fails or times out waiting. Against a healthy
+// target, Write does not return until the shared file actually holds the new
+// value; against an unreachable or hung one, it stops waiting and lets the
+// flusher keep retrying, surfaced via Status/Subscribe instead of a
+// synchronous error.
 func (m *Manager) Write(v any) error {
 	b, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
@@ -112,10 +134,30 @@ func (m *Manager) Write(v any) error {
 	m.mu.Lock()
 	m.pending = b
 	m.pendingVersion++
+	v64 := m.pendingVersion
+	ch := m.completedCh
 	m.mu.Unlock()
 	m.setStatus(Status{State: StateQueued, Since: time.Now()})
 	m.poke()
-	return nil
+
+	deadline := time.After(fastPathWindow)
+	for {
+		select {
+		case <-ch:
+			m.mu.Lock()
+			done := m.completedVersion >= v64
+			ch = m.completedCh
+			m.mu.Unlock()
+			if done {
+				return nil
+			}
+			// A different, unrelated attempt (from before this Write even
+			// enqueued) resolved and rotated the channel; keep waiting on the
+			// fresh one for our own version.
+		case <-deadline:
+			return nil
+		}
+	}
 }
 
 // Status returns the current sync state.
@@ -206,13 +248,21 @@ func (m *Manager) run() {
 			}
 
 			err := m.sharedWrite(b)
+
+			m.mu.Lock()
+			caughtUp := err == nil && m.pendingVersion == v
+			if caughtUp {
+				m.pending = nil
+			}
+			if v > m.completedVersion {
+				m.completedVersion = v
+			}
+			doneCh := m.completedCh
+			m.completedCh = make(chan struct{})
+			m.mu.Unlock()
+			close(doneCh)
+
 			if err == nil {
-				m.mu.Lock()
-				caughtUp := m.pendingVersion == v
-				if caughtUp {
-					m.pending = nil
-				}
-				m.mu.Unlock()
 				backoff = backoffBase
 				if caughtUp {
 					m.setStatus(Status{State: StateSynced, Since: time.Now()})

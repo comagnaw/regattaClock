@@ -25,6 +25,7 @@ func newTestManager(t *testing.T, sharedWrite func([]byte) error) *Manager {
 		wake:        make(chan struct{}, 1),
 		quit:        make(chan struct{}),
 		done:        make(chan struct{}),
+		completedCh: make(chan struct{}),
 		status:      Status{State: StateSynced, Since: time.Now()},
 	}
 	go m.run()
@@ -37,6 +38,13 @@ func swapBackoff(t *testing.T, base, ceiling time.Duration) {
 	origBase, origCeiling := backoffBase, backoffCap
 	backoffBase, backoffCap = base, ceiling
 	t.Cleanup(func() { backoffBase, backoffCap = origBase, origCeiling })
+}
+
+func swapFastPathWindow(t *testing.T, d time.Duration) {
+	t.Helper()
+	orig := fastPathWindow
+	fastPathWindow = d
+	t.Cleanup(func() { fastPathWindow = orig })
 }
 
 // waitForState blocks until m reaches want, or fails the test after timeout.
@@ -76,6 +84,7 @@ func TestWrite_LocalFailureReturnsErrorAndSetsStatus(t *testing.T) {
 		wake:        make(chan struct{}, 1),
 		quit:        make(chan struct{}),
 		done:        make(chan struct{}),
+		completedCh: make(chan struct{}),
 		status:      Status{State: StateSynced, Since: time.Now()},
 	}
 	go m.run()
@@ -113,12 +122,45 @@ func TestWrite_SharedFailsThenSucceeds_RetriesAndEventuallySyncs(t *testing.T) {
 		return nil
 	})
 
-	if err := m.Write(map[string]int{"a": 1}); err != nil {
-		t.Fatalf("Write returned error: %v", err)
+	// Subscribe before writing, and run Write in a goroutine (it now blocks
+	// until its own attempt resolves): with the negligible backoff
+	// newTestManager sets up, the fail-fail-succeed sequence can complete in
+	// well under a millisecond, so subscribing only after Write returns risks
+	// missing the transient Retrying state entirely. Subscribing first
+	// guarantees every transition is observed regardless of how fast the
+	// retry loop runs.
+	seen := make(chan State, 16)
+	unsub := m.Subscribe(func(s Status) {
+		select {
+		case seen <- s.State:
+		default:
+		}
+	})
+	defer unsub()
+
+	writeDone := make(chan error, 1)
+	go func() { writeDone <- m.Write(map[string]int{"a": 1}) }()
+
+	sawRetrying := false
+	deadline := time.After(time.Second)
+waitLoop:
+	for {
+		select {
+		case s := <-seen:
+			if s == StateRetrying {
+				sawRetrying = true
+			}
+			if s == StateSynced && sawRetrying {
+				break waitLoop
+			}
+		case <-deadline:
+			t.Fatalf("timed out waiting for a Retrying transition followed by Synced")
+		}
 	}
 
-	waitForState(t, m, StateRetrying, time.Second)
-	waitForState(t, m, StateSynced, time.Second)
+	if err := <-writeDone; err != nil {
+		t.Fatalf("Write returned error: %v", err)
+	}
 
 	mu.Lock()
 	defer mu.Unlock()
@@ -145,6 +187,33 @@ func TestWrite_NeverBlocksOnAnUnreachableSharedPath(t *testing.T) {
 	waitForState(t, m, StateRetrying, time.Second)
 }
 
+func TestWrite_HungSharedWrite_ReturnsAfterFastPathWindow(t *testing.T) {
+	swapFastPathWindow(t, 30*time.Millisecond)
+
+	block := make(chan struct{}) // never closed while the attempt should still be hung
+	m := newTestManager(t, func([]byte) error {
+		<-block
+		return nil
+	})
+	// Registered after newTestManager's own t.Cleanup(m.Close), so this runs
+	// first (t.Cleanup is LIFO) and unblocks the hung attempt before Close
+	// waits for the flusher goroutine to exit.
+	t.Cleanup(func() { close(block) })
+
+	start := time.Now()
+	if err := m.Write("v1"); err != nil {
+		t.Fatalf("Write returned error: %v", err)
+	}
+	if elapsed := time.Since(start); elapsed > 500*time.Millisecond {
+		t.Errorf("expected Write to give up waiting near fastPathWindow (30ms), took %v", elapsed)
+	}
+
+	// The attempt is still hung in the background; nothing has resolved yet.
+	if got := m.Status().State; got != StateQueued {
+		t.Errorf("expected StateQueued while the attempt is still hung, got %s", got)
+	}
+}
+
 func TestWrite_NewerValueSupersedesOlderPendingDuringFlush(t *testing.T) {
 	release := make(chan struct{})
 	var attempted [][]byte
@@ -161,16 +230,26 @@ func TestWrite_NewerValueSupersedesOlderPendingDuringFlush(t *testing.T) {
 		return nil
 	})
 
-	if err := m.Write("v1"); err != nil {
+	// Both calls now block their own goroutine until their attempt resolves
+	// (fastPathWindow), so v1 and v2 must run concurrently: v1's attempt is
+	// held open by the mock above until release closes, and only then does
+	// the flusher move on to attempt v2.
+	v1Done := make(chan error, 1)
+	go func() { v1Done <- m.Write("v1") }()
+	time.Sleep(20 * time.Millisecond) // let the flusher pick up v1 and block inside sharedWrite
+
+	v2Done := make(chan error, 1)
+	go func() { v2Done <- m.Write("v2") }()
+	time.Sleep(20 * time.Millisecond) // let v2 enqueue and start waiting on its own completion
+
+	close(release)
+
+	if err := <-v1Done; err != nil {
 		t.Fatalf("Write v1 returned error: %v", err)
 	}
-	// Give the flusher a moment to pick up v1 and block inside the first
-	// sharedWrite call before a newer value supersedes it.
-	time.Sleep(20 * time.Millisecond)
-	if err := m.Write("v2"); err != nil {
+	if err := <-v2Done; err != nil {
 		t.Fatalf("Write v2 returned error: %v", err)
 	}
-	close(release)
 
 	waitForState(t, m, StateSynced, time.Second)
 
@@ -238,11 +317,12 @@ func TestNudge_SkipsRemainingBackoff(t *testing.T) {
 			}
 			return nil
 		},
-		subs:   make(map[int]func(Status)),
-		wake:   make(chan struct{}, 1),
-		quit:   make(chan struct{}),
-		done:   make(chan struct{}),
-		status: Status{State: StateSynced, Since: time.Now()},
+		subs:        make(map[int]func(Status)),
+		wake:        make(chan struct{}, 1),
+		quit:        make(chan struct{}),
+		done:        make(chan struct{}),
+		completedCh: make(chan struct{}),
+		status:      Status{State: StateSynced, Since: time.Now()},
 	}
 	go m.run()
 	t.Cleanup(m.Close)

@@ -27,7 +27,12 @@ const minPlausibleRace = 30 * time.Second
 // recordFirstFinish stamps the FT's clock-Start moment onto finish.json as an
 // in-progress RaceResult. This is what engages the Start Timer lock for the
 // race (persona-plan.md section 9). A write failure is logged but never blocks
-// timing.
+// timing: store.SaveFinish stages the write through a local write-ahead
+// journal (persona-plan.md section 13) and only ever returns an error here
+// when that local staging write itself fails - a rarer, more serious
+// condition than the shared path being unreachable. An unreachable shared
+// path never surfaces as an error at all; it becomes a journal.Manager
+// Status the operator sees (or will see, once a status banner lands).
 func (c *Clock) recordFirstFinish() {
 	if !c.canPersist() {
 		return
@@ -301,6 +306,10 @@ func (c *Clock) refreshCommitStatus() {
 // persistFinish serializes the current lap rows and winning time into the race's
 // RaceResult and writes the whole finish.json. Called from Referee Approval
 // (primary FT, approved=true) and Save and Close (secondary FT, approved=false).
+// The dialog.ShowError below now fires only for the rarer, more serious case
+// of the local journal staging write itself failing (see recordFirstFinish's
+// comment) - a shared-path failure is staged, retried, and never reaches this
+// error path.
 func (c *Clock) persistFinish(approved bool) {
 	if !c.canPersist() {
 		return

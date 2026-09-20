@@ -77,9 +77,10 @@ func TestFor_PersonaWithNoWritePath_ReturnsError(t *testing.T) {
 	}
 }
 
-func TestFor_LocalPathIsNamespacedByRegattaKeyTeamAndRole(t *testing.T) {
+func TestFor_LocalPathIsNamespacedByRootTeamAndRole(t *testing.T) {
 	dir := configureTempRoot(t)
-	sess := sessionFor(t, "pft", t.TempDir())
+	root := t.TempDir()
+	sess := sessionFor(t, "pft", root)
 
 	m, err := For(sess, "regatta-a")
 	if err != nil {
@@ -87,36 +88,36 @@ func TestFor_LocalPathIsNamespacedByRegattaKeyTeamAndRole(t *testing.T) {
 	}
 	t.Cleanup(m.Close)
 
-	want := filepath.Join(dir, "regatta-a", "primary", "finish.pending.json")
+	want := filepath.Join(dir, rootNamespace(root), "primary", "finish.pending.json")
 	if m.localPath != want {
 		t.Errorf("expected local path %q, got %q", want, m.localPath)
 	}
 }
 
-func TestFor_DifferentRegattaKeys_DifferentLocalPaths(t *testing.T) {
+func TestFor_DifferentRoots_DifferentLocalPaths(t *testing.T) {
 	dir := configureTempRoot(t)
-	root := t.TempDir()
 
-	m1, err := For(sessionFor(t, "pst", root), "regatta-a")
+	// Same regattaKey on purpose - what must not collide here is the folder
+	// (Session.Root), the same way two unit tests that both leave regattaKey
+	// at its zero value must not collide either.
+	m1, err := For(sessionFor(t, "pst", t.TempDir()), "regatta-a")
 	if err != nil {
 		t.Fatalf("For: %v", err)
 	}
 	t.Cleanup(m1.Close)
 
-	// A different Session.Root gives a different WritePath, which is what For
-	// memoizes on - a fresh regattaData directory always gets a fresh
-	// Manager and thus a fresh recovery check against its own regattaKey.
-	m2, err := For(sessionFor(t, "pst", t.TempDir()), "regatta-b")
+	root2 := t.TempDir()
+	m2, err := For(sessionFor(t, "pst", root2), "regatta-a")
 	if err != nil {
 		t.Fatalf("For: %v", err)
 	}
 	t.Cleanup(m2.Close)
 
 	if m1.localPath == m2.localPath {
-		t.Error("expected different regattas to namespace to different local paths")
+		t.Error("expected different Session.Root folders to namespace to different local paths")
 	}
-	if filepath.Dir(filepath.Dir(m2.localPath)) != filepath.Join(dir, "regatta-b") {
-		t.Errorf("expected regatta-b's local path under %q, got %q", filepath.Join(dir, "regatta-b"), m2.localPath)
+	if filepath.Dir(filepath.Dir(m2.localPath)) != filepath.Join(dir, rootNamespace(root2)) {
+		t.Errorf("expected root2's local path under %q, got %q", filepath.Join(dir, rootNamespace(root2)), m2.localPath)
 	}
 }
 
