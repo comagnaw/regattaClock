@@ -30,48 +30,6 @@ func TestNewRegattaData(t *testing.T) {
 	}
 }
 
-func TestRegattaData_ApproveRace(t *testing.T) {
-	rd := NewRegattaData()
-	rd.Races = []RaceData{
-		{RaceNumber: 1, Approved: false},
-		{RaceNumber: 2, Approved: false},
-		{RaceNumber: 3, Approved: false},
-	}
-
-	// Approve race 2
-	rd.ApproveRace(2)
-
-	if !rd.Races[1].Approved {
-		t.Error("Race 2 should be approved")
-	}
-
-	if rd.Races[0].Approved {
-		t.Error("Race 1 should not be approved")
-	}
-
-	if rd.Races[2].Approved {
-		t.Error("Race 3 should not be approved")
-	}
-}
-
-func TestRegattaData_ApproveRace_NonExistent(t *testing.T) {
-	rd := NewRegattaData()
-	rd.Races = []RaceData{
-		{RaceNumber: 1, Approved: false},
-		{RaceNumber: 2, Approved: false},
-	}
-
-	// Try to approve non-existent race
-	rd.ApproveRace(99)
-
-	// Verify no races were approved
-	for i, race := range rd.Races {
-		if race.Approved {
-			t.Errorf("Race %d should not be approved", i+1)
-		}
-	}
-}
-
 func TestRegattaData_ScheduledRaces(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -423,9 +381,8 @@ func TestRawData_getFlightInfo(t *testing.T) {
 }
 
 // TestRawData_getRaceEntryByLane - the Heat Sheet worksheet's 3-row block
-// carries no result data, so Place/Split/Time must stay unset regardless of
-// what row 2 (a rower's last name, for 1x/2x boats) holds - there is no
-// RaceEntry field for it today.
+// carries no result data; row 2 (a rower's last name, for 1x/2x boats) is
+// captured in RawData but has no RaceEntry field.
 func TestRawData_getRaceEntryByLane(t *testing.T) {
 	rawData := RawData{
 		{"Class", "School 1", "School 2", "School 3", "School 4", "School 5", "School 6"},
@@ -469,15 +426,6 @@ func TestRawData_getRaceEntryByLane(t *testing.T) {
 			}
 			if entry.AdditionalInfo != tt.expected.AdditionalInfo {
 				t.Errorf("Expected AdditionalInfo %q, got %q", tt.expected.AdditionalInfo, entry.AdditionalInfo)
-			}
-			if entry.Place != "" {
-				t.Errorf("Expected Place to be unset, got %q", entry.Place)
-			}
-			if entry.Split != "" {
-				t.Errorf("Expected Split to be unset, got %q", entry.Split)
-			}
-			if entry.Time != "" {
-				t.Errorf("Expected Time to be unset, got %q", entry.Time)
 			}
 		})
 	}
@@ -551,9 +499,6 @@ func TestRaceEntry_isEmptyEntry(t *testing.T) {
 			entry: RaceEntry{
 				SchoolName:     common.EmptyString,
 				AdditionalInfo: common.EmptyString,
-				Place:          common.EmptyString,
-				Split:          common.EmptyString,
-				Time:           common.EmptyString,
 			},
 			expected: true,
 		},
@@ -562,9 +507,6 @@ func TestRaceEntry_isEmptyEntry(t *testing.T) {
 			entry: RaceEntry{
 				SchoolName:     "School A",
 				AdditionalInfo: common.EmptyString,
-				Place:          common.EmptyString,
-				Split:          common.EmptyString,
-				Time:           common.EmptyString,
 			},
 			expected: false,
 		},
@@ -573,9 +515,6 @@ func TestRaceEntry_isEmptyEntry(t *testing.T) {
 			entry: RaceEntry{
 				SchoolName:     common.EmptyString,
 				AdditionalInfo: "Some info",
-				Place:          common.EmptyString,
-				Split:          common.EmptyString,
-				Time:           common.EmptyString,
 			},
 			expected: true,
 		},
@@ -584,9 +523,6 @@ func TestRaceEntry_isEmptyEntry(t *testing.T) {
 			entry: RaceEntry{
 				SchoolName:     "School B",
 				AdditionalInfo: "Info",
-				Place:          "1",
-				Split:          "0.0",
-				Time:           "6:00.0",
 			},
 			expected: false,
 		},
