@@ -198,6 +198,79 @@ When `regattaSchedule.json` changes under a race that already has timing data, *
 
 Prefer a dedicated schedule type in `internal/persona/store` or a slimmed reader type used for persistence, rather than overloading `RegattaData` as both “imported schedule” and “session with results.” This table's aspiration is realized for the **persisted** schedule (`store.Schedule`, built exactly this way) but not yet for `internal/reader`'s own types — see the "Status" note under "Remove from schedule" above: `ApproveRace` still mutates `RegattaData`, it just no longer matters, since nothing reads that mutation back.
 
+## Ingest source: Results tab vs. Heat Sheet tab (flagged 2026-09-20)
+
+Everything above is about what's persisted once read. This section is
+about what's actually **read** — a related but separate gap, raised
+alongside a question about the "Results Publisher" (REP, still unbuilt)
+writing results to a spreadsheet: could the RD's read and REP's eventual
+write ever collide on the same file?
+
+**They can't, by existing design — no change needed there:**
+`results-publisher.md` already decided REP writes to "a new, standalone
+results spreadsheet... decoupled from the RD's source workbook," and
+explicitly rules out writing to the RD's own file. Separately,
+`store.ScheduleRace`/`ScheduleEntry` structurally have no Place/Split/Time
+fields to begin with, and `Schedule.ContentHash()` — the RD's "did the
+schedule actually change" check — never hashes a result cell even if one
+existed nearby in the same file. See `results-publisher.md`'s own note on
+this for the full evidence trail.
+
+**What's still a real, open gap: the RD's ingest source is the wrong
+tab.** `internal/reader/excel.go`'s `findRaceSheet` reads exactly one
+sheet, named `"Results"` (`common.ResultsSheetName`), in a 5-row-per-race
+block that interleaves schedule cells (SchoolName, AdditionalInfo) with
+**result cells (Place, Split, Time)** in the same block — confirmed by
+`getRaceEntryByLane` (`regattaData.go`). The reader's own doc comment
+already acknowledges a second, real tab exists in real workbooks — a
+"Heat Sheet" tab, 3-row blocks, no result columns — and explicitly
+rejects it today only because the row-block size doesn't match.
+
+This isn't hypothetical:
+[heatsheet-rc-pivot-investigation.md](heatsheet-rc-pivot-investigation.md)
+confirms a real regatta's `.xlsm` has exactly this shape — a Heat Sheet
+tab "never read by `internal/reader`," and a separate Results tab that
+gets hand-updated with results after the race and shared as the public
+record. That means **the current manual, human process already does the
+exact thing REP is designed not to automate** — and the RD's ingest
+happens to point at the tab most exposed to it, for no reason other than
+that's what the reader currently parses. The app itself is safe (per
+above); the RD's ingest source is still the tab a human is most likely to
+be actively editing with results, which `ContentHash()` can only filter
+out after the fact, not prevent.
+
+**Recommendation: point RD ingest at the Heat Sheet tab instead**, once
+this is prioritized. This removes the exposure structurally rather than
+relying on `ContentHash()`'s field list to keep filtering it out — a
+stronger guarantee for a file the RD can't audit in real time, and it
+finally reads the tab real organizations already maintain for exactly
+this purpose.
+
+- **No new `Origin.Type` needed.** `Origin.Type = "heatsheet"` is already
+  reserved (`persona-plan.md`'s "Keep Excel out of the long-term core",
+  `regattacentral-integration.md` Phase C) for the *future, RC-authored,
+  Excel-retiring* ingest path — "RegattaCentral is a roster data source
+  only — it has no heat sheet." Reading a different tab of the same kind
+  of Excel file is a distinct thing and must not reuse that name. This
+  stays `Type: "excel"`; only `findRaceSheet`'s sheet-name lookup and the
+  row-block size `loadRaces`/`loadLanes` expect would change — the same
+  name-match-else-fallback shape `findRaceSheet` already uses, not a new
+  mechanism.
+- **Prior art exists, unmerged.** The
+  `regattacentral-heatsheet-investigation` branch's
+  `cmd/rcreconcile/heatsheet.go` already parses this same 3-row Heat
+  Sheet tab (for RC-entry matching, not RD ingest) — confirm its exact
+  row layout there before implementing, rather than assuming it from this
+  paragraph.
+- **Open question for whoever builds this:** whether to require the Heat
+  Sheet tab (breaking any workbook that only has a Results tab) or fall
+  back to today's Results-tab parse when no Heat Sheet tab is found —
+  not resolved here.
+
+Tracked as its own item —
+[TODO.md](../TODO.md#personas--feature-follow-ups) — independent of REP,
+which needs no change to ship safely.
+
 ## Migration
 
 1. New writes: only schedule fields → `director/regattaSchedule.json`.
