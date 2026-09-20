@@ -7,7 +7,6 @@ High-level requirements for multi-persona operation of Regatta Clock.
 - [persona-plan.md](persona-plan.md) — implementation plan
 - [operational-state.md](operational-state.md) — the RD's regatta-creation-time choice of schedule-ingest source and results-publish destination, plus social platform selection
 - [future-result-driven-persona.md](future-result-driven-persona.md) — assessment: content-publishing personas downstream of results
-- [logging-options.md](logging-options.md) — JSON event logging design
 - [shared-storage-options.md](shared-storage-options.md) — SMB / spare-PC vs cloud sync (open item: the local write-ahead journal is still unbuilt)
 - [persona-config-file.md](persona-config-file.md) — optional deployment JSON: host→persona assignment and challenge-code overrides
 - [sidecar-personas.md](sidecar-personas.md) — publishing sub-tasks attached to a lead persona (social post, register results); Lead / Standalone / Sidecar classification

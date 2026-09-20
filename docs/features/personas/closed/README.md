@@ -21,3 +21,11 @@ still open or in progress, see [../README.md](../README.md) instead.
   Secondary** window and re-keying by hand. Fully and permanently resolved
   2026-09-18 — no programmatic reconciliation feature is planned. Superseded
   for state-transition modeling by [race-state-machine.md](race-state-machine.md).
+- [logging-options.md](logging-options.md) — the `internal/applog` design:
+  JSON event logging format, severity levels, per-persona/per-host file
+  layout under `regattaData/logs/`, and the non-blocking async writer.
+  Closed 2026-09-20. Size-based rotation and remote syslog export are
+  settled as not pursued; log collection/visibility (a "collect logs"
+  export action, once floated as a Director-side button) is now scoped to
+  the **Developer (DEV)** persona proposal instead — see
+  `docs/features/TODO.md` and [developer.md](../new/developer.md).

@@ -71,7 +71,7 @@ What users see today:
 - **R6** macOS users can install a real `.app` from a DMG that passes Gatekeeper (mid term).
   The maintainer's own machine keeps working with no change.
 - **R7** No hard lock‑in to a single signing vendor; the approach stays OS‑agnostic in spirit,
-  consistent with the rest of the project (see [`personas/logging-options.md`](../personas/logging-options.md) §2).
+  consistent with the rest of the project (see [`personas/closed/logging-options.md`](../personas/closed/logging-options.md) §2).
 - **R8** The short‑term internal solution has zero recurring cost.
 
 ## Constraints

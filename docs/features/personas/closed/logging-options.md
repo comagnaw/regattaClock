@@ -1,6 +1,17 @@
 # Persona Event Logging
 
-Adopted into [persona-plan.md](persona-plan.md) as **section 6c** and **phase 1a** (foundational — lands before timesync/watcher/UI). This document keeps the fuller rationale and edge cases; the plan is authoritative for sequencing.
+**Status: closed (2026-09-20).** The core design — format, severity levels,
+file layout, gating preferences, and the non-blocking async writer — is
+resolved and built as `internal/applog`. Kept as the historical record of the
+design and the reasoning behind it, not live planning guidance. Size-based
+rotation and remote syslog export, both floated below as later niceties, are
+now settled as **not pursued** (see "Resolved since this doc was written"
+below). Log collection and visibility — including the "collect logs"
+convenience this doc floated as a Director-side button — is now scoped to
+the **Developer (DEV)** persona proposal instead (`docs/features/TODO.md`,
+[developer.md](../new/developer.md)), not the Director.
+
+Adopted into [persona-plan.md](../persona-plan.md) as **section 6c** and **phase 1a** (foundational — lands before timesync/watcher/UI). This document keeps the fuller rationale and edge cases; the plan is authoritative for sequencing.
 
 ## Short answer
 
@@ -60,7 +71,7 @@ You already dislike it, and it also fails the OS-agnostic requirement. Event Log
 {"time":"2026-09-06T14:05:00.120-04:00","level":"INFO","msg":"ntp measure","persona_id":"pst","team":"primary","role":"start","machine":"DESKTOP-A1B2C3","component":"timesync","source":"192.168.1.10","offset_ms":12,"rtt_ms":3}
 ```
 
-Shipping to a remote syslog server (UDP 514) remains optional later and is a poor default on race day.
+Shipping to a remote syslog server (UDP 514) is not pursued (see "Resolved since this doc was written") and would in any case be a poor default on race day.
 
 Prefer `slog.JSONHandler` over `slog.TextHandler`. Text is nicer for eyeballing a single file; JSON is nicer once you are correlating four personas' logs after a bad race — which is the actual troubleshooting workflow.
 
@@ -111,7 +122,7 @@ Local-only logs are safer for I/O and do not sync, but when the RD is diagnosing
 - The watcher must **never** watch `logs/` (exact-filename allowlist already required for timing files — keep logs off that list).
 - Under OneDrive, log appends will sync; that is acceptable at low volume, noisy if you log every 2s poll. See section 6.
 - Under SMB, appends are cheap; still ignore `logs/` in the watcher.
-- Do **not** rotate into dozens of dated files by default; one append file per persona per regatta is enough. Optional size-based rotate (e.g. at 5 MiB keep `start.log.1`) is a later nicety, not day-one.
+- Do **not** rotate into dozens of dated files; one append file per persona per regatta is enough, and rotation is not pursued (see "Resolved since this doc was written").
 
 ### Before `regattaData` is known
 
@@ -240,7 +251,7 @@ Creating `logs/` is the persona's responsibility on first write, same as creatin
 | Approach | Verdict |
 |----------|---------|
 | Windows Event Log | Rejected — not OS-agnostic; hard to collect |
-| Remote syslog (UDP/TCP) | Optional later; race-day network is already fragile |
+| Remote syslog (UDP/TCP) | Not pursued — race-day network is already fragile and no operational need has come up |
 | Third-party zap/zerolog | Unnecessary; `slog` + `JSONHandler` is enough |
 | `slog.TextHandler` (key=value) | Fine for eyeballing; worse for multi-file analysis — prefer JSON |
 | Console-only | Useless on a Fyne GUI release build |
@@ -262,10 +273,38 @@ Creating `logs/` is the persona's responsibility on first write, same as creatin
 
 ## 11. Fit with the persona plan
 
-Logging is **section 6c** and **phase 1a** in [persona-plan.md](persona-plan.md) — foundational, not deferred. Later phases only add call sites.
+Logging is **section 6c** and **phase 1a** in [persona-plan.md](../persona-plan.md) — foundational, not deferred. Later phases only add call sites.
 
-Open follow-ups (not required for a useful first version):
+Log collection and visibility across every persona's log file — including
+an export/zip action for a support report — is scoped to the **Developer
+(DEV)** persona proposal, not the Director: see `docs/features/TODO.md` and
+[developer.md](../new/developer.md).
 
-- Size-based rotation
-- Optional "Copy logs to clipboard / zip for support" button on the Director
-- True remote syslog export behind a second preference
+## Resolved since this doc was written
+
+- **Size-based rotation and remote syslog export.** *Settled 2026-09-20 —
+  not pursued.* Both were floated above as later niceties for keeping log
+  files from growing unbounded and for centralizing logs off-machine. Neither
+  turned out to be needed:
+  - Expected volume is low by design — INFO only fires on discrete events
+    (button clicks, NTP measures, watcher *content* changes, hydrate/save),
+    never per poll tick — so an all-day regatta produces a few MB per
+    persona file, not hundreds of MB or GB.
+  - Even at larger sizes, appends would stay cheap: `internal/applog`
+    (`writer.go`) opens the log file once with `O_APPEND`, and every write
+    goes through that one handle — the OS positions each write at
+    end-of-file itself, so the cost of appending a line does not grow with
+    file size.
+  - The timing path is already decoupled from log I/O regardless of file
+    size: `Write` copies the line onto a channel and returns immediately: the
+    actual file write happens on a separate goroutine, flushed once a
+    second, and a full queue drops lines rather than blocking the caller.
+  - The RD's watcher never touches `logs/` at all (section 4) — it only
+    polls an exact-path allowlist of schedule/start/finish files — so log
+    file size has no effect on RD's polling cost either.
+
+  Net: no rotation and no remote export until an actual need shows up (e.g.
+  a persona that reads whole log files, which none does today). Log
+  collection/visibility itself is unaffected by this decision — it is a
+  support convenience, scoped to the Developer (DEV) persona proposal
+  above, not a response to a size or performance problem.
