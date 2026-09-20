@@ -66,11 +66,26 @@ func For(sess persona.Session, regattaKey string) (*Manager, error) {
 	if err != nil {
 		return nil, err
 	}
-	localPath := filepath.Join(dir, regattaKey, string(sess.Team), string(sess.Role)+".pending.json")
+	localPath := filepath.Join(dir, rootNamespace(sess.Root), string(sess.Team), string(sess.Role)+".pending.json")
 
 	m := newManager(sharedPath, localPath, regattaKey)
 	registry[sharedPath] = m
 	return m, nil
+}
+
+// rootNamespace keys a Manager's local staging directory to the regattaData
+// folder it mirrors (sess.Root), not to the regattaKey the session happens to
+// be working with right now. Two Managers for the same folder always land on
+// the same local file, which is what lets crash recovery find a leftover
+// write after a restart; two Managers for different folders - a different
+// regatta's folder, or, in tests, a fresh t.TempDir() per test - never
+// collide, even if their regattaKeys happen to coincide (empty in most unit
+// tests). The regattaKey mismatch guard in recoverPending is the thing that
+// actually protects against "this folder was reused for a different regatta
+// since the last write" - this hash only decides which local file two
+// Managers share, not whether it's safe to adopt what one finds there.
+func rootNamespace(root string) string {
+	return filesystem.HashBytes([]byte(root))[:16]
 }
 
 func newManager(sharedPath, localPath, regattaKey string) *Manager {
@@ -84,6 +99,7 @@ func newManager(sharedPath, localPath, regattaKey string) *Manager {
 		wake:        make(chan struct{}, 1),
 		quit:        make(chan struct{}),
 		done:        make(chan struct{}),
+		completedCh: make(chan struct{}),
 	}
 	m.status = Status{State: StateSynced, Since: time.Now()}
 	m.recoverPending()

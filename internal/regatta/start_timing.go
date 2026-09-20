@@ -153,9 +153,13 @@ func (r *Regatta) restoreStartConfirmed(n int) {
 	r.refreshRow(n)
 }
 
-// persistStart stamps the envelope clock and atomically writes the whole
-// StartLog. Returns false (and surfaces the error) on failure so the caller
-// does not log success.
+// persistStart stamps the envelope clock and durably stages the whole
+// StartLog through a local write-ahead journal (persona-plan.md section 13),
+// which flushes it to the shared start.json in the background. Returns false
+// (and surfaces the error) only when that local staging write itself fails -
+// a shared path that's unreachable is retried in the background instead of
+// failing this call, so the caller does not log success only for a genuinely
+// failed local write.
 func (r *Regatta) persistStart() bool {
 	r.startLog.Clock = timesync.Ref()
 	if err := store.SaveStart(r.session, r.startLog); err != nil {
