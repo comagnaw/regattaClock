@@ -45,6 +45,26 @@ func TestSaveJSONFileAtomic(t *testing.T) {
 	}
 }
 
+func TestSaveBytesFileAtomic_RoundTrip(t *testing.T) {
+	filename := filepath.Join(t.TempDir(), "record.json")
+	want := []byte(`{"name":"raw bytes","count":7}`)
+
+	if err := SaveBytesFileAtomic(want, filename); err != nil {
+		t.Fatalf("SaveBytesFileAtomic returned error: %v", err)
+	}
+
+	got, err := os.ReadFile(filename)
+	if err != nil {
+		t.Fatalf("saved file could not be read: %v", err)
+	}
+	if string(got) != string(want) {
+		t.Errorf("Expected file contents %q, got %q", want, got)
+	}
+	if _, err := os.Stat(filename + ".tmp"); !os.IsNotExist(err) {
+		t.Errorf("Expected no temp file after a successful write, stat err = %v", err)
+	}
+}
+
 func TestSaveJSONFileAtomic_RoundTrip(t *testing.T) {
 	filename := filepath.Join(t.TempDir(), "records.json")
 	data := []testRecord{{Name: "First", Count: 1}, {Name: "Second", Count: 2}}
