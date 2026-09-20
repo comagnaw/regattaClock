@@ -63,9 +63,24 @@ tree's `†` stale-lane-map mark. See "How the three files join" below.
 
 - `SchoolName`
 - `AdditionalInfo` (rower / A–B boat, etc.)
-- Scratches: settled as an empty `SchoolName`, optionally noted in `AdditionalInfo`
-  (`store.ScheduleEntry`'s own doc comment) — not yet an explicit `Status` field;
-  that remains a possible future addition if the origin ever encodes it separately.
+- **Scratches — genuinely unresolved, not a settled decision (corrected from
+  an earlier pass of this doc):** today a scratch is represented by an
+  **empty `SchoolName`** (`internal/regatta/schedule.go`'s change-detector
+  defines a scratch as exactly `SchoolName` going from present to blank;
+  the Excel importer, `internal/reader/excel.go`, has no scratch-specific
+  parsing at all — it just reads whatever text is in the cell). This
+  **erases the school's identity**: "School C scratched from this race"
+  and "this lane was never assigned a boat" become indistinguishable
+  everywhere downstream (`BoatCount`, the race tree, results). This
+  doc's own illustrative JSON below has always shown the *better* shape —
+  `SchoolName` preserved, `AdditionalInfo: "SCRATCHED"` — but the code
+  was never actually built that way; the example and the real behavior
+  have quietly diverged. `internal/regattacentral/model.go`'s `LaneStatus`
+  enum (`SCR`/`DNS`/`DNF`/`DSQ`/`RMV`/`EXC`/`NJ`, Cookbook §15) already
+  models a scratch as a status on an intact entry, not entry-deletion —
+  the shape to converge toward, especially since Heat Sheet Creator will
+  eventually ingest RC data directly. See
+  [TODO.md](../TODO.md#personas--feature-follow-ups) for the tracked fix.
 
 ### Remove from schedule (move / already in finish)
 
@@ -136,6 +151,15 @@ Avoid: persisting `RawData` when Debug is true and omitting it when false (two s
 }
 ```
 
+Lanes 3 and 4 above are meant to read as two different situations — lane 3
+never had a boat assigned; lane 4 had **School C**, who scratched, with
+that fact recorded rather than erased. **That distinction is aspirational,
+not real yet** — see "Scratches" under "Per lane (schedule entry)" above:
+today's code would represent both lanes identically (empty `SchoolName`),
+losing School C's identity entirely. This example has quietly described
+the intended fix since before this correction pass; it just was never
+built.
+
 (Exact JSON key casing can stay Go-default or gain tags later; the ownership split matters more than tags.)
 
 ## How the three files join
@@ -185,15 +209,27 @@ Prefer a dedicated schedule type in `internal/persona/store` or a slimmed reader
 - **`BoatCount` is stored**, not derived from non-empty lanes — a real
   `store.ScheduleRace.BoatCount` field, round-tripped and part of
   `ContentHash()`.
-- **Scratches:** settled as an empty `SchoolName`, optionally noted in
-  `AdditionalInfo` — `store.ScheduleEntry`'s own doc comment confirms this
-  is the working convention today. A future explicit `Status` field
-  remains possible if an origin ever encodes scratches separately, but
-  that's a "could," not an open pick blocking anything.
 - **`ScheduledTime`** was added as a new stored per-race field (not
   anticipated when this doc was first written) — the workbook's Time
   column, shown as its own race-tree column, part of `ContentHash()`. See
   "What `regattaSchedule.json` should contain" above.
+
+## Open decisions (not small — flagged 2026-09-20)
+
+- **Scratches erase the school's identity today, and shouldn't.** See
+  "What `regattaSchedule.json` should contain" → "Per lane (schedule
+  entry)" above for the full detail. The fix is a real schema change:
+  add an explicit scratch marker to `ScheduleEntry` (e.g. `Scratched
+  bool`, or a richer `Status ScheduleEntryStatus` mirroring
+  `regattacentral.LaneStatus`'s `SCR`/`DNS`/`DNF`/`DSQ`/`RMV`/`EXC`/`NJ`
+  vocabulary) while keeping `SchoolName` intact, plus updating
+  `diffSchedule`'s scratch-detection (`internal/regatta/schedule.go`) to
+  key off the new field instead of `SchoolName == ""`, and deciding how
+  the Excel importer recognizes a scratch in the source workbook (a
+  dedicated column, or text convention in an existing cell) so the
+  distinction survives import in the first place — not just how it's
+  stored once read. Tracked in
+  [TODO.md](../TODO.md#personas--feature-follow-ups).
 
 ## Open decisions (small)
 
