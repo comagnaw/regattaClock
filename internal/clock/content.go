@@ -256,8 +256,12 @@ func (c *Clock) lapsContainer() *fyne.Container {
 // winningTimeInput - a compact labelled field for the official winning time of
 // the first boat across the line (the total from race start to finish),
 // with a note to its right saying where a pre-filled value came from, or why
-// there is none (persona-plan.md 2.1). The note has a fixed width so its text
-// changing doesn't shift the entry field.
+// there is none (persona-plan.md 2.1). The note has a fixed width and height
+// (winningNoteWidth / winningNoteHeight) so its text changing doesn't shift
+// the entry field, and even the longest note renders inside its own cell -
+// fyne's Label always draws wrapped text top-down with no vertical centering,
+// so a tall-enough cell is all a note needs to stop bleeding into whatever
+// sits below it.
 func (c *Clock) winningTimeInput() *fyne.Container {
 	label := text.BoldLabel(common.WinningTimeInputText)
 	entry := container.NewGridWrap(
@@ -267,7 +271,7 @@ func (c *Clock) winningTimeInput() *fyne.Container {
 
 	c.winningNote = text.Wrapping(common.EmptyString)
 	c.winningNote.Importance = widget.MediumImportance
-	noteArea := container.NewGridWrap(fyne.NewSize(winningNoteWidth, c.winningTime.MinSize().Height), c.winningNote)
+	noteArea := container.NewGridWrap(fyne.NewSize(winningNoteWidth, winningNoteHeight), c.winningNote)
 
 	row := container.NewCenter(container.NewHBox(label, entry, hgap(controlGap), noteArea))
 

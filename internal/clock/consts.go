@@ -65,18 +65,22 @@ const (
 
 	// winningNoteWidth - fixed width for the helper note beside the Winning
 	// Time field, so its text changing doesn't shift the entry field itself.
-	winningNoteWidth = float32(300)
+	// Wide enough that the longest notes (WinningTimeStaleNote /
+	// WinningTimeNegativeNote, internal/common/consts.go) wrap to at most two
+	// lines rather than three.
+	winningNoteWidth = float32(420)
 
 	// winningTopGap - extra space above the Winning Time row so it reads as its
 	// own step, set apart from the lap grid.
 	winningTopGap = float32(14)
 
 	// winningNoteHeight - reserved height for the helper line under the Winning
-	// Time field (two lines at the lap-grid width). Covers the common
-	// "auto-filled" note so pressing Start never shifts the Lap button; the
-	// rarer, longer skew/stale notes (shown only once the operator has stopped
-	// to check the time) may wrap past it.
-	winningNoteHeight = float32(44)
+	// Time field, sized for the longest note (WinningTimeStaleNote /
+	// WinningTimeNegativeNote) wrapped at winningNoteWidth, i.e. two lines. The
+	// live clock's note cell is fixed to this height (see winningTimeInput), so
+	// even the longest note renders fully inside it rather than bleeding into
+	// the Results banner below.
+	winningNoteHeight = float32(56)
 
 	// badLaneNum - used to indicate the lane number text could not be converted to int
 	badLaneNum = -1
