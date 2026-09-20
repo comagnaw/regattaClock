@@ -149,6 +149,19 @@ func TestDirectorRow_ScheduledTime(t *testing.T) {
 	}
 }
 
+// TestDirectorRow_BoatCount - the race's entry count shows on the RD's row
+// the same way Scheduled Time does.
+func TestDirectorRow_BoatCount(t *testing.T) {
+	r := directorWithRaces(t, []reader.RaceData{
+		{RaceNumber: 1, BoatCount: 4, Lanes: map[int]reader.RaceEntry{1: {SchoolName: "A"}}},
+	})
+	r.raceListBody()
+
+	if got := r.rows[1].boatCount.Text; got != "4" {
+		t.Errorf("boat count = %q, want %q", got, "4")
+	}
+}
+
 // TestDirectorHydratesPrimary - the RD mirrors the primary team's timing files
 // and ignores the secondary pair's; a secondary-only race stays a placeholder.
 func TestDirectorHydratesPrimary(t *testing.T) {

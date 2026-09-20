@@ -67,7 +67,7 @@ func ftRegatta(t *testing.T) *Regatta {
 func TestRegatta_RaceListHeader_Finish(t *testing.T) {
 	texts := labelTexts(ftRegatta(t).raceListHeader())
 
-	for _, want := range []string{common.ScheduledRacesTile, common.ColStartTime, common.ColStatus} {
+	for _, want := range []string{common.ColEvent, common.ColStartTime, common.ColStatus} {
 		if !slices.Contains(texts, want) {
 			t.Errorf("finish header %v is missing %q", texts, want)
 		}
@@ -476,7 +476,7 @@ func TestRegatta_RaceListHeader_Director(t *testing.T) {
 
 	texts := labelTexts(header)
 	for _, want := range []string{
-		common.ScheduledRacesTile, common.ColRestarts, common.ColStartTime,
+		common.ColEvent, common.ColRestarts, common.ColStartTime,
 		common.ColWinningTime, common.ColStatus,
 	} {
 		if !slices.Contains(texts, want) {
