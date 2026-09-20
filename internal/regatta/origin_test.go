@@ -140,7 +140,7 @@ func TestApplyPendingOrigin_DifferentRegattaWithTimingRefused(t *testing.T) {
 }
 
 func TestPollOriginNoChange(t *testing.T) {
-	xlsx, err := filepath.Abs(filepath.Join("..", "..", "examples", "Example Regatta Input Table.xlsx"))
+	xlsx, err := filepath.Abs(filepath.Join("..", "..", "examples", "Example Heat Sheets and Results With Macros.xlsm"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,7 +157,7 @@ func TestPollOriginNoChange(t *testing.T) {
 }
 
 func TestReloadScheduleUnchangedDoesNotRewrite(t *testing.T) {
-	xlsx, err := filepath.Abs(filepath.Join("..", "..", "examples", "Example Regatta Input Table.xlsx"))
+	xlsx, err := filepath.Abs(filepath.Join("..", "..", "examples", "Example Heat Sheets and Results With Macros.xlsm"))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -83,7 +83,28 @@ A deliberate future decision, **not** triggered by branching or by any single
 feature. It will mean committing to stability of the operator workflow and the
 on-disk formats — after 1.0, breaking either forces a major bump. Dropping the
 `-alpha` / `-beta` suffix is usually the same decision, but need not be. The
-exact bar is TBD and out of scope until there is a reason to set it.
+exact bar is mostly TBD, with one concrete goal set so far:
+
+- **Retire reliance on the shared, multi-tab `.xlsm` workbook format**
+  (`examples/Example Heat Sheets and Results With Macros.xlsm` and any real
+  organization's equivalent) — set as a goal 2026-09-20, not yet
+  implemented. That workbook (`Regatta Attributes` / `Heat Sheet` /
+  `Results` / `Referee Heat Sheet`, macro-linked) was a stopgap built for
+  one season to give a regatta's heat sheet and results a consistent
+  shared layout, before regattaClock's persona model existed. Under
+  personas, each tab's job now belongs to a specific, separately-owned
+  artifact instead of one file everyone hand-edits: the RD's own ingest
+  already reads the `Heat Sheet` tab structurally, never `Results`
+  (`schedule-data-model.md`'s "Ingest source" section); ST/FT own their
+  own `start.json`/`finish.json`; Referee Approval already happens
+  in-app, not via a `Referee Heat Sheet` tab. The one piece still missing
+  is Results Publisher (REP, `new/results-publisher.md`, still unbuilt) —
+  once real organizations have a destination for approved results that
+  isn't hand-updating the workbook's `Results` tab, the whole multi-tab
+  macro format has no remaining reason to exist, and the example
+  workbook demonstrating it should retire alongside it. Not something to
+  implement now — a goal to clear before 1.0, not a 1.0 blocker in
+  itself.
 
 ## Maintained older lines (future — not in use)
 

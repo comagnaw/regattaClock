@@ -73,10 +73,13 @@ func initExcel(file *excelize.File) (excel, error) {
 	return e, nil
 }
 
-// findRaceSheet - locate the "Results" worksheet wherever it sits in the workbook,
-// falling back to the first worksheet for workbooks that do not name one. The
-// "Heat Sheet" tab of a regatta workbook holds 3-row lineup blocks rather than the
-// 5-row blocks loadRaces expects, so it is not a valid source of race data.
+// findRaceSheet - locate the "Heat Sheet" worksheet wherever it sits in the
+// workbook, falling back to the first worksheet for workbooks that do not
+// name one. This is the RD's schedule source - race number, boat class,
+// flight/heat, and lane assignments in 3-row blocks - never a "Results"
+// worksheet, which mixes in result columns
+// (docs/features/personas/schedule-data-model.md's "Ingest source"
+// section).
 func findRaceSheet(file *excelize.File) (string, error) {
 	sheets := file.GetSheetList()
 	if len(sheets) == 0 {
@@ -84,7 +87,7 @@ func findRaceSheet(file *excelize.File) (string, error) {
 	}
 
 	for _, sheet := range sheets {
-		if strings.EqualFold(strings.TrimSpace(sheet), common.ResultsSheetName) {
+		if strings.EqualFold(strings.TrimSpace(sheet), common.HeatSheetName) {
 			return sheet, nil
 		}
 	}
@@ -95,8 +98,15 @@ func findRaceSheet(file *excelize.File) (string, error) {
 func (e excel) setNameAndDate() {
 	for _, mc := range e.mergedCells {
 		if mc.GetStartAxis() == "A1" && mc.GetEndAxis() == "I1" {
-			// Found our title
-			e.Name = strings.TrimSuffix(strings.TrimSpace(mc.GetCellValue()), " Regatta Results")
+			// Found our title. The Heat Sheet worksheet's own title cell ends
+			// in " Heat Sheet" (e.g. "Charlie Brown Classic Heat Sheet"), not
+			// the old Results worksheet's " Regatta Results" - trim whichever
+			// suffix is present so RegattaData.Name is the clean regatta name
+			// either way.
+			name := strings.TrimSpace(mc.GetCellValue())
+			name = strings.TrimSuffix(name, " Heat Sheet")
+			name = strings.TrimSuffix(name, " Regatta Results")
+			e.Name = name
 			continue
 		}
 		if mc.GetStartAxis() == "A2" && mc.GetEndAxis() == "I2" {
@@ -121,12 +131,12 @@ func (e excel) loadRaces() {
 		start := mc.GetStartAxis()
 		end := mc.GetEndAxis()
 
-		// Check if it's a 5-row merged cell in column A
+		// Check if it's a 3-row merged cell in column A
 		if strings.HasPrefix(start, "A") && strings.HasPrefix(end, "A") {
 			startRow := getRowNumber(start)
 			endRow := getRowNumber(end)
 
-			if endRow-startRow == 4 { // 5 rows (inclusive)
+			if endRow-startRow == 2 { // 3 rows (inclusive)
 				// Get the race number
 				value := mc.GetCellValue()
 				raceNum, err := strconv.Atoi(value)
@@ -148,12 +158,12 @@ func (e excel) loadRaces() {
 
 }
 
-// loadLanes - parse 5 rows of data and columsn C-I and return RaceData
+// loadLanes - parse 3 rows of data and columns C-I and return RaceData
 func (e excel) loadLanes(raceNum, startRow, endRow int) RaceData {
 
 	raceData := newRaceData(raceNum)
 
-	// Column B holds the scheduled start time, merged across the whole 5-row
+	// Column B holds the scheduled start time, merged across the whole 3-row
 	// block the same way column A holds the race number - read once here, not
 	// inside the per-row loop below (the other rows in the merge are blank).
 	scheduledTime, _ := e.file.GetCellValue(e.sheetName, fmt.Sprintf("B%d", startRow))

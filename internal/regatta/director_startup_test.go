@@ -146,7 +146,7 @@ func TestDirectorImportWritesScheduleOnConfirm(t *testing.T) {
 	r.onPersonaChosen(persona.DirectorDefinition, "rc-rd")
 	r.changeCallBack()(listerFor(t, regattaDir), nil)
 
-	xlsx, err := filepath.Abs(filepath.Join("..", "..", "examples", "Example Regatta Input Table.xlsx"))
+	xlsx, err := filepath.Abs(filepath.Join("..", "..", "examples", "Example Heat Sheets and Results With Macros.xlsm"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -195,7 +195,7 @@ func TestSetupStartButtonRunsImport(t *testing.T) {
 		t.Fatal("Start Regatta must be disabled with only the save folder set")
 	}
 
-	xlsx, err := filepath.Abs(filepath.Join("..", "..", "examples", "Example Regatta Input Table.xlsx"))
+	xlsx, err := filepath.Abs(filepath.Join("..", "..", "examples", "Example Heat Sheets and Results With Macros.xlsm"))
 	if err != nil {
 		t.Fatal(err)
 	}

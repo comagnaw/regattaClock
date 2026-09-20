@@ -3,16 +3,20 @@
 Two sample Excel workbooks, one for each format regattaClock accepts: a plain
 `.xlsx` and a macro-enabled `.xlsm`.
 
-On import, regattaClock reads the worksheet named **`Results`** — or the first
-worksheet if the file has no sheet by that name — and derives the regatta title
-and date and each race's lane assignments from its layout. Other worksheets,
-macros, and formulas are ignored.
+On import, regattaClock reads the worksheet named **`Heat Sheet`** — or the
+first worksheet if the file has no sheet by that name — and derives the
+regatta title and date and each race's boat class, flight/heat, and lane
+assignments from its layout. Other worksheets, macros, and formulas are
+ignored. A workbook with no `Heat Sheet` worksheet at all does not import any
+races.
 
-## Example Regatta Input Table.xlsx
+## Heat Sheet Input Examples.xlsx
 
-The minimal input: a single worksheet in the `Results` layout, holding one
-regatta's title, date, and per-race lane assignments. regattaClock imports it
-as-is.
+The minimal input: a single `Heat Sheet` worksheet, holding one regatta's
+title, date, and per-race boat class / flight / lane assignments.
+regattaClock imports it as-is. Its own `Instructions` worksheet documents the
+expected cell layout in detail, and its `Heat Sheet` worksheet's first event
+is a highlighted, annotated example of that layout.
 
 ## Example Heat Sheets and Results With Macros.xlsm
 
@@ -25,9 +29,11 @@ sending just the `Heat Sheet`, `Results`, or `Referee Heat Sheet` without the
 formulas and macros.
 
 The `Heat Sheet` worksheet is the source for the races and their lane
-assignments; the other worksheets pull their data from it through formulas. The
-`Results` worksheet is where timing and order of finish (OOF) are entered, and it
-is the sheet regattaClock imports.
+assignments, and it is the sheet regattaClock imports. The other worksheets
+pull their data from it through formulas: `Results` is where timing and order
+of finish (OOF) are entered once the race is run, and `Referee Heat Sheet` is
+a print-friendly copy for the officials at the line. regattaClock never reads
+either of those.
 
 Because the workbook leans heavily on formulas to keep every sheet consistent,
 some cell ranges are protected. If you try to edit one, Excel warns:

@@ -42,7 +42,11 @@ const (
 	// today the single operator writes one flat file here.
 	LogsDir = "logs"
 
-	ResultsSheetName = "Results"
+	// HeatSheetName - the workbook worksheet the RD imports the schedule
+	// from: race number, boat class, flight/heat, and lane assignments -
+	// never results (see docs/features/personas/schedule-data-model.md's
+	// "Ingest source" section).
+	HeatSheetName = "Heat Sheet"
 
 	EmptyString = ""
 
