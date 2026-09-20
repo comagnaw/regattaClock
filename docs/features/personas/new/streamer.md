@@ -110,12 +110,10 @@ it directly).
   action button per row (lanes/results status) plus the "run clock"
   button column.
 - **New `persona.Role` + `Definition`** — same registry gap Awards hit
-  first (`docs/features/personas/new/awards.md`'s reuse analysis):
-  `RoleStreamer`, `Team: TeamExecutive`, `File: ""`, a challenge code,
-  appended alongside `DirectorDefinition` (or however AWD/DEV's own
-  additions end up structured — this is now the third Executive-team
-  standalone persona hitting the same `All()`/registry shape, worth
-  landing them together or at least consistently).
+  first, now shipped as the concrete template (`internal/persona/persona.go`'s
+  `RoleAwards`/`AwardsDefinition`): `RoleStreamer`, `Team: TeamExecutive`,
+  `File: ""`, a challenge code, appended alongside `DirectorDefinition` and
+  `AwardsDefinition` in `All()`.
 - **`Session.WritePath()` gap** — same gap Awards/Developer already
   flagged for a read-only, non-director Role. STM's own code should
   simply never call `store.Save*`; the guard is a safety net, not

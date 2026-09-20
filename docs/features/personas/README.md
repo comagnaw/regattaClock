@@ -31,7 +31,7 @@ Background routines that are not the running race clock (or the direct recording
 
 | Team | Code | Who |
 |------|------|-----|
-| Executive | `executive` | Regatta Director (and future non-timing officials — e.g. the result-publishing personas assessed in [future-result-driven-persona.md](future-result-driven-persona.md)) |
+| Executive | `executive` | Regatta Director, Awards (and future non-timing officials — e.g. the result-publishing personas assessed in [future-result-driven-persona.md](future-result-driven-persona.md)) |
 | Primary | `primary` | Primary Start Timer + Primary Finish Timer |
 | Secondary | `secondary` | Secondary Start Timer + Secondary Finish Timer |
 
@@ -42,6 +42,7 @@ Primary and secondary are independent ST/FT pairings for the same regatta. Timin
 | Persona | ID | Team | Challenge (example) |
 |---------|----|------|---------------------|
 | Regatta Director | `rd` | Executive | `rc-rd` |
+| Awards | `awd` | Executive | `rc-awd` |
 | Primary Start Timer | `pst` | Primary | `rc-pst` |
 | Secondary Start Timer | `sst` | Secondary | `rc-sst` |
 | Primary Finish Timer | `pft` | Primary | `rc-pft` |
@@ -49,10 +50,30 @@ Primary and secondary are independent ST/FT pairings for the same regatta. Timin
 
 ### Regatta Director (RD)
 
-- **Does:** Load / refresh schedule from an **origin** (Excel today; future web API) into `regattaSchedule.json` **only when normalized schedule content actually changes**; establish `regattaData`; notice origin fingerprint changes, ignore no-op workbook saves; Apply meaningful updates on confirmation; view live progress; export; read the **primary team's** `start.json` + `finish.json` for the progress tree.
+- **Does:** Load / refresh schedule from an **origin** (Excel today; future web API) into `regattaSchedule.json` **only when normalized schedule content actually changes**; establish `regattaData`; notice origin fingerprint changes, ignore no-op workbook saves; Apply meaningful updates on confirmation; view live progress; export; read the **primary team's** `start.json` + `finish.json` for the progress tree; open a read-only **View Results** window for any race whose primary-team result is approved (`store.CanPublish`), showing the exact OOF/Place/Split/Time/School grid the Referee Approval window showed — shared with Awards below, see [race-state-machine.md](race-state-machine.md#whats-next-for-not-yet-built-personas).
 - **Does not:** Time races; write start times or finish results; silently overwrite the schedule without confirmation while racing is underway.
 - **Entry:** A persona on the one startup picker, gated by the `rc-rd` challenge — choosing it opens the Set Regatta Directory / Load Excel File view and never auto-restores. A separate "resume as director" shortcut appears when the last run was the director and reopens that regatta directly. The **Load Regatta Data** menu returns to the same setup view, so the RD can switch regattas without restarting. Excel import confirms the parsed metadata before writing the schedule.
 - **Constraint:** Timers consume only `regattaSchedule.json`, never the origin. That keeps a future Excel → API pivot inside the RD/reader layer.
+
+### Awards (AWD)
+
+- **Does:** Emulate the RD's read-only, primary-team progress tree (race
+  number, restarts, start time, winning time, approval status); open the
+  same **View Results** window the RD's row does, for transcribing
+  1st/2nd/3rd at the awards table without touching a timing clock.
+- **Does not:** Time races; write schedule, start-time, or finish data;
+  approve a race; read or reconcile secondary-team data (inherits the RD
+  tree's primary-team-only scoping).
+- **Entry:** A persona in the **Admins** tab alongside the Regatta
+  Director, gated by the `rc-awd` challenge — picks an existing
+  `regattaData` folder the same way a timer persona does (it never
+  originates or imports a schedule, so it has no director-style setup
+  flow).
+- **Constraint:** Reads only `regattaSchedule.json` plus the **primary
+  team's** `start.json`/`finish.json` — the same data and the same
+  primary-only invariant the RD tree already enforces. Awards has no
+  write path at all (`Session.WritePath()` returns `""` for it) and never
+  calls a `store.Save*` function.
 
 ### Start Timer (ST)
 
@@ -78,24 +99,25 @@ Primary and secondary are independent ST/FT pairings for the same regatta. Timin
 
 ## Startup (high level)
 
-1. On the one picker, press your persona's button and enter its challenge code in the prompt. Personas are grouped into **Timers** (the four timing personas), **Media**, and **Admins** (the `executive` team) tabs. Media (Social Media / Streaming / Register Results) and Developer are greyed-out placeholders for personas not built yet. The Director may instead take the "resume as director" shortcut below the tabs when it was the last persona used.
+1. On the one picker, press your persona's button and enter its challenge code in the prompt. Personas are grouped into **Timers** (the four timing personas), **Media**, and **Admins** (the `executive` team — Regatta Director and Awards) tabs. Media (Social Media / Streaming / Register Results) and Developer are greyed-out placeholders for personas not built yet. The Director may instead take the "resume as director" shortcut below the tabs when it was the last persona used.
 2. Select `regattaData` and confirm title / date / schedule. Choosing "Regatta Director" always lands on Set Regatta Directory / Load Excel File (it does not auto-restore); the Director points at a directory and imports Excel, confirming the parsed metadata before the schedule is written. Only the "resume as director" shortcut reopens the previous regatta directly.
-3. **Timers only:** if the schedule's date is already in the past (read in the host's timezone), a second confirmation warns that this is an already-run regatta before the session starts. An empty or unrecognised date skips this check.
+3. **Any persona other than the Regatta Director** (a timer, or Awards): if the schedule's date is already in the past (read in the host's timezone), a second confirmation warns that this is an already-run regatta before the session starts. An empty or unrecognised date skips this check.
 4. Show the role-specific race tree.
 
 ## Privilege summary
 
-| Action | RD | ST | FT |
-|--------|----|----|----|
-| Write schedule (`director/regattaSchedule.json`) | yes | no | no |
-| Write start times (own team) | no | yes | no |
-| Write finish results (own team) | no | no | yes |
-| Read schedule | yes | yes | yes |
-| Read start times | primary team | own | own team |
-| Read finish results | primary team | no* | own team + secondary (primary FT, read-only)** |
-| Start Time / Clear / Restore UI | no | yes | no |
-| Time Race / clock UI | no | no | yes |
-| Progress-only race tree | yes | — | — |
+| Action | RD | AWD | ST | FT |
+|--------|----|-----|----|----|
+| Write schedule (`director/regattaSchedule.json`) | yes | no | no | no |
+| Write start times (own team) | no | no | yes | no |
+| Write finish results (own team) | no | no | no | yes |
+| Read schedule | yes | yes | yes | yes |
+| Read start times | primary team | primary team | own | own team |
+| Read finish results | primary team | primary team | no* | own team + secondary (primary FT, read-only)** |
+| Start Time / Clear / Restore UI | no | no | yes | no |
+| Time Race / clock UI | no | no | no | yes |
+| Progress-only race tree | yes | yes | — | — |
+| View Results (read-only approved-result grid) | yes | yes | no | no |
 
 \*ST does not need finish results for its job.
 \**The primary FT mirrors `timing/secondary/finish.json` read-only for the

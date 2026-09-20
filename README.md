@@ -41,6 +41,10 @@ cloud-synced folder — and each runs regattaClock as a single **persona**:
   unapproved backup. The primary Finish Timer can open a read-only **Compare
   Secondary** window showing the secondary team's result for the same race side
   by side, and reconcile any difference into its own result.
+- **Awards** — a read-only viewer for the awards table: the same primary-team
+  progress tree the Regatta Director sees, with a **View Results** button per
+  race (once approved) opening the exact result grid the referee saw, for
+  transcribing places without touching a timing clock or the schedule.
 
 Every persona reads the one shared schedule and writes only its own file, so the
 teams never overwrite each other's work. Additional personas — for media and
@@ -170,8 +174,8 @@ enter its default challenge each launch.
 ```
 
 - **`hosts`** maps a computer's hostname to a persona ID (`pst`, `sst`, `pft`,
-  `sft`, `rd`). When the running machine matches, it skips the picker and the
-  challenge entirely and goes straight to that persona.
+  `sft`, `rd`, `awd`). When the running machine matches, it skips the picker
+  and the challenge entirely and goes straight to that persona.
 - **`challenges`** replaces the built-in challenge code for a persona, so the
   picker accepts your organization's code instead.
 

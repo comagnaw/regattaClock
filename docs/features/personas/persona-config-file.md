@@ -41,13 +41,14 @@ Both sections are optional (a file may carry one, both, or neither).
 
 ### `hosts` — skip the picker on this machine
 
-Maps a hostname to a persona ID (`pst`, `sst`, `pft`, `sft`, `rd`). When the running
-machine's hostname matches, the persona picker and its challenge dialog are skipped
-entirely:
+Maps a hostname to a persona ID (`pst`, `sst`, `pft`, `sft`, `rd`, `awd`). When the
+running machine's hostname matches, the persona picker and its challenge dialog are
+skipped entirely:
 
-- A **timer** lands on a small view naming the assigned role with a single
-  **Select regatta folder** button — the shared regatta folder is the one thing still
-  required. From there the normal folder → confirm → date-check → session flow runs.
+- Any persona other than the Regatta Director (a timer, or Awards) lands on a
+  small view naming the assigned role with a single **Select regatta folder**
+  button — the shared regatta folder is the one thing still required. From
+  there the normal folder → confirm → date-check → session flow runs.
 - The **Regatta Director** goes straight to the two-step Director Setup view (choose
   folder, load Excel). This never auto-restores the previous regatta — the same as
   choosing "Regatta Director" from the picker; it takes precedence over the picker's

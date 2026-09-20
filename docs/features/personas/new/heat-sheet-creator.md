@@ -14,7 +14,7 @@ write API this project is still reverse-engineering (see
 [heatsheet-rc-pivot-investigation.md](../heatsheet-rc-pivot-investigation.md),
 currently blocked on an unresolved `HTTP 400` from RC, awaiting RC
 support). Per the author, HSC does **not** block implementation of
-Awards, Developer, Results Publisher, SOM, or Streamer — none of their
+Developer, Results Publisher, SOM, or Streamer — none of their
 own scope depends on it — but its eventual framework (an RC-sourced
 schedule origin, RC ids living on the schedule model) is worth keeping
 in view for those docs' own later, RC-dependent slices. See "Dependencies
@@ -448,7 +448,7 @@ on, gated behind an explicit operator confirm.
   an external gate: the round/progression metadata question flagged
   above needs its own pass before implementation starts, and it can be
   sequenced independently of v1/v2 (before, after, or between them).
-- **Does not block** Awards, Developer, Results Publisher, SOM, or
+- **Does not block** Developer, Results Publisher, SOM, or
   Streamer — none of their own scope depends on HSC landing first;
   `internal/publish`, the schedule model, and `finish.json` are already
   origin-agnostic (every one of those personas/features reads the same
