@@ -41,19 +41,27 @@ func SaveJSONFile(data interface{}, filename string) error {
 	return nil
 }
 
-// SaveJSONFileAtomic marshals data and writes it to a sibling temp file, fsyncs
-// and closes it, then renames it over filename. A reader that opens filename
-// while the write is in progress sees either the whole previous file or the
-// whole new one, never a truncated document. The rename is retried because on
-// Windows another process may briefly hold the target open (see
-// renameWithRetry). The temp file is a sibling of the target so the rename stays
-// within one filesystem, where it is atomic; it is removed on any failure.
+// SaveJSONFileAtomic marshals data and writes it through SaveBytesFileAtomic.
 func SaveJSONFileAtomic(data any, filename string) error {
 	fileBytes, err := json.MarshalIndent(data, common.EmptyString, "  ")
 	if err != nil {
 		return fmt.Errorf("data could not be marshaled into filename %s: %w", filename, err)
 	}
+	return SaveBytesFileAtomic(fileBytes, filename)
+}
 
+// SaveBytesFileAtomic writes fileBytes to a sibling temp file, fsyncs and
+// closes it, then renames it over filename. A reader that opens filename while
+// the write is in progress sees either the whole previous file or the whole
+// new one, never a truncated document. The rename is retried because on
+// Windows another process may briefly hold the target open (see
+// renameWithRetry). The temp file is a sibling of the target so the rename
+// stays within one filesystem, where it is atomic; it is removed on any
+// failure. Exported (rather than folded into SaveJSONFileAtomic) so a caller
+// that must write the identical bytes to two destinations - e.g. a local
+// journal entry and the shared copy it mirrors - marshals once and reuses the
+// same bytes for both, instead of risking the two falling out of sync.
+func SaveBytesFileAtomic(fileBytes []byte, filename string) error {
 	tmp := filename + ".tmp"
 	f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
