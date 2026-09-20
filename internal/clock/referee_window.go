@@ -12,7 +12,6 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/comagnaw/regattaClock/internal/common"
-	"github.com/comagnaw/regattaClock/internal/text"
 )
 
 // fixedVariantTheme pins a theme to one light/dark variant, ignoring the app
@@ -144,24 +143,8 @@ func (c *Clock) showRefereeeApproval(raceNumber int) {
 		c.closeRefereeWindow()
 	})
 
-	// Header1 (large) so a referee glancing at the window sees which race it is.
-	title := text.Header1(c.raceData.RaceTitle())
-	title.Color = refereeColor(theme.ColorNameForeground) // canvas.Text ignores the ThemeOverride
-
-	body := container.NewBorder(
-		container.NewCenter(title),
-		container.NewHBox(layout.NewSpacer(), approve, layout.NewSpacer(), cancel, layout.NewSpacer()),
-		nil, nil,
-		container.NewVScroll(grid.Container),
-	)
-
-	// The window canvas paints the *global* theme's background behind everything,
-	// and a ThemeOverride does not change that - so lay an explicit light
-	// rectangle under the content to keep the whole window light in dark mode.
-	content := container.NewStack(
-		canvas.NewRectangle(refereeColor(theme.ColorNameBackground)),
-		container.NewThemeOverride(body, refereeTheme),
-	)
+	footer := container.NewHBox(layout.NewSpacer(), approve, layout.NewSpacer(), cancel, layout.NewSpacer())
+	content := ApprovalWindowContent(c.raceData.RaceTitle(), grid.Container, footer)
 
 	w := c.App.NewWindow(fmt.Sprintf(common.RefereeApproveTitle, raceNumber))
 	w.SetContent(content)

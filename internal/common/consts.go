@@ -150,9 +150,14 @@ const (
 	// persona is known. Once it is, the role is appended via WindowTitleFormat.
 	// Arg: race number.
 	ClockWindowTitleFormat = "Race %d Clock"
-	ConfigTitle            = "Configuration"
-	LoadDataTitle          = "Load Regatta Data"
-	CreateLaneImagesTitle  = "Create Lane Images"
+
+	// ResultsWindowTitleFormat - the Director/Awards read-only results window's
+	// OS title bar. Arg: race number.
+	ResultsWindowTitleFormat = "Race %d Results"
+
+	ConfigTitle           = "Configuration"
+	LoadDataTitle         = "Load Regatta Data"
+	CreateLaneImagesTitle = "Create Lane Images"
 	// VersionTitle is both the menu label and the title of the build-info window.
 	VersionTitle = "Version"
 
@@ -306,6 +311,7 @@ const (
 	StartButtonText         = "Start (F2)"
 	StopButtonText          = "Stop"
 	TimeRaceButtonText      = "Time Race"
+	ViewResultsButtonText   = "View Results"
 	WinningTimeInputText    = "Winning Time:"
 )
 

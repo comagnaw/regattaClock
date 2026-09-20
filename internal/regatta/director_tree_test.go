@@ -162,6 +162,63 @@ func TestDirectorRow_BoatCount(t *testing.T) {
 	}
 }
 
+// TestDirectorRow_ResultsButtonGatedByApproval - the View Results button
+// (shared by RoleDirector and RoleAwards) is only enabled once the primary
+// team's result is store.CanPublish, not merely "has a winning time" -
+// matching awards.md's explicit gating instruction.
+func TestDirectorRow_ResultsButtonGatedByApproval(t *testing.T) {
+	r := directorWithPrimaryLog(t,
+		&teamTiming{finish: finishLogWith(map[int]store.RaceResult{
+			1: {RaceNumber: 1, WinningTime: "06:00.0"}, // not yet approved
+		})},
+	)
+	if r.rows[1].resultsBtn == nil || !r.rows[1].resultsBtn.Disabled() {
+		t.Error("results button should exist, disabled, before approval")
+	}
+	if r.rows[2].resultsBtn == nil || !r.rows[2].resultsBtn.Disabled() {
+		t.Error("results button for an untimed race should exist, disabled")
+	}
+}
+
+func TestDirectorRow_ResultsButtonEnabledOnceApproved(t *testing.T) {
+	r := directorWithPrimaryLog(t,
+		&teamTiming{finish: finishLogWith(map[int]store.RaceResult{
+			1: {RaceNumber: 1, WinningTime: "06:00.0", Approved: true},
+		})},
+	)
+	if r.rows[1].resultsBtn.Disabled() {
+		t.Error("results button should be enabled once the result is approved")
+	}
+}
+
+// TestDirectorRow_ResultsButtonRefreshesInPlace - an approval arriving later
+// (the primary FT's finish.json updating) must enable the button in place,
+// without a full tree rebuild - the same lesson the Entries column's
+// staleness fix already established for anything that can change under an
+// existing row.
+func TestDirectorRow_ResultsButtonRefreshesInPlace(t *testing.T) {
+	r := directorWithPrimaryLog(t,
+		&teamTiming{finish: finishLogWith(map[int]store.RaceResult{
+			1: {RaceNumber: 1, WinningTime: "06:00.0"},
+		})},
+	)
+	row := r.rows[1]
+	if !row.resultsBtn.Disabled() {
+		t.Fatal("expected disabled before approval")
+	}
+
+	r.onDirectorTeamChanged(persona.TeamPrimary, nil, finishLogWith(map[int]store.RaceResult{
+		1: {RaceNumber: 1, WinningTime: "06:00.0", Approved: true},
+	}))
+
+	if r.rows[1] != row {
+		t.Fatal("expected the same row instance (no rebuild), got a different one")
+	}
+	if row.resultsBtn.Disabled() {
+		t.Error("results button should be enabled after the approval update, without a tree rebuild")
+	}
+}
+
 // TestDirectorHydratesPrimary - the RD mirrors the primary team's timing files
 // and ignores the secondary pair's; a secondary-only race stays a placeholder.
 func TestDirectorHydratesPrimary(t *testing.T) {
