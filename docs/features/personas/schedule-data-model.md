@@ -259,6 +259,14 @@ instead, as the reference for REP's future spreadsheet writer, since that
 doc's own decision already commits it to "the same format as the current
 manual results worksheet."
 
+**Longer-term goal, not this pivot:** the RD reading the `Heat Sheet` tab
+is one piece of retiring reliance on the shared, multi-tab `.xlsm`
+workbook format entirely (`Regatta Attributes` / `Heat Sheet` / `Results`
+/ `Referee Heat Sheet`, macro-linked) — a stopgap from before the persona
+model existed. See [releases.md](../releases.md#declaring-10)'s
+"Declaring 1.0" section for the full goal and what else has to be true
+first (mainly: REP shipping a real destination for results).
+
 ## Migration
 
 1. New writes: only schedule fields → `director/regattaSchedule.json`.
