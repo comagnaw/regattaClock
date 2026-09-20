@@ -462,6 +462,31 @@ func TestReadExcelFile_EmptyLanes(t *testing.T) {
 	}
 }
 
+// TestReadExcelFile_Scratched - a real scratch from the "Heat Sheet Input
+// Examples.xlsx" fixture (race 7, lane 5: "Rangers", marked "SCRATCHED" in
+// the Heat Sheet's per-lane note) round-trips with SchoolName preserved and
+// Status set - not dropped like a truly-unassigned lane.
+func TestReadExcelFile_Scratched(t *testing.T) {
+	data := mustReadWorkbook(t, "testdata/Heat Sheet Input Examples.xlsx")
+	race, ok := raceByNumber(data.Races, 7)
+	if !ok {
+		t.Fatal("race 7 not found")
+	}
+	entry, ok := race.Lanes[5]
+	if !ok {
+		t.Fatal("race 7, lane 5 (the scratched Rangers) should still be present in Lanes")
+	}
+	if entry.SchoolName != "Rangers" {
+		t.Errorf("SchoolName = %q, want %q", entry.SchoolName, "Rangers")
+	}
+	if entry.AdditionalInfo != "SCRATCHED" {
+		t.Errorf("AdditionalInfo = %q, want the raw %q text preserved", entry.AdditionalInfo, "SCRATCHED")
+	}
+	if entry.Status != StatusScratched {
+		t.Errorf("Status = %q, want %q", entry.Status, StatusScratched)
+	}
+}
+
 func TestReadExcelFile_RawDataIntegrity(t *testing.T) {
 	for _, wb := range workbookFixtures {
 		t.Run(wb.name, func(t *testing.T) {

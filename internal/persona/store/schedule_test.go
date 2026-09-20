@@ -167,6 +167,9 @@ func TestLaneMapHash(t *testing.T) {
 		{"scratch filled", func(r *ScheduleRace) {
 			r.Lanes[3] = ScheduleEntry{SchoolName: "School C"}
 		}},
+		{"status changes with SchoolName unchanged", func(r *ScheduleRace) {
+			r.Lanes[1] = ScheduleEntry{SchoolName: "School A", Status: StatusScratched}
+		}},
 		{"race number changes", func(r *ScheduleRace) {
 			r.RaceNumber = 13
 		}},

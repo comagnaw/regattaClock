@@ -483,6 +483,63 @@ func TestRawData_getRaceEntryByLane(t *testing.T) {
 	}
 }
 
+// TestDetectStatus - the Excel importer's only scratch-recognition rule:
+// exact-match against "scratched"/"scratch"/"scr" via a lowercase
+// normalization (so any case combination matches), never a substring
+// match, so a school name or boat-class code that happens to contain "scr"
+// is never mistaken for a scratch.
+func TestDetectStatus(t *testing.T) {
+	tests := []struct {
+		name           string
+		additionalInfo string
+		want           RaceEntryStatus
+	}{
+		{"scratched, exact", "SCRATCHED", StatusScratched},
+		{"scratch, exact", "SCRATCH", StatusScratched},
+		{"scr, exact", "SCR", StatusScratched},
+		{"lowercase", "scratched", StatusScratched},
+		{"mixed case, scratch", "Scratch", StatusScratched},
+		{"padded", "  SCRATCHED  ", StatusScratched},
+		{"mixed case, scr", "Scr", StatusScratched},
+		{"empty", "", StatusOK},
+		{"unrelated note", "A", StatusOK},
+		{"alternate class, not a scratch", "M-Jr-1x", StatusOK},
+		{"substring, not a scratch", "Descriptive text", StatusOK},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := detectStatus(tt.additionalInfo); got != tt.want {
+				t.Errorf("detectStatus(%q) = %q, want %q", tt.additionalInfo, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestRawData_getRaceEntryByLane_Scratched - AdditionalInfo carries the raw
+// "SCRATCHED" text unchanged; Status is the derived, structured signal
+// alongside it. SchoolName survives - a scratch is not an empty entry.
+func TestRawData_getRaceEntryByLane_Scratched(t *testing.T) {
+	rawData := RawData{
+		{"M-Jr-4+", "School 1", "School 2", "", "", "", ""},
+		{"Heat 2", "", "SCRATCHED", "", "", "", ""},
+		{"3 to Advance", "", "", "", "", "", ""},
+	}
+
+	entry := rawData.getRaceEntryByLane(2)
+	if entry.SchoolName != "School 2" {
+		t.Errorf("SchoolName = %q, want %q (a scratch keeps its school)", entry.SchoolName, "School 2")
+	}
+	if entry.AdditionalInfo != "SCRATCHED" {
+		t.Errorf("AdditionalInfo = %q, want the raw %q text preserved", entry.AdditionalInfo, "SCRATCHED")
+	}
+	if entry.Status != StatusScratched {
+		t.Errorf("Status = %q, want %q", entry.Status, StatusScratched)
+	}
+	if entry.isEmptyEntry() {
+		t.Error("a scratched entry with a preserved SchoolName must not be considered empty")
+	}
+}
+
 func TestRaceEntry_isEmptyEntry(t *testing.T) {
 	tests := []struct {
 		name     string

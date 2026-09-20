@@ -83,7 +83,11 @@ func (c *Clock) currentLaneMapHash() string {
 		Lanes:      make(map[int]store.ScheduleEntry, len(c.raceData.Lanes)),
 	}
 	for lane, e := range c.raceData.Lanes {
-		sr.Lanes[lane] = store.ScheduleEntry{SchoolName: e.SchoolName, AdditionalInfo: e.AdditionalInfo}
+		sr.Lanes[lane] = store.ScheduleEntry{
+			SchoolName:     e.SchoolName,
+			AdditionalInfo: e.AdditionalInfo,
+			Status:         store.ScheduleEntryStatus(e.Status),
+		}
 	}
 	return sr.LaneMapHash()
 }

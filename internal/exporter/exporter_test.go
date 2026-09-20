@@ -4,6 +4,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/comagnaw/regattaClock/internal/reader"
@@ -33,6 +34,29 @@ func TestExport_CreatesFiles(t *testing.T) {
 	expectedFile := filepath.Join(tmpDir, "race_01_Test_Regatta.png")
 	if _, err := os.Stat(expectedFile); os.IsNotExist(err) {
 		t.Errorf("Expected file %s was not created", expectedFile)
+	}
+}
+
+// TestBuildRaceText_MarksScratchedLane - a scratched lane still has a
+// school name (schedule-data-model.md's scratch handling) and must not
+// print as if the boat is actually racing.
+func TestBuildRaceText_MarksScratchedLane(t *testing.T) {
+	raceData := reader.RaceData{
+		RaceNumber: 7,
+		BoatClass:  "M-Jr-4+",
+		Lanes: map[int]reader.RaceEntry{
+			2: {SchoolName: "Giants"},
+			5: {SchoolName: "Rangers", AdditionalInfo: "SCRATCHED", Status: reader.StatusScratched},
+		},
+	}
+
+	text := buildRaceText(raceData)
+
+	if !strings.Contains(text, "Lane 2 - Giants") {
+		t.Errorf("expected an unmarked line for the racing lane, got %q", text)
+	}
+	if !strings.Contains(text, "Lane 5 - Rangers (SCR)") {
+		t.Errorf("expected the scratched lane marked with the normalized SCR reference, got %q", text)
 	}
 }
 
