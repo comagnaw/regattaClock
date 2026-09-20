@@ -58,6 +58,9 @@ func (r *Regatta) showPersonaPicker() {
 		widget.NewButton(persona.DirectorDefinition.Label, func() {
 			r.promptPersonaChallenge(persona.DirectorDefinition)
 		}),
+		widget.NewButton(persona.AwardsDefinition.Label, func() {
+			r.promptPersonaChallenge(persona.AwardsDefinition)
+		}),
 		placeholderButton(common.PersonaDeveloperLabel),
 	)
 
@@ -286,6 +289,11 @@ func (r *Regatta) startSession(session persona.Session, schedule *store.Schedule
 			r.secondaryFinishPath = sec.FinishPath()
 			r.secondaryFinishLog = r.hydratePeerFinish(sec, key) // read-only, for Compare Secondary
 		}
+	case persona.RoleAwards:
+		// Read-only, same primary-team mirror the Director's own
+		// startDirectorFlow builds - Awards never writes, so there is no
+		// startLog/finishLog of its own to hydrate.
+		r.hydrateDirectorLogs(session.Root, key)
 	}
 
 	r.refreshContent()
@@ -448,8 +456,8 @@ func (r *Regatta) startWatcher(s persona.Session) {
 		}
 	case persona.RoleStart:
 		paths = append(paths, s.FinishPath()) // FT progress, for the row lock
-	case persona.RoleDirector:
-		paths = append(paths, directorWatchPaths(s.Root)...) // both teams' start + finish
+	case persona.RoleDirector, persona.RoleAwards:
+		paths = append(paths, directorWatchPaths(s.Root)...) // primary team's start + finish
 	}
 	// Seed the last-applied hash from what hydrate already read, so the
 	// watcher's unconditional first event for an unchanged file is a no-op.
@@ -565,7 +573,7 @@ func (r *Regatta) applyWatchEvent(ev watcher.Event) {
 		fyne.Do(func() { r.onSecondaryFinishChanged(&log) })
 
 	default:
-		if r.session.Role == persona.RoleDirector {
+		if r.session.Role == persona.RoleDirector || r.session.Role == persona.RoleAwards {
 			r.applyDirectorTimingEvent(ev)
 		}
 	}
