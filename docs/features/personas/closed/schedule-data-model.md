@@ -1,10 +1,16 @@
 # Schedule data model under personas
 
-Assessment of what belongs in `director/regattaSchedule.json` once personas own timing results. Companion to [persona-plan.md](persona-plan.md) and [README.md](README.md).
+**Status: closed (2026-09-20).** Every item this doc raised is resolved and
+built. Kept as the historical record of the design (the "one attribute, one
+writer" principle, the three-file join, and the reasoning behind each
+decision) — not live planning guidance. See "Resolved since this doc was
+written" below for the full list and what shipped.
+
+Assessment of what belongs in `director/regattaSchedule.json` once personas own timing results. Companion to [persona-plan.md](../persona-plan.md) and [README.md](../README.md).
 
 ## Problem
 
-Today’s persisted schedule (`data.json` → planned `regattaSchedule.json`) is shaped like a **single source of truth for everything**: schedule *and* race results. The on-disk / in-memory types in [`internal/reader/regattaData.go`](../../../internal/reader/regattaData.go) already carry:
+Today’s persisted schedule (`data.json` → planned `regattaSchedule.json`) is shaped like a **single source of truth for everything**: schedule *and* race results. The on-disk / in-memory types in [`internal/reader/regattaData.go`](../../../../internal/reader/regattaData.go) already carry:
 
 | Field | Layer | Problem under personas |
 |-------|--------|-------------------------|
@@ -48,7 +54,7 @@ tree's `†` stale-lane-map mark. See "How the three files join" below.
 
 - `Name`
 - `Date`
-- `Origin` (`Type`, `URI`, fingerprint/`Hash`) — origin metadata for RD reload detection ([persona-plan §3b](persona-plan.md)). Named `Origin` on the persisted `store.Schedule` (`internal/persona/store/schedule.go`); `reader.SourceInfo` is a same-shaped but distinct in-memory-only type at the reader layer, not what's on disk.
+- `Origin` (`Type`, `URI`, fingerprint/`Hash`) — origin metadata for RD reload detection ([persona-plan §3b](../persona-plan.md)). Named `Origin` on the persisted `store.Schedule` (`internal/persona/store/schedule.go`); `reader.SourceInfo` is a same-shaped but distinct in-memory-only type at the reader layer, not what's on disk.
 
 **Per race**
 
@@ -63,24 +69,28 @@ tree's `†` stale-lane-map mark. See "How the three files join" below.
 
 - `SchoolName`
 - `AdditionalInfo` (rower / A–B boat, etc.)
-- **Scratches — genuinely unresolved, not a settled decision (corrected from
-  an earlier pass of this doc):** today a scratch is represented by an
-  **empty `SchoolName`** (`internal/regatta/schedule.go`'s change-detector
-  defines a scratch as exactly `SchoolName` going from present to blank;
-  the Excel importer, `internal/reader/excel.go`, has no scratch-specific
-  parsing at all — it just reads whatever text is in the cell). This
-  **erases the school's identity**: "School C scratched from this race"
-  and "this lane was never assigned a boat" become indistinguishable
-  everywhere downstream (`BoatCount`, the race tree, results). This
-  doc's own illustrative JSON below has always shown the *better* shape —
-  `SchoolName` preserved, `AdditionalInfo: "SCRATCHED"` — but the code
-  was never actually built that way; the example and the real behavior
-  have quietly diverged. `internal/regattacentral/model.go`'s `LaneStatus`
-  enum (`SCR`/`DNS`/`DNF`/`DSQ`/`RMV`/`EXC`/`NJ`, Cookbook §15) already
-  models a scratch as a status on an intact entry, not entry-deletion —
-  the shape to converge toward, especially since Heat Sheet Creator will
-  eventually ingest RC data directly. See
-  [TODO.md](../TODO.md#personas--feature-follow-ups) for the tracked fix.
+- `Status` — **Status: implemented (2026-09-20).** A scratch keeps its
+  `SchoolName` and is marked by a small, store-owned `ScheduleEntryStatus`
+  enum (`StatusOK`/`StatusScratched`) on `store.ScheduleEntry` and its
+  reader-side mirror `reader.RaceEntryStatus`. The Excel importer's
+  `detectStatus` recognizes a scratch by an exact, case-insensitive match
+  against `AdditionalInfo` — `"scratched"`, `"scratch"`, or `"scr"` — not a
+  substring match, so a school name or class code that happens to contain
+  "scr" is never mistaken for a scratch. `SchoolName` is never blanked;
+  "School C scratched from this race" and "this lane was never assigned a
+  boat" are now distinguishable everywhere downstream (`BoatCount` still
+  counts a scratched lane as an entry — it's still an entry, just one not
+  expected to race — the race tree, `internal/exporter`'s exported race
+  card, `diffSchedule`'s change detector). Deliberately **not** a reuse of
+  `internal/regattacentral.LaneStatus`: that enum models RegattaCentral's
+  own post-race `ResultStatusType` and was confirmed stale on this branch
+  at the time (`"DSQ"` not `"DQ"`, missing `EXH`/`REL`) relative to a
+  corrected version on a separate, unmerged branch — reconciling the two is
+  a future concern, not blocking this fix. `ScheduleEntryStatus` is shaped
+  so that reconciliation is easy later, but only `Scratched` is wired up
+  today (schedule-time statuses only — DNF/DNS/DQ/NJ/REL are finish-time
+  outcomes that belong to `finish.json`'s domain per this doc's own "one
+  attribute, one writer" principle, not the schedule).
 
 ### Remove from schedule (move / already in finish)
 
@@ -91,16 +101,16 @@ tree's `†` stale-lane-map mark. See "How the three files join" below.
 - `RaceData.Approved`
 - Result rows inside `RawData` (place / split / time), if `RawData` is retained at all
 
-**Status:** done on the persisted side — `store.ScheduleRace`/`ScheduleEntry`
-(the actual `regattaSchedule.json` type) never had these fields to begin
-with. **Not done on the reader side** — `reader.RaceData`/`RaceEntry` still
-declare `Saved`/`Approved`/`Place`/`Split`/`Time`, and
-`RegattaData.ApproveRace()` still writes `RaceData.Approved = true` from the
-live referee-approval flow (`internal/clock/buttons.go`) — but nothing
-reads it back; the canonical approval state has been `store.RaceResult.Approved`
-(via `store.DeriveTeamState`/`store.CanPublish`) since race-state-machine.md
-landed. Tracked as a small cleanup —
-[docs/features/TODO.md](../TODO.md#personas--feature-follow-ups).
+**Status: implemented (2026-09-20).** Done on both sides now.
+`store.ScheduleRace`/`ScheduleEntry` (the actual `regattaSchedule.json`
+type) never had these fields to begin with. `reader.RaceData`/`RaceEntry`
+no longer declare `Saved`/`Approved`/`Place`/`Split`/`Time`, and
+`RegattaData.ApproveRace()` is gone along with its one call site
+(`internal/clock/buttons.go`'s `refereeApprovalFunc`) — confirmed dead by a
+full-repo grep before removal: nothing read that mutation back, since the
+canonical approval state has been `store.RaceResult.Approved` (via
+`store.DeriveTeamState`/`store.CanPublish`) since race-state-machine.md
+landed.
 
 ### `RawData` recommendation
 
@@ -114,9 +124,21 @@ landed. Tracked as a small cleanup —
 
 Prefer (in order):
 
-1. **DEBUG log dump on import (recommended).** When Logging and Debug are both on, during Excel (or future API) load emit a DEBUG `applog` event per race with the raw grid (or a compact form: race number + non-empty cells). Same troubleshooting intent as today, JSON-line greppable, zero impact on schedule SoT. Only on RD Apply/Reload — not on timer hot paths.
+1. **DEBUG log dump on import.** **Status: implemented (2026-09-20).**
+   `internal/regatta/loader.go`'s `debugLoader()` — already called only from
+   RD Apply/Reload (`callback`, `reloadSchedule`), never the background
+   origin-poller — emits one DEBUG `applog` event per race that has boats
+   (`HasBoats()`; blank template rows are skipped so a 50-70-row workbook
+   doesn't spam the log), with `race`, `class`, `flight`, `scheduledTime`,
+   `boatCount`, and the raw 3-row grid. `applog.Debug` is fully self-gating
+   (a no-op discard logger when Logging is off), so no caller-side guard was
+   needed. Same troubleshooting intent as originally proposed here,
+   JSON-line greppable, zero impact on schedule SoT.
 
-2. **Explicit “Save parse diagnostics” (optional RD action).** If a full grid on disk is easier to diff than log lines, write a **sidecar** under e.g. `regattaData/logs/executive/parse-<hostname>-<timestamp>.json` (watcher ignores `logs/`). Triggered by an RD menu item, not by flipping Debug alone.
+2. **Explicit "Save parse diagnostics" (optional RD action).** Not built,
+   and not needed — the DEBUG log dump above has proven sufficient. Left
+   here only as a fallback option if log lines ever prove awkward in
+   practice.
 
 3. **In-memory only during load (always).** Keep `RawData` on the loader’s transient structs until `BoatClass` / `FlightInfo` / `Lanes` are normalized, then drop it before schedule persist.
 
@@ -141,26 +163,23 @@ Avoid: persisting `RawData` when Debug is true and omitting it when false (two s
       "FlightInfo": "Heat 1",
       "BoatCount": 4,
       "Lanes": {
-        "1": { "SchoolName": "School A", "AdditionalInfo": "" },
-        "2": { "SchoolName": "School B", "AdditionalInfo": "A" },
-        "3": { "SchoolName": "", "AdditionalInfo": "" },
-        "4": { "SchoolName": "School C", "AdditionalInfo": "SCRATCHED" }
+        "1": { "SchoolName": "School A", "AdditionalInfo": "", "Status": "" },
+        "2": { "SchoolName": "School B", "AdditionalInfo": "A", "Status": "" },
+        "3": { "SchoolName": "", "AdditionalInfo": "", "Status": "" },
+        "4": { "SchoolName": "School C", "AdditionalInfo": "SCRATCHED", "Status": "SCR" }
       }
     }
   ]
 }
 ```
 
-Lanes 3 and 4 above are meant to read as two different situations — lane 3
-never had a boat assigned; lane 4 had **School C**, who scratched, with
-that fact recorded rather than erased. **That distinction is aspirational,
-not real yet** — see "Scratches" under "Per lane (schedule entry)" above:
-today's code would represent both lanes identically (empty `SchoolName`),
-losing School C's identity entirely. This example has quietly described
-the intended fix since before this correction pass; it just was never
-built.
+Lanes 3 and 4 above are two different situations — lane 3 never had a boat
+assigned; lane 4 had **School C**, who scratched, with that fact recorded
+rather than erased. **This is the real, built shape** — see "Scratches"
+under "Per lane (schedule entry)" above.
 
-(Exact JSON key casing can stay Go-default or gain tags later; the ownership split matters more than tags.)
+(Exact JSON key casing stays Go-default PascalCase — see "JSON field tags,"
+resolved below.)
 
 ## How the three files join
 
@@ -185,18 +204,23 @@ UI composition examples:
 - **RD row:** schedule + the **primary team's** start/finish fields by `RaceNumber` (no secondary fallback)
 - **Clock open:** schedule lane/school seed + `finish.Races[n]` rehydration if present
 
-When `regattaSchedule.json` changes under a race that already has timing data, **do not rewrite start/finish**. Refresh labels from the schedule; alert FT (OOF/lane map) more strongly than ST. See [persona-plan.md §3c](persona-plan.md).
+When `regattaSchedule.json` changes under a race that already has timing data, **do not rewrite start/finish**. Refresh labels from the schedule; alert FT (OOF/lane map) more strongly than ST. See [persona-plan.md §3c](../persona-plan.md).
 
 ## Impact on `internal/reader`
 
-| Today | Under personas |
+| Before | Under personas |
 |-------|----------------|
-| `RaceEntry` holds Place/Split/Time | Split into schedule entry vs finish row types (or clear result fields on schedule persist) |
-| `ApproveRace` mutates `RegattaData` | Approval only in `finish.json` / FT store |
-| Excel loader fills place/split/time from sheet | Import **ignores** result columns for schedule SoT (sheet may still have empty result rows) |
+| `RaceEntry` holds Place/Split/Time | Removed entirely — `internal/reader`'s types no longer declare them |
+| `ApproveRace` mutates `RegattaData` | Removed entirely; approval lives only in `finish.json` / FT store |
+| Excel loader fills place/split/time from sheet | Import reads the Heat Sheet worksheet, which has no result columns at all — see "Ingest source" below |
 | Single `data.json` round-trip | Schedule write never includes FT/ST attributes |
 
-Prefer a dedicated schedule type in `internal/persona/store` or a slimmed reader type used for persistence, rather than overloading `RegattaData` as both “imported schedule” and “session with results.” This table's aspiration is realized for the **persisted** schedule (`store.Schedule`, built exactly this way) but not yet for `internal/reader`'s own types — see the "Status" note under "Remove from schedule" above: `ApproveRace` still mutates `RegattaData`, it just no longer matters, since nothing reads that mutation back.
+**Status: implemented (2026-09-20).** `store.Schedule` (the persisted
+schedule type in `internal/persona/store`) was built exactly this way from
+the start. `internal/reader`'s own types caught up: `RaceEntry.Place`/
+`Split`/`Time`, `RaceData.Saved`/`Approved`, and `RegattaData.ApproveRace()`
+are all removed, confirmed dead in every production path by a full-repo
+grep before deletion.
 
 ## Ingest source: Results tab vs. Heat Sheet tab
 
@@ -230,7 +254,7 @@ this shape at all** — `RaceEntry.Place`/`Split`/`Time` stay unset from
 this source, which structurally removes the RD's exposure to a tab a
 human might be hand-editing with results, rather than relying on
 `ContentHash()` to filter that out after the fact (confirmed real-world
-by [heatsheet-rc-pivot-investigation.md](heatsheet-rc-pivot-investigation.md):
+by [heatsheet-rc-pivot-investigation.md](../heatsheet-rc-pivot-investigation.md):
 a real regatta's workbook has exactly this Results/Heat-Sheet split, and
 the Results tab is hand-updated with results and shared as the public
 record — the current manual process already does the exact thing REP is
@@ -254,7 +278,7 @@ Two decisions made when this shipped:
 
 The old Results-tab layout (5-row blocks, rows 2-4 = Place/Split/Time)
 isn't preserved as unused reading code — its exact shape is recorded in
-[results-publisher.md](new/results-publisher.md#existing-code-reuse-analysis)
+[results-publisher.md](../new/results-publisher.md#existing-code-reuse-analysis)
 instead, as the reference for REP's future spreadsheet writer, since that
 doc's own decision already commits it to "the same format as the current
 manual results worksheet."
@@ -263,15 +287,30 @@ manual results worksheet."
 is one piece of retiring reliance on the shared, multi-tab `.xlsm`
 workbook format entirely (`Regatta Attributes` / `Heat Sheet` / `Results`
 / `Referee Heat Sheet`, macro-linked) — a stopgap from before the persona
-model existed. See [releases.md](../releases.md#declaring-10)'s
+model existed. See [releases.md](../../releases.md#declaring-10)'s
 "Declaring 1.0" section for the full goal and what else has to be true
 first (mainly: REP shipping a real destination for results).
 
 ## Migration
 
+**Status: implemented.** `Regatta.migrateLegacyData` (`internal/regatta/regatta.go`),
+called from `loadRegattaData`, is a one-time, no-op-once-migrated move:
+
 1. New writes: only schedule fields → `director/regattaSchedule.json`.
-2. On first RD open of a legacy `data.json`: strip Place/Split/Time/Saved/Approved (and trim `RawData`) when migrating to `regattaSchedule.json`.
-3. Do **not** invent finish.json from legacy Place/Split/Time in schedule — those fields were rarely persisted from the clock today anyway; treating them as schedule pollution to drop is safer than fabricating FT history.
+2. On first RD open of a legacy `data.json`: read it into `reader.RegattaData`
+   and convert via `scheduleFromRegattaData`, which structurally drops
+   Place/Split/Time/Saved/Approved/RawData — `store.Schedule` has nowhere to
+   put them, so they are silently dropped rather than explicitly stripped.
+   The legacy file is renamed aside (`data.json.migrated`) once the new
+   schedule file is written. Covered by `TestMigratesLegacyDataFile`
+   (`internal/regatta/schedule_test.go`), which now unmarshals a hand-written
+   raw-JSON fixture representing the true historical shape (including the
+   old result-field keys) to prove they are dropped on migration — a
+   stronger guarantee than a runtime assertion, since the current struct has
+   nowhere to put them even if it tried.
+3. No finish.json is ever invented from legacy Place/Split/Time — those
+   fields were rarely persisted from the clock even before personas, and are
+   simply discarded on migration rather than fabricated into FT history.
 
 ## Resolved since this doc was written
 
@@ -282,31 +321,23 @@ first (mainly: REP shipping a real destination for results).
   anticipated when this doc was first written) — the workbook's Time
   column, shown as its own race-tree column, part of `ContentHash()`. See
   "What `regattaSchedule.json` should contain" above.
-
-## Open decisions (not small — flagged 2026-09-20)
-
-- **Scratches erase the school's identity today, and shouldn't.** See
-  "What `regattaSchedule.json` should contain" → "Per lane (schedule
-  entry)" above for the full detail. The fix is a real schema change:
-  add an explicit scratch marker to `ScheduleEntry` (e.g. `Scratched
-  bool`, or a richer `Status ScheduleEntryStatus` mirroring
-  `regattacentral.LaneStatus`'s `SCR`/`DNS`/`DNF`/`DSQ`/`RMV`/`EXC`/`NJ`
-  vocabulary) while keeping `SchoolName` intact, plus updating
-  `diffSchedule`'s scratch-detection (`internal/regatta/schedule.go`) to
-  key off the new field instead of `SchoolName == ""`, and deciding how
-  the Excel importer recognizes a scratch in the source workbook (a
-  dedicated column, or text convention in an existing cell) so the
-  distinction survives import in the first place — not just how it's
-  stored once read. Tracked in
-  [TODO.md](../TODO.md#personas--feature-follow-ups).
-
-## Open decisions (small)
-
-- **JSON field tags** for stable lowercase keys vs current PascalCase defaults.
-- **Parse diagnostics UX:** still unbuilt. DEBUG log dump on import (option 1
-  above) is the recommended default; add an RD “Save parse diagnostics”
-  action only if log lines prove awkward in practice.
+- **Scratches preserve the school's identity (2026-09-20).** See "Per lane
+  (schedule entry)" above — a scratch is now `Status: StatusScratched` with
+  `SchoolName` intact, not an erased entry.
+- **Reader-side dead code removed (2026-09-20).** `RaceEntry.Place`/`Split`/
+  `Time`, `RaceData.Saved`/`Approved`, `RegattaData.ApproveRace()` — see
+  "Impact on `internal/reader`" above.
+- **Parse diagnostics UX shipped (2026-09-20).** `debugLoader()` emits a
+  per-race DEBUG line — see "Keep the troubleshooting corner case" above.
+- **JSON field tags — resolved by decision, not code (2026-09-20).** This
+  codebase's only real tagging convention is external-API or hand-edited-
+  config boundaries (`internal/regattacentral`'s wire format,
+  `internal/personacfg`'s hand-edited config) — never internal
+  program-to-itself persistence. `store.Schedule` and `reader.RegattaData`
+  round-trip within the app only; adding tags would be a new pattern, not a
+  continuation of an existing one. Keeping the Go-default PascalCase keys is
+  the decision, not a placeholder for one.
 
 ## Bottom line
 
-`regattaSchedule.json` should shrink to **regatta metadata + raceNumber + scheduled time + class/flight + lane assignments (school / additional info)**. All OOF and FT-captured results belong only in `finish.json`; start times only in `start.json`. **`RaceNumber` (+ regatta key) is the join**, with `LaneMapHash` as a secondary staleness check on top of it; everything else has a single persona/team SoT.
+`regattaSchedule.json` holds **regatta metadata + raceNumber + scheduled time + class/flight + lane assignments (school / additional info / status)**. All OOF and FT-captured results live only in `finish.json`; start times only in `start.json`. **`RaceNumber` (+ regatta key) is the join**, with `LaneMapHash` as a secondary staleness check on top of it; everything else has a single persona/team SoT.

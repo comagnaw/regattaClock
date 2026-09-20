@@ -21,7 +21,7 @@ import (
 // the operator places beside the clock. It is a visual aid only: the PFT
 // reconciles by editing its OWN data, this window never writes the secondary
 // file, and - unlike the Referee Approval window - it does not block the clock.
-// See docs/features/personas/reconciliation.md.
+// See docs/features/personas/closed/reconciliation.md.
 
 func (c *Clock) compareIsOpen() bool { return c.compareWindow != nil }
 

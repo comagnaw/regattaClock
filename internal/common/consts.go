@@ -44,7 +44,7 @@ const (
 
 	// HeatSheetName - the workbook worksheet the RD imports the schedule
 	// from: race number, boat class, flight/heat, and lane assignments -
-	// never results (see docs/features/personas/schedule-data-model.md's
+	// never results (see docs/features/personas/closed/schedule-data-model.md's
 	// "Ingest source" section).
 	HeatSheetName = "Heat Sheet"
 

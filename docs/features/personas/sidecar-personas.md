@@ -6,7 +6,7 @@ system — without a second login and without disturbing their primary job.
 
 Companion to [future-result-driven-persona.md](future-result-driven-persona.md) (assesses
 *standalone* read-only publisher personas — this doc refines that into an attach-to-a-lead
-model), [reconciliation.md](reconciliation.md) (the future *producer* of the published
+model), [reconciliation.md](closed/reconciliation.md) (the future *producer* of the published
 set), [regattacentral-integration.md](regattacentral-integration.md) (the API client and
 secret store that Increment 1 builds on), and [persona-plan.md](persona-plan.md) §1 (the
 timer-priority rule a sidecar inherits) and §13.
@@ -168,7 +168,7 @@ Reuse the analysis in [future-result-driven-persona.md](future-result-driven-per
 **Defer `regattaData/results/` materialization.** For a single-pair regatta — the common
 case — "approved primary rows" is a sufficient publishable set. Full reconciliation
 (primary vs secondary, `disputed`, provenance) stays with the future producer persona in
-[reconciliation.md](reconciliation.md); a sidecar consumes whatever that persona
+[reconciliation.md](closed/reconciliation.md); a sidecar consumes whatever that persona
 eventually publishes, or `finish.json` directly until then.
 
 ## Config and secrets

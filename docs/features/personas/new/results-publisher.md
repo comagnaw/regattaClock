@@ -82,7 +82,7 @@ structurally have no Place/Split/Time fields, and `Schedule.ContentHash()`
 never hashes a result cell. This "Does not: write to the RD's own source
 workbook" decision, made independently of that analysis, was already the
 right one; see
-[schedule-data-model.md](../schedule-data-model.md#ingest-source-results-tab-vs-heat-sheet-tab)
+[schedule-data-model.md](../closed/schedule-data-model.md#ingest-source-results-tab-vs-heat-sheet-tab)
 for the fuller trail. The one gap that analysis found on the RD's read
 side (not REP's write side) — the RD's ingest reading a results-shaped
 tab at all — has since shipped (same date): the RD now reads the `Heat
@@ -109,7 +109,7 @@ Sheet` worksheet, which carries no result columns.
 - **The exact "same format as the current manual results worksheet" this
   section's own Does bullet commits to** (2026-09-20): before the RD's
   ingest pivoted to the Heat Sheet worksheet
-  ([schedule-data-model.md](../schedule-data-model.md#ingest-source-results-tab-vs-heat-sheet-tab)),
+  ([schedule-data-model.md](../closed/schedule-data-model.md#ingest-source-results-tab-vs-heat-sheet-tab)),
   `internal/reader/excel.go` parsed a `Results` worksheet's 5-row-per-race
   block this way — a real workbook's actual layout, not a guess: **row 0**
   (col C = boat class, cols D-I = per-lane school name), **row 1** (col C

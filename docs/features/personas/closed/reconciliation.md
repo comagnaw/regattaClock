@@ -1,7 +1,7 @@
 # Reconciling primary and secondary finish results
 
 How the two finish-timer teams' results are combined into one published result
-set. Companion to [persona-plan.md](persona-plan.md) (§9 Director, §2.1 clock
+set. Companion to [persona-plan.md](../persona-plan.md) (§9 Director, §2.1 clock
 skew, §3c lane-map hash) and [schedule-data-model.md](schedule-data-model.md).
 
 ## Status
@@ -38,7 +38,7 @@ parallel rendering of the secondary team's committed `RaceResult`, letting
 the primary FT eyeball the two and re-key the secondary's numbers into the
 primary `finish.json` by hand. It makes no reconciliation decision itself
 and publishes nothing — the primary FT does both, manually.
-[results-publisher.md](new/results-publisher.md) is the actual results-
+[results-publisher.md](../new/results-publisher.md) is the actual results-
 publishing feature (a native Primary Finish Timer "Publish" button,
 resolved as its own doc) — it reads the primary's already-final `Approved`
 result directly and has no reconciliation logic of its own to spec, since
@@ -86,7 +86,7 @@ reasons in these states, not in raw field values.
 
 This mirrors the RD progress tree's existing status vocabulary — *timing in
 progress* / *saved* / *approved* — in
-[`internal/regatta/director_tree.go`](../../../internal/regatta/director_tree.go)
+[`internal/regatta/director_tree.go`](../../../../internal/regatta/director_tree.go)
 `directorFinishCells`. With the split above, a `saved` row can only ever be a
 **secondary**-team row.
 
@@ -160,7 +160,7 @@ the race is a normal `primary` verdict.
 ### Clock skew between the two FT machines
 
 The winning time is `FT Start click − ST Start time`, captured on two laptops
-whose clocks may differ by seconds ([persona-plan.md §2.1](persona-plan.md)). The
+whose clocks may differ by seconds ([persona-plan.md §2.1](../persona-plan.md)). The
 primary and secondary FT machines are a *third* pair of clocks. Two winning-time
 strings from different teams are **not comparable at face value**.
 
@@ -240,13 +240,13 @@ Nothing to publish; the RD tree already shows the state.
 - A provenance tag on published results.
 
 The actual results export/publish **did** land, as
-[results-publisher.md](new/results-publisher.md)'s native Primary Finish
+[results-publisher.md](../new/results-publisher.md)'s native Primary Finish
 Timer "Publish" feature — it has no reconciliation logic of its own,
 because it only ever reads the primary's already-final `Approved` result.
 
 ## Data available for reconciliation
 
-Per race, from each team's [`store.RaceResult`](../../../internal/persona/store/log.go):
+Per race, from each team's [`store.RaceResult`](../../../../internal/persona/store/log.go):
 
 | Field | Use |
 |-------|-----|
