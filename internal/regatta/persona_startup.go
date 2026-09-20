@@ -20,6 +20,7 @@ import (
 	"github.com/comagnaw/regattaClock/internal/common"
 	"github.com/comagnaw/regattaClock/internal/filesystem"
 	"github.com/comagnaw/regattaClock/internal/persona"
+	"github.com/comagnaw/regattaClock/internal/persona/journal"
 	"github.com/comagnaw/regattaClock/internal/persona/store"
 	"github.com/comagnaw/regattaClock/internal/text"
 	"github.com/comagnaw/regattaClock/internal/watcher"
@@ -304,13 +305,18 @@ func (r *Regatta) startSession(session persona.Session, schedule *store.Schedule
 // hydrateOwnStart loads the start timer's own start.json under the four rules
 // of section 8: missing is normal, a parse failure blocks writes, a different
 // regatta is set aside, and the sequence counter carries over inside the
-// returned struct.
+// returned struct. The missing and matching-regatta cases also check the local
+// write-ahead journal (persona-plan.md section 13) for a write that never
+// reached the shared path before an unclean shutdown - see recoveredStartOr.
+// The corrupt and mismatched-regatta cases deliberately skip that check: those
+// already demand the operator's attention, and silently substituting a
+// recovered value would only obscure it.
 func (r *Regatta) hydrateOwnStart(s persona.Session, key string) *store.StartLog {
 	empty := &store.StartLog{Races: map[int]store.StartRecord{}}
 	log, err := store.LoadStart(s)
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
-		return empty
+		return r.recoveredStartOr(s, key, empty)
 	case errors.Is(err, store.ErrCorrupt):
 		r.blockWritesForCorruptFile(s.StartPath(), err)
 		return empty
@@ -326,7 +332,40 @@ func (r *Regatta) hydrateOwnStart(s persona.Session, key string) *store.StartLog
 		log.Races = map[int]store.StartRecord{}
 	}
 	applog.Info("start times restored", "component", "startup", "races", len(log.Races))
-	return log
+	return r.recoveredStartOr(s, key, log)
+}
+
+// recoveredStartOr checks journal.For(s, key) for a start.json write that
+// never reached the shared path before an unclean shutdown. Constructing the
+// journal.Manager for s here, at hydrate time, is what lets crash recovery run
+// before any click ever calls store.SaveStart - the same Manager instance is
+// reused (journal.For memoizes by WritePath) once a click does. Falls back to
+// fallback - whatever the shared-file load above produced - when there is
+// nothing to recover, the journal itself is unavailable, or the recovered
+// bytes do not parse as a StartLog.
+func (r *Regatta) recoveredStartOr(s persona.Session, key string, fallback *store.StartLog) *store.StartLog {
+	j, err := journal.For(s, key)
+	if err != nil {
+		applog.Warn("write-ahead journal unavailable; crash recovery skipped",
+			"component", "startup", "err", err)
+		return fallback
+	}
+	b, ok := j.Recovered()
+	if !ok {
+		return fallback
+	}
+	var recovered store.StartLog
+	if err := json.Unmarshal(b, &recovered); err != nil {
+		applog.Error("recovered start.json entry did not parse; ignored",
+			"component", "startup", "err", err)
+		return fallback
+	}
+	if recovered.Races == nil {
+		recovered.Races = map[int]store.StartRecord{}
+	}
+	applog.Warn("restored a start.json update that never reached the shared path",
+		"component", "startup", "sequence", recovered.Sequence)
+	return &recovered
 }
 
 // hydratePeerStart loads the start timer's start.json for a finish timer, which
@@ -377,12 +416,15 @@ func (r *Regatta) hydratePeerFinish(s persona.Session, key string) *store.Finish
 	return log
 }
 
+// hydrateOwnFinish mirrors hydrateOwnStart for the finish timer's own
+// finish.json - see that function's comment for the crash-recovery rationale
+// and why the corrupt and mismatched-regatta cases skip it.
 func (r *Regatta) hydrateOwnFinish(s persona.Session, key string) *store.FinishLog {
 	empty := &store.FinishLog{Races: map[int]store.RaceResult{}}
 	log, err := store.LoadFinish(s)
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
-		return empty
+		return r.recoveredFinishOr(s, key, empty)
 	case errors.Is(err, store.ErrCorrupt):
 		r.blockWritesForCorruptFile(s.FinishPath(), err)
 		return empty
@@ -398,7 +440,33 @@ func (r *Regatta) hydrateOwnFinish(s persona.Session, key string) *store.FinishL
 		log.Races = map[int]store.RaceResult{}
 	}
 	applog.Info("finish results restored", "component", "startup", "races", len(log.Races))
-	return log
+	return r.recoveredFinishOr(s, key, log)
+}
+
+// recoveredFinishOr is hydrateOwnStart's recoveredStartOr, for finish.json.
+func (r *Regatta) recoveredFinishOr(s persona.Session, key string, fallback *store.FinishLog) *store.FinishLog {
+	j, err := journal.For(s, key)
+	if err != nil {
+		applog.Warn("write-ahead journal unavailable; crash recovery skipped",
+			"component", "startup", "err", err)
+		return fallback
+	}
+	b, ok := j.Recovered()
+	if !ok {
+		return fallback
+	}
+	var recovered store.FinishLog
+	if err := json.Unmarshal(b, &recovered); err != nil {
+		applog.Error("recovered finish.json entry did not parse; ignored",
+			"component", "startup", "err", err)
+		return fallback
+	}
+	if recovered.Races == nil {
+		recovered.Races = map[int]store.RaceResult{}
+	}
+	applog.Warn("restored a finish.json update that never reached the shared path",
+		"component", "startup", "sequence", recovered.Sequence)
+	return &recovered
 }
 
 func (r *Regatta) setAsideDifferentRegatta(path, had, want string) {
