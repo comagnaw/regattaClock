@@ -171,6 +171,21 @@ func (r *Regatta) welcomeDirButton(dirSet bool) *widget.Button {
 	})
 }
 
+// normalizeRegattaDir guards against picking the regattaData folder itself as
+// the save location. PrefRegattaDir is always joined with RegattaDataDir
+// later (directorSession), so persisting regattaData directly would nest a
+// second regattaData inside it - and split-brain regattaSchedule.json across
+// the two. An operator browsing a folder that already holds a previous
+// regatta's regattaData is prone to this: picking chosen or its parent means
+// the same save location either way, so the parent is used without
+// interrupting the flow.
+func normalizeRegattaDir(chosen string) string {
+	if filepath.Base(chosen) == common.RegattaDataDir {
+		return filepath.Dir(chosen)
+	}
+	return chosen
+}
+
 // welcomeFolderCallback - as changeCallBack (persist PrefRegattaDir, enable the
 // loader), then re-render the director setup view so Step 2 shows its check
 // mark and path and Start Regatta can ungate. Cancel is a no-op that leaves
@@ -187,7 +202,7 @@ func (r *Regatta) welcomeFolderCallback() func(fyne.ListableURI, error) {
 			return
 		}
 
-		regattaDir := filepath.FromSlash(dirReader.Path())
+		regattaDir := normalizeRegattaDir(filepath.FromSlash(dirReader.Path()))
 
 		r.App.Preferences().SetString(common.PrefRegattaDir, regattaDir)
 		r.loadState.loadButton.Enable()
@@ -214,7 +229,7 @@ func (r *Regatta) changeCallBack() func(fyne.ListableURI, error) {
 
 		// Fyne reports URI paths with forward slashes, so restore the native form
 		// before persisting a value the user reads and edits in the config form.
-		regattaDir := filepath.FromSlash(dirReader.Path())
+		regattaDir := normalizeRegattaDir(filepath.FromSlash(dirReader.Path()))
 
 		r.App.Preferences().SetString(common.PrefRegattaDir, regattaDir)
 		r.loadState.loadButton.Enable()
