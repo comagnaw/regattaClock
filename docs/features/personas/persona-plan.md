@@ -813,8 +813,8 @@ The app supports two **transport** modes, not two cloud vendors. Prefer the spar
 - **Add a Windows CI job.** [.github/workflows/test.yml](.github/workflows/test.yml) is Ubuntu-only today. Add `windows-latest` running `go test ./internal/...`.
 - **Sanitize filenames.** Route exporter and persona-derived paths through `sanitizeForFilename` for Windows-reserved characters and device names.
 - **Staleness indicator in the race tree.** Surface "start times last updated Ns ago" from the watcher's last-change time. Under cloud sync this catches paused sync; under SMB it catches a dead share or a sleeping host PC.
-- **`PrefStorageMode` / `PrefNTPServers`** on the config UI (section 6b).
-- **`PrefLogging` / `PrefDebug`** actually drive `internal/applog` (section 6c) — today the checkboxes are unbound to behaviour.
+- **`PrefStorageMode` / `PrefNTPServers`** on the config UI (section 6b) *(done)*: `PrefStorageMode` selects the watcher backend (`internal/watcher/mode.go`) and toggles cloud conflict-copy detection; `PrefNTPServers` feeds `internal/timesync`'s background SNTP client, started at bootstrap.
+- **`PrefLogging` / `PrefDebug`** actually drive `internal/applog` (section 6c) *(done)*: read at startup and reapplied via `applog.SetLevel` on Config-close.
 
 ### Operating requirements for race day
 
