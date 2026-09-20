@@ -89,7 +89,10 @@ func buildFileName(outputDir string, raceNumber int, regattaName string) string 
 // buildRaceText formats the race information into a multi-line string for display.
 // The first line contains the race title (number, boat count, class, and flight info).
 // Subsequent lines list each lane and school name in lane order. Lanes with empty
-// school names are omitted from the output.
+// school names are omitted from the output; a scratched lane still has a school
+// name (schedule-data-model.md's scratch handling) and is marked with
+// reader.StatusScratched - the normalized reference for a scratch - rather
+// than printed as if the boat is actually racing.
 func buildRaceText(raceData reader.RaceData) string {
 	var sb strings.Builder
 	sb.WriteString(raceData.RaceTitle())
@@ -99,7 +102,11 @@ func buildRaceText(raceData reader.RaceData) string {
 		if lane.SchoolName == common.EmptyString {
 			continue
 		}
-		sb.WriteString(fmt.Sprintf("\nLane %d - %s", laneNum, lane.SchoolName))
+		line := fmt.Sprintf("\nLane %d - %s", laneNum, lane.SchoolName)
+		if lane.Status == reader.StatusScratched {
+			line += fmt.Sprintf(" (%s)", reader.StatusScratched)
+		}
+		sb.WriteString(line)
 	}
 
 	return sb.String()

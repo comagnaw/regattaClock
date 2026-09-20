@@ -27,9 +27,9 @@ func legacyRegattaData() *reader.RegattaData {
 			BoatClass:     "Varsity 8",
 			FlightInfo:    "Final",
 			BoatCount:     2,
-			Approved:   true,
-			Saved:      true,
-			RawData:    reader.RawData{{"Varsity 8"}, {"Final"}, {"", "1"}, {"", "00:00.0"}, {"", "06:00.0"}},
+			Approved:      true,
+			Saved:         true,
+			RawData:       reader.RawData{{"Varsity 8"}, {"Final"}, {"", "1"}, {"", "00:00.0"}, {"", "06:00.0"}},
 			Lanes: map[int]reader.RaceEntry{
 				1: {SchoolName: "Alpha", AdditionalInfo: "A", Place: "1", Split: "00:00.0", Time: "06:00.0"},
 				2: {SchoolName: "Beta", Place: "2", Split: "00:03.0", Time: "06:03.0"},
@@ -86,6 +86,66 @@ func TestDiffSchedule_ScheduledTimeChangeSetsMeta(t *testing.T) {
 	ch, ok := changes[1]
 	if !ok || !ch.meta {
 		t.Fatalf("expected race 1 to be flagged with meta = true, got %+v (ok=%v)", ch, ok)
+	}
+}
+
+// TestDiffSchedule_ScratchViaStatus - a lane transitioning to
+// Status: StatusScratched, with SchoolName unchanged, must fire
+// ch.scratch - not ch.moved, which is what a bare AdditionalInfo-text
+// change used to fall into before Status existed.
+func TestDiffSchedule_ScratchViaStatus(t *testing.T) {
+	old := &reader.RegattaData{Races: []reader.RaceData{
+		{RaceNumber: 1, Lanes: map[int]reader.RaceEntry{
+			1: {SchoolName: "Rangers", AdditionalInfo: ""},
+		}},
+	}}
+	cur := &reader.RegattaData{Races: []reader.RaceData{
+		{RaceNumber: 1, Lanes: map[int]reader.RaceEntry{
+			1: {SchoolName: "Rangers", AdditionalInfo: "SCRATCHED", Status: reader.StatusScratched},
+		}},
+	}}
+
+	changes := diffSchedule(old, cur)
+	ch, ok := changes[1]
+	if !ok {
+		t.Fatal("expected race 1 to be flagged as changed")
+	}
+	if !ch.scratch {
+		t.Errorf("expected ch.scratch = true for a Status flip, got %+v", ch)
+	}
+	if ch.moved {
+		t.Errorf("a real scratch should not also be classified as moved, got %+v", ch)
+	}
+	if !ch.lanes[1] {
+		t.Errorf("lane 1 should be marked changed, got %+v", ch.lanes)
+	}
+}
+
+// TestDiffSchedule_PlainNoteIsMoved - an AdditionalInfo change that is NOT a
+// scratch (e.g. an A/B flight designator) still classifies as ch.moved, not
+// ch.scratch - activeBoat only cares about StatusScratched specifically.
+func TestDiffSchedule_PlainNoteIsMoved(t *testing.T) {
+	old := &reader.RegattaData{Races: []reader.RaceData{
+		{RaceNumber: 1, Lanes: map[int]reader.RaceEntry{
+			1: {SchoolName: "Capitals", AdditionalInfo: ""},
+		}},
+	}}
+	cur := &reader.RegattaData{Races: []reader.RaceData{
+		{RaceNumber: 1, Lanes: map[int]reader.RaceEntry{
+			1: {SchoolName: "Capitals", AdditionalInfo: "B"},
+		}},
+	}}
+
+	changes := diffSchedule(old, cur)
+	ch, ok := changes[1]
+	if !ok {
+		t.Fatal("expected race 1 to be flagged as changed")
+	}
+	if ch.scratch {
+		t.Errorf("a plain note change must not be classified as a scratch, got %+v", ch)
+	}
+	if !ch.moved {
+		t.Errorf("expected ch.moved = true, got %+v", ch)
 	}
 }
 

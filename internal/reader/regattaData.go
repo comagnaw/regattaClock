@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"iter"
 	"sort"
+	"strings"
 
 	"github.com/comagnaw/regattaClock/internal/common"
 )
@@ -155,6 +156,7 @@ func (r RawData) getRaceEntryByLane(lane int) RaceEntry {
 
 	raceEntry.SchoolName = r[0][lane]
 	raceEntry.AdditionalInfo = r[1][lane]
+	raceEntry.Status = detectStatus(raceEntry.AdditionalInfo)
 	return raceEntry
 }
 
@@ -262,6 +264,12 @@ type RaceEntry struct {
 	// AdditionalInfo - this may represent rower name or A vs B boat for school with multiple boats in race
 	AdditionalInfo string
 
+	// Status - this lane's status at schedule time (e.g. scratched),
+	// detected from AdditionalInfo at import (detectStatus). Same-shaped
+	// but distinct type from store.ScheduleEntryStatus - reader must never
+	// import store (regattaData.go's own package doc).
+	Status RaceEntryStatus
+
 	// Place - what place did this boat finish in
 	Place string
 
@@ -270,6 +278,31 @@ type RaceEntry struct {
 
 	// Time - what is the toal time for this boat to finish the race
 	Time string
+}
+
+// RaceEntryStatus mirrors store.ScheduleEntryStatus - see that type's doc
+// comment for why this isn't a shared type or a reuse of
+// internal/regattacentral.LaneStatus.
+type RaceEntryStatus string
+
+const (
+	StatusOK        RaceEntryStatus = ""
+	StatusScratched RaceEntryStatus = "SCR"
+)
+
+// detectStatus derives a RaceEntryStatus from a lane's raw AdditionalInfo
+// text - exact match only (not substring), against every spelling an RD is
+// likely to free-type for a scratch ("scratched", "scratch", "scr"), via a
+// lowercase normalization so any case combination matches. Exact-match, not
+// substring, so a school name or boat-class code that happens to contain
+// "scr" is never mistaken for a scratch.
+func detectStatus(additionalInfo string) RaceEntryStatus {
+	switch strings.ToLower(strings.TrimSpace(additionalInfo)) {
+	case "scratched", "scratch", "scr":
+		return StatusScratched
+	default:
+		return StatusOK
+	}
 }
 
 func (r RaceEntry) isEmptyEntry() bool {
