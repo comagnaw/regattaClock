@@ -33,6 +33,7 @@ func (r *Regatta) showRaceTree() {
 	// the race list. All are hidden until they apply.
 	if r.mode == modeTimer {
 		header.Add(r.scheduleBannerWidget())
+		header.Add(r.journalStatusBanner())
 	} else {
 		header.Add(r.directorHeaderExtras())
 	}

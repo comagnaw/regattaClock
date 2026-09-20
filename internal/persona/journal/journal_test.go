@@ -169,6 +169,80 @@ waitLoop:
 	}
 }
 
+// TestStatus_SinceTracksEpisodeStartNotLastAttempt confirms Since is the time
+// a file first fell out of sync, preserved across every Retrying transition
+// within one episode - not reset on each individual attempt. A status banner
+// built on top of this needs "unreachable for 45s", not a value that keeps
+// resetting to ~0 every backoff cycle.
+func TestStatus_SinceTracksEpisodeStartNotLastAttempt(t *testing.T) {
+	swapBackoff(t, 10*time.Millisecond, 20*time.Millisecond)
+
+	var mu sync.Mutex
+	var calls int
+	m := &Manager{
+		sharedPath: "shared.json",
+		localPath:  "local.json",
+		localWrite: func([]byte) error { return nil },
+		sharedWrite: func([]byte) error {
+			mu.Lock()
+			defer mu.Unlock()
+			calls++
+			if calls < 4 {
+				return errors.New("down")
+			}
+			return nil
+		},
+		subs:        make(map[int]func(Status)),
+		wake:        make(chan struct{}, 1),
+		quit:        make(chan struct{}),
+		done:        make(chan struct{}),
+		completedCh: make(chan struct{}),
+		status:      Status{State: StateSynced, Since: time.Now()},
+	}
+	go m.run()
+	t.Cleanup(m.Close)
+
+	seen := make(chan Status, 16)
+	unsub := m.Subscribe(func(s Status) {
+		select {
+		case seen <- s:
+		default:
+		}
+	})
+	defer unsub()
+
+	writeDone := make(chan error, 1)
+	go func() { writeDone <- m.Write("v1") }()
+
+	var firstRetrySince time.Time
+	retryingCount := 0
+	deadline := time.After(time.Second)
+waitLoop:
+	for {
+		select {
+		case s := <-seen:
+			if s.State != StateRetrying {
+				continue
+			}
+			retryingCount++
+			if firstRetrySince.IsZero() {
+				firstRetrySince = s.Since
+			} else if !s.Since.Equal(firstRetrySince) {
+				t.Fatalf("Since changed across retry attempts: first %v, got %v", firstRetrySince, s.Since)
+			}
+			if retryingCount >= 3 {
+				break waitLoop
+			}
+		case <-deadline:
+			t.Fatalf("timed out waiting for 3 Retrying transitions; saw %d", retryingCount)
+		}
+	}
+
+	if err := <-writeDone; err != nil {
+		t.Fatalf("Write returned error: %v", err)
+	}
+}
+
 func TestWrite_NeverBlocksOnAnUnreachableSharedPath(t *testing.T) {
 	m := newTestManager(t, func([]byte) error { return errors.New("share unreachable, forever") })
 
