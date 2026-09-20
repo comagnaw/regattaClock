@@ -66,6 +66,18 @@ func TestSaveAndLoadSchedule(t *testing.T) {
 	}
 }
 
+func TestSaveScheduleRejectsNonDirectorPersona(t *testing.T) {
+	awd := persona.Session{Definition: persona.AwardsDefinition, Root: t.TempDir()}
+
+	err := SaveSchedule(awd, sampleSchedule())
+	if !errors.Is(err, ErrWrongPersona) {
+		t.Fatalf("err = %v, want ErrWrongPersona", err)
+	}
+	if _, statErr := os.Stat(awd.SchedulePath()); !os.IsNotExist(statErr) {
+		t.Fatal("regattaSchedule.json should not have been written by a non-director persona")
+	}
+}
+
 func TestLoadScheduleMissingIsNotExist(t *testing.T) {
 	s := directorSession(t)
 
