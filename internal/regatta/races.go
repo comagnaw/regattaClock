@@ -114,6 +114,8 @@ func (r *Regatta) raceListHeader() *fyne.Container {
 		action = fixedCell(actionsColWidth, text.BoldLabel(common.EmptyString))
 	case persona.RoleFinish:
 		action = fixedCell(timeRaceColWidth, text.BoldLabel(common.EmptyString))
+	case persona.RoleDirector, persona.RoleAwards:
+		action = fixedCell(viewResultsColWidth, text.BoldLabel(common.EmptyString))
 	}
 
 	var cells []fyne.CanvasObject

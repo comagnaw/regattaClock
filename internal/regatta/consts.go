@@ -76,6 +76,17 @@ const (
 	// plus the inset).
 	timeRaceColWidth = float32(120)
 
+	// viewResultsColWidth - the Director/Awards "View Results" button (fits
+	// the button plus the inset).
+	viewResultsColWidth = float32(140)
+
+	// resultsWinWidth / resultsWinHeight - the read-only results window
+	// (results_window.go), sized like the Referee Approval window
+	// (refereeWinWidth/refereeWinHeight, internal/clock/consts.go) since
+	// clock.ApprovalWindowContent renders the identical 5-column grid.
+	resultsWinWidth  = float32(1100)
+	resultsWinHeight = float32(720)
+
 	// welcomeBannerWidth, welcomeBannerHeight - the wordmark as a prominent
 	// centered header on the welcome-family views. ~6.5:1 to match the SVG's
 	// viewBox so ImageFillContain leaves no letterbox gap.

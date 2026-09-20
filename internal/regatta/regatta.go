@@ -68,6 +68,12 @@ type Regatta struct {
 	// opening a duplicate.
 	versionWindow fyne.Window
 
+	// resultsWindow - the independent, read-only results window a Director or
+	// Awards row's View Results button opens (results_window.go), or nil when
+	// closed. Guards against opening a second one, same shape as
+	// versionWindow/Compare Secondary's compareWindow.
+	resultsWindow fyne.Window
+
 	// personaCfg - parsed deployment persona config (PrefPersonaConfigFile), or
 	// nil when unset or unreadable. Pins this host to a persona and/or overrides
 	// challenge codes; nil means the normal persona picker.

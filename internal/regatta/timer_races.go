@@ -38,6 +38,7 @@ type raceRow struct {
 	clearBtn   *widget.Button // start timer
 	restoreBtn *widget.Button // start timer
 	timeBtn    *widget.Button // finish timer
+	resultsBtn *widget.Button // director, awards
 }
 
 // raceListBody builds the scrolling race list and records a raceRow per race so
@@ -101,6 +102,14 @@ func (r *Regatta) newRaceRow(race reader.RaceData) *raceRow {
 		row.startTime.SetText(common.WaitingForStartText)
 		row.timeBtn = widget.NewButton(common.TimeRaceButtonText, func() { r.openClock(n) })
 		action = fixedCell(timeRaceColWidth, row.timeBtn)
+
+	case persona.RoleDirector, persona.RoleAwards:
+		// Disabled until refreshDirectorRow sees an approved result
+		// (store.CanPublish) - kept in its slot rather than hidden so the row
+		// never shifts, matching the ST's Restore button precedent.
+		row.resultsBtn = widget.NewButton(common.ViewResultsButtonText, func() { r.openResultsWindow(n) })
+		row.resultsBtn.Disable()
+		action = fixedCell(viewResultsColWidth, row.resultsBtn)
 	}
 
 	var cells []fyne.CanvasObject
@@ -148,7 +157,7 @@ func (r *Regatta) refreshRow(n int) {
 		r.refreshStartRow(row)
 	case persona.RoleFinish:
 		r.refreshFinishRow(row)
-	case persona.RoleDirector:
+	case persona.RoleDirector, persona.RoleAwards:
 		r.refreshDirectorRow(row)
 	}
 }

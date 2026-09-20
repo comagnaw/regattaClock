@@ -16,7 +16,7 @@ func (r *Regatta) staleLaneMap(n int, race reader.RaceData) bool {
 	switch r.session.Role {
 	case persona.RoleFinish:
 		return finishResultStale(r.finishLog, n, live)
-	case persona.RoleDirector:
+	case persona.RoleDirector, persona.RoleAwards:
 		if tt := r.teamLogs[persona.TeamPrimary]; tt != nil {
 			return finishResultStale(tt.finish, n, live)
 		}
