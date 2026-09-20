@@ -136,8 +136,16 @@ func (m *Manager) Write(v any) error {
 	m.pendingVersion++
 	v64 := m.pendingVersion
 	ch := m.completedCh
+	// Since marks when this file first fell out of sync, not when this
+	// particular Write happened: preserved across a Queued/Retrying episode
+	// so a status banner can show "unreachable for 45s" instead of resetting
+	// every time a newer value supersedes an older, still-unflushed one.
+	since := m.status.Since
+	if m.status.State == StateSynced || since.IsZero() {
+		since = time.Now()
+	}
 	m.mu.Unlock()
-	m.setStatus(Status{State: StateQueued, Since: time.Now()})
+	m.setStatus(Status{State: StateQueued, Since: since})
 	m.poke()
 
 	deadline := time.After(fastPathWindow)
@@ -271,7 +279,13 @@ func (m *Manager) run() {
 				continue // a newer value landed mid-flush; attempt it right away
 			}
 
-			m.setStatus(Status{State: StateRetrying, Since: time.Now(), LastErr: err})
+			// Since carries forward from the Queued transition that started
+			// this episode (or an earlier Retrying attempt within it) rather
+			// than resetting on every attempt - see the comment in Write.
+			m.mu.Lock()
+			since := m.status.Since
+			m.mu.Unlock()
+			m.setStatus(Status{State: StateRetrying, Since: since, LastErr: err})
 			applog.Warn("journal: shared write failed, retrying", "component", "journal",
 				"file", m.sharedPath, "err", err, "wait_ms", backoff.Milliseconds())
 

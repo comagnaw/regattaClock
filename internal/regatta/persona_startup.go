@@ -550,10 +550,18 @@ func (r *Regatta) startWatcher(s persona.Session) {
 
 	// stopWatcher blocks until the watcher goroutine and its event consumer have
 	// fully exited, so a subsequent startWatcher can safely reset watchedHashes.
+	// It also unsubscribes the journal status banner (persona-plan.md 13) from
+	// this session's journal.Manager - startWatcher runs once per timer session
+	// (unlike the Director, which reruns it on Apply/Reload), so there is only
+	// ever one subscription to tear down.
 	stop := func() {
 		cancel()
 		w.Stop()
 		<-consumed
+		if r.stopJournalStatus != nil {
+			r.stopJournalStatus()
+			r.stopJournalStatus = nil
+		}
 	}
 	r.stopWatcher = stop
 	r.window.SetOnClosed(stop)

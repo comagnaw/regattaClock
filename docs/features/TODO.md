@@ -53,7 +53,6 @@ The multi-persona operating model is largely built (`persona-plan.md` phases
 values only (the phase 8b-2 per-value `·2nd` fallback was removed). Captured
 remaining work:
 
-- [ ] Local write-ahead journal — collect each value to a local file first, then flush to the shared path, so an SMB outage or cloud stall never blocks collection — [persona-plan.md](personas/persona-plan.md#13-open-items), [shared-storage-options.md](personas/shared-storage-options.md)
 - [ ] `ScheduleOrigin` interface (`Fingerprint()` / `Load()`) generalising the Excel reader, with a later in-app-authored heat sheet (`Origin.Type = "heatsheet"`) built from the RegattaCentral roster and uploaded back to RegattaCentral, via `regattaDataFromSchedule` / `reader.NewRegattaData` (one entry point, no forked constructor) — [persona-plan.md](personas/persona-plan.md#3b-schedule-origin-refresh-rd-only), [schedule-data-model.md](personas/closed/schedule-data-model.md), [regattacentral-integration.md](personas/regattacentral-integration.md#phase-c--in-app-heat-sheet-authoring)
 - [ ] Route exporter and persona-derived paths through `sanitizeForFilename` for Windows-reserved names and device names — [persona-plan.md](personas/persona-plan.md#12-windows-storage-modes-cloud-synced-folder-and-local-smb)
 - [ ] Timer-side staleness indicator in the race tree — "start times last updated N s ago" from the watcher's last-change time — [persona-plan.md](personas/persona-plan.md#12-windows-storage-modes-cloud-synced-folder-and-local-smb)

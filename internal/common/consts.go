@@ -227,6 +227,13 @@ const (
 	// timing file has been written for a while. Arg: age of the freshest write.
 	DirectorStaleBannerFormat = "No timing updates in %s. The regatta may have stalled, or a timer's machine is offline."
 
+	// JournalRetryingBannerFormat - persona-plan.md 13 local write-ahead
+	// journal: shown on a timer's race tree while journal.Manager is retrying
+	// a write the shared regatta folder hasn't accepted yet. Arg: how long the
+	// write has been queued.
+	JournalRetryingBannerFormat = "Your times are saved on this computer. The shared regatta folder hasn't been reachable for %s — they'll sync automatically once it is."
+	RetryNowButtonText          = "Retry Now"
+
 	// Winning-time helper note under the FT clock's Winning Time field
 	// (persona-plan.md 2.1). The derived value only pre-fills; the referee's
 	// time always overrides. These say where the number came from, or why there
