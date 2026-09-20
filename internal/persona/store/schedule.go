@@ -117,6 +117,9 @@ func LoadSchedule(s persona.Session) (*Schedule, error) {
 // SaveSchedule atomically writes the schedule to director/regattaSchedule.json,
 // creating director/ if needed.
 func SaveSchedule(s persona.Session, sch *Schedule) error {
+	if s.Role != persona.RoleDirector {
+		return ErrWrongPersona
+	}
 	path := s.SchedulePath()
 	if err := saveJSONAtomic(path, sch); err != nil {
 		applog.Error("schedule write failed", "component", "store", "file", path, "err", err)

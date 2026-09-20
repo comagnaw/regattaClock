@@ -6,7 +6,7 @@ import (
 )
 
 func TestRegistryIsWellFormed(t *testing.T) {
-	roles := map[Role]bool{RoleDirector: true, RoleStart: true, RoleFinish: true}
+	roles := map[Role]bool{RoleDirector: true, RoleStart: true, RoleFinish: true, RoleAwards: true}
 	teams := map[Team]bool{TeamExecutive: true, TeamPrimary: true, TeamSecondary: true}
 
 	seenID := map[string]bool{}
@@ -35,13 +35,21 @@ func TestRegistryIsWellFormed(t *testing.T) {
 		}
 		seenChallenge[norm] = true
 
-		// Every persona must resolve to a distinct file it may write.
+		// Every persona that writes must resolve to a distinct file - a
+		// read-only role's WritePath is "" by design (no file at all), so it
+		// is exempt from the collision check rather than forced into it.
 		s := Session{Definition: d, Root: "/root"}
 		wp := s.WritePath()
-		if seenWritePath[wp] {
-			t.Errorf("%s: write path %q collides with another persona", d.ID, wp)
+		if d.Role == RoleAwards {
+			if wp != "" {
+				t.Errorf("%s: WritePath = %q, want \"\" for a read-only role", d.ID, wp)
+			}
+		} else {
+			if seenWritePath[wp] {
+				t.Errorf("%s: write path %q collides with another persona", d.ID, wp)
+			}
+			seenWritePath[wp] = true
 		}
-		seenWritePath[wp] = true
 
 		switch d.Role {
 		case RoleDirector:
@@ -50,6 +58,13 @@ func TestRegistryIsWellFormed(t *testing.T) {
 			}
 			if d.Team != TeamExecutive {
 				t.Errorf("director team = %q, want executive", d.Team)
+			}
+		case RoleAwards:
+			if d.File != "" {
+				t.Errorf("awards File should be empty, got %q", d.File)
+			}
+			if d.Team != TeamExecutive {
+				t.Errorf("awards team = %q, want executive", d.Team)
 			}
 		case RoleStart:
 			if d.File != fileStart {
@@ -82,6 +97,11 @@ func TestRegistryContents(t *testing.T) {
 	rd := DirectorDefinition
 	if rd.ID != "rd" || rd.Role != RoleDirector || rd.Team != TeamExecutive || rd.Challenge != "rc-rd" || rd.File != "" {
 		t.Errorf("DirectorDefinition = %+v", rd)
+	}
+
+	awd := AwardsDefinition
+	if awd.ID != "awd" || awd.Role != RoleAwards || awd.Team != TeamExecutive || awd.Challenge != "rc-awd" || awd.File != "" {
+		t.Errorf("AwardsDefinition = %+v", awd)
 	}
 }
 
@@ -119,6 +139,9 @@ func TestByID(t *testing.T) {
 	if d, ok := ByID("rd"); !ok || d.Role != RoleDirector {
 		t.Errorf("ByID(rd) = %+v, %v", d, ok)
 	}
+	if d, ok := ByID("awd"); !ok || d.Role != RoleAwards {
+		t.Errorf("ByID(awd) = %+v, %v", d, ok)
+	}
 	if _, ok := ByID("nope"); ok {
 		t.Error("ByID(nope) reported ok")
 	}
@@ -126,11 +149,14 @@ func TestByID(t *testing.T) {
 
 func TestAllReturnsACopy(t *testing.T) {
 	a := All()
-	if len(a) != len(Registry)+1 {
-		t.Fatalf("All() len = %d, want %d", len(a), len(Registry)+1)
+	if len(a) != len(Registry)+2 {
+		t.Fatalf("All() len = %d, want %d", len(a), len(Registry)+2)
 	}
-	if a[len(a)-1].ID != "rd" {
-		t.Errorf("last entry = %q, want rd", a[len(a)-1].ID)
+	if a[len(a)-2].ID != "rd" {
+		t.Errorf("second-to-last entry = %q, want rd", a[len(a)-2].ID)
+	}
+	if a[len(a)-1].ID != "awd" {
+		t.Errorf("last entry = %q, want awd", a[len(a)-1].ID)
 	}
 
 	a[0] = Definition{ID: "mutated"}
@@ -177,5 +203,10 @@ func TestSessionWritePathByRole(t *testing.T) {
 	rd := Session{Definition: DirectorDefinition, Root: root}
 	if got, want := rd.WritePath(), rd.SchedulePath(); got != want {
 		t.Errorf("director WritePath = %q, want SchedulePath %q", got, want)
+	}
+
+	awd := Session{Definition: AwardsDefinition, Root: root}
+	if got := awd.WritePath(); got != "" {
+		t.Errorf("awards WritePath = %q, want \"\" (read-only, no write path)", got)
 	}
 }

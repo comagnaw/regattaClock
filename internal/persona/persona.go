@@ -24,6 +24,7 @@ const (
 	RoleDirector Role = "director"
 	RoleStart    Role = "start"
 	RoleFinish   Role = "finish"
+	RoleAwards   Role = "awards"
 
 	TeamExecutive Team = "executive"
 	TeamPrimary   Team = "primary"
@@ -69,12 +70,23 @@ var DirectorDefinition = Definition{
 	ID: "rd", Role: RoleDirector, Team: TeamExecutive, Label: "Regatta Director", Challenge: "rc-rd", File: "",
 }
 
-// All returns every persona - the timer registry plus the director - as a fresh
-// slice the caller may reorder or filter without affecting the package state.
+// AwardsDefinition is Awards (AWD), a standalone, read-only Executive-team
+// persona that emulates the director's primary-team race tree with a "View
+// Results" button. Unlike the director, it never writes anything - File is
+// empty and, unlike the director's own File: "" (which still writes the
+// schedule via a Role-specific WritePath branch), Awards has no write branch
+// at all (see Session.WritePath).
+var AwardsDefinition = Definition{
+	ID: "awd", Role: RoleAwards, Team: TeamExecutive, Label: "Awards", Challenge: "rc-awd", File: "",
+}
+
+// All returns every persona - the timer registry plus the director and
+// Awards - as a fresh slice the caller may reorder or filter without
+// affecting the package state.
 func All() []Definition {
-	out := make([]Definition, 0, len(Registry)+1)
+	out := make([]Definition, 0, len(Registry)+2)
 	out = append(out, Registry...)
-	out = append(out, DirectorDefinition)
+	out = append(out, DirectorDefinition, AwardsDefinition)
 	return out
 }
 
@@ -135,12 +147,19 @@ func (s Session) FinishPath() string {
 
 // WritePath is the single file this persona is allowed to write: its team's
 // start.json for a start timer, its team's finish.json for a finish timer, and
-// the schedule for the director.
+// the schedule for the director. A read-only role (e.g. Awards) has no write
+// path at all - "" is a safety net, not something normal operation should
+// ever exercise, since a read-only persona's own code must never call
+// store.Save*.
 func (s Session) WritePath() string {
-	if s.Role == RoleDirector {
+	switch s.Role {
+	case RoleDirector:
 		return s.SchedulePath()
+	case RoleStart, RoleFinish:
+		return filepath.Join(s.timingDir(), s.File)
+	default:
+		return ""
 	}
-	return filepath.Join(s.timingDir(), s.File)
 }
 
 func (s Session) timingDir() string {
