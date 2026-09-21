@@ -68,6 +68,12 @@ type Regatta struct {
 	// opening a duplicate.
 	versionWindow fyne.Window
 
+	// resultsWindow - the independent, read-only results window a Director or
+	// Awards row's View Results button opens (results_window.go), or nil when
+	// closed. Guards against opening a second one, same shape as
+	// versionWindow/Compare Secondary's compareWindow.
+	resultsWindow fyne.Window
+
 	// personaCfg - parsed deployment persona config (PrefPersonaConfigFile), or
 	// nil when unset or unreadable. Pins this host to a persona and/or overrides
 	// challenge codes; nil means the normal persona picker.
@@ -158,6 +164,14 @@ type Regatta struct {
 	// only when a visible row carries it (persona-plan.md 3c item 4). Same
 	// dismissible banner as directorSkew et al., sitting above the column header.
 	staleLaneLegend *dismissibleBanner
+
+	// journalBanner - a timer-only actionBanner (persona-plan.md 13) reflecting
+	// this session's own journal.Manager: hidden while synced or queued (a
+	// healthy write resolves in milliseconds), shown with "Retry Now" while a
+	// shared-write attempt is being retried. stopJournalStatus unsubscribes
+	// from the Manager; called at window close alongside stopWatcher.
+	journalBanner     *actionBanner
+	stopJournalStatus func()
 
 	// watchedHashes - last-applied content hash per watched file, seeded at
 	// startup so the watcher's initial "current content" event for a file that

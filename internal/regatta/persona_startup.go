@@ -20,6 +20,7 @@ import (
 	"github.com/comagnaw/regattaClock/internal/common"
 	"github.com/comagnaw/regattaClock/internal/filesystem"
 	"github.com/comagnaw/regattaClock/internal/persona"
+	"github.com/comagnaw/regattaClock/internal/persona/journal"
 	"github.com/comagnaw/regattaClock/internal/persona/store"
 	"github.com/comagnaw/regattaClock/internal/text"
 	"github.com/comagnaw/regattaClock/internal/watcher"
@@ -57,6 +58,9 @@ func (r *Regatta) showPersonaPicker() {
 	admins := container.NewVBox(
 		widget.NewButton(persona.DirectorDefinition.Label, func() {
 			r.promptPersonaChallenge(persona.DirectorDefinition)
+		}),
+		widget.NewButton(persona.AwardsDefinition.Label, func() {
+			r.promptPersonaChallenge(persona.AwardsDefinition)
 		}),
 		placeholderButton(common.PersonaDeveloperLabel),
 	)
@@ -151,7 +155,72 @@ func (r *Regatta) onPersonaChosen(def persona.Definition, challengeInput string)
 		r.startDirectorSetup()
 		return
 	}
-	r.pickPersonaDirectory(def)
+	r.startPersonaDirectory(def, r.showPersonaPicker)
+}
+
+// startPersonaDirectory is the entry point for a Start/Finish/Awards persona
+// that needs a regattaData folder: it offers the last one used
+// (PrefLastRegattaRoot) when it is still readable, otherwise it opens the
+// folder browser directly, exactly as before. back is where Cancel returns
+// to (the persona picker, or the pinned-host landing view).
+func (r *Regatta) startPersonaDirectory(def persona.Definition, back func()) {
+	lastRoot := r.App.Preferences().String(common.PrefLastRegattaRoot)
+	if lastRoot == common.EmptyString {
+		r.pickPersonaDirectory(def)
+		return
+	}
+	session := persona.Session{Definition: def, Root: lastRoot}
+	schedule, err := store.LoadSchedule(session)
+	if err != nil {
+		r.pickPersonaDirectory(def)
+		return
+	}
+	r.confirmPreviousRegatta(def, session, schedule, back)
+}
+
+// confirmPreviousRegatta offers to resume session (already confirmed readable
+// by startPersonaDirectory) with a three-way choice: dialog.ShowConfirm and
+// friends are two-button only, so this uses dialog.CustomDialog.SetButtons
+// directly. Load Previous Regatta routes through confirmRegattaDate - the
+// same past-date gate a freshly-browsed folder goes through. Choose a
+// Different Folder opens the normal folder browser. Cancel - the button,
+// Escape, or clicking away - calls back. handled guards against Fyne calling
+// SetOnClosed on every Hide(), including the ones our own buttons trigger.
+func (r *Regatta) confirmPreviousRegatta(def persona.Definition, session persona.Session, schedule *store.Schedule, back func()) {
+	handled := false
+
+	yesBtn := widget.NewButton(common.LoadPreviousRegattaButtonText, nil)
+	noBtn := widget.NewButton(common.ChooseAnotherFolderButtonText, nil)
+	cancelBtn := widget.NewButton(common.CancelButtonText, nil)
+
+	msg := widget.NewLabel(fmt.Sprintf(common.ConfirmPreviousRegattaMessage,
+		schedule.Name, schedule.Date, scheduledRaceCount(schedule), session.Root))
+
+	d := dialog.NewCustom(common.ConfirmPreviousRegattaTitle, common.CancelButtonText,
+		container.NewVBox(msg), r.window)
+	d.SetButtons([]fyne.CanvasObject{yesBtn, noBtn, cancelBtn})
+
+	yesBtn.OnTapped = func() {
+		handled = true
+		d.Hide()
+		r.confirmRegattaDate(def, session, schedule)
+	}
+	noBtn.OnTapped = func() {
+		handled = true
+		d.Hide()
+		r.pickPersonaDirectory(def)
+	}
+	cancelBtn.OnTapped = func() {
+		handled = true
+		d.Hide()
+		back()
+	}
+	d.SetOnClosed(func() {
+		if !handled {
+			back()
+		}
+	})
+	d.Show()
 }
 
 func (r *Regatta) pickPersonaDirectory(def persona.Definition) {
@@ -260,6 +329,7 @@ func (r *Regatta) startSession(session persona.Session, schedule *store.Schedule
 	r.mode = modeTimer
 	r.window.SetMainMenu(r.makeMenu()) // no loader items for a timer
 	r.App.Preferences().SetString(common.PrefLastPersonaID, session.ID)
+	r.App.Preferences().SetString(common.PrefLastRegattaRoot, session.Root)
 	r.startLogging()
 	applog.Info("persona session started", "component", "startup",
 		"root", session.Root, "regatta", schedule.Name)
@@ -286,6 +356,11 @@ func (r *Regatta) startSession(session persona.Session, schedule *store.Schedule
 			r.secondaryFinishPath = sec.FinishPath()
 			r.secondaryFinishLog = r.hydratePeerFinish(sec, key) // read-only, for Compare Secondary
 		}
+	case persona.RoleAwards:
+		// Read-only, same primary-team mirror the Director's own
+		// startDirectorFlow builds - Awards never writes, so there is no
+		// startLog/finishLog of its own to hydrate.
+		r.hydrateDirectorLogs(session.Root, key)
 	}
 
 	r.refreshContent()
@@ -296,13 +371,18 @@ func (r *Regatta) startSession(session persona.Session, schedule *store.Schedule
 // hydrateOwnStart loads the start timer's own start.json under the four rules
 // of section 8: missing is normal, a parse failure blocks writes, a different
 // regatta is set aside, and the sequence counter carries over inside the
-// returned struct.
+// returned struct. The missing and matching-regatta cases also check the local
+// write-ahead journal (persona-plan.md section 13) for a write that never
+// reached the shared path before an unclean shutdown - see recoveredStartOr.
+// The corrupt and mismatched-regatta cases deliberately skip that check: those
+// already demand the operator's attention, and silently substituting a
+// recovered value would only obscure it.
 func (r *Regatta) hydrateOwnStart(s persona.Session, key string) *store.StartLog {
 	empty := &store.StartLog{Races: map[int]store.StartRecord{}}
 	log, err := store.LoadStart(s)
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
-		return empty
+		return r.recoveredStartOr(s, key, empty)
 	case errors.Is(err, store.ErrCorrupt):
 		r.blockWritesForCorruptFile(s.StartPath(), err)
 		return empty
@@ -318,7 +398,40 @@ func (r *Regatta) hydrateOwnStart(s persona.Session, key string) *store.StartLog
 		log.Races = map[int]store.StartRecord{}
 	}
 	applog.Info("start times restored", "component", "startup", "races", len(log.Races))
-	return log
+	return r.recoveredStartOr(s, key, log)
+}
+
+// recoveredStartOr checks journal.For(s, key) for a start.json write that
+// never reached the shared path before an unclean shutdown. Constructing the
+// journal.Manager for s here, at hydrate time, is what lets crash recovery run
+// before any click ever calls store.SaveStart - the same Manager instance is
+// reused (journal.For memoizes by WritePath) once a click does. Falls back to
+// fallback - whatever the shared-file load above produced - when there is
+// nothing to recover, the journal itself is unavailable, or the recovered
+// bytes do not parse as a StartLog.
+func (r *Regatta) recoveredStartOr(s persona.Session, key string, fallback *store.StartLog) *store.StartLog {
+	j, err := journal.For(s, key)
+	if err != nil {
+		applog.Warn("write-ahead journal unavailable; crash recovery skipped",
+			"component", "startup", "err", err)
+		return fallback
+	}
+	b, ok := j.Recovered()
+	if !ok {
+		return fallback
+	}
+	var recovered store.StartLog
+	if err := json.Unmarshal(b, &recovered); err != nil {
+		applog.Error("recovered start.json entry did not parse; ignored",
+			"component", "startup", "err", err)
+		return fallback
+	}
+	if recovered.Races == nil {
+		recovered.Races = map[int]store.StartRecord{}
+	}
+	applog.Warn("restored a start.json update that never reached the shared path",
+		"component", "startup", "sequence", recovered.Sequence)
+	return &recovered
 }
 
 // hydratePeerStart loads the start timer's start.json for a finish timer, which
@@ -369,12 +482,15 @@ func (r *Regatta) hydratePeerFinish(s persona.Session, key string) *store.Finish
 	return log
 }
 
+// hydrateOwnFinish mirrors hydrateOwnStart for the finish timer's own
+// finish.json - see that function's comment for the crash-recovery rationale
+// and why the corrupt and mismatched-regatta cases skip it.
 func (r *Regatta) hydrateOwnFinish(s persona.Session, key string) *store.FinishLog {
 	empty := &store.FinishLog{Races: map[int]store.RaceResult{}}
 	log, err := store.LoadFinish(s)
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
-		return empty
+		return r.recoveredFinishOr(s, key, empty)
 	case errors.Is(err, store.ErrCorrupt):
 		r.blockWritesForCorruptFile(s.FinishPath(), err)
 		return empty
@@ -390,7 +506,33 @@ func (r *Regatta) hydrateOwnFinish(s persona.Session, key string) *store.FinishL
 		log.Races = map[int]store.RaceResult{}
 	}
 	applog.Info("finish results restored", "component", "startup", "races", len(log.Races))
-	return log
+	return r.recoveredFinishOr(s, key, log)
+}
+
+// recoveredFinishOr is hydrateOwnStart's recoveredStartOr, for finish.json.
+func (r *Regatta) recoveredFinishOr(s persona.Session, key string, fallback *store.FinishLog) *store.FinishLog {
+	j, err := journal.For(s, key)
+	if err != nil {
+		applog.Warn("write-ahead journal unavailable; crash recovery skipped",
+			"component", "startup", "err", err)
+		return fallback
+	}
+	b, ok := j.Recovered()
+	if !ok {
+		return fallback
+	}
+	var recovered store.FinishLog
+	if err := json.Unmarshal(b, &recovered); err != nil {
+		applog.Error("recovered finish.json entry did not parse; ignored",
+			"component", "startup", "err", err)
+		return fallback
+	}
+	if recovered.Races == nil {
+		recovered.Races = map[int]store.RaceResult{}
+	}
+	applog.Warn("restored a finish.json update that never reached the shared path",
+		"component", "startup", "sequence", recovered.Sequence)
+	return &recovered
 }
 
 func (r *Regatta) setAsideDifferentRegatta(path, had, want string) {
@@ -448,8 +590,8 @@ func (r *Regatta) startWatcher(s persona.Session) {
 		}
 	case persona.RoleStart:
 		paths = append(paths, s.FinishPath()) // FT progress, for the row lock
-	case persona.RoleDirector:
-		paths = append(paths, directorWatchPaths(s.Root)...) // both teams' start + finish
+	case persona.RoleDirector, persona.RoleAwards:
+		paths = append(paths, directorWatchPaths(s.Root)...) // primary team's start + finish
 	}
 	// Seed the last-applied hash from what hydrate already read, so the
 	// watcher's unconditional first event for an unchanged file is a no-op.
@@ -474,10 +616,18 @@ func (r *Regatta) startWatcher(s persona.Session) {
 
 	// stopWatcher blocks until the watcher goroutine and its event consumer have
 	// fully exited, so a subsequent startWatcher can safely reset watchedHashes.
+	// It also unsubscribes the journal status banner (persona-plan.md 13) from
+	// this session's journal.Manager - startWatcher runs once per timer session
+	// (unlike the Director, which reruns it on Apply/Reload), so there is only
+	// ever one subscription to tear down.
 	stop := func() {
 		cancel()
 		w.Stop()
 		<-consumed
+		if r.stopJournalStatus != nil {
+			r.stopJournalStatus()
+			r.stopJournalStatus = nil
+		}
 	}
 	r.stopWatcher = stop
 	r.window.SetOnClosed(stop)
@@ -565,7 +715,7 @@ func (r *Regatta) applyWatchEvent(ev watcher.Event) {
 		fyne.Do(func() { r.onSecondaryFinishChanged(&log) })
 
 	default:
-		if r.session.Role == persona.RoleDirector {
+		if r.session.Role == persona.RoleDirector || r.session.Role == persona.RoleAwards {
 			r.applyDirectorTimingEvent(ev)
 		}
 	}

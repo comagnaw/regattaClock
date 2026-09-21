@@ -30,7 +30,15 @@ all:
    copy, RC-id fields added directly to `store.ScheduleRace`/
    `store.ScheduleEntry`) does not depend on the investigation; only
    HSC's own write-back v2, and the actual `heatsheet` origin wiring
-   this axis describes, remain gated on it concluding.
+   this axis describes, remain gated on it concluding. **Update
+   (2026-09-20):** the RD's Excel ingest now reads the workbook's `Heat
+   Sheet` worksheet instead of the old results-shaped `Results` worksheet,
+   for reasons unrelated to RegattaCentral — see
+   [schedule-data-model.md](closed/schedule-data-model.md#ingest-source-results-tab-vs-heat-sheet-tab).
+   Deliberately **not** a fourth `SourceInfo.Type`: it's the same Excel
+   origin, just a different sheet/row-layout choice inside it, so it
+   doesn't add a new value to this axis, only a future internal branch
+   within the existing `"excel"` one.
 2. **Results publish destination** — where official, approved results go
    once a race is signed off. **Not modeled anywhere today.** The current
    real-world process is manual: copy/paste from a pre-formatted results
@@ -60,7 +68,7 @@ does not travel with `regattaData`, is not required, and is set up once per
 should move with `regattaData` if the folder is copied or archived), and
 read by in-app features rather than by startup/picker logic. It belongs
 alongside `Name`/`Date`/`SourceInfo` in `director/regattaSchedule.json`
-(see [schedule-data-model.md](schedule-data-model.md)), not in a separate
+(see [schedule-data-model.md](closed/schedule-data-model.md)), not in a separate
 file.
 
 ## Proposed shape (sketch, not final)

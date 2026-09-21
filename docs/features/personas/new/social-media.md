@@ -109,10 +109,12 @@ the rest of this doc's design reuses that doc's Phase 0 pieces as-is.
 
 ## Existing-code reuse analysis
 
-- **`internal/publish`** (Phase 0a, already fully sketched) —
-  `PublishableRace`, `Row`, `BuildView`, `Revision`, `RenderText` are
-  reused as-is. SOM adds no new fields to `PublishableRace`; the pop-up
-  needs nothing `RenderText`'s output doesn't already provide.
+- **`internal/publish`** (built, race-state-machine.md) —
+  `PublishableRace`, `Row`, `BuildView`, `Revision`, `RenderText`, and
+  `IsStale` are reused as-is. SOM adds no new fields to `PublishableRace`;
+  the pop-up needs nothing `RenderText`'s output doesn't already provide.
+  `IsStale(published, pr)` is the named check for the sidecar's own
+  `published map[int]string` tracking below — no bespoke comparison needed.
 - **Sidecar lifecycle** (Phase 0c, `internal/regatta/sidecar.go`) — reuse
   `openSidecar`/`closeSidecar`, the `sidecar` struct, and the `published
   map[int]string` + `PrefPublishedFormat` preference verbatim. The only

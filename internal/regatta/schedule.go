@@ -28,6 +28,15 @@ func (c scheduleChange) changedLanes() []int {
 	return out
 }
 
+// activeBoat reports whether a lane has a boat actually expected to race -
+// assigned (non-empty SchoolName) and not scratched. Checked against
+// reader.StatusScratched specifically, not "any non-OK status," so a future
+// status (e.g. Exhibition, which still races) is never silently
+// miscategorized as inactive.
+func activeBoat(e reader.RaceEntry) bool {
+	return e.SchoolName != "" && e.Status != reader.StatusScratched
+}
+
 // diffSchedule compares two RegattaData snapshots by race number and lane and
 // returns only the races that materially changed. New or dropped races are left
 // out - the race set changing is handled by a full tree rebuild, not a notice.
@@ -53,11 +62,11 @@ func diffSchedule(old, cur *reader.RegattaData) map[int]scheduleChange {
 		}
 		for lane := 1; lane <= 6; lane++ {
 			ob, nb := o.Lanes[lane], race.Lanes[lane]
-			if ob.SchoolName == nb.SchoolName && ob.AdditionalInfo == nb.AdditionalInfo {
+			if ob.SchoolName == nb.SchoolName && ob.AdditionalInfo == nb.AdditionalInfo && ob.Status == nb.Status {
 				continue
 			}
 			ch.lanes[lane] = true
-			if (ob.SchoolName == "") != (nb.SchoolName == "") {
+			if activeBoat(ob) != activeBoat(nb) {
 				ch.scratch = true
 			} else {
 				ch.moved = true
@@ -100,6 +109,7 @@ func scheduleFromRegattaData(rd *reader.RegattaData) *store.Schedule {
 			out.Lanes[lane] = store.ScheduleEntry{
 				SchoolName:     entry.SchoolName,
 				AdditionalInfo: entry.AdditionalInfo,
+				Status:         store.ScheduleEntryStatus(entry.Status),
 			}
 		}
 		sch.Races = append(sch.Races, out)
@@ -117,7 +127,11 @@ func raceLaneMapHash(rd reader.RaceData) string {
 		Lanes:      make(map[int]store.ScheduleEntry, len(rd.Lanes)),
 	}
 	for lane, e := range rd.Lanes {
-		sr.Lanes[lane] = store.ScheduleEntry{SchoolName: e.SchoolName, AdditionalInfo: e.AdditionalInfo}
+		sr.Lanes[lane] = store.ScheduleEntry{
+			SchoolName:     e.SchoolName,
+			AdditionalInfo: e.AdditionalInfo,
+			Status:         store.ScheduleEntryStatus(e.Status),
+		}
 	}
 	return sr.LaneMapHash()
 }
@@ -148,6 +162,7 @@ func regattaDataFromSchedule(sch *store.Schedule) *reader.RegattaData {
 			out.Lanes[lane] = reader.RaceEntry{
 				SchoolName:     entry.SchoolName,
 				AdditionalInfo: entry.AdditionalInfo,
+				Status:         reader.RaceEntryStatus(entry.Status),
 			}
 		}
 		rd.Races = append(rd.Races, out)

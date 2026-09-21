@@ -5,10 +5,10 @@ future personas that turn an approved race into published content, or whether
 that is best rolled into the feature that adds those personas.
 
 **Status:** design assessment, no code. Companion to
-[reconciliation.md](reconciliation.md) — the personas here are *content
+[reconciliation.md](closed/reconciliation.md) — the personas here are *content
 consumers*; the *results/publish persona* named there is the *producer* they
 depend on. See also [persona-plan.md](persona-plan.md) §9 (Director progress
-tree), §13 (open items), and [schedule-data-model.md](schedule-data-model.md).
+tree), §13 (open items), and [schedule-data-model.md](closed/schedule-data-model.md).
 
 **Update (2026-09-16):** the "results/publish persona" referenced above as
 the producer these content-consumer personas would depend on has been
@@ -112,7 +112,7 @@ Costs:
   stage 3 specifically because an empty, unwritten directory in everyone's
   synced folder is misleading ([persona-plan.md](persona-plan.md) §3). Bringing
   the name back is a decision to call out, not a free slot.
-- **Departs from a stated invariant.** [reconciliation.md](reconciliation.md)
+- **Departs from a stated invariant.** [reconciliation.md](closed/reconciliation.md)
   says plainly: *"No new file. The Regatta Director persists no reconciliation
   decision."* A materialized `results/` tree is a change to that.
 
@@ -146,7 +146,7 @@ verdict, and the watch signal is whole-file rather than per-race.
 The FT approval workflow does **not** change now. When the content personas are
 built:
 
-- The **results/publish persona** (the one [reconciliation.md](reconciliation.md)
+- The **results/publish persona** (the one [reconciliation.md](closed/reconciliation.md)
   already anticipates) — or, until it exists, the **Regatta Director**, which
   already reads both `finish.json` files and the schedule and runs the progress
   tree — materializes `regattaData/results/` as a **derived, single-writer**
@@ -163,7 +163,7 @@ built:
 **Defer.** Nothing blocks building these personas later against `finish.json` +
 `regattaSchedule.json` as they stand. The materialized `results/` file is a
 reconciliation artifact whose shape depends on decisions
-[reconciliation.md](reconciliation.md) deliberately leaves open. Adding a writer
+[reconciliation.md](closed/reconciliation.md) deliberately leaves open. Adding a writer
 to the FT approval path is the expensive, invariant-touching change; adding a
 consumer later is cheap and isolated. Roll `results/` into the same feature that
 adds the personas, and treat this doc as the placeholder for that decision.

@@ -18,6 +18,14 @@ const (
 	// always re-pick.
 	PrefLastPersonaID = "LastPersonaID"
 
+	// PrefLastRegattaRoot - the resolved regattaData root bound by the last
+	// successful Start/Finish/Awards session (set in startSession). Offered as
+	// a "load previous regatta" shortcut before the folder browser opens for
+	// those personas (persona_startup.go startPersonaDirectory). The Regatta
+	// Director has its own separate resume mechanism via PrefRegattaDir /
+	// PrefLastPersonaID.
+	PrefLastRegattaRoot = "LastRegattaRoot"
+
 	// PrefPersonaConfigFile - absolute path to an optional deployment JSON
 	// (internal/personacfg) that pins this host to a persona (skipping the
 	// picker) and/or replaces the built-in challenge codes. Chosen on the
@@ -42,7 +50,11 @@ const (
 	// today the single operator writes one flat file here.
 	LogsDir = "logs"
 
-	ResultsSheetName = "Results"
+	// HeatSheetName - the workbook worksheet the RD imports the schedule
+	// from: race number, boat class, flight/heat, and lane assignments -
+	// never results (see docs/features/personas/closed/schedule-data-model.md's
+	// "Ingest source" section).
+	HeatSheetName = "Heat Sheet"
 
 	EmptyString = ""
 
@@ -134,7 +146,6 @@ const (
 	OriginUnchangedMessage    = "The workbook has not changed the schedule."
 
 	NumScheduledRacesTitle = "Scheduled Races: %d"
-	ScheduledRacesTile     = "Scheduled Races"
 
 	// TreeRegattaKey / TreeScheduledRacesKey / TreeDateKey / TreeRoleKey - the
 	// race-tree details panel's four "Key:" labels, rendered as their own
@@ -151,15 +162,24 @@ const (
 	// persona is known. Once it is, the role is appended via WindowTitleFormat.
 	// Arg: race number.
 	ClockWindowTitleFormat = "Race %d Clock"
-	ConfigTitle            = "Configuration"
-	LoadDataTitle          = "Load Regatta Data"
-	CreateLaneImagesTitle  = "Create Lane Images"
+
+	// ResultsWindowTitleFormat - the Director/Awards read-only results window's
+	// OS title bar. Arg: race number.
+	ResultsWindowTitleFormat = "Race %d Results"
+
+	ConfigTitle           = "Configuration"
+	LoadDataTitle         = "Load Regatta Data"
+	CreateLaneImagesTitle = "Create Lane Images"
 	// VersionTitle is both the menu label and the title of the build-info window.
 	VersionTitle = "Version"
 
-	// Race-tree column headers (internal/regatta races.go / timer_races.go). The
-	// race column reuses ScheduledRacesTile.
+	// Race-tree column headers (internal/regatta races.go / timer_races.go),
+	// left to right: Num, Scheduled Time, Entries, Event, then the role's
+	// action and the Restarts/Start Time/Winning Time/Status cluster.
+	ColNum           = "Num"
 	ColScheduledTime = "Scheduled Time"
+	ColEntries       = "Entries"
+	ColEvent         = "Event"
 	ColStartTime     = "Start Time"
 	ColStatus        = "Status"
 	ColRestarts      = "Restarts"
@@ -168,6 +188,7 @@ const (
 	// Role-aware timer race tree (internal/regatta timer_races.go / start_timing.go).
 	StartTimeButtonText      = "Start Time"
 	ClearButtonText          = "Clear"
+	RestartRaceButtonText    = "Restart Race" // clearBtn once a start already exists - same action, reads as a restart
 	RestoreButtonText        = "Restore"
 	ClearApprovedRaceTitle   = "Discard the approved result?"
 	ClearApprovedRaceMessage = "Race %d was already approved with winning time %s. Clearing it now will discard that approved result so it can be re-timed. This should be rare - are you sure?"
@@ -175,20 +196,13 @@ const (
 	WaitingForStartText      = "awaiting start"          // FT race-tree Start Time cell before the peer start lands (fits the start-time column)
 	StartNotCollectedText    = "no start time"           // FT race-tree Start Time cell once a result is saved/approved and no start was recorded
 	WaitingForStartTimeText  = "waiting for start time…" // FT clock winning-time placeholder until the ST start lands
-	RaceSavedText            = "saved"
-	RaceApprovedText         = "approved"
-	StartTimeDisplayLayout   = "15:04:05.0" // wall clock with tenths, as StartRecord.Display
+	StartTimeDisplayLayout   = "15:04:05.0"              // wall clock with tenths, as StartRecord.Display
 	ClearStartTitle          = "Clear start time"
 	ClearStartMessage        = "Clear the recorded start for race %d?"
 	RestoreStartTitle        = "Restore start time"
 	RestoreStartPlainMessage = "Restore the previously collected start time %s for race %d?"
 	RestoreStartMessage      = "Replace the current start time %s with the previously collected %s for race %d?"
 	WritesBlockedMessage     = "Recording is blocked because a timing file could not be read at startup. Resolve the file set aside for recovery and restart."
-
-	// Race-progress status, one vocabulary across the ST, FT and RD race trees:
-	// FirstFinishAt set -> RaceInProgressText, a winning time saved ->
-	// RaceSavedText (above), referee-approved -> RaceApprovedText (above).
-	RaceInProgressText = "timing in progress"
 
 	// Schedule-conflict notices (persona-plan.md 3c). A schedule change that
 	// touches a race with timing (or an open clock) never rewrites start.json /
@@ -221,6 +235,13 @@ const (
 	// timing file has been written for a while. Arg: age of the freshest write.
 	DirectorStaleBannerFormat = "No timing updates in %s. The regatta may have stalled, or a timer's machine is offline."
 
+	// JournalRetryingBannerFormat - persona-plan.md 13 local write-ahead
+	// journal: shown on a timer's race tree while journal.Manager is retrying
+	// a write the shared regatta folder hasn't accepted yet. Arg: how long the
+	// write has been queued.
+	JournalRetryingBannerFormat = "Your times are saved on this computer. The shared regatta folder hasn't been reachable for %s — they'll sync automatically once it is."
+	RetryNowButtonText          = "Retry Now"
+
 	// Winning-time helper note under the FT clock's Winning Time field
 	// (persona-plan.md 2.1). The derived value only pre-fills; the referee's
 	// time always overrides. These say where the number came from, or why there
@@ -231,13 +252,11 @@ const (
 	WinningTimeStaleNote    = "Auto winning time skipped: the recorded start time is about %s old. Enter the referee's time."
 	WinningTimeNegativeNote = "Auto winning time skipped: the start time is %s later than the first finish (clock skew?). Enter the referee's time."
 
-	// FT clock commit-status line, under the approval panel. A race is Pending
-	// until it is persisted: the primary FT reaches Approved via Referee
-	// Approval, the secondary FT reaches Saved via Save and Close. The primary
-	// FT's Close button stays disabled until the line leaves Pending. The
-	// non-Pending lines are "<state> at <time> by <host>"; args are the local
-	// timestamp then the writing machine's hostname.
-	CommitStatusPending        = "Pending"
+	// FT clock commit-status line, under the approval panel. Its text is
+	// store.TeamState.DisplayText for every state except Saved/Approved,
+	// which use these formats instead: "<state> on <time> by <host>". The
+	// primary FT's Close button stays disabled until the state leaves
+	// Approved's precursors.
 	CommitStatusSavedFormat    = "Saved on %s by %s"
 	CommitStatusApprovedFormat = "Approved on %s by %s"
 	CommitStatusTimeFormat     = "Mon, 02 Jan 2006 15:04:05 MST" // time.RFC1123
@@ -266,6 +285,14 @@ const (
 	ScheduleUnreadableMessage   = "Could not read the regatta schedule in that directory"
 	ConfirmRegattaTitle         = "Confirm regatta"
 	ConfirmRegattaMessage       = "%s\n%s\nScheduled races: %d\n\nTime this regatta?"
+
+	// Soft-load of the last regattaData folder used by a Start/Finish/Awards
+	// persona (PrefLastRegattaRoot, persona_startup.go startPersonaDirectory /
+	// confirmPreviousRegatta). Offered before the folder browser opens.
+	ConfirmPreviousRegattaTitle   = "Load previous regatta?"
+	ConfirmPreviousRegattaMessage = "%s\n%s\nScheduled races: %d\n\nSaved in: %s"
+	LoadPreviousRegattaButtonText = "Load Previous Regatta"
+	ChooseAnotherFolderButtonText = "Choose a Different Folder"
 
 	// Deployment persona config (internal/personacfg + internal/regatta
 	// persona_config.go). An organisation points the app at a JSON file on the
@@ -311,6 +338,7 @@ const (
 	StartButtonText         = "Start (F2)"
 	StopButtonText          = "Stop"
 	TimeRaceButtonText      = "Time Race"
+	ViewResultsButtonText   = "View Results"
 	WinningTimeInputText    = "Winning Time:"
 )
 

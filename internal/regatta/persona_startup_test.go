@@ -10,11 +10,66 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/test"
+	"fyne.io/fyne/v2/widget"
 
 	"github.com/comagnaw/regattaClock/internal/common"
 	"github.com/comagnaw/regattaClock/internal/persona"
 	"github.com/comagnaw/regattaClock/internal/persona/store"
 )
+
+// findInCanvasTree depth-first searches o for the first object match accepts,
+// including inside a dialog's overlay: Fyne wraps overlay content in an
+// unexported OverlayContainer, so anything that isn't one of the concrete
+// container types below falls through to its renderer's objects (the
+// sanctioned way to reach into an opaque fyne.Widget from a test).
+func findInCanvasTree(o fyne.CanvasObject, match func(fyne.CanvasObject) bool) fyne.CanvasObject {
+	if o == nil {
+		return nil
+	}
+	if match(o) {
+		return o
+	}
+	switch v := o.(type) {
+	case *widget.PopUp:
+		return findInCanvasTree(v.Content, match)
+	case *container.AppTabs:
+		for _, item := range v.Items {
+			if got := findInCanvasTree(item.Content, match); got != nil {
+				return got
+			}
+		}
+	case *fyne.Container:
+		for _, c := range v.Objects {
+			if got := findInCanvasTree(c, match); got != nil {
+				return got
+			}
+		}
+	default:
+		if w, ok := o.(fyne.Widget); ok {
+			for _, c := range w.CreateRenderer().Objects() {
+				if got := findInCanvasTree(c, match); got != nil {
+					return got
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// findOverlayButtonByLabel returns the first button with the given text inside
+// any of c's overlays (e.g. a dialog.CustomDialog's SetButtons row), or nil.
+func findOverlayButtonByLabel(c fyne.Canvas, label string) *widget.Button {
+	for _, ov := range c.Overlays().List() {
+		found := findInCanvasTree(ov, func(o fyne.CanvasObject) bool {
+			b, ok := o.(*widget.Button)
+			return ok && b.Text == label
+		})
+		if b, ok := found.(*widget.Button); ok {
+			return b
+		}
+	}
+	return nil
+}
 
 func findAppTabs(o fyne.CanvasObject) *container.AppTabs {
 	switch v := o.(type) {
@@ -482,5 +537,156 @@ func TestDirectorMenuHasImportTimerDoesNot(t *testing.T) {
 	stopWatch(t, tmr)
 	if slices.Contains(menuLabels(tmr.window.MainMenu()), common.LoadDataTitle) {
 		t.Error("timer menu must not offer Excel import")
+	}
+}
+
+func TestStartSession_PersistsLastRegattaRoot(t *testing.T) {
+	app := test.NewTempApp(t)
+	sch := testSchedule()
+	root := seedRegatta(t, sch)
+	pst := timerSession(t, "pst", root)
+
+	r := NewTimer(app)
+	stopWatch(t, r)
+	r.startSession(pst, sch)
+
+	if got := app.Preferences().String(common.PrefLastRegattaRoot); got != root {
+		t.Errorf("PrefLastRegattaRoot = %q, want %q", got, root)
+	}
+}
+
+func TestOnPersonaChosen_NoLastRoot_OpensFolderBrowserDirectly(t *testing.T) {
+	app := test.NewTempApp(t)
+	r := NewTimer(app)
+	stopWatch(t, r)
+
+	def, _ := persona.ByID("pst")
+	r.onPersonaChosen(def, "rc-pst")
+
+	if len(r.window.Canvas().Overlays().List()) == 0 {
+		t.Fatal("choosing a persona with no last root should still open the folder browser")
+	}
+	if findOverlayButtonByLabel(r.window.Canvas(), common.LoadPreviousRegattaButtonText) != nil {
+		t.Error("no previous-regatta dialog should appear when PrefLastRegattaRoot is unset")
+	}
+	if r.session.Root != common.EmptyString {
+		t.Error("no session should be bound yet")
+	}
+}
+
+func TestOnPersonaChosen_UnreadableLastRoot_FallsBackToFolderBrowser(t *testing.T) {
+	app := test.NewTempApp(t)
+	app.Preferences().SetString(common.PrefLastRegattaRoot, filepath.Join(t.TempDir(), "gone"))
+	r := NewTimer(app)
+	stopWatch(t, r)
+
+	def, _ := persona.ByID("pst")
+	r.onPersonaChosen(def, "rc-pst")
+
+	if len(r.window.Canvas().Overlays().List()) == 0 {
+		t.Fatal("an unreadable last root should still fall back to the folder browser")
+	}
+	if findOverlayButtonByLabel(r.window.Canvas(), common.LoadPreviousRegattaButtonText) != nil {
+		t.Error("no previous-regatta dialog should appear for an unreadable root")
+	}
+}
+
+func TestOnPersonaChosen_ValidLastRoot_OffersPreviousRegatta(t *testing.T) {
+	app := test.NewTempApp(t)
+	sch := testSchedule()
+	root := seedRegatta(t, sch)
+	app.Preferences().SetString(common.PrefLastRegattaRoot, root)
+	r := NewTimer(app)
+	stopWatch(t, r)
+
+	def, _ := persona.ByID("pst")
+	r.onPersonaChosen(def, "rc-pst")
+
+	if findOverlayButtonByLabel(r.window.Canvas(), common.LoadPreviousRegattaButtonText) == nil {
+		t.Fatal("a readable last root should offer to load the previous regatta")
+	}
+	if findOverlayButtonByLabel(r.window.Canvas(), common.ChooseAnotherFolderButtonText) == nil {
+		t.Error("the previous-regatta dialog is missing its \"choose another folder\" button")
+	}
+	if findOverlayButtonByLabel(r.window.Canvas(), common.CancelButtonText) == nil {
+		t.Error("the previous-regatta dialog is missing its cancel button")
+	}
+	if r.session.Root != common.EmptyString {
+		t.Error("the session should not bind until the dialog is accepted")
+	}
+}
+
+func TestConfirmPreviousRegatta_Yes_StartsSession(t *testing.T) {
+	app := test.NewTempApp(t)
+	sch := testSchedule()
+	root := seedRegatta(t, sch)
+	app.Preferences().SetString(common.PrefLastRegattaRoot, root)
+	r := NewTimer(app)
+	stopWatch(t, r)
+
+	def, _ := persona.ByID("pst")
+	r.onPersonaChosen(def, "rc-pst")
+
+	yes := findOverlayButtonByLabel(r.window.Canvas(), common.LoadPreviousRegattaButtonText)
+	if yes == nil {
+		t.Fatal("no \"load previous regatta\" button found")
+	}
+	yes.OnTapped()
+
+	if r.session.Root != root || r.session.Role != persona.RoleStart {
+		t.Fatalf("session = %+v, want root %q", r.session, root)
+	}
+	if findAppTabs(r.window.Content()) != nil {
+		t.Error("still on the persona picker after loading the previous regatta")
+	}
+}
+
+func TestConfirmPreviousRegatta_No_OpensFolderBrowser(t *testing.T) {
+	app := test.NewTempApp(t)
+	sch := testSchedule()
+	root := seedRegatta(t, sch)
+	app.Preferences().SetString(common.PrefLastRegattaRoot, root)
+	r := NewTimer(app)
+	stopWatch(t, r)
+
+	def, _ := persona.ByID("pst")
+	r.onPersonaChosen(def, "rc-pst")
+
+	no := findOverlayButtonByLabel(r.window.Canvas(), common.ChooseAnotherFolderButtonText)
+	if no == nil {
+		t.Fatal("no \"choose a different folder\" button found")
+	}
+	no.OnTapped()
+
+	if len(r.window.Canvas().Overlays().List()) == 0 {
+		t.Fatal("declining the previous regatta should open the folder browser")
+	}
+	if r.session.Root != common.EmptyString {
+		t.Error("no session should be bound yet")
+	}
+}
+
+func TestConfirmPreviousRegatta_Cancel_ReturnsToPicker(t *testing.T) {
+	app := test.NewTempApp(t)
+	sch := testSchedule()
+	root := seedRegatta(t, sch)
+	app.Preferences().SetString(common.PrefLastRegattaRoot, root)
+	r := NewTimer(app)
+	stopWatch(t, r)
+
+	def, _ := persona.ByID("pst")
+	r.onPersonaChosen(def, "rc-pst")
+
+	cancel := findOverlayButtonByLabel(r.window.Canvas(), common.CancelButtonText)
+	if cancel == nil {
+		t.Fatal("no cancel button found")
+	}
+	cancel.OnTapped()
+
+	if findAppTabs(r.window.Content()) == nil {
+		t.Error("cancelling the previous-regatta dialog should return to the persona picker")
+	}
+	if r.session.Root != common.EmptyString {
+		t.Error("no session should be bound after cancelling")
 	}
 }

@@ -61,8 +61,9 @@ func TestDirectorRow_PrimaryValues(t *testing.T) {
 	if row.winTime.Text != "06:00.0" {
 		t.Errorf("winning time = %q", row.winTime.Text)
 	}
-	if row.approved.Text != common.RaceApprovedText {
-		t.Errorf("status = %q, want %q", row.approved.Text, common.RaceApprovedText)
+	wantApproved := store.StateApproved.DisplayText(persona.TeamPrimary)
+	if row.progress.Text != wantApproved {
+		t.Errorf("status = %q, want %q", row.progress.Text, wantApproved)
 	}
 }
 
@@ -87,8 +88,25 @@ func TestDirectorRow_NoSecondaryFallback(t *testing.T) {
 	if got := r.rows[2].winTime.Text; got != common.NoStartTimeText {
 		t.Errorf("race 2 winning time = %q, want a placeholder", got)
 	}
-	if got := r.rows[2].approved.Text; got != common.EmptyString {
-		t.Errorf("race 2 status = %q, want empty", got)
+	wantNotStarted := store.StateNotStarted.DisplayText(persona.TeamPrimary)
+	if got := r.rows[2].progress.Text; got != wantNotStarted {
+		t.Errorf("race 2 status = %q, want %q", got, wantNotStarted)
+	}
+}
+
+// TestDirectorRow_OnTheWaterBeforeFinishTimerBegins - the RD's row must
+// reflect the canonical team state (race-state-machine.md), not stay blank
+// until the finish timer opens its clock: a recorded ST start alone already
+// reaches StateStartRecorded, which displays as "On the Water".
+func TestDirectorRow_OnTheWaterBeforeFinishTimerBegins(t *testing.T) {
+	r := directorWithPrimaryLog(t,
+		&teamTiming{start: startLogWith(map[int]store.StartRecord{
+			1: {RaceNumber: 1, StartedAt: tm(-2), Display: "09:00:00.0"},
+		})},
+	)
+	wantOnTheWater := store.StateStartRecorded.DisplayText(persona.TeamPrimary)
+	if got := r.rows[1].progress.Text; got != wantOnTheWater {
+		t.Errorf("status = %q, want %q", got, wantOnTheWater)
 	}
 }
 
@@ -98,18 +116,20 @@ func TestDirectorRow_InProgressStatus(t *testing.T) {
 			1: {RaceNumber: 1, FirstFinishAt: tm(-1)}, // started, nothing saved
 		})},
 	)
-	if got := r.rows[1].approved.Text; got != common.RaceInProgressText {
-		t.Errorf("in-progress status = %q, want %q", got, common.RaceInProgressText)
+	wantInProgress := store.StateTimingInProgress.DisplayText(persona.TeamPrimary)
+	if got := r.rows[1].progress.Text; got != wantInProgress {
+		t.Errorf("in-progress status = %q, want %q", got, wantInProgress)
 	}
 }
 
 func TestDirectorRow_Placeholders(t *testing.T) {
 	r := directorWithPrimaryLog(t, &teamTiming{})
 	row := r.rows[1]
+	wantNotStarted := store.StateNotStarted.DisplayText(persona.TeamPrimary)
 	if row.restarts.Text != common.NoStartTimeText || row.startTime.Text != common.NoStartTimeText ||
-		row.winTime.Text != common.NoStartTimeText || row.approved.Text != common.EmptyString {
+		row.winTime.Text != common.NoStartTimeText || row.progress.Text != wantNotStarted {
 		t.Errorf("placeholders wrong: %q %q %q %q",
-			row.restarts.Text, row.startTime.Text, row.winTime.Text, row.approved.Text)
+			row.restarts.Text, row.startTime.Text, row.winTime.Text, row.progress.Text)
 	}
 	if row.scheduledTime.Text != common.NoStartTimeText {
 		t.Errorf("scheduled time placeholder = %q, want %q", row.scheduledTime.Text, common.NoStartTimeText)
@@ -126,6 +146,76 @@ func TestDirectorRow_ScheduledTime(t *testing.T) {
 
 	if got := r.rows[1].scheduledTime.Text; got != "09:00 AM" {
 		t.Errorf("scheduled time = %q, want %q", got, "09:00 AM")
+	}
+}
+
+// TestDirectorRow_BoatCount - the race's entry count shows on the RD's row
+// the same way Scheduled Time does.
+func TestDirectorRow_BoatCount(t *testing.T) {
+	r := directorWithRaces(t, []reader.RaceData{
+		{RaceNumber: 1, BoatCount: 4, Lanes: map[int]reader.RaceEntry{1: {SchoolName: "A"}}},
+	})
+	r.raceListBody()
+
+	if got := r.rows[1].boatCount.Text; got != "4" {
+		t.Errorf("boat count = %q, want %q", got, "4")
+	}
+}
+
+// TestDirectorRow_ResultsButtonGatedByApproval - the View Results button
+// (shared by RoleDirector and RoleAwards) is only enabled once the primary
+// team's result is store.CanPublish, not merely "has a winning time" -
+// matching awards.md's explicit gating instruction.
+func TestDirectorRow_ResultsButtonGatedByApproval(t *testing.T) {
+	r := directorWithPrimaryLog(t,
+		&teamTiming{finish: finishLogWith(map[int]store.RaceResult{
+			1: {RaceNumber: 1, WinningTime: "06:00.0"}, // not yet approved
+		})},
+	)
+	if r.rows[1].resultsBtn == nil || !r.rows[1].resultsBtn.Disabled() {
+		t.Error("results button should exist, disabled, before approval")
+	}
+	if r.rows[2].resultsBtn == nil || !r.rows[2].resultsBtn.Disabled() {
+		t.Error("results button for an untimed race should exist, disabled")
+	}
+}
+
+func TestDirectorRow_ResultsButtonEnabledOnceApproved(t *testing.T) {
+	r := directorWithPrimaryLog(t,
+		&teamTiming{finish: finishLogWith(map[int]store.RaceResult{
+			1: {RaceNumber: 1, WinningTime: "06:00.0", Approved: true},
+		})},
+	)
+	if r.rows[1].resultsBtn.Disabled() {
+		t.Error("results button should be enabled once the result is approved")
+	}
+}
+
+// TestDirectorRow_ResultsButtonRefreshesInPlace - an approval arriving later
+// (the primary FT's finish.json updating) must enable the button in place,
+// without a full tree rebuild - the same lesson the Entries column's
+// staleness fix already established for anything that can change under an
+// existing row.
+func TestDirectorRow_ResultsButtonRefreshesInPlace(t *testing.T) {
+	r := directorWithPrimaryLog(t,
+		&teamTiming{finish: finishLogWith(map[int]store.RaceResult{
+			1: {RaceNumber: 1, WinningTime: "06:00.0"},
+		})},
+	)
+	row := r.rows[1]
+	if !row.resultsBtn.Disabled() {
+		t.Fatal("expected disabled before approval")
+	}
+
+	r.onDirectorTeamChanged(persona.TeamPrimary, nil, finishLogWith(map[int]store.RaceResult{
+		1: {RaceNumber: 1, WinningTime: "06:00.0", Approved: true},
+	}))
+
+	if r.rows[1] != row {
+		t.Fatal("expected the same row instance (no rebuild), got a different one")
+	}
+	if row.resultsBtn.Disabled() {
+		t.Error("results button should be enabled after the approval update, without a tree rebuild")
 	}
 }
 

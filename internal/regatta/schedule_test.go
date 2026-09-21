@@ -11,10 +11,13 @@ import (
 	"github.com/comagnaw/regattaClock/internal/common"
 	"github.com/comagnaw/regattaClock/internal/filesystem"
 	"github.com/comagnaw/regattaClock/internal/persona"
-	"github.com/comagnaw/regattaClock/internal/persona/store"
 	"github.com/comagnaw/regattaClock/internal/reader"
 )
 
+// legacyRegattaData builds a schedule-shaped RegattaData - RaceEntry no
+// longer has result fields to drop, so this is just an ordinary schedule
+// fixture (used to prove a second launch leaves an untouched legacy file
+// alone in TestMigrationIsNoOpWhenScheduleExists).
 func legacyRegattaData() *reader.RegattaData {
 	rd := reader.NewRegattaData()
 	rd.Name = "Old Regatta"
@@ -27,48 +30,13 @@ func legacyRegattaData() *reader.RegattaData {
 			BoatClass:     "Varsity 8",
 			FlightInfo:    "Final",
 			BoatCount:     2,
-			Approved:   true,
-			Saved:      true,
-			RawData:    reader.RawData{{"Varsity 8"}, {"Final"}, {"", "1"}, {"", "00:00.0"}, {"", "06:00.0"}},
 			Lanes: map[int]reader.RaceEntry{
-				1: {SchoolName: "Alpha", AdditionalInfo: "A", Place: "1", Split: "00:00.0", Time: "06:00.0"},
-				2: {SchoolName: "Beta", Place: "2", Split: "00:03.0", Time: "06:03.0"},
+				1: {SchoolName: "Alpha", AdditionalInfo: "A"},
+				2: {SchoolName: "Beta"},
 			},
 		},
 	}
 	return rd
-}
-
-func TestScheduleConversionDropsResultFields(t *testing.T) {
-	sch := scheduleFromRegattaData(legacyRegattaData())
-
-	if sch.Name != "Old Regatta" || sch.Origin.Hash != "deadbeef" {
-		t.Fatalf("metadata not carried: %+v", sch)
-	}
-	if len(sch.Races) != 1 || sch.Races[0].BoatCount != 2 {
-		t.Fatalf("race not carried: %+v", sch.Races)
-	}
-	if sch.Races[0].ScheduledTime != "09:00 AM" {
-		t.Fatalf("scheduled time not carried: %+v", sch.Races[0])
-	}
-	if sch.Races[0].Lanes[1] != (store.ScheduleEntry{SchoolName: "Alpha", AdditionalInfo: "A"}) {
-		t.Fatalf("lane 1 = %+v, want school/additional only", sch.Races[0].Lanes[1])
-	}
-
-	// Back to RegattaData: result fields come back zero.
-	rd := regattaDataFromSchedule(sch)
-	if rd.Races[0].Approved || rd.Races[0].Saved || rd.Races[0].RawData != nil {
-		t.Fatalf("result fields survived the round trip: %+v", rd.Races[0])
-	}
-	if rd.Races[0].Lanes[1].Place != "" || rd.Races[0].Lanes[2].Time != "" {
-		t.Fatalf("lane result fields survived: %+v", rd.Races[0].Lanes)
-	}
-	if rd.Races[0].Lanes[2].SchoolName != "Beta" {
-		t.Fatalf("schedule fields lost: %+v", rd.Races[0].Lanes[2])
-	}
-	if rd.Races[0].ScheduledTime != "09:00 AM" {
-		t.Fatalf("scheduled time not carried back: %+v", rd.Races[0])
-	}
 }
 
 // TestDiffSchedule_ScheduledTimeChangeSetsMeta - a scheduled-time-only edit
@@ -89,6 +57,97 @@ func TestDiffSchedule_ScheduledTimeChangeSetsMeta(t *testing.T) {
 	}
 }
 
+// TestDiffSchedule_ScratchViaStatus - a lane transitioning to
+// Status: StatusScratched, with SchoolName unchanged, must fire
+// ch.scratch - not ch.moved, which is what a bare AdditionalInfo-text
+// change used to fall into before Status existed.
+func TestDiffSchedule_ScratchViaStatus(t *testing.T) {
+	old := &reader.RegattaData{Races: []reader.RaceData{
+		{RaceNumber: 1, Lanes: map[int]reader.RaceEntry{
+			1: {SchoolName: "Rangers", AdditionalInfo: ""},
+		}},
+	}}
+	cur := &reader.RegattaData{Races: []reader.RaceData{
+		{RaceNumber: 1, Lanes: map[int]reader.RaceEntry{
+			1: {SchoolName: "Rangers", AdditionalInfo: "SCRATCHED", Status: reader.StatusScratched},
+		}},
+	}}
+
+	changes := diffSchedule(old, cur)
+	ch, ok := changes[1]
+	if !ok {
+		t.Fatal("expected race 1 to be flagged as changed")
+	}
+	if !ch.scratch {
+		t.Errorf("expected ch.scratch = true for a Status flip, got %+v", ch)
+	}
+	if ch.moved {
+		t.Errorf("a real scratch should not also be classified as moved, got %+v", ch)
+	}
+	if !ch.lanes[1] {
+		t.Errorf("lane 1 should be marked changed, got %+v", ch.lanes)
+	}
+}
+
+// TestDiffSchedule_PlainNoteIsMoved - an AdditionalInfo change that is NOT a
+// scratch (e.g. an A/B flight designator) still classifies as ch.moved, not
+// ch.scratch - activeBoat only cares about StatusScratched specifically.
+func TestDiffSchedule_PlainNoteIsMoved(t *testing.T) {
+	old := &reader.RegattaData{Races: []reader.RaceData{
+		{RaceNumber: 1, Lanes: map[int]reader.RaceEntry{
+			1: {SchoolName: "Capitals", AdditionalInfo: ""},
+		}},
+	}}
+	cur := &reader.RegattaData{Races: []reader.RaceData{
+		{RaceNumber: 1, Lanes: map[int]reader.RaceEntry{
+			1: {SchoolName: "Capitals", AdditionalInfo: "B"},
+		}},
+	}}
+
+	changes := diffSchedule(old, cur)
+	ch, ok := changes[1]
+	if !ok {
+		t.Fatal("expected race 1 to be flagged as changed")
+	}
+	if ch.scratch {
+		t.Errorf("a plain note change must not be classified as a scratch, got %+v", ch)
+	}
+	if !ch.moved {
+		t.Errorf("expected ch.moved = true, got %+v", ch)
+	}
+}
+
+// legacyDataJSON is a frozen pre-persona data.json shape, hand-written
+// rather than built from the live RaceData/RaceEntry structs - those no
+// longer have Place/Split/Time/Approved/Saved to construct it with, and a
+// migration test should exercise a real historical on-disk shape rather
+// than whatever the current struct happens to allow. Unmarshaling this into
+// today's reader.RegattaData silently drops the unknown result fields,
+// which is exactly the migration behavior this test verifies.
+const legacyDataJSON = `{
+	"Name": "Old Regatta",
+	"Date": "2025-05-01",
+	"Type": "excel",
+	"URI": "old.xlsx",
+	"Hash": "deadbeef",
+	"Races": [
+		{
+			"RaceNumber": 4,
+			"ScheduledTime": "09:00 AM",
+			"BoatClass": "Varsity 8",
+			"FlightInfo": "Final",
+			"BoatCount": 2,
+			"Approved": true,
+			"Saved": true,
+			"RawData": [["Varsity 8","","","","","",""],["Final","","","","","",""],["","","","","","",""]],
+			"Lanes": {
+				"1": {"SchoolName": "Alpha", "AdditionalInfo": "A", "Place": "1", "Split": "00:00.0", "Time": "06:00.0"},
+				"2": {"SchoolName": "Beta", "AdditionalInfo": "", "Place": "2", "Split": "00:03.0", "Time": "06:03.0"}
+			}
+		}
+	]
+}`
+
 func TestMigratesLegacyDataFile(t *testing.T) {
 	app := test.NewTempApp(t)
 	regattaDir := t.TempDir()
@@ -99,7 +158,7 @@ func TestMigratesLegacyDataFile(t *testing.T) {
 	if err := filesystem.CreateDirs(dataRoot); err != nil {
 		t.Fatal(err)
 	}
-	if err := filesystem.SaveJSONFile(legacyRegattaData(), legacyPath); err != nil {
+	if err := os.WriteFile(legacyPath, []byte(legacyDataJSON), 0o644); err != nil {
 		t.Fatal(err)
 	}
 

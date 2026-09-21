@@ -162,7 +162,7 @@ func TestStartup_RestoresHistory(t *testing.T) {
 		t.Fatal("import should be enabled after choosing a directory")
 	}
 
-	xlsx, err := filepath.Abs(filepath.Join("..", "..", "examples", "Example Regatta Input Table.xlsx"))
+	xlsx, err := filepath.Abs(filepath.Join("..", "..", "examples", "Example Heat Sheets and Results With Macros.xlsm"))
 	if err != nil {
 		t.Fatalf("could not resolve the example workbook: %v", err)
 	}

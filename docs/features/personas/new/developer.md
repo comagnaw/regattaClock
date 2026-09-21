@@ -2,8 +2,11 @@
 
 A **standalone**, Executive-team, read-only Admin persona for engineering and
 support diagnostics: a more detailed regatta-status view than the Regatta
-Director's, a global log viewer/follower across every running persona, and a
-regatta-metadata viewer.
+Director's, a global log viewer/follower across every running persona (with
+an export/zip action for a support report), and a regatta-metadata viewer.
+DEV owns log collection and visibility outright — see "Existing-code reuse
+analysis" below for why the earlier, narrower Director-side idea was
+retired in its favor.
 
 Not a sidecar — DEV does not attach to another persona's session, and no
 other persona depends on it. `sidecar-personas.md`'s classification table
@@ -17,7 +20,8 @@ already pre-reserves DEV as **Standalone**, not Lead, matching this.
   state (RD and Awards both read primary-team data only; see below). Provide
   a globally-scoped **View Logs** button opening a table of every persona's
   log lines (across all teams/roles/hosts), filterable by column, with a
-  live-follow mode. Provide a globally-scoped **Regatta Metadata** button
+  live-follow mode and a "collect logs" export/zip action for handing off a
+  support report. Provide a globally-scoped **Regatta Metadata** button
   showing the loaded regatta's name/date/source, its on-disk paths, and the
   deployment config's host-pinning/challenge overrides.
 - **Does not:** Time races; write schedule, start-time, or finish data;
@@ -77,13 +81,13 @@ already pre-reserves DEV as **Standalone**, not Lead, matching this.
     `TeamPrimary` outside one guard-only exception — extending it to also
     hydrate/watch `TeamSecondary` for DEV specifically is real, scoped work,
     not a reuse of something already wired for two teams.
-- **Overlaps with a still-deferred idea, worth reconciling rather than
-  duplicating**: `logging-options.md` already speculates an unbuilt
-  Director "collect logs" (clipboard/zip) action as a later nicety. DEV's
-  log viewer is a broader, standalone alternative to that narrower idea —
-  the doc that eventually documents DEV should note this relationship (and
-  whichever lands first should probably fold in or retire the other's
-  bullet) rather than the two being designed independently.
+- **Resolved overlap with a narrower idea, in DEV's favor**:
+  `logging-options.md` (now closed) had speculated an unbuilt Director
+  "collect logs" (clipboard/zip) action as a later nicety. That bullet has
+  been retired from `persona-plan.md` and `docs/features/TODO.md` in favor
+  of DEV, whose broader, standalone log viewer supersedes it outright — log
+  collection and visibility across every persona's log file is DEV's
+  responsibility, not the Director's, per its own **Does** entry above.
 
 ## High-level implementation plan
 
@@ -104,6 +108,8 @@ already pre-reserves DEV as **Standalone**, not Lead, matching this.
      `team`, `role`, `machine`, `component`, `action`, message, …) and
      render it in a new filterable, sortable table view — the one piece of
      net-new UI work this persona requires.
+   - Add a "collect logs" export action (clipboard / zip) over the same
+     `regattaData/logs/**` enumeration, for handing off a support report.
 4. **Regatta metadata viewer**: a read-only window assembling
    `reader.RegattaData`, `persona.Session` paths, and the deployment
    config's host/challenge state — straightforward, all already-loaded
@@ -111,9 +117,8 @@ already pre-reserves DEV as **Standalone**, not Lead, matching this.
 5. **Startup wiring**: replace the disabled Developer placeholder button in
    the Admins tab with a real entry, gated by its challenge code.
 6. **Docs** (once built, per `AGENTS.md`'s New personas workflow): fold
-   into `personas/README.md`, update `docs/features/TODO.md` (this bullet,
-   and reconcile the deferred Director "collect logs" note in
-   `logging-options.md`), delete this file.
+   into `personas/README.md`, update `docs/features/TODO.md` (this bullet),
+   delete this file.
 
 ## Dependencies and sequencing
 

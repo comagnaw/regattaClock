@@ -3,7 +3,6 @@ package regatta
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -66,45 +65,61 @@ func (r *Regatta) refreshDirectorRow(row *raceRow) {
 	row.restarts.SetText(restarts)
 	row.startTime.SetText(start)
 
-	win, status := r.directorFinishCells(n)
+	win, status, res := r.directorFinishCells(n)
 	row.winTime.SetText(win)
-	row.approved.SetText(status)
+	row.progress.SetText(status)
+
+	// resultsBtn is nil for a role with no action cell (there is none today,
+	// since only RoleDirector/RoleAwards route here, but guard rather than
+	// assume). Re-evaluated on every refresh, not just at construction, so an
+	// approval (or a later edit that un-approves) reflects immediately - the
+	// same reason boatCount/scheduledTime are refreshed here rather than set
+	// once in newRaceRow.
+	if row.resultsBtn != nil {
+		if store.CanPublish(res) {
+			row.resultsBtn.Enable()
+		} else {
+			row.resultsBtn.Disable()
+		}
+	}
 }
 
 // directorStartCells returns the restart count and start-time text for race n
 // from the primary team's start.json.
 func (r *Regatta) directorStartCells(n int) (restarts, start string) {
-	tt := r.teamLogs[persona.TeamPrimary]
-	if tt == nil || tt.start == nil {
-		return common.NoStartTimeText, common.NoStartTimeText
-	}
-	rec, ok := tt.start.Races[n]
-	if !ok || (rec.StartedAt == nil && len(rec.Cleared) == 0) {
-		return common.NoStartTimeText, common.NoStartTimeText
+	var rec store.StartRecord
+	if tt := r.teamLogs[persona.TeamPrimary]; tt != nil && tt.start != nil {
+		rec = tt.start.Races[n]
 	}
 	start = common.NoStartTimeText
 	if rec.StartedAt != nil {
 		start = rec.Display
 	}
-	return strconv.Itoa(len(rec.Cleared)), start
+	return restartsCell(rec), start
 }
 
-// directorFinishCells returns the winning-time and status text for race n from
-// the primary team's finish.json.
-func (r *Regatta) directorFinishCells(n int) (win, status string) {
+// directorFinishCells returns the winning-time and status text for race n
+// from the primary team's timing files, plus the RaceResult itself so a
+// caller (refreshDirectorRow, gating the View Results button via
+// store.CanPublish) doesn't need to re-fetch it. Status always reflects the
+// canonical team state (race-state-machine.md), not just whether the finish
+// timer has begun - the RD sees "On the Water" the moment the ST records a
+// start, same as every other persona's tree, via the zero-value RaceResult
+// DeriveTeamState falls through to when no finish.json entry exists yet.
+func (r *Regatta) directorFinishCells(n int) (win, status string, res store.RaceResult) {
 	tt := r.teamLogs[persona.TeamPrimary]
-	if tt == nil || tt.finish == nil {
-		return common.NoStartTimeText, common.EmptyString
+
+	var start store.StartRecord
+	if tt != nil {
+		if tt.start != nil {
+			start = tt.start.Races[n]
+		}
+		if tt.finish != nil {
+			res = tt.finish.Races[n]
+		}
 	}
-	res, ok := tt.finish.Races[n]
-	if !ok || (res.WinningTime == common.EmptyString && !res.Approved && res.FirstFinishAt == nil) {
-		return common.NoStartTimeText, common.EmptyString
-	}
-	win = common.NoStartTimeText
-	if res.WinningTime != common.EmptyString {
-		win = res.WinningTime
-	}
-	return win, raceProgressStatus(res)
+
+	return winningTimeCell(res), raceProgressStatus(start, res, persona.TeamPrimary), res
 }
 
 // --- watcher plumbing -----------------------------------------------------

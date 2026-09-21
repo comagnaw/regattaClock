@@ -140,35 +140,18 @@ func (c *Clock) closeWindow() {
 	c.closeOnce.Do(func() { c.window.Close() })
 }
 
-// commitState is how far a race has been persisted to finish.json. The primary
-// FT moves statePending -> stateApproved (Referee Approval); the secondary FT
-// moves statePending -> stateSaved (Save and Close). An in-progress record
-// (Start clicked, no winning time) is still statePending.
-type commitState int
-
-const (
-	statePending commitState = iota
-	stateSaved
-	stateApproved
-)
-
-// raceCommitState reports the persisted state of this clock's race from the
-// in-memory finish.json mirror.
-func (c *Clock) raceCommitState() commitState {
+// raceTeamState reports this clock's race's canonical team state
+// (store.TeamState), derived from the in-memory finish.json/start.json
+// mirrors (race-state-machine.md). A missing finishLog or an unrecorded
+// race both fall through to store.StateNotStarted via the zero-value
+// RaceResult/StartRecord DeriveTeamState receives.
+func (c *Clock) raceTeamState() store.TeamState {
 	if c.finishLog == nil {
-		return statePending
+		return store.StateNotStarted
 	}
-	res, ok := c.finishLog.Races[c.raceData.RaceNumber]
-	switch {
-	case !ok:
-		return statePending
-	case res.Approved:
-		return stateApproved
-	case res.WinningTime != common.EmptyString:
-		return stateSaved
-	default:
-		return statePending
-	}
+	res := c.finishLog.Races[c.raceData.RaceNumber]
+	start, _ := c.startRecord(c.raceData.RaceNumber)
+	return store.DeriveTeamState(start, res)
 }
 
 // clockState - object used to determine progress of the clock usage for timing the race
@@ -300,7 +283,7 @@ func (c *Clock) canPersist() bool {
 // Timer. Its results are a backup data source for the primary FT and for
 // reconciliation, never presented to a referee, so it has no Referee Approval
 // step: Save is the terminal action and it writes RaceResult.Approved = false
-// (docs/features/personas/reconciliation.md).
+// (docs/features/personas/closed/reconciliation.md).
 func (c *Clock) isSecondaryFinish() bool {
 	return c.session.Role == persona.RoleFinish && c.session.Team == persona.TeamSecondary
 }

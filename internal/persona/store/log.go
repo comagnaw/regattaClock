@@ -7,6 +7,7 @@ import (
 
 	"github.com/comagnaw/regattaClock/internal/applog"
 	"github.com/comagnaw/regattaClock/internal/persona"
+	"github.com/comagnaw/regattaClock/internal/persona/journal"
 	"github.com/comagnaw/regattaClock/internal/timesync"
 )
 
@@ -84,6 +85,11 @@ type RaceResult struct {
 	FirstFinishAt    *time.Time
 	FirstFinishClock timesync.ClockRef
 
+	// StoppedAt is when the primary FT clicked Stop, done collecting times and
+	// awaiting Referee Approval - the "Pending Approval" signal other personas
+	// can observe. Never set for the secondary team (no approval gate to await).
+	StoppedAt *time.Time
+
 	WinningTime string // referee time; auto-filled but user-editable
 	Rows        []LapRow
 
@@ -127,24 +133,31 @@ func LoadFinish(s persona.Session) (*FinishLog, error) {
 	return loadLog[FinishLog](s.FinishPath(), "finish")
 }
 
-// SaveStart atomically writes the whole StartLog to the ST's start.json. The
-// caller updates only log.Races[n] in memory and passes the full map; this
-// stamps the envelope and bumps the sequence.
+// SaveStart durably stages the whole StartLog to a local write-ahead journal,
+// then flushes it to the ST's start.json in the background - an SMB outage or
+// a cloud-sync stall never blocks the caller (persona-plan.md section 13,
+// shared-storage-options.md sections 5 and 8). The caller updates only
+// log.Races[n] in memory and passes the full map; this stamps the envelope
+// and bumps the sequence. The returned error reflects only the local staging
+// write; a failure to reach the shared path becomes a journal.Manager Status
+// transition instead - see journal.For.
 func SaveStart(s persona.Session, log *StartLog) error {
 	if s.Role != persona.RoleStart {
 		return ErrWrongPersona
 	}
 	stampEnvelope(&log.Envelope, s)
-	return saveLog(s.WritePath(), "start", log, len(log.Races))
+	return saveLog(s, "start", log, log.Envelope.RegattaKey, len(log.Races))
 }
 
-// SaveFinish atomically writes the whole FinishLog to the FT's finish.json.
+// SaveFinish durably stages the whole FinishLog to a local write-ahead
+// journal, then flushes it to the FT's finish.json in the background - see
+// SaveStart's comment for what the returned error does and does not cover.
 func SaveFinish(s persona.Session, log *FinishLog) error {
 	if s.Role != persona.RoleFinish {
 		return ErrWrongPersona
 	}
 	stampEnvelope(&log.Envelope, s)
-	return saveLog(s.WritePath(), "finish", log, len(log.Races))
+	return saveLog(s, "finish", log, log.Envelope.RegattaKey, len(log.Races))
 }
 
 func loadLog[T any](path, kind string) (*T, error) {
@@ -159,8 +172,14 @@ func loadLog[T any](path, kind string) (*T, error) {
 	return &log, nil
 }
 
-func saveLog(path, kind string, log any, races int) error {
-	if err := saveJSONAtomic(path, log); err != nil {
+func saveLog(s persona.Session, kind string, log any, regattaKey string, races int) error {
+	path := s.WritePath()
+	j, err := journal.For(s, regattaKey)
+	if err != nil {
+		applog.Error(kind+" journal unavailable", "component", "store", "file", path, "err", err)
+		return err
+	}
+	if err := j.Write(log); err != nil {
 		applog.Error(kind+" log write failed", "component", "store", "file", path, "err", err)
 		return err
 	}

@@ -2,6 +2,7 @@ package clock
 
 import (
 	"image/color"
+	"strconv"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -9,6 +10,8 @@ import (
 	"fyne.io/fyne/v2/theme"
 
 	"github.com/comagnaw/regattaClock/internal/common"
+	"github.com/comagnaw/regattaClock/internal/persona/store"
+	"github.com/comagnaw/regattaClock/internal/reader"
 	"github.com/comagnaw/regattaClock/internal/text"
 )
 
@@ -65,4 +68,59 @@ func (a *approvals) setRow(row int, cells []string) {
 	for i, cell := range cells {
 		a.Add(approvalCell(cell, fg, bg, i == 4))
 	}
+}
+
+// ApprovalWindowContent wraps grid in the same light-themed, race-title-headed
+// layout the Referee Approval window uses (fixedVariantTheme, a background
+// rectangle so the whole window stays light even in dark mode, a VScroll'd
+// grid, and a bottom-anchored footer) - footer holds the caller's own
+// buttons (Approve/Cancel for the live clock; a single Close for a read-only
+// viewer). Exported so internal/regatta's Director/Awards results window
+// renders the exact same look a Referee saw, not a re-derived approximation.
+func ApprovalWindowContent(raceTitle string, grid *fyne.Container, footer fyne.CanvasObject) fyne.CanvasObject {
+	// Header1 (large) so it reads at the same distance the Referee Approval
+	// window is designed for.
+	title := text.Header1(raceTitle)
+	title.Color = refereeColor(theme.ColorNameForeground) // canvas.Text ignores the ThemeOverride
+
+	body := container.NewBorder(
+		container.NewCenter(title),
+		footer,
+		nil, nil,
+		container.NewVScroll(grid),
+	)
+
+	// The window canvas paints the *global* theme's background behind everything,
+	// and a ThemeOverride does not change that - so lay an explicit light
+	// rectangle under the content to keep the whole window light in dark mode.
+	return container.NewStack(
+		canvas.NewRectangle(refereeColor(theme.ColorNameBackground)),
+		container.NewThemeOverride(body, refereeTheme),
+	)
+}
+
+// ApprovalGrid renders the exact grid the Referee Approval window shows
+// (OOF, Place, Split, Time, School - scalingGridLayout, striped rows) from a
+// store.RaceResult's own Rows, joined against race for school names. Rows is
+// already in finish order (places first, then any DQ/DNF/DNS rows) - the
+// same order results.asApprovals produces from a live clock's oofLanes, since
+// that is the order a committed RaceResult's Rows were written in
+// (approval.go's own setRow numbering during Referee Approval). Unlike
+// results.asApprovals, which reads live laps/results Clock state, this works
+// from a plain value, so a read-only viewer with no live clock (the
+// Director/Awards results window) can render the identical grid a Referee
+// saw and approved. Exported for internal/regatta's read-only race-tree
+// personas.
+func ApprovalGrid(race reader.RaceData, rows []store.LapRow) *fyne.Container {
+	a := initApprovalContainer()
+	for i, lr := range rows {
+		oof := common.EmptyString
+		school := common.EmptyString
+		if lr.Lane >= 1 && lr.Lane <= 6 {
+			oof = strconv.Itoa(lr.Lane)
+			school = race.Lanes[lr.Lane].SchoolName
+		}
+		a.setRow(i+1, []string{oof, lr.Place, lr.Split, lr.Time, school})
+	}
+	return a.Container
 }

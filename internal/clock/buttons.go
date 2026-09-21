@@ -126,6 +126,7 @@ func (c *Clock) initStop() *widget.Button {
 		c.clockState.isRunning = false
 		c.refreshContent()
 		c.winningTime.Enable()
+		c.recordStop()
 	})
 }
 
@@ -143,7 +144,7 @@ func (c *Clock) initClear() *widget.Button {
 		if !c.isNotRunning() {
 			return
 		}
-		if c.raceCommitState() == stateApproved {
+		if c.raceTeamState() == store.StateApproved {
 			res := c.finishLog.Races[c.raceData.RaceNumber]
 			dialog.ShowConfirm(
 				common.ClearApprovedRaceTitle,
@@ -223,7 +224,6 @@ func (c *Clock) refereeFunc() func() {
 func (c *Clock) refereeApprovalFunc(raceNumber int) func(approve bool) {
 	return func(approve bool) {
 		if approve {
-			c.RegattaData.ApproveRace(raceNumber)
 			c.persistFinish(true)
 		}
 	}

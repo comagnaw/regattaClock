@@ -30,48 +30,6 @@ func TestNewRegattaData(t *testing.T) {
 	}
 }
 
-func TestRegattaData_ApproveRace(t *testing.T) {
-	rd := NewRegattaData()
-	rd.Races = []RaceData{
-		{RaceNumber: 1, Approved: false},
-		{RaceNumber: 2, Approved: false},
-		{RaceNumber: 3, Approved: false},
-	}
-
-	// Approve race 2
-	rd.ApproveRace(2)
-
-	if !rd.Races[1].Approved {
-		t.Error("Race 2 should be approved")
-	}
-
-	if rd.Races[0].Approved {
-		t.Error("Race 1 should not be approved")
-	}
-
-	if rd.Races[2].Approved {
-		t.Error("Race 3 should not be approved")
-	}
-}
-
-func TestRegattaData_ApproveRace_NonExistent(t *testing.T) {
-	rd := NewRegattaData()
-	rd.Races = []RaceData{
-		{RaceNumber: 1, Approved: false},
-		{RaceNumber: 2, Approved: false},
-	}
-
-	// Try to approve non-existent race
-	rd.ApproveRace(99)
-
-	// Verify no races were approved
-	for i, race := range rd.Races {
-		if race.Approved {
-			t.Errorf("Race %d should not be approved", i+1)
-		}
-	}
-}
-
 func TestRegattaData_ScheduledRaces(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -172,8 +130,8 @@ func TestNewRaceData(t *testing.T) {
 		t.Fatal("RawData should be initialized")
 	}
 
-	if len(rd.RawData) != 5 {
-		t.Fatalf("Expected 5 rows in RawData, got %d", len(rd.RawData))
+	if len(rd.RawData) != 3 {
+		t.Fatalf("Expected 3 rows in RawData, got %d", len(rd.RawData))
 	}
 
 	for i, row := range rd.RawData {
@@ -244,6 +202,44 @@ func TestRaceData_RaceTitle(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := tt.race.RaceTitle()
+			if result != tt.expected {
+				t.Errorf("Expected %q, got %q", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestRaceData_RaceDetail(t *testing.T) {
+	tests := []struct {
+		name     string
+		race     RaceData
+		expected string
+	}{
+		{
+			name:     "no boat class or flight info",
+			race:     RaceData{RaceNumber: 1, BoatClass: common.EmptyString, FlightInfo: common.EmptyString},
+			expected: "",
+		},
+		{
+			name:     "boat class only",
+			race:     RaceData{RaceNumber: 2, BoatClass: "Varsity 8", FlightInfo: common.EmptyString},
+			expected: "Varsity 8",
+		},
+		{
+			name:     "flight info only",
+			race:     RaceData{RaceNumber: 3, BoatClass: common.EmptyString, FlightInfo: "Heat 1"},
+			expected: "Heat 1",
+		},
+		{
+			name:     "both boat class and flight info",
+			race:     RaceData{RaceNumber: 4, BoatClass: "JV 4", FlightInfo: "Final"},
+			expected: "JV 4 - Final",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.race.RaceDetail()
 			if result != tt.expected {
 				t.Errorf("Expected %q, got %q", tt.expected, result)
 			}
@@ -359,8 +355,6 @@ func TestRawData_getBoatClass(t *testing.T) {
 		{"Varsity 8", "col1", "col2", "col3", "col4", "col5", "col6"},
 		{"row1", "", "", "", "", "", ""},
 		{"row2", "", "", "", "", "", ""},
-		{"row3", "", "", "", "", "", ""},
-		{"row4", "", "", "", "", "", ""},
 	}
 
 	boatClass := rawData.getBoatClass()
@@ -376,8 +370,6 @@ func TestRawData_getFlightInfo(t *testing.T) {
 		{"row0", "", "", "", "", "", ""},
 		{"Heat 1", "col1", "col2", "col3", "col4", "col5", "col6"},
 		{"row2", "", "", "", "", "", ""},
-		{"row3", "", "", "", "", "", ""},
-		{"row4", "", "", "", "", "", ""},
 	}
 
 	flightInfo := rawData.getFlightInfo()
@@ -388,13 +380,14 @@ func TestRawData_getFlightInfo(t *testing.T) {
 	}
 }
 
+// TestRawData_getRaceEntryByLane - the Heat Sheet worksheet's 3-row block
+// carries no result data; row 2 (a rower's last name, for 1x/2x boats) is
+// captured in RawData but has no RaceEntry field.
 func TestRawData_getRaceEntryByLane(t *testing.T) {
 	rawData := RawData{
 		{"Class", "School 1", "School 2", "School 3", "School 4", "School 5", "School 6"},
 		{"Flight", "Info 1", "Info 2", "Info 3", "Info 4", "Info 5", "Info 6"},
-		{"Place", "1", "2", "3", "4", "5", "6"},
-		{"Split", "0.0", "0.5", "1.0", "1.5", "2.0", "2.5"},
-		{"Time", "6:00.0", "6:00.5", "6:01.0", "6:01.5", "6:02.0", "6:02.5"},
+		{"Rower", "Rower 1", "Rower 2", "Rower 3", "Rower 4", "Rower 5", "Rower 6"},
 	}
 
 	tests := []struct {
@@ -406,9 +399,6 @@ func TestRawData_getRaceEntryByLane(t *testing.T) {
 			expected: RaceEntry{
 				SchoolName:     "School 1",
 				AdditionalInfo: "Info 1",
-				Place:          "1",
-				Split:          "0.0",
-				Time:           "6:00.0",
 			},
 		},
 		{
@@ -416,9 +406,6 @@ func TestRawData_getRaceEntryByLane(t *testing.T) {
 			expected: RaceEntry{
 				SchoolName:     "School 3",
 				AdditionalInfo: "Info 3",
-				Place:          "3",
-				Split:          "1.0",
-				Time:           "6:01.0",
 			},
 		},
 		{
@@ -426,9 +413,6 @@ func TestRawData_getRaceEntryByLane(t *testing.T) {
 			expected: RaceEntry{
 				SchoolName:     "School 6",
 				AdditionalInfo: "Info 6",
-				Place:          "6",
-				Split:          "2.5",
-				Time:           "6:02.5",
 			},
 		},
 	}
@@ -443,16 +427,64 @@ func TestRawData_getRaceEntryByLane(t *testing.T) {
 			if entry.AdditionalInfo != tt.expected.AdditionalInfo {
 				t.Errorf("Expected AdditionalInfo %q, got %q", tt.expected.AdditionalInfo, entry.AdditionalInfo)
 			}
-			if entry.Place != tt.expected.Place {
-				t.Errorf("Expected Place %q, got %q", tt.expected.Place, entry.Place)
-			}
-			if entry.Split != tt.expected.Split {
-				t.Errorf("Expected Split %q, got %q", tt.expected.Split, entry.Split)
-			}
-			if entry.Time != tt.expected.Time {
-				t.Errorf("Expected Time %q, got %q", tt.expected.Time, entry.Time)
+		})
+	}
+}
+
+// TestDetectStatus - the Excel importer's only scratch-recognition rule:
+// exact-match against "scratched"/"scratch"/"scr" via a lowercase
+// normalization (so any case combination matches), never a substring
+// match, so a school name or boat-class code that happens to contain "scr"
+// is never mistaken for a scratch.
+func TestDetectStatus(t *testing.T) {
+	tests := []struct {
+		name           string
+		additionalInfo string
+		want           RaceEntryStatus
+	}{
+		{"scratched, exact", "SCRATCHED", StatusScratched},
+		{"scratch, exact", "SCRATCH", StatusScratched},
+		{"scr, exact", "SCR", StatusScratched},
+		{"lowercase", "scratched", StatusScratched},
+		{"mixed case, scratch", "Scratch", StatusScratched},
+		{"padded", "  SCRATCHED  ", StatusScratched},
+		{"mixed case, scr", "Scr", StatusScratched},
+		{"empty", "", StatusOK},
+		{"unrelated note", "A", StatusOK},
+		{"alternate class, not a scratch", "M-Jr-1x", StatusOK},
+		{"substring, not a scratch", "Descriptive text", StatusOK},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := detectStatus(tt.additionalInfo); got != tt.want {
+				t.Errorf("detectStatus(%q) = %q, want %q", tt.additionalInfo, got, tt.want)
 			}
 		})
+	}
+}
+
+// TestRawData_getRaceEntryByLane_Scratched - AdditionalInfo carries the raw
+// "SCRATCHED" text unchanged; Status is the derived, structured signal
+// alongside it. SchoolName survives - a scratch is not an empty entry.
+func TestRawData_getRaceEntryByLane_Scratched(t *testing.T) {
+	rawData := RawData{
+		{"M-Jr-4+", "School 1", "School 2", "", "", "", ""},
+		{"Heat 2", "", "SCRATCHED", "", "", "", ""},
+		{"3 to Advance", "", "", "", "", "", ""},
+	}
+
+	entry := rawData.getRaceEntryByLane(2)
+	if entry.SchoolName != "School 2" {
+		t.Errorf("SchoolName = %q, want %q (a scratch keeps its school)", entry.SchoolName, "School 2")
+	}
+	if entry.AdditionalInfo != "SCRATCHED" {
+		t.Errorf("AdditionalInfo = %q, want the raw %q text preserved", entry.AdditionalInfo, "SCRATCHED")
+	}
+	if entry.Status != StatusScratched {
+		t.Errorf("Status = %q, want %q", entry.Status, StatusScratched)
+	}
+	if entry.isEmptyEntry() {
+		t.Error("a scratched entry with a preserved SchoolName must not be considered empty")
 	}
 }
 
@@ -467,9 +499,6 @@ func TestRaceEntry_isEmptyEntry(t *testing.T) {
 			entry: RaceEntry{
 				SchoolName:     common.EmptyString,
 				AdditionalInfo: common.EmptyString,
-				Place:          common.EmptyString,
-				Split:          common.EmptyString,
-				Time:           common.EmptyString,
 			},
 			expected: true,
 		},
@@ -478,9 +507,6 @@ func TestRaceEntry_isEmptyEntry(t *testing.T) {
 			entry: RaceEntry{
 				SchoolName:     "School A",
 				AdditionalInfo: common.EmptyString,
-				Place:          common.EmptyString,
-				Split:          common.EmptyString,
-				Time:           common.EmptyString,
 			},
 			expected: false,
 		},
@@ -489,9 +515,6 @@ func TestRaceEntry_isEmptyEntry(t *testing.T) {
 			entry: RaceEntry{
 				SchoolName:     common.EmptyString,
 				AdditionalInfo: "Some info",
-				Place:          common.EmptyString,
-				Split:          common.EmptyString,
-				Time:           common.EmptyString,
 			},
 			expected: true,
 		},
@@ -500,9 +523,6 @@ func TestRaceEntry_isEmptyEntry(t *testing.T) {
 			entry: RaceEntry{
 				SchoolName:     "School B",
 				AdditionalInfo: "Info",
-				Place:          "1",
-				Split:          "0.0",
-				Time:           "6:00.0",
 			},
 			expected: false,
 		},

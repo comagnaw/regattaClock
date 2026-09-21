@@ -77,7 +77,7 @@ func (r *Regatta) startAssignedPersona(def persona.Definition) {
 // Switch Persona hatch. A cancelled folder dialog leaves the operator here.
 func (r *Regatta) showAssignedPersona(def persona.Definition) {
 	selectBtn := widget.NewButton(common.AssignedPersonaSelectFolderButtonText, func() {
-		r.pickPersonaDirectory(def)
+		r.startPersonaDirectory(def, func() { r.showAssignedPersona(def) })
 	})
 	note := text.Note(common.AssignedPersonaSwitchNote)
 

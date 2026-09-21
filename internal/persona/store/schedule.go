@@ -42,13 +42,26 @@ type ScheduleRace struct {
 	Lanes         map[int]ScheduleEntry // lane number (1-6) -> entry
 }
 
-// ScheduleEntry is one lane's schedule assignment. A scratched lane is an empty
-// SchoolName, optionally noted in AdditionalInfo, until the origin encodes it
-// explicitly.
+// ScheduleEntry is one lane's schedule assignment.
 type ScheduleEntry struct {
 	SchoolName     string
 	AdditionalInfo string
+	Status         ScheduleEntryStatus
 }
+
+// ScheduleEntryStatus is a lane's status at schedule time - not a finish-time
+// result (DNF/DNS/DQ/NJ/REL live in finish.json's domain, per this package's
+// "one attribute, one writer" principle - schedule-data-model.md). A small,
+// store-owned vocabulary, not a reuse of internal/regattacentral.LaneStatus:
+// that enum models RegattaCentral's own post-race ResultStatusType and is a
+// separate concern to reconcile later. Room to grow (e.g. Exhibition)
+// without a redesign; only Scratched is wired up today.
+type ScheduleEntryStatus string
+
+const (
+	StatusOK        ScheduleEntryStatus = ""
+	StatusScratched ScheduleEntryStatus = "SCR"
+)
 
 // Key returns the RegattaKey for this schedule.
 func (s *Schedule) Key() string { return RegattaKey(s.Name, s.Date) }
@@ -73,10 +86,11 @@ func (s *Schedule) ContentHash() string {
 }
 
 // LaneMapHash is a stable fingerprint of one race's lane assignments: the race
-// number plus each lane's school and additional info, in ascending lane order.
-// An empty SchoolName is a scratch, so scratches are covered. BoatClass and
-// FlightInfo are deliberately excluded - they change the race title, not which
-// boat is in which lane, and do not invalidate an approved order of finish.
+// number plus each lane's school, additional info, and status, in ascending
+// lane order - a scratch (Status: StatusScratched) is covered by this, same
+// as any other lane-content change. BoatClass and FlightInfo are deliberately
+// excluded - they change the race title, not which boat is in which lane, and
+// do not invalidate an approved order of finish.
 //
 // Stamped onto a RaceResult when it is written (RaceResult.LaneMapHash) so a
 // later schedule change to the lane map is detectable after the fact, including
@@ -93,7 +107,7 @@ func (r ScheduleRace) LaneMapHash() string {
 	sort.Ints(lanes)
 	for _, lane := range lanes {
 		e := r.Lanes[lane]
-		fmt.Fprintf(&b, "%d\x1e%s\x1e%s\x1f", lane, e.SchoolName, e.AdditionalInfo)
+		fmt.Fprintf(&b, "%d\x1e%s\x1e%s\x1e%s\x1f", lane, e.SchoolName, e.AdditionalInfo, e.Status)
 	}
 	return filesystem.HashBytes([]byte(b.String()))[:12]
 }
@@ -117,6 +131,9 @@ func LoadSchedule(s persona.Session) (*Schedule, error) {
 // SaveSchedule atomically writes the schedule to director/regattaSchedule.json,
 // creating director/ if needed.
 func SaveSchedule(s persona.Session, sch *Schedule) error {
+	if s.Role != persona.RoleDirector {
+		return ErrWrongPersona
+	}
 	path := s.SchedulePath()
 	if err := saveJSONAtomic(path, sch); err != nil {
 		applog.Error("schedule write failed", "component", "store", "file", path, "err", err)

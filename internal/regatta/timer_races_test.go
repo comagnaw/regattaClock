@@ -54,8 +54,30 @@ func TestTimerStartTreeRowsAndButtons(t *testing.T) {
 	if !row.clearBtn.Disabled() {
 		t.Error("Clear should be disabled with no start time")
 	}
+	if row.clearBtn.Text != common.ClearButtonText {
+		t.Errorf("clear button label = %q, want %q before any start is recorded", row.clearBtn.Text, common.ClearButtonText)
+	}
 	if !row.restoreBtn.Hidden {
 		t.Error("Restore should be hidden with no cleared history")
+	}
+}
+
+// TestClearButtonRelabelsToRestartRaceOnceStarted - the action stays the
+// same (clearStartConfirmed), but once a start exists, clicking it again is
+// a restart, not a mistaken-first-click correction, so the label changes.
+func TestClearButtonRelabelsToRestartRaceOnceStarted(t *testing.T) {
+	r, _, _ := startedTimer(t, "pst")
+
+	r.recordStart(1)
+
+	row := r.rows[1]
+	if row.clearBtn.Text != common.RestartRaceButtonText {
+		t.Errorf("clear button label = %q, want %q once a start is recorded", row.clearBtn.Text, common.RestartRaceButtonText)
+	}
+
+	r.clearStartConfirmed(1)
+	if row.clearBtn.Text != common.ClearButtonText {
+		t.Errorf("clear button label = %q, want %q after the start is cleared", row.clearBtn.Text, common.ClearButtonText)
 	}
 }
 
@@ -84,6 +106,49 @@ func TestRecordStartWritesAndRefreshes(t *testing.T) {
 	}
 	if reloaded.Races[1].Display != rec.Display {
 		t.Errorf("disk display = %q, want %q", reloaded.Races[1].Display, rec.Display)
+	}
+}
+
+// TestRecordStartShowsOnTheWaterBeforeFinishTimerBegins - the ST's own row
+// must reflect the canonical team state (race-state-machine.md), not stay
+// blank until the FT locks the row: a recorded start alone already reaches
+// StateStartRecorded, which displays as "On the Water".
+func TestRecordStartShowsOnTheWaterBeforeFinishTimerBegins(t *testing.T) {
+	r, _, _ := startedTimer(t, "pst")
+
+	before := r.rows[1].progress.Text
+	wantNotStarted := store.StateNotStarted.DisplayText(persona.TeamPrimary)
+	if before != wantNotStarted {
+		t.Fatalf("before Start, status = %q, want %q", before, wantNotStarted)
+	}
+
+	r.recordStart(1)
+
+	wantOnTheWater := store.StateStartRecorded.DisplayText(persona.TeamPrimary)
+	if got := r.rows[1].progress.Text; got != wantOnTheWater {
+		t.Errorf("status after Start = %q, want %q", got, wantOnTheWater)
+	}
+}
+
+// TestStartRow_RestartsAndWinningTimeAreVisible - the "pane of glass" column
+// unification: the ST's own row now shows the same Restarts and Winning Time
+// data the RD tree already showed, not just Start Time and Status.
+func TestStartRow_RestartsAndWinningTimeAreVisible(t *testing.T) {
+	r, _, _ := startedTimer(t, "pst")
+
+	r.recordStart(1)
+	r.clearStartConfirmed(1)
+	r.recordStart(1)
+
+	if got := r.rows[1].restarts.Text; got != "1" {
+		t.Errorf("restarts = %q, want 1 after one clear", got)
+	}
+
+	r.onPeerFinishChanged(&store.FinishLog{Races: map[int]store.RaceResult{
+		1: {RaceNumber: 1, WinningTime: "06:00.0", Approved: true},
+	}})
+	if got := r.rows[1].winTime.Text; got != "06:00.0" {
+		t.Errorf("winning time = %q, want the peer FT's committed value", got)
 	}
 }
 
@@ -237,8 +302,9 @@ func TestFinishTreeShowsPeerStartAndProgress(t *testing.T) {
 	if r.rows[1].startTime.Text != "09:00:00.0" {
 		t.Errorf("row 1 start label = %q, want the peer time", r.rows[1].startTime.Text)
 	}
-	if r.rows[1].progress.Text != "approved" {
-		t.Errorf("row 1 progress = %q, want approved", r.rows[1].progress.Text)
+	wantApproved := store.StateApproved.DisplayText(persona.TeamPrimary)
+	if r.rows[1].progress.Text != wantApproved {
+		t.Errorf("row 1 progress = %q, want %q", r.rows[1].progress.Text, wantApproved)
 	}
 }
 
@@ -292,6 +358,113 @@ func TestFinishRowNoStartTimeOnceCommitted(t *testing.T) {
 	}
 }
 
+// TestFinishRowShowsOnTheWaterBeforeOwnClockOpens - the PFT's own row must
+// reflect the canonical team state (race-state-machine.md), not stay blank
+// until this FT's own finish.json has an entry: a peer ST's recorded start
+// alone already reaches StateStartRecorded, which displays as "On the Water".
+func TestFinishRowShowsOnTheWaterBeforeOwnClockOpens(t *testing.T) {
+	app := test.NewTempApp(t)
+	sch := testSchedule()
+	root := seedRegatta(t, sch)
+
+	pst := timerSession(t, "pst", root)
+	at := time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
+	startLog := &store.StartLog{Races: map[int]store.StartRecord{
+		1: {RaceNumber: 1, StartedAt: &at, Display: "09:00:00.0"},
+	}}
+	startLog.RegattaKey = store.RegattaKey(sch.Name, sch.Date)
+	if err := store.SaveStart(pst, startLog); err != nil {
+		t.Fatal(err)
+	}
+
+	pft := timerSession(t, "pft", root)
+	r := NewTimer(app)
+	stopWatch(t, r)
+	r.startSession(pft, sch)
+
+	wantOnTheWater := store.StateStartRecorded.DisplayText(persona.TeamPrimary)
+	if got := r.rows[1].progress.Text; got != wantOnTheWater {
+		t.Errorf("status before this FT's own clock opens = %q, want %q", got, wantOnTheWater)
+	}
+}
+
+// TestFinishRow_RestartsAndWinningTimeAreVisible - the "pane of glass" column
+// unification: the FT's own row now shows the peer ST's Restarts count and
+// this FT's own Winning Time, not just Start Time and Status.
+func TestFinishRow_RestartsAndWinningTimeAreVisible(t *testing.T) {
+	app := test.NewTempApp(t)
+	sch := testSchedule()
+	root := seedRegatta(t, sch)
+
+	pst := timerSession(t, "pst", root)
+	at := time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
+	startLog := &store.StartLog{Races: map[int]store.StartRecord{
+		1: {RaceNumber: 1, StartedAt: &at, Cleared: []store.ClearedStart{{}}},
+	}}
+	startLog.RegattaKey = store.RegattaKey(sch.Name, sch.Date)
+	if err := store.SaveStart(pst, startLog); err != nil {
+		t.Fatal(err)
+	}
+
+	pft := timerSession(t, "pft", root)
+	finishLog := &store.FinishLog{Races: map[int]store.RaceResult{
+		1: {RaceNumber: 1, WinningTime: "06:00.0", Approved: true},
+	}}
+	finishLog.RegattaKey = store.RegattaKey(sch.Name, sch.Date)
+	if err := store.SaveFinish(pft, finishLog); err != nil {
+		t.Fatal(err)
+	}
+
+	r := NewTimer(app)
+	stopWatch(t, r)
+	r.startSession(pft, sch)
+
+	if got := r.rows[1].restarts.Text; got != "1" {
+		t.Errorf("restarts = %q, want the peer ST's cleared-start count", got)
+	}
+	if got := r.rows[1].winTime.Text; got != "06:00.0" {
+		t.Errorf("winning time = %q, want this FT's own committed value", got)
+	}
+}
+
+// TestFinishRowShowsOnTheWater_SecondaryTeam - the fix above is role-generic,
+// not primary-specific: it must hold identically for the secondary team's
+// own tree (SST/SFT), which reads its own start.json/finish.json, not the
+// primary's.
+func TestFinishRowShowsOnTheWater_SecondaryTeam(t *testing.T) {
+	app := test.NewTempApp(t)
+	sch := testSchedule()
+	root := seedRegatta(t, sch)
+
+	sst := timerSession(t, "sst", root)
+	at := time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
+	startLog := &store.StartLog{Races: map[int]store.StartRecord{
+		1: {RaceNumber: 1, StartedAt: &at, Display: "09:00:00.0"},
+	}}
+	startLog.RegattaKey = store.RegattaKey(sch.Name, sch.Date)
+	if err := store.SaveStart(sst, startLog); err != nil {
+		t.Fatal(err)
+	}
+
+	// The secondary ST's own row should show On the Water too.
+	rst := NewTimer(app)
+	stopWatch(t, rst)
+	rst.startSession(sst, sch)
+	wantOnTheWater := store.StateStartRecorded.DisplayText(persona.TeamSecondary)
+	if got := rst.rows[1].progress.Text; got != wantOnTheWater {
+		t.Errorf("SST status = %q, want %q", got, wantOnTheWater)
+	}
+
+	// The secondary FT's own row, before its own clock has opened, should too.
+	sft := timerSession(t, "sft", root)
+	rft := NewTimer(app)
+	stopWatch(t, rft)
+	rft.startSession(sft, sch)
+	if got := rft.rows[1].progress.Text; got != wantOnTheWater {
+		t.Errorf("SFT status before its own clock opens = %q, want %q", got, wantOnTheWater)
+	}
+}
+
 func TestFinishRowShowsInProgressStatus(t *testing.T) {
 	app := test.NewTempApp(t)
 	sch := testSchedule()
@@ -310,8 +483,9 @@ func TestFinishRowShowsInProgressStatus(t *testing.T) {
 	stopWatch(t, r)
 	r.startSession(pft, sch)
 
-	if got := r.rows[1].progress.Text; got != common.RaceInProgressText {
-		t.Errorf("FT in-progress status = %q, want %q", got, common.RaceInProgressText)
+	wantInProgress := store.StateTimingInProgress.DisplayText(persona.TeamPrimary)
+	if got := r.rows[1].progress.Text; got != wantInProgress {
+		t.Errorf("FT in-progress status = %q, want %q", got, wantInProgress)
 	}
 }
 
@@ -330,6 +504,29 @@ func TestOnScheduleChangedRefreshesTitleInPlace(t *testing.T) {
 	}
 	if r.rows[1].scheduledTime.Text != "09:30 AM" {
 		t.Errorf("row 1 scheduled time = %q, want it to reflect the reload", r.rows[1].scheduledTime.Text)
+	}
+}
+
+// TestOnScheduleChangedRefreshesBoatCountInPlace - a partial scratch (fewer
+// lanes, but still HasBoats()) doesn't trigger a tree rebuild, only
+// refreshRow, so the Entries column must be re-set there rather than only at
+// construction (unlike raceNum, which never changes for a given row).
+func TestOnScheduleChangedRefreshesBoatCountInPlace(t *testing.T) {
+	r, sch, _ := startedTimer(t, "pst")
+
+	if got := r.rows[1].boatCount.Text; got != "2" {
+		t.Fatalf("boat count before scratch = %q, want %q", got, "2")
+	}
+
+	next := *sch
+	next.Races = append([]store.ScheduleRace(nil), sch.Races...)
+	next.Races[0].BoatCount = 1
+	next.Races[0].Lanes = map[int]store.ScheduleEntry{1: {SchoolName: "Alpha"}}
+
+	r.onScheduleChanged(&next)
+
+	if got := r.rows[1].boatCount.Text; got != "1" {
+		t.Errorf("boat count after scratch = %q, want %q", got, "1")
 	}
 }
 

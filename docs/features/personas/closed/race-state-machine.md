@@ -5,13 +5,23 @@ writing which attribute at each transition, how a persona's own race tree
 learns about its own writes versus a peer's, and the shared "pane of glass"
 race-tree model every persona (built or proposed) renders through.
 
-**Status:** design, not yet implemented. `develop` is in feature freeze
-during pre-release functional testing; this doc is the next work to land
-once that lifts, and it lands **before** any of the not-yet-built personas
-(Awards, Developer, Results Publisher, Social Media, Streamer, Heat Sheet
-Creator) are implemented — every one of them is written against the model
-this doc defines, not the other way around. Companion to
-[persona-plan.md](persona-plan.md) and [schedule-data-model.md](schedule-data-model.md).
+**Status:** implemented (2026-09-19, PRs #99-#103) — every not-yet-built
+persona (Developer, Results Publisher, Social Media, Streamer, Heat Sheet
+Creator) should now be written against the model this doc defines, not the
+other way around. Awards (AWD) has since shipped against it (PRs #105-#107)
+— see "What's next for not-yet-built personas" below. Companion to
+[persona-plan.md](../persona-plan.md) and [schedule-data-model.md](schedule-data-model.md).
+
+One correction from the original design, made during implementation:
+`StatePendingApproval` needed its own persisted signal
+(`RaceResult.StoppedAt`) to be genuinely reachable from disk-read data, not
+just a live-only preview — see the "Display vocabulary" table and the
+Phase 1 state diagram below for the corrected model. `internal/publish`
+(Phase 3 below) is built but has no consumer yet, by design — it still
+gates the not-yet-built personas above. Awards shipped without needing
+it — its read-only results grid only needed `store.CanPublish`, not the
+schedule-join `internal/publish` provides for a rank-ordered text/image
+output.
 
 **Supersedes [reconciliation.md](reconciliation.md)** for state-transition
 modeling — this doc reuses its per-team milestone ladder (see below) as the
@@ -25,10 +35,10 @@ sees the one, already-reconciled primary result.
 
 ## Why this document, why now
 
-Every not-yet-built persona doc in this directory (`awards.md`,
-`results-publisher.md`, `social-media.md`, `streamer.md`,
-`heat-sheet-creator.md`) independently re-derives the same handful of
-things: "is this race's result official yet" (`res.Approved`), "has my own
+Every not-yet-built persona doc in this directory (`results-publisher.md`,
+`social-media.md`, `streamer.md`, `heat-sheet-creator.md`) independently
+re-derives the same handful of things: "is this race's result official
+yet" (`res.Approved`), "has my own
 output gone stale since I last acted on this race" (a `{raceNumber:
 revision}` staleness pattern, sketched three separate times), and "how does
 my own tree learn about a value I just wrote." None of that is
@@ -52,7 +62,7 @@ stateDiagram-v2
 ```
 
 `Unscheduled` does not exist in the codebase today — it is reserved for
-[heat-sheet-creator.md](new/heat-sheet-creator.md)'s v3 progression work
+[heat-sheet-creator.md](../new/heat-sheet-creator.md)'s v3 progression work
 (a Semi-Final/Final race created before its feeding heat has run). Every
 race in the system today starts `Scheduled`. Orthogonal to both states: a
 later lane-map edit re-stamps `ScheduleRace.LaneMapHash()`
@@ -67,9 +77,12 @@ stateDiagram-v2
     [*] --> NotStarted
     NotStarted --> StartRecorded: ST records a start time
     StartRecorded --> TimingInProgress: FT clicks clock Start
+    TimingInProgress --> PendingApproval: Primary FT clicks Stop
+    TimingInProgress --> Approved: Primary FT clicks Referee Approval directly (terminal)
+    PendingApproval --> Approved: Primary FT clicks Referee Approval (terminal)
     TimingInProgress --> Saved: Secondary FT clicks Save and Close (terminal)
-    TimingInProgress --> Approved: Primary FT clicks Referee Approval (terminal)
     Approved --> NotStarted: Primary FT confirms Clear (rare, guarded)
+    PendingApproval --> NotStarted: Primary FT clicks Clear (not yet approved, no confirmation)
     StartRecorded --> Stopped: ST clicks Restart Race (an already-recorded start being cleared)
     TimingInProgress --> Stopped: ST clicks Restart Race (an already-recorded start being cleared)
     Stopped --> StartRecorded: ST records a new start time
@@ -121,36 +134,50 @@ Race"** — clicking it when a start already exists now explicitly reads as
 "this race is restarting," matching what it has always inferred once a
 prior start existed.
 
+**`PendingApproval` is the primary FT's own "done collecting times,
+awaiting the referee" signal** — clicking Stop. Unlike `Stopped`, it is
+**optional, not a required gate**: Referee Approval is enabled by a valid
+winning time in the entry field, not by Stop having been clicked, and that
+field can already hold a plausible auto-derived value while the clock is
+still running (`deriveWinningTime`, `internal/clock/persist.go`) — so the
+primary FT can approve directly from `TimingInProgress` without ever
+clicking Stop. `PendingApproval` exists for the common case where they do:
+`RaceResult.StoppedAt` (`internal/clock/persist.go`'s `recordStop`,
+primary-only — the secondary has no approval gate to signal) is what makes
+it a real, disk-persisted state every consumer can see, not just a
+live-only preview inside the primary FT's own open clock. Clear on a
+`PendingApproval` race needs no confirmation, same as any other
+not-yet-approved race — `performClear` zeroes the whole in-memory
+`RaceResult`, `StoppedAt` included.
+
 **Derived, not stored.** No field named "state" exists anywhere — every
-consumer derives it from `RaceResult`/`StartRecord` on the fly. Today this
-happens in **two places that compute the same thing independently**:
-`internal/regatta/timer_races.go:189-198`'s `raceProgressStatus` (a
-three-way switch: `Approved` → `RaceApprovedText`, `WinningTime != ""` →
-`RaceSavedText`, else `RaceInProgressText` —
-`internal/common/consts.go:175,176,188`) and
-`internal/clock/clock.go:143-172`'s `commitState` type +
-`raceCommitState()` method (the identical three-way switch, its own
-`statePending`/`stateSaved`/`stateApproved` enum). Neither distinguishes
-`NotStarted` from `TimingInProgress` from `Stopped` today — seen
-identically as "Pending." See "Redesign: one canonical `TeamState`" below,
-and the display-vocabulary table next.
+consumer derives it via `store.DeriveTeamState(start, res)`
+(`internal/persona/store/state.go`), which replaced the two places that
+used to compute the same thing independently
+(`internal/regatta/timer_races.go`'s `raceProgressStatus`,
+`internal/clock/clock.go`'s retired `commitState`/`raceCommitState`) - and
+a third instance found during that migration,
+`internal/regatta/director_tree.go`'s `directorFinishCells`. All three
+(plus the FT clock's own status line, `refreshCommitStatus`) now call the
+one canonical derivation instead of their own switch.
 
 ### Display vocabulary — one set of labels, race tree and FT clock alike
 
-**Update (2026-09-18):** the internal state names above are not what an
-operator sees. Every persona's race tree and the FT clock's own status
-line (`c.commitStatus`, today literally showing "Pending") render one
-shared, five-label vocabulary — replacing `RaceInProgressText`/
-`RaceSavedText`/`RaceApprovedText`/`CommitStatusPending` et al.
-(`internal/common/consts.go`) with team-aware labels:
+The internal state names above are not what an operator sees. Every
+persona's race tree and the FT clock's own status line (`c.commitStatus`)
+render one shared vocabulary via `TeamState.DisplayText(team)`
+(`internal/persona/store/state.go`) — the old `RaceInProgressText`/
+`RaceSavedText`/`RaceApprovedText`/`CommitStatusPending` constants
+(`internal/common/consts.go`) are retired:
 
 | Internal state | Primary team shows | Secondary team shows | Trigger |
 |---|---|---|---|
-| `NotStarted` | **Pending Start** | **Pending Start** | No `StartRecord.StartedAt`, no `Cleared` history. |
-| `StartRecorded` / `TimingInProgress` | **On the Water** | **On the Water** | A start is recorded (`StartedAt != nil`) — reused for both a first run and after an ST restart; the FT need not have clicked Start yet for the ST-side tree row, but the FT's own clock reaches this once `FirstFinishAt` is set. |
-| `Stopped` | **Stopped** | **Stopped** | `StartedAt == nil && len(Cleared) > 0` — see above. |
-| `TimingInProgress` with `WinningTime != ""`, not yet `Approved` | **Pending Approval** | **Saved** | Primary: winning time entered (derived or manual), awaiting Referee Approval — genuinely "pending." Secondary: this *is* their terminal state (Save and Close) — "pending" would be inaccurate, so the existing `Saved` label stays. |
-| `Approved` | **Official** | *(unreachable)* | Referee Approval clicked — `RaceResult.Approved = true`, exactly as today. Renamed display text only; no new field, no new button, no new confirmation step. |
+| `StateNotStarted` | **Pending Start** | **Pending Start** | No `StartRecord.StartedAt`, no `Cleared` history. |
+| `StateStartRecorded` / `StateTimingInProgress` | **On the Water** | **On the Water** | A start is recorded (`StartedAt != nil`) — reused for both a first run and after an ST restart; the FT need not have clicked Start yet for the ST-side tree row, but the FT's own clock reaches this once `FirstFinishAt` is set. |
+| `StateStopped` | **Stopped** | **Stopped** | `StartedAt == nil && len(Cleared) > 0` — see above. |
+| `StatePendingApproval` | **Pending Approval** | *(unreachable)* | Primary team only: `RaceResult.StoppedAt != nil`, `WinningTime == ""`, not yet `Approved` — the primary FT clicked Stop, awaiting Referee Approval. Genuinely reachable from persisted data (see the `PendingApproval` explanation above), not a live-only preview. |
+| `StateSaved` | *(unreachable)* | **Saved** | Secondary team only: `WinningTime != ""`, not yet `Approved` — Save and Close clicked. This *is* their terminal state, not "pending" — `WinningTime` is only ever written for the primary team together with `Approved = true` in the same atomic write (`persistFinish`), so this combination cannot occur for primary at all. |
+| `StateApproved` | **Official** | *(unreachable)* | Referee Approval clicked — `RaceResult.Approved = true`. |
 
 **"Official" terminology is an open research item, not fully settled.**
 "Official" matches RegattaCentral's own vocabulary and the referee's real
@@ -170,8 +197,7 @@ persona) cares about. It does not become immutable: "every captured detail
 ... stays editable by the Finish Timer after the clock has stopped, so
 results can be corrected against feedback from the course" (README.md).
 So Phase 2 is really one state (`Approved`) plus a **change-detection
-signal** riding alongside it: `internal/publish.Revision(pr)` (sketched in
-[sidecar-personas.md](sidecar-personas.md) Phase 0a, not yet built) hashes
+signal** riding alongside it: `internal/publish.Revision(pr)` hashes
 only the *visible* fields (place, lane, school, time, winning time, title)
 — an edit that changes nothing a reader would see does not move it. This
 is what Phase 3's consumers key off, not `RaceResult.Approved` itself
@@ -194,13 +220,13 @@ The shape above repeats once per consumer, all keyed off the same
 `Revision`:
 
 - **Results Publisher (REP)** — spreadsheet now, RegattaCentral later, per
-  [results-publisher.md](new/results-publisher.md).
+  [results-publisher.md](../new/results-publisher.md).
 - **Social Media (SOM)** — posted to X, per
-  [social-media.md](new/social-media.md).
+  [social-media.md](../new/social-media.md).
 - **Streamer (STM)** — *two* independent sub-states, not one: lane-image
   freshness (keyed off `ScheduleRace.LaneMapHash`, tracks Phase 0, not
   Phase 2) and results-image freshness (keyed off `Revision`, tracks Phase
-  2), per [streamer.md](new/streamer.md).
+  2), per [streamer.md](../new/streamer.md).
 
 **Awards (AWD) and Developer (DEV) are pure read-only viewers with no
 persisted state of their own** — they render whatever `Approved`/`Revision`
@@ -216,7 +242,7 @@ flowchart LR
 
 This is the one place a race's own state transition has an edge into a
 *different* race's state — a heat reaching `Approved` is what lets
-[heat-sheet-creator.md](new/heat-sheet-creator.md)'s v3 increment propose
+[heat-sheet-creator.md](../new/heat-sheet-creator.md)'s v3 increment propose
 lane assignments for the Semi-Final/Final it feeds, following the VASRA
 progression algorithm already documented there. HSC never writes
 `regattaSchedule.json` directly (one-writer-per-file, unchanged); it
@@ -229,10 +255,11 @@ ordinary Phase 0 `Scheduled` only once the RD applies it.
 |---|---|---|---|---|
 | Schedule / lane assignments | `Schedule`, `ScheduleRace`, `ScheduleEntry` | Regatta Director | `director/regattaSchedule.json` | Import/apply (`saveRegattaData`), legacy `data.json` migration |
 | Start time | `StartRecord.StartedAt`, `.Clock` | Start Timer (own team) | `timing/<team>/start.json` | `recordStart` / `clearStartConfirmed` / `restoreStartConfirmed` → `persistStart` (`internal/regatta/start_timing.go`) |
-| First-finish click | `RaceResult.FirstFinishAt`, `.FirstFinishClock` | Finish Timer (own team) | `timing/<team>/finish.json` | `recordFirstFinish` — clock Start click (`internal/clock/persist.go:31-63`) |
-| Winning time / lap rows | `RaceResult.WinningTime`, `.Rows` | Finish Timer (own team) | same | `persistFinish` (`persist.go:267-295`) |
-| Official approval | `RaceResult.Approved`, `.ApprovedAt` | **Primary Finish Timer only** | `timing/primary/finish.json` | Referee Approval → `persistFinish(true)` (`internal/clock/buttons.go:190`) |
-| Secondary commit (never official) | `RaceResult.Approved` (permanently `false`) | Secondary Finish Timer | `timing/secondary/finish.json` | Save and Close → `persistFinish(false)` (`buttons.go:201`) |
+| First-finish click | `RaceResult.FirstFinishAt`, `.FirstFinishClock` | Finish Timer (own team) | `timing/<team>/finish.json` | `recordFirstFinish` — clock Start click (`internal/clock/persist.go`) |
+| Stop / awaiting approval | `RaceResult.StoppedAt` | **Primary Finish Timer only** | `timing/primary/finish.json` | `recordStop` — clock Stop click (`internal/clock/persist.go`); never set for the secondary team |
+| Winning time / lap rows | `RaceResult.WinningTime`, `.Rows` | Finish Timer (own team) | same | `persistFinish` (`internal/clock/persist.go`) |
+| Official approval | `RaceResult.Approved`, `.ApprovedAt` | **Primary Finish Timer only** | `timing/primary/finish.json` | Referee Approval → `persistFinish(true)` (`internal/clock/buttons.go`'s `refereeApprovalFunc`) |
+| Secondary commit (never official) | `RaceResult.Approved` (permanently `false`) | Secondary Finish Timer | `timing/secondary/finish.json` | Save and Close → `persistFinish(false)` (`buttons.go`'s `initSave`) |
 | Downstream publish/post tracking | e.g. `{raceNumber: Revision}` | REP / SOM / STM, each independently | Fyne `Preferences` (a pref key per consumer), **not** `regattaData` | The consumer's own publish action |
 
 Every row is enforced by `store.SaveSchedule`/`SaveStart`/`SaveFinish`
@@ -301,103 +328,86 @@ watch it.
 
 ## The pane-of-glass race tree
 
-### What's already shared
-
-One `raceRow` type and one row-building/refresh dispatch already exist
+One `raceRow` type and one row-building/refresh dispatch
 (`internal/regatta/timer_races.go`, `races.go`) — `newRaceRow` and
-`raceListHeader` each have a single `switch r.session.Role` (Start /
-Finish / default-Director). PST and SST share the Start arm verbatim; PFT
-and SFT share the Finish arm verbatim; the Regatta Director's row is the
-*same* `raceRow` type, not a separate one — it just reads primary-team-only
-data. `fixedCell` (`races.go`) is already a generic, role-agnostic
-width/padding primitive. There is no structural blocker to a shared
-layout — the redesign is choosing one canonical column set and collapsing
-the two parallel role-switches into one.
+`raceListHeader` each build one shared column set, with a per-role
+`switch r.session.Role` only around the action cell. Every role's tree
+shows the identical data columns, left to right: **Race number,
+Scheduled Time** (left-anchored) — the race's title/detail (flexible
+width) — the role's **action** (Start/Clear-or-Restart-Race for the ST,
+Time Race for the FT, none for the read-only RD) — **Restarts, Start
+Time, Winning Time, Status** (right-anchored). This is a real,
+user-visible change, not just a code consolidation: the ST and FT trees
+never showed Restarts or Winning Time before this — both roles already
+had access to the same underlying `start.json`/`finish.json` data their
+own refresh functions already read for other purposes, so extending
+those two columns to every role was additive visibility, not new data
+plumbing. `restartsCell`/`winningTimeCell` (`timer_races.go`) are the
+shared cell-formatting helpers every role's refresh function now calls,
+mirroring `raceProgressStatus`'s own shared-derivation precedent so
+neither placeholder rule is duplicated a third time.
 
-### Today's columns, per role
+`store.CanPublish`/`store.CanTrackWallClock` (`internal/persona/store/state.go`)
+are the named, discoverable button-gating helpers every not-yet-built
+persona doc should call instead of its own inline `res.Approved`/
+`StartRecord.StartedAt != nil` check.
 
-| Role | Columns today |
-|---|---|
-| PST / SST | Actions (Start/Clear/Restore) · Start Time · Status/lock-note |
-| PFT / SFT | Time Race button · Start Time · Status |
-| RD (primary team only) | Restarts · Start Time · Winning Time · Approved/Status |
+## What changed in code
 
-The union is small: **Title** (every row, with stale-lane/conflict marks),
-**Status**, **Start Time**, **Winning Time**, **Restarts**, and a
-**role-specific action button**. That union is the pane-of-glass column
-set — every persona's tree shows the same columns; what differs is which
-action button(s) render in the action column, and whether they're enabled.
+Four concrete, named pieces — delivered across PRs #99-#103:
 
-### The missing piece: no shared button-gating helper
-
-`setEnabled` (`timer_races.go:245-254`) is the only existing
-enable/disable helper, and it's ST-specific (gated on `StartRecord`/lock
-state, not `Approved`). Every not-yet-built persona doc independently
-writes its own `res.Approved == true` check: `awards.md` ("View Results"),
-`results-publisher.md` ("Publish"), `social-media.md` ("Publish" in the
-Social sidecar), `streamer.md` (results-PNG generation — plus its own
-*separate* "run clock" button gated on `StartRecord.StartedAt != nil`, not
-`Approved`, a second, independent gating condition worth naming too).
-
-## Redesign: what changes in code
-
-Four concrete, named pieces — the answer to "what does this doc actually
-change," not just what it documents:
-
-1. **One canonical team-state derivation**, replacing
-   `raceProgressStatus` (`timer_races.go:189-198`) and `commitState`/
-   `raceCommitState` (`clock.go:143-172`)'s duplicate three-way switches:
+1. **One canonical team-state derivation** (PR #99, #100), replacing
+   `raceProgressStatus` (`internal/regatta/timer_races.go`),
+   `directorFinishCells` (`internal/regatta/director_tree.go` — a third
+   duplicate found during the migration, not named in the original design),
+   and `commitState`/`raceCommitState` (`internal/clock/clock.go`, retired
+   entirely):
 
    ```go
-   // internal/persona/store/state.go (new)
+   // internal/persona/store/state.go
    type TeamState int
 
    const (
        StateNotStarted TeamState = iota
-       StateStopped          // start was recorded, then cleared - an on-water halt
+       StateStopped          // ST-side: start recorded, then cleared - an on-water halt
        StateStartRecorded
        StateTimingInProgress
-       StateSaved    // reachable by the secondary team only
-       StateApproved // reachable by the primary team only
+       StatePendingApproval  // primary only - FT clicked Stop, not yet approved
+       StateSaved            // reachable by the secondary team only
+       StateApproved         // reachable by the primary team only
    )
 
-   func DeriveTeamState(start *StartRecord, res RaceResult) TeamState
+   func DeriveTeamState(start StartRecord, res RaceResult) TeamState
 
    // DisplayText renders the team-aware label from the "Display vocabulary"
-   // table above - Team matters because StateSaved/StateApproved read
-   // "Saved"/"Official" for the primary team but "Saved" alone (no
-   // "Pending Approval"/"Official") for the secondary, which never
-   // approves.
+   // table above - team is always the team WHOSE state this is (the race's
+   // timing team), never the viewer's own session team; a caller reading
+   // primary-team data (the RD tree) always passes persona.TeamPrimary.
    func (s TeamState) DisplayText(team persona.Team) string
+
+   func CanPublish(res RaceResult) bool
+   func CanTrackWallClock(start StartRecord) bool
    ```
 
    Lives in `internal/persona/store`, next to `StartRecord`/`RaceResult`
    themselves, so both `internal/regatta` and `internal/clock` import it
-   without a new cross-package dependency. `raceProgressStatus` and
-   `commitState` become thin wrappers over `TeamState`/`DisplayText` (or
-   are deleted in favor of calling it directly), not independent
-   derivations. `StateStopped` is derived per `DeriveTeamState` exactly as
-   described above (`StartedAt == nil && len(Cleared) > 0`).
+   without a new cross-package dependency. `StatePendingApproval` needed
+   `RaceResult.StoppedAt` (PR #99) to be reachable at all — see the
+   `PendingApproval` explanation under Phase 1 above.
 
-2. **One shared button-gating helper**, replacing every persona doc's own
-   `res.Approved == true`:
+2. **`store.CanPublish`/`store.CanTrackWallClock`** (PR #99, alongside
+   `state.go`) — the named, discoverable button-gating helpers every
+   not-yet-built persona doc should call instead of its own inline
+   `res.Approved == true` / `StartRecord.StartedAt != nil` check. Not yet
+   called by any existing code (today's ST/FT/RD buttons have their own,
+   genuinely different gating - e.g. the ST's Start/Clear enablement is
+   about lock state, not publishability) - these exist for the
+   not-yet-built personas that will use them from the start.
 
-   ```go
-   // internal/persona/store/state.go (new)
-   func CanPublish(res RaceResult) bool { return res.Approved }
-   ```
-
-   Thin today, but a single named, discoverable, extensible call site —
-   `awards.md`/`results-publisher.md`/`social-media.md`/`streamer.md`'s
-   results-PNG path all reference `store.CanPublish` instead of
-   re-deriving the check independently. `streamer.md`'s separate
-   "run clock" gate (`StartRecord.StartedAt != nil`) gets its own named
-   sibling, e.g. `store.CanTrackWallClock`, for the same discoverability
-   reason.
-
-3. **`internal/publish`, built as sketched** (`sidecar-personas.md` Phase
-   0a, not yet real code) — `PublishableRace`, `BuildView`, `Revision`,
-   `RenderText` — plus one new addition this doc introduces:
+3. **`internal/publish`** (PR #101), built as sketched in
+   `sidecar-personas.md`'s Phase 0a — `PublishableRace`, `Row`,
+   `BuildView`, `Revision`, `RenderText` — plus the one addition this doc
+   introduced:
 
    ```go
    // internal/publish/publish.go
@@ -406,95 +416,39 @@ change," not just what it documents:
    }
    ```
 
-   REP, SOM, and STM's results-image path all call `publish.IsStale`
-   against their own `{raceNumber: Revision}` preference map, instead of
-   three independent re-implementations of the same comparison.
+   No consumer yet - intentionally build-ahead-of-use. REP, SOM, and STM's
+   results-image path should call `publish.IsStale` against their own
+   `{raceNumber: Revision}` preference map, instead of three independent
+   re-implementations of the same comparison.
 
-4. **Unified `raceRow`/`raceListHeader`** — one column set (Title, Status,
-   Start Time, Winning Time, Restarts) plus a per-role function returning
-   that role's action button(s), each button wired to
-   `store.CanPublish`/`DeriveTeamState` rather than an inline check. This
-   collapses `newRaceRow`'s and `raceListHeader`'s parallel
-   `switch r.session.Role` blocks into one shared row shape and one
-   per-role button-list function.
+4. **Unified `raceRow`/`raceListHeader`** (PR #102) — one shared column set
+   (Race number, Scheduled Time, the role's action, Restarts, Start Time,
+   Winning Time, Status) instead of three independent per-role layouts.
+   Extended ST and FT's trees to show Restarts/Winning Time for the first
+   time (previously RD-only) - both roles already had the underlying data,
+   so this was additive visibility, not new data plumbing. Also relabels
+   the ST's Clear button to "Restart Race" once a start exists (PR #103,
+   label only - `clearStartConfirmed` is unchanged).
 
-## Existing-code reuse analysis
+## What's next for not-yet-built personas
 
-- `internal/persona/store` already owns `StartRecord`/`RaceResult` — the
-  natural, import-cycle-free home for `TeamState`/`CanPublish`, not a new
-  package.
-- `reconciliation.md`'s milestone ladder — reused as Phase 1 verbatim, not
-  re-derived; its verdict/disputed model is explicitly not carried forward
-  (see that doc's own updated Status).
-- `internal/publish`'s Phase 0a sketch (`sidecar-personas.md`) — already
-  fully designed, just not yet built; this doc adds one function
-  (`IsStale`) to what's already there.
-- `internal/regatta/timer_races.go`'s `raceRow`/`fixedCell` — already the
-  right shape for a unified row; the redesign is subtraction (collapsing
-  two role-switches into one), not new infrastructure.
-- Every not-yet-built persona doc (`awards.md`, `results-publisher.md`,
-  `social-media.md`, `streamer.md`) already independently converges on
-  `RaceResult.Approved` as its gate — this doc's `store.CanPublish` is
-  the same check, named once.
+Every not-yet-built persona (Developer, Results Publisher, Social Media,
+Streamer, Heat Sheet Creator v1) should be built against
+`store.TeamState`/`CanPublish`/`CanTrackWallClock` and `publish.IsStale`
+from the start, not retrofitted onto them later — each one's own doc still
+independently sketches a `res.Approved == true` check or a staleness
+pattern; those should be replaced with a line pointing here as each persona
+gets built.
 
-## High-level implementation plan
+**Awards (AWD) shipped this way (PRs #105-#107, see
+[personas/README.md](../README.md#awards-awd))**: its View Results button
+gates on `store.CanPublish(res)` directly, the first real caller of that
+helper — confirming the pattern this section anticipates. It needed no
+`publish.IsStale` staleness tracking, since a read-only viewer has nothing
+of its own to compare a fresh render against.
 
-1. **`internal/persona/store/state.go`**: `TeamState` enum,
-   `DeriveTeamState`, `CanPublish`, `CanTrackWallClock`. Unit tests
-   table-driven against every `(StartRecord, RaceResult)` combination in
-   the milestone ladder, including the primary/secondary-exclusive states.
-2. **Migrate existing call sites**: `raceProgressStatus` and
-   `clock.commitState`/`raceCommitState` become wrappers over
-   `store.DeriveTeamState`, with existing tests updated to assert the
-   same observable text/enum, not rewritten from scratch.
-3. **`internal/publish`**: build Phase 0a as already sketched, plus
-   `IsStale`. No UI yet — this is the shared data/staleness layer every
-   downstream persona depends on.
-4. **Race-tree redesign**: collapse `newRaceRow`/`raceListHeader`'s
-   parallel role-switches into one shared column set + per-role button-list
-   function, wired to the new helpers. This is the "pane of glass" —
-   existing PST/SST/PFT/SFT/RD trees keep behaving identically (same
-   columns they already show, same buttons), just built from shared code
-   instead of duplicated switches, since today's union of columns already
-   matches what each role shows.
-5. **Live-update wiring for the FT's own status line** — today
-   `c.commitStatus` only refreshes on `persistFinish` (approve/save),
-   `rehydrate` (reopen), and the referee-approval window; it never
-   reflects the FT's own Start click or a live peer ST-restart while the
-   window is already open, so `NotStarted` and `TimingInProgress` both
-   currently show identically as "Pending." Two small additions, both
-   riding on work already happening (no new goroutine, no risk to the
-   Start/Lap/Stop capture path itself): `recordFirstFinish`
-   (`internal/clock/persist.go:31-63`) gains a `refreshCommitStatus()`
-   call so **On the Water** shows live on Start; `UpdateStartTime`'s peer
-   ST-watcher callback (`persist.go:152-172`, reached via
-   `onPeerStartChanged` in `internal/regatta/persona_startup.go`) gains
-   one too, so **Stopped** shows live if the ST restarts while the FT's
-   clock is already open.
-6. **Rename the ST's "Clear" button/label to "Restart Race"** — label
-   only, `clearStartConfirmed`
-   (`internal/regatta/start_timing.go:73-102`) is otherwise unchanged.
-7. **Docs** (once built): update this doc's own status; each not-yet-built
-   persona doc's "Existing-code reuse analysis" gets a line pointing at
-   `store.CanPublish`/`TeamState` and `publish.IsStale` instead of its own
-   bespoke check; revisit the "Official" terminology once reviewed against
-   US Rowing's officiating rulebook.
-
-## Dependencies and sequencing
-
-- **No architectural blocker** beyond `develop`'s feature freeze (see
-  `AGENTS.md`) — every piece named above (steps 1-3) is new, additive code
-  with no dependency on anything else currently in flight (not the
-  RegattaCentral investigation, not HSC, not Streamer).
-- **Gates every not-yet-built persona's implementation** (not their
-  proposal docs, which stay as written): Awards, Developer, Results
-  Publisher, Social Media, Streamer, and Heat Sheet Creator v1 should all
-  be built against `store.TeamState`/`CanPublish` and `publish.IsStale`
-  from the start, not retrofitted onto them later. Per the author,
-  **this is the next feature to land once the freeze lifts, before any of
-  those personas' implementation begins.**
-- **HSC v3's cross-race edge** (Phase 0/"Cross-race edge" above) has its
-  own separate design gap already flagged in `heat-sheet-creator.md`
-  (round-type/progression metadata on `store.ScheduleRace`) — this doc's
-  state model is consistent with that gap, but does not resolve it; HSC
-  v3's own design pass still owns that piece.
+**HSC v3's cross-race edge** (Phase 0/"Cross-race edge" above) has its own
+separate design gap already flagged in `heat-sheet-creator.md`
+(round-type/progression metadata on `store.ScheduleRace`) — this doc's
+state model is consistent with that gap, but does not resolve it; HSC v3's
+own design pass still owns that piece.

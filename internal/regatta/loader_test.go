@@ -3,12 +3,16 @@ package regatta
 import (
 	"errors"
 	"net/url"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/test"
 
+	"github.com/comagnaw/regattaClock/internal/applog"
 	"github.com/comagnaw/regattaClock/internal/common"
 	"github.com/comagnaw/regattaClock/internal/reader"
 )
@@ -140,7 +144,7 @@ func TestRegatta_SetRegattaData_ValidFile(t *testing.T) {
 	regatta := NewDirector(app)
 
 	// Use the test file from reader package
-	testFile := "../reader/testdata/Example Regatta Input Table.xlsx"
+	testFile := "../reader/testdata/Example Heat Sheets and Results With Macros.xlsm"
 
 	err := regatta.setRegattaData(testFile)
 
@@ -259,7 +263,7 @@ func TestRegatta_Callback_ValidFile(t *testing.T) {
 	regatta.showRaceTree()
 
 	// Create a mock file reader with valid xlsx extension
-	testFile := "../reader/testdata/Example Regatta Input Table.xlsx"
+	testFile := "../reader/testdata/Example Heat Sheets and Results With Macros.xlsm"
 	mock := newMockURIReadCloser(testFile)
 
 	callback := regatta.callback(false)
@@ -378,6 +382,91 @@ func TestRegatta_DebugLoader_EmptyRaces(t *testing.T) {
 
 	// Should not panic with empty races
 	regatta.debugLoader()
+}
+
+// TestRegatta_DebugLoader_PerRaceLines - with Debug on, debugLoader emits one
+// "race parsed" line per race that has boats; race 2 (BoatCount 0, a blank
+// template row) must be skipped - no diagnostic value, and a real workbook can
+// have 50-70 of them.
+func TestRegatta_DebugLoader_PerRaceLines(t *testing.T) {
+	applog.Init(true, true)
+	t.Cleanup(applog.Close)
+
+	logPath := filepath.Join(t.TempDir(), "debug.log")
+	if err := applog.SetOutput(logPath); err != nil {
+		t.Fatalf("SetOutput: %v", err)
+	}
+
+	app := test.NewApp()
+	defer app.Quit()
+
+	regatta := NewDirector(app)
+	regatta.RegattaData = &reader.RegattaData{
+		Name: "Test Regatta",
+		Date: "2024-01-15",
+		Races: []reader.RaceData{
+			{
+				RaceNumber: 1, BoatCount: 4, BoatClass: "Varsity 8", FlightInfo: "Heat 1",
+				ScheduledTime: "09:00 AM",
+				Lanes:         map[int]reader.RaceEntry{1: {SchoolName: "School A"}},
+			},
+			{RaceNumber: 2, BoatCount: 0, Lanes: map[int]reader.RaceEntry{}},
+		},
+	}
+
+	regatta.debugLoader()
+	applog.Close()
+
+	body, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("read log: %v", err)
+	}
+
+	if !strings.Contains(string(body), `"msg":"race parsed"`) {
+		t.Fatalf("expected a per-race DEBUG line, got:\n%s", body)
+	}
+	if !strings.Contains(string(body), `"race":1`) {
+		t.Errorf("expected race 1's line, got:\n%s", body)
+	}
+	if strings.Contains(string(body), `"race":2`) {
+		t.Errorf("race 2 has no boats and should have been skipped, got:\n%s", body)
+	}
+}
+
+// TestRegatta_DebugLoader_PerRaceLines_DebugOff - the per-race lines are
+// DEBUG-level, so with Logging on but Debug off they must not appear at all.
+func TestRegatta_DebugLoader_PerRaceLines_DebugOff(t *testing.T) {
+	applog.Init(true, false)
+	t.Cleanup(applog.Close)
+
+	logPath := filepath.Join(t.TempDir(), "debug.log")
+	if err := applog.SetOutput(logPath); err != nil {
+		t.Fatalf("SetOutput: %v", err)
+	}
+
+	app := test.NewApp()
+	defer app.Quit()
+
+	regatta := NewDirector(app)
+	regatta.RegattaData = &reader.RegattaData{
+		Name: "Test Regatta",
+		Date: "2024-01-15",
+		Races: []reader.RaceData{
+			{RaceNumber: 1, BoatCount: 4, Lanes: map[int]reader.RaceEntry{1: {SchoolName: "School A"}}},
+		},
+	}
+
+	regatta.debugLoader()
+	applog.Close()
+
+	body, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("read log: %v", err)
+	}
+
+	if strings.Contains(string(body), `"msg":"race parsed"`) {
+		t.Errorf("expected no DEBUG lines with Debug off, got:\n%s", body)
+	}
 }
 
 func TestGetFilePath_ComplexPaths(t *testing.T) {

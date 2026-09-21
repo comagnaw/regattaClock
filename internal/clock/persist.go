@@ -27,7 +27,12 @@ const minPlausibleRace = 30 * time.Second
 // recordFirstFinish stamps the FT's clock-Start moment onto finish.json as an
 // in-progress RaceResult. This is what engages the Start Timer lock for the
 // race (persona-plan.md section 9). A write failure is logged but never blocks
-// timing.
+// timing: store.SaveFinish stages the write through a local write-ahead
+// journal (persona-plan.md section 13) and only ever returns an error here
+// when that local staging write itself fails - a rarer, more serious
+// condition than the shared path being unreachable. An unreachable shared
+// path never surfaces as an error at all; it becomes a journal.Manager
+// Status the operator sees (or will see, once a status banner lands).
 func (c *Clock) recordFirstFinish() {
 	if !c.canPersist() {
 		return
@@ -60,6 +65,32 @@ func (c *Clock) recordFirstFinish() {
 		return
 	}
 	applog.Info("clock started", "component", "clock", "race", n)
+	c.refreshCommitStatus()
+}
+
+// recordStop stamps StoppedAt on finish.json once the primary FT is done
+// collecting times and clicks Stop - the signal other personas can observe
+// as "Pending Approval" without seeing the winning time itself early (that's
+// still written only at Approval, persistFinish). No-op for the secondary
+// team - it has no approval gate to await.
+func (c *Clock) recordStop() {
+	if !c.canPersist() || !c.isPrimaryFinish() {
+		return
+	}
+	n := c.raceData.RaceNumber
+
+	res := c.finishLog.Races[n]
+	res.RaceNumber = n
+	stopped := time.Now().UTC()
+	res.StoppedAt = &stopped
+	c.setRace(n, res)
+
+	if err := store.SaveFinish(c.session, c.finishLog); err != nil {
+		applog.Error("finish log write failed", "component", "clock", "race", n, "err", err)
+		return
+	}
+	applog.Info("clock stopped", "component", "clock", "race", n)
+	c.refreshCommitStatus()
 }
 
 // deriveWinningTime pre-fills winningTime with the finish timer's Start click
@@ -151,6 +182,11 @@ func (c *Clock) noteWinningTime(msg string) {
 // the watcher reports a fresh start.json (persona-plan.md 2.2).
 func (c *Clock) UpdateStartTime(log *store.StartLog) {
 	c.startLog = log
+	// The status line reads c.startLog too (race-state-machine.md), so a
+	// fresh peer start/restart must refresh it even before this FT begins
+	// timing - refreshCommitStatus is a no-op if there's no status line to
+	// update (a read-only clock, or no finishLog bound at all).
+	c.refreshCommitStatus()
 	if !c.canPersist() {
 		return
 	}
@@ -249,19 +285,20 @@ func (c *Clock) refreshCommitStatus() {
 	}
 	stampText := func(t time.Time) string { return t.Local().Format(common.CommitStatusTimeFormat) }
 
-	switch c.raceCommitState() {
-	case stateApproved:
+	state := c.raceTeamState()
+	switch state {
+	case store.StateApproved:
 		stamp := time.Now()
 		if res.ApprovedAt != nil {
 			stamp = *res.ApprovedAt
 		}
 		c.commitStatus.SetText(fmt.Sprintf(common.CommitStatusApprovedFormat, stampText(stamp), host))
 		c.buttons.close.Enable()
-	case stateSaved:
+	case store.StateSaved:
 		c.commitStatus.SetText(fmt.Sprintf(common.CommitStatusSavedFormat, stampText(res.UpdatedAt), host))
 		c.buttons.close.Enable()
 	default:
-		c.commitStatus.SetText(common.CommitStatusPending)
+		c.commitStatus.SetText(state.DisplayText(c.session.Team))
 		c.buttons.close.Disable()
 	}
 }
@@ -269,6 +306,10 @@ func (c *Clock) refreshCommitStatus() {
 // persistFinish serializes the current lap rows and winning time into the race's
 // RaceResult and writes the whole finish.json. Called from Referee Approval
 // (primary FT, approved=true) and Save and Close (secondary FT, approved=false).
+// The dialog.ShowError below now fires only for the rarer, more serious case
+// of the local journal staging write itself failing (see recordFirstFinish's
+// comment) - a shared-path failure is staged, retried, and never reaches this
+// error path.
 func (c *Clock) persistFinish(approved bool) {
 	if !c.canPersist() {
 		return
@@ -334,6 +375,10 @@ func (c *Clock) rehydrate() {
 	}
 	res, ok := c.finishLog.Races[c.raceData.RaceNumber]
 	if !ok {
+		// Nothing of this FT's own to restore yet, but the status line should
+		// still reflect the canonical team state - a peer ST's recorded start
+		// alone already reaches "On the Water" (race-state-machine.md).
+		c.refreshCommitStatus()
 		return
 	}
 

@@ -54,9 +54,10 @@ point here rather than duplicate this design.
 - **Does:** Add a per-race **Publish** button to the PFT's existing race
   view (the same tree PFT already sees, not a new RD-style read-only tree —
   since this is now a PFT feature, not a separate read-only persona). The
-  button is enabled only when that race's result is officially approved
-  (`RaceResult.Approved == true`, the same field the RD/Awards proposal
-  already gate on). Pressing it renders that race's result into the
+  button is enabled only when `store.CanPublish(res)`
+  (`internal/persona/store/state.go`, race-state-machine.md) is true, the
+  same named helper the RD/Awards proposal already gate on. Pressing it
+  renders that race's result into the
   configured destination: initially, a new standalone results spreadsheet
   (same format as the current manual "results worksheet," but a dedicated
   file RegattaClock owns and writes, decoupled from the RD's source
@@ -72,12 +73,27 @@ point here rather than duplicate this design.
   `Approved` result is the official one (`reconciliation.md`); the
   secondary FT's terminal action never sets `Approved: true`.
 
+**Confirmed (2026-09-20): this decision fully resolves the circular-file
+concern raised about the RD's read and REP's write ever touching the same
+workbook.** No Excel-writing code exists anywhere in the repo today (REP
+is unbuilt), and even if it did, `store.ScheduleRace`/`ScheduleEntry`
+structurally have no Place/Split/Time fields, and `Schedule.ContentHash()`
+— what actually gates the RD's "apply this schedule change?" banner —
+never hashes a result cell. This "Does not: write to the RD's own source
+workbook" decision, made independently of that analysis, was already the
+right one; see
+[schedule-data-model.md](../closed/schedule-data-model.md#ingest-source-results-tab-vs-heat-sheet-tab)
+for the fuller trail. The one gap that analysis found on the RD's read
+side (not REP's write side) — the RD's ingest reading a results-shaped
+tab at all — has since shipped (same date): the RD now reads the `Heat
+Sheet` worksheet, which carries no result columns.
+
 ## Existing-code reuse analysis
 
-- **Approval gating** — `internal/persona/store/log.go`'s
-  `RaceResult.Approved`, already what `raceProgressStatus`
-  (`internal/regatta/timer_races.go:187-198`) and the Awards proposal both
-  gate on. Same one-line check here: no new state to invent.
+- **Approval gating** — `store.CanPublish(res)`
+  (`internal/persona/store/state.go`, race-state-machine.md), already what
+  `raceProgressStatus` and the Awards proposal both call. Same named check
+  here: no new state to invent.
 - **PFT's own race view already exists** — this is an addition to
   `internal/clock`/`internal/regatta`'s existing PFT flow, not a new tree
   to build (unlike Awards/Developer, which had to build a read-only tree
@@ -90,6 +106,20 @@ point here rather than duplicate this design.
   new work — check whether the Excel library already in `go.mod` for
   reading also supports writing before assuming a new dependency is
   needed.
+- **The exact "same format as the current manual results worksheet" this
+  section's own Does bullet commits to** (2026-09-20): before the RD's
+  ingest pivoted to the Heat Sheet worksheet
+  ([schedule-data-model.md](../closed/schedule-data-model.md#ingest-source-results-tab-vs-heat-sheet-tab)),
+  `internal/reader/excel.go` parsed a `Results` worksheet's 5-row-per-race
+  block this way — a real workbook's actual layout, not a guess: **row 0**
+  (col C = boat class, cols D-I = per-lane school name), **row 1** (col C
+  = flight/heat, cols D-I = a per-lane A/B or scratch note), **rows 2-4**
+  (cols D-I = Place, Split, Time per lane). That reading code is gone as
+  of this pivot (replaced, not kept callable alongside the new Heat Sheet
+  path) — but this is the concrete shape a future spreadsheet writer
+  should reproduce, since regatta officials already recognize this exact
+  layout. Findable in git history at the PR that made this note if the
+  original code itself is ever wanted for reference.
 - **RegattaCentral destination (later)** — reuses whatever
   `internal/regattacentral` client shape the
   `regattacentral-heatsheet-investigation` branch lands on

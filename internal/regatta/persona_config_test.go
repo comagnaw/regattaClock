@@ -151,6 +151,40 @@ func TestNew_PersonaConfigTimerFolderPickReachesCallback(t *testing.T) {
 	}
 }
 
+// TestNew_PersonaConfigTimerOffersPreviousRegatta_CancelReturnsToLanding checks
+// the pinned-host landing view's own "back" target: unlike the picker's
+// challenge flow, cancelling the previous-regatta dialog here has no persona
+// picker to return to, so it must redisplay the landing view instead.
+func TestNew_PersonaConfigTimerOffersPreviousRegatta_CancelReturnsToLanding(t *testing.T) {
+	app := test.NewTempApp(t)
+	setPersonaConfigPref(t, app, `{"hosts":{"race-pc":"pst"}}`)
+	stubHostName(t, "race-pc")
+	root := seedRegatta(t, testSchedule())
+	app.Preferences().SetString(common.PrefLastRegattaRoot, root)
+
+	r := New(app)
+	stopWatch(t, r)
+
+	btn := findButtonByLabel(r.window.Content(), common.AssignedPersonaSelectFolderButtonText)
+	if btn == nil {
+		t.Fatal("landing view is missing the folder button")
+	}
+	btn.OnTapped()
+
+	cancel := findOverlayButtonByLabel(r.window.Canvas(), common.CancelButtonText)
+	if cancel == nil {
+		t.Fatal("no cancel button found on the previous-regatta dialog")
+	}
+	cancel.OnTapped()
+
+	if findButtonByLabel(r.window.Content(), common.AssignedPersonaSelectFolderButtonText) == nil {
+		t.Error("cancelling should return to the pinned-host landing view")
+	}
+	if r.session.Root != common.EmptyString {
+		t.Error("no session should be bound after cancelling")
+	}
+}
+
 func TestNew_MissingPersonaConfigPath_FallsBackToPicker(t *testing.T) {
 	app := test.NewTempApp(t)
 	app.Preferences().SetString(common.PrefPersonaConfigFile, filepath.Join(t.TempDir(), "gone.json"))

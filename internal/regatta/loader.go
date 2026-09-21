@@ -172,7 +172,10 @@ func (r *Regatta) setRegattaData(filePath string) error {
 }
 
 // debugLoader - verbose dump of what was just parsed, emitted only when the
-// Debug preference is on (applog drops it otherwise).
+// Debug preference is on (applog drops it otherwise). Follows the summary
+// line with one line per race that actually has boats - blank template rows
+// (HasBoats() false) are skipped, since a 50-70-row workbook would otherwise
+// spam the log with rows that carry no diagnostic value.
 func (r *Regatta) debugLoader() {
 	applog.Debug("regatta data parsed", "component", "loader",
 		"races_total", len(r.RegattaData.Races),
@@ -181,4 +184,17 @@ func (r *Regatta) debugLoader() {
 		"date", r.RegattaData.Date,
 		"source", fmt.Sprintf("%v", r.RegattaData.SourceInfo),
 	)
+	for _, race := range r.RegattaData.Races {
+		if !race.HasBoats() {
+			continue
+		}
+		applog.Debug("race parsed", "component", "loader",
+			"race", race.RaceNumber,
+			"class", race.BoatClass,
+			"flight", race.FlightInfo,
+			"scheduledTime", race.ScheduledTime,
+			"boatCount", race.BoatCount,
+			"rawData", fmt.Sprintf("%v", race.RawData),
+		)
+	}
 }

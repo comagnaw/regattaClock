@@ -12,6 +12,7 @@ import (
 
 	"github.com/comagnaw/regattaClock/internal/common"
 	"github.com/comagnaw/regattaClock/internal/persona"
+	"github.com/comagnaw/regattaClock/internal/persona/store"
 	"github.com/comagnaw/regattaClock/internal/reader"
 )
 
@@ -66,7 +67,7 @@ func ftRegatta(t *testing.T) *Regatta {
 func TestRegatta_RaceListHeader_Finish(t *testing.T) {
 	texts := labelTexts(ftRegatta(t).raceListHeader())
 
-	for _, want := range []string{common.ScheduledRacesTile, common.ColStartTime, common.ColStatus} {
+	for _, want := range []string{common.ColEvent, common.ColStartTime, common.ColStatus} {
 		if !slices.Contains(texts, want) {
 			t.Errorf("finish header %v is missing %q", texts, want)
 		}
@@ -475,7 +476,7 @@ func TestRegatta_RaceListHeader_Director(t *testing.T) {
 
 	texts := labelTexts(header)
 	for _, want := range []string{
-		common.ScheduledRacesTile, common.ColRestarts, common.ColStartTime,
+		common.ColEvent, common.ColRestarts, common.ColStartTime,
 		common.ColWinningTime, common.ColStatus,
 	} {
 		if !slices.Contains(texts, want) {
@@ -536,12 +537,13 @@ func TestRegatta_DirectorRow_LayoutAndPlaceholders(t *testing.T) {
 		t.Error("a director row has no buttons")
 	}
 	// No timing logs bound yet: every metric cell shows its placeholder.
+	wantNotStarted := store.StateNotStarted.DisplayText(persona.TeamPrimary)
 	if row.restarts.Text != common.NoStartTimeText ||
 		row.startTime.Text != common.NoStartTimeText ||
 		row.winTime.Text != common.NoStartTimeText ||
-		row.approved.Text != common.EmptyString {
+		row.progress.Text != wantNotStarted {
 		t.Errorf("placeholder cells wrong: restarts=%q start=%q win=%q status=%q",
-			row.restarts.Text, row.startTime.Text, row.winTime.Text, row.approved.Text)
+			row.restarts.Text, row.startTime.Text, row.winTime.Text, row.progress.Text)
 	}
 }
 

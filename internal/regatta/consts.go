@@ -48,6 +48,15 @@ const (
 	// Time") is the longer string.
 	scheduledTimeColWidth = float32(140)
 
+	// raceNumColWidth - the race tree's leading "Num" column, just the race
+	// number (RaceDetail() drops it from the title text since it has its own
+	// column here).
+	raceNumColWidth = float32(60)
+
+	// boatCountColWidth - the race tree's "Entries" column (reader.RaceData.
+	// BoatCount), narrow like raceNumColWidth since it's also a short integer.
+	boatCountColWidth = float32(60)
+
 	// actionsColWidth - the start timer's Start Time / Clear / Restore button
 	// group (three equal cells).
 	actionsColWidth = float32(300)
@@ -66,6 +75,17 @@ const (
 	// timeRaceColWidth - the finish timer's Time Race button (fits the button
 	// plus the inset).
 	timeRaceColWidth = float32(120)
+
+	// viewResultsColWidth - the Director/Awards "View Results" button (fits
+	// the button plus the inset).
+	viewResultsColWidth = float32(140)
+
+	// resultsWinWidth / resultsWinHeight - the read-only results window
+	// (results_window.go), sized like the Referee Approval window
+	// (refereeWinWidth/refereeWinHeight, internal/clock/consts.go) since
+	// clock.ApprovalWindowContent renders the identical 5-column grid.
+	resultsWinWidth  = float32(1100)
+	resultsWinHeight = float32(720)
 
 	// welcomeBannerWidth, welcomeBannerHeight - the wordmark as a prominent
 	// centered header on the welcome-family views. ~6.5:1 to match the SVG's

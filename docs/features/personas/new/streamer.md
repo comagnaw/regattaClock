@@ -62,8 +62,9 @@ it directly).
     **force regenerate** button for an ad-hoc re-render outside a
     schedule change.
   - Run a **wall clock**, in its own separate, fixed-size window, driven
-    by a per-race **"run clock"** button on the tree (enabled once that
-    race has a recorded `StartRecord.StartedAt`). Running, the button
+    by a per-race **"run clock"** button on the tree (enabled by
+    `store.CanTrackWallClock(start)`, `internal/persona/store/state.go`,
+    race-state-machine.md — a recorded `StartRecord.StartedAt`). Running, the button
     reads "clear clock" and the window title carries the race's
     metadata (title/boat class); the elapsed time is `MM:SS.m`,
     computed from the start record's own captured offset and STM's own
@@ -72,10 +73,12 @@ it directly).
     capturing an existing window; closing it would drop the source from
     the scene.
   - Auto-generate a **results PNG** per race into
-    `regattaData/stream/results/` once that race's `RaceResult.Approved`
-    becomes true, watched via `internal/watcher` on the primary team's
-    `FinishPath()`. Format matches SOM's shared text table
-    (`internal/publish.RenderText`), rendered as an image.
+    `regattaData/stream/results/` once `store.CanPublish(res)`
+    (`internal/persona/store/state.go`, race-state-machine.md — that
+    race's `RaceResult.Approved` becomes true), watched via
+    `internal/watcher` on the primary team's `FinishPath()`. Format
+    matches SOM's shared text table (`internal/publish.RenderText`),
+    rendered as an image.
 - **Does not:** Write any persona-owned timing file (`start.json`,
   `finish.json`, `regattaSchedule.json`) — STM is read-only over all
   three, the same posture as Awards/Developer/RD. Attach as a sidecar to
@@ -107,12 +110,10 @@ it directly).
   action button per row (lanes/results status) plus the "run clock"
   button column.
 - **New `persona.Role` + `Definition`** — same registry gap Awards hit
-  first (`docs/features/personas/new/awards.md`'s reuse analysis):
-  `RoleStreamer`, `Team: TeamExecutive`, `File: ""`, a challenge code,
-  appended alongside `DirectorDefinition` (or however AWD/DEV's own
-  additions end up structured — this is now the third Executive-team
-  standalone persona hitting the same `All()`/registry shape, worth
-  landing them together or at least consistently).
+  first, now shipped as the concrete template (`internal/persona/persona.go`'s
+  `RoleAwards`/`AwardsDefinition`): `RoleStreamer`, `Team: TeamExecutive`,
+  `File: ""`, a challenge code, appended alongside `DirectorDefinition` and
+  `AwardsDefinition` in `All()`.
 - **`Session.WritePath()` gap** — same gap Awards/Developer already
   flagged for a read-only, non-director Role. STM's own code should
   simply never call `store.Save*`; the guard is a safety net, not
@@ -148,14 +149,14 @@ it directly).
   (`internal/publish`) and the Phase 0b rendering function itself.
   `sidecar-personas.md` is updated to note this.
 - **Shared text format with SOM** — `internal/publish`'s `BuildView`,
-  `PublishableRace`, `RenderText` (Phase 0a, already fully sketched) are
+  `PublishableRace`, `RenderText` (built, race-state-machine.md) are
   reused as-is: STM's results PNG is `RenderResult` applied to the same
   `PublishableRace` SOM's `RenderText` renders as plain text. One join,
   one revision hash, two renderers.
-- **Results-PNG change detection** — `internal/publish.Revision(pr)`
-  (the same re-publish-detection hash SOM already tracks per race) is
-  reused directly for STM's own "don't re-render an unchanged result"
-  tally: `map[int]string` (raceNumber → last-rendered `Revision`).
+- **Results-PNG change detection** — `publish.IsStale(published, pr)`
+  (the same re-publish-detection check SOM already uses) is reused
+  directly for STM's own "don't re-render an unchanged result" tally:
+  `map[int]string` (raceNumber → last-rendered `Revision`).
 - **NTP-corrected wall clock** — `internal/timesync.Ref()` (already
   measuring STM's own machine's offset from app startup,
   `internal/regatta/bootstrap.go`'s `timesync.Start`, no persona-specific

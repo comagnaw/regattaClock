@@ -6,7 +6,7 @@ import (
 
 	"fyne.io/fyne/v2/test"
 
-	"github.com/comagnaw/regattaClock/internal/common"
+	"github.com/comagnaw/regattaClock/internal/persona"
 	"github.com/comagnaw/regattaClock/internal/persona/store"
 )
 
@@ -60,37 +60,41 @@ func TestStartRowLocksWhenFinishHasInProgressResult(t *testing.T) {
 		t.Errorf("race 1 buttons should be locked: start=%v clear=%v restoreHidden=%v",
 			locked.startBtn.Disabled(), locked.clearBtn.Disabled(), locked.restoreBtn.Hidden)
 	}
-	if locked.progress.Text != common.RaceInProgressText {
-		t.Errorf("race 1 note = %q, want %q", locked.progress.Text, common.RaceInProgressText)
+	wantInProgress := store.StateTimingInProgress.DisplayText(persona.TeamPrimary)
+	if locked.progress.Text != wantInProgress {
+		t.Errorf("race 1 note = %q, want %q", locked.progress.Text, wantInProgress)
 	}
 
 	free := r.rows[2]
 	if free.startBtn.Disabled() {
 		t.Error("race 2 (no finish record) should not be locked")
 	}
-	if free.progress.Text != "" {
-		t.Errorf("race 2 note = %q, want empty", free.progress.Text)
+	wantNotStarted := store.StateNotStarted.DisplayText(persona.TeamPrimary)
+	if free.progress.Text != wantNotStarted {
+		t.Errorf("race 2 note = %q, want %q", free.progress.Text, wantNotStarted)
 	}
 }
 
 func TestStartRowStatusMatchesFinishProgress(t *testing.T) {
-	// Saved but not approved: the ST row shows the shared "saved" status, still locked.
+	// Saved but not approved: the ST row shows the shared Saved status, still locked.
 	r, _ := startTimerWithFinish(t, &store.FinishLog{Races: map[int]store.RaceResult{
 		1: {RaceNumber: 1, FirstFinishAt: ptr(time.Now().UTC()), WinningTime: "06:00.0"},
 	}})
-	if got := r.rows[1].progress.Text; got != common.RaceSavedText {
-		t.Errorf("saved race status = %q, want %q", got, common.RaceSavedText)
+	wantSaved := store.StateSaved.DisplayText(persona.TeamPrimary)
+	if got := r.rows[1].progress.Text; got != wantSaved {
+		t.Errorf("saved race status = %q, want %q", got, wantSaved)
 	}
 	if !r.rows[1].startBtn.Disabled() {
 		t.Error("a saved race must stay locked")
 	}
 
-	// Approved: the shared "approved" status, still locked.
+	// Approved: the shared Official status, still locked.
 	r2, _ := startTimerWithFinish(t, &store.FinishLog{Races: map[int]store.RaceResult{
 		1: {RaceNumber: 1, FirstFinishAt: ptr(time.Now().UTC()), WinningTime: "06:00.0", Approved: true},
 	}})
-	if got := r2.rows[1].progress.Text; got != common.RaceApprovedText {
-		t.Errorf("approved race status = %q, want %q", got, common.RaceApprovedText)
+	wantApproved := store.StateApproved.DisplayText(persona.TeamPrimary)
+	if got := r2.rows[1].progress.Text; got != wantApproved {
+		t.Errorf("approved race status = %q, want %q", got, wantApproved)
 	}
 	if !r2.rows[1].startBtn.Disabled() {
 		t.Error("an approved race must stay locked")
@@ -107,7 +111,7 @@ func TestOnPeerFinishChangedLocksRowLive(t *testing.T) {
 		1: {RaceNumber: 1, FirstFinishAt: ptr(time.Now().UTC())},
 	}})
 
-	if !r.rows[1].startBtn.Disabled() || r.rows[1].progress.Text != common.RaceInProgressText {
+	if !r.rows[1].startBtn.Disabled() || r.rows[1].progress.Text != store.StateTimingInProgress.DisplayText(persona.TeamPrimary) {
 		t.Error("race 1 should lock when the watcher delivers a finish record")
 	}
 }

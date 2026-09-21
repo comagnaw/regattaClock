@@ -56,6 +56,54 @@ func TestClockStartWritesInProgressResult(t *testing.T) {
 	}
 }
 
+// TestClockStartUpdatesStatusLineImmediately - clicking Start must refresh
+// the status line right away, not just on the next Stop/Approve/reopen.
+func TestClockStartUpdatesStatusLineImmediately(t *testing.T) {
+	clk := openBoundClock(t, pftSession(t), &store.FinishLog{Races: map[int]store.RaceResult{}})
+
+	clk.buttons.start.OnTapped()
+
+	want := store.StateTimingInProgress.DisplayText(persona.TeamPrimary)
+	if clk.commitStatus.Text != want {
+		t.Errorf("commit status right after Start = %q, want %q", clk.commitStatus.Text, want)
+	}
+}
+
+func TestRecordStop_SetsFieldAndPersists(t *testing.T) {
+	s := pftSession(t)
+	log := &store.FinishLog{Races: map[int]store.RaceResult{}}
+	clk := openBoundClock(t, s, log)
+
+	clk.buttons.start.OnTapped()
+	clk.buttons.stop.OnTapped()
+
+	res, ok := log.Races[1]
+	if !ok || res.StoppedAt == nil {
+		t.Fatalf("Stop did not stamp StoppedAt: %+v", res)
+	}
+
+	onDisk, err := store.LoadFinish(s)
+	if err != nil {
+		t.Fatalf("LoadFinish: %v", err)
+	}
+	if onDisk.Races[1].StoppedAt == nil {
+		t.Error("finish.json on disk has no StoppedAt for race 1")
+	}
+}
+
+func TestRecordStop_SecondaryNoOp(t *testing.T) {
+	s := sftSession(t)
+	log := &store.FinishLog{Races: map[int]store.RaceResult{}}
+	clk := openSecondaryClock(t, s, log)
+
+	clk.buttons.start.OnTapped()
+	clk.buttons.stop.OnTapped()
+
+	if res := log.Races[1]; res.StoppedAt != nil {
+		t.Errorf("secondary FT's Stop should not set StoppedAt: %+v", res)
+	}
+}
+
 func TestClockApprovalWritesFullResult(t *testing.T) {
 	s := pftSession(t)
 	log := &store.FinishLog{Races: map[int]store.RaceResult{}}
@@ -141,7 +189,7 @@ func TestClearOnApprovedRace_ConfirmedResetFixesStaleFirstFinish(t *testing.T) {
 	clk.clockState.skipAutoWinningTime = true
 	clk.performClear()
 
-	if res := log.Races[1]; res.FirstFinishAt != nil || res.WinningTime != "" || res.Approved {
+	if res := log.Races[1]; res.FirstFinishAt != nil || res.WinningTime != "" || res.Approved || res.StoppedAt != nil {
 		t.Fatalf("performClear should fully reset the race, got %+v", res)
 	}
 
@@ -153,6 +201,9 @@ func TestClearOnApprovedRace_ConfirmedResetFixesStaleFirstFinish(t *testing.T) {
 	}
 	if staleFinish != nil && res.FirstFinishAt.Equal(*staleFinish) {
 		t.Error("FirstFinishAt still matches the pre-Clear approved value - the stale-data bug is back")
+	}
+	if res.StoppedAt != nil {
+		t.Error("StoppedAt still matches the pre-Clear approved value - a re-time should not look Pending Approval before Stop is clicked again")
 	}
 	if res.WinningTime != "" || clk.winningTime.Text != "" {
 		t.Errorf("winning time should stay manual-entry only after a confirmed re-time, got record=%q field=%q",
@@ -232,6 +283,53 @@ func TestClockStampsLaneMapHash(t *testing.T) {
 	clk.refereeApprovalFunc(1)(true)
 	if log.Races[1].LaneMapHash == want {
 		t.Error("LaneMapHash should change after the lane map changed and the result was re-saved")
+	}
+}
+
+// TestClockStatusReflectsPeerStartBeforeOwnClockTimes - the FT's own status
+// line must reflect the canonical team state (race-state-machine.md) on
+// open, not stay at the "no data" default: a peer ST's already-recorded
+// start alone already reaches StateStartRecorded ("On the Water"), even
+// though this FT has not clicked its own clock's Start yet.
+func TestClockStatusReflectsPeerStartBeforeOwnClockTimes(t *testing.T) {
+	s := pftSession(t)
+	app := test.NewTempApp(t)
+	at := time.Now().UTC()
+	startLog := &store.StartLog{Races: map[int]store.StartRecord{
+		1: {RaceNumber: 1, StartedAt: &at, Display: "09:00:00.0"},
+	}}
+	clk := NewClock(app, createTestRegattaData(), createTestRaceData()).
+		WithFinishLog(s, &store.FinishLog{Races: map[int]store.RaceResult{}}).
+		WithStartLog(startLog)
+	clk.OpenRaceClock()
+	t.Cleanup(clk.closeWindow)
+
+	want := store.StateStartRecorded.DisplayText(persona.TeamPrimary)
+	if clk.commitStatus.Text != want {
+		t.Errorf("commit status on open = %q, want %q", clk.commitStatus.Text, want)
+	}
+}
+
+// TestClockStatusUpdatesLiveOnPeerStart - if the FT's clock is already open
+// (with no peer start yet, so the status line reads Pending Start) and the
+// watcher then delivers a fresh peer start.json, the status line must update
+// live, not just on the next Start/Stop/Approve/reopen.
+func TestClockStatusUpdatesLiveOnPeerStart(t *testing.T) {
+	clk := openBoundClock(t, pftSession(t), &store.FinishLog{Races: map[int]store.RaceResult{}})
+
+	before := store.StateNotStarted.DisplayText(persona.TeamPrimary)
+	if clk.commitStatus.Text != before {
+		t.Fatalf("commit status before any peer start = %q, want %q", clk.commitStatus.Text, before)
+	}
+
+	at := time.Now().UTC()
+	clk.UpdateStartTime(&store.StartLog{Races: map[int]store.StartRecord{
+		1: {RaceNumber: 1, StartedAt: &at, Display: "09:00:00.0"},
+	}})
+
+	want := store.StateStartRecorded.DisplayText(persona.TeamPrimary)
+	if clk.commitStatus.Text != want {
+		t.Errorf("commit status after live peer start = %q, want %q", clk.commitStatus.Text, want)
 	}
 }
 

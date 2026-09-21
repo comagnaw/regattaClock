@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"iter"
 	"sort"
+	"strings"
 
 	"github.com/comagnaw/regattaClock/internal/common"
 )
@@ -62,15 +63,6 @@ func NewRegattaData() *RegattaData {
 	}
 }
 
-func (r *RegattaData) ApproveRace(raceNumber int) {
-	for i := range r.Races {
-		if r.Races[i].RaceNumber == raceNumber {
-			r.Races[i].Approved = true
-			break
-		}
-	}
-}
-
 // ScheduleRaces - count number of Races with more 1 or more Lanes with boats return integer
 func (r *RegattaData) ScheduledRaces() int {
 	scheduledRaces := 0
@@ -109,12 +101,6 @@ type RaceData struct {
 	// Rawdata - can be used to store raw table of sourceData for a race
 	RawData
 
-	// Saved - whether the race data has been saved to disk
-	Saved bool
-
-	// Approved - has the race data been approved by referee
-	Approved bool
-
 	// BoatCount - how many boats are in the race
 	BoatCount int
 
@@ -125,7 +111,14 @@ type RaceData struct {
 	FlightInfo string
 }
 
-// RawData - 5 row x 7 column table which represents sourceData for a race
+// RawData - 3 row x 7 column table which represents sourceData for a race,
+// read from the Heat Sheet worksheet's 3-row block: row 0 is boat class
+// (col 0) and per-lane school name; row 1 is flight/heat info for a team
+// boat (col 0) or a per-lane note - A/B flight, an alternate class,
+// "SCRATCHED" - otherwise; row 2 is a per-lane rower's last name (1x/2x
+// boats only) or an advancement note for a team boat (col 0). Row 2 is
+// captured here but not mapped into RaceEntry - no field for it exists
+// today.
 type RawData [][]string
 
 // getBoatClass - position 0x0 of table holds BoatClass value
@@ -138,22 +131,24 @@ func (r RawData) getFlightInfo() string {
 	return r[1][0]
 }
 
-// getRaceEntryByLane - for given column (lane), pull raceEntry attributes from the repsective row
+// getRaceEntryByLane - for given column (lane), pull raceEntry attributes
+// from the respective row. The Heat Sheet worksheet carries no result data -
+// RaceEntry has no field for it
+// (docs/features/personas/closed/schedule-data-model.md's "Remove from schedule"
+// section).
 func (r RawData) getRaceEntryByLane(lane int) RaceEntry {
 	raceEntry := RaceEntry{}
 
 	raceEntry.SchoolName = r[0][lane]
 	raceEntry.AdditionalInfo = r[1][lane]
-	raceEntry.Place = r[2][lane]
-	raceEntry.Split = r[3][lane]
-	raceEntry.Time = r[4][lane]
+	raceEntry.Status = detectStatus(raceEntry.AdditionalInfo)
 	return raceEntry
 }
 
 // newRaceData - init RaceData with provided raceNum
 func newRaceData(raceNum int) RaceData {
-	// make 5 rows of empty entries
-	rawData := make([][]string, 5)
+	// make 3 rows of empty entries
+	rawData := make([][]string, 3)
 	for i := range rawData {
 		// make 7 columns of empty entries
 		rawData[i] = make([]string, 7)
@@ -175,6 +170,26 @@ func (r *RaceData) RaceTitle() string {
 		titleText = fmt.Sprintf("%s - %s", titleText, r.FlightInfo)
 	}
 	return titleText
+}
+
+// RaceDetail is RaceTitle() without the leading "Race N" - just the boat
+// class / flight info portion (e.g. "Varsity 8 - Heat 1"), empty if neither
+// is set. For a view that already has the race number in its own column
+// (the race tree), where repeating it in the title would be redundant.
+// Every other caller keeps using RaceTitle() unchanged.
+func (r *RaceData) RaceDetail() string {
+	detail := common.EmptyString
+	if r.BoatClass != common.EmptyString {
+		detail = r.BoatClass
+	}
+	if r.FlightInfo != common.EmptyString {
+		if detail != common.EmptyString {
+			detail = fmt.Sprintf("%s - %s", detail, r.FlightInfo)
+		} else {
+			detail = r.FlightInfo
+		}
+	}
+	return detail
 }
 
 // ScheduledTimeDisplay - the race's scheduled start time, or the shared "no
@@ -234,14 +249,36 @@ type RaceEntry struct {
 	// AdditionalInfo - this may represent rower name or A vs B boat for school with multiple boats in race
 	AdditionalInfo string
 
-	// Place - what place did this boat finish in
-	Place string
+	// Status - this lane's status at schedule time (e.g. scratched),
+	// detected from AdditionalInfo at import (detectStatus). Same-shaped
+	// but distinct type from store.ScheduleEntryStatus - reader must never
+	// import store (regattaData.go's own package doc).
+	Status RaceEntryStatus
+}
 
-	// Split - what is the difference in time betwen this boat and the first place boat
-	Split string
+// RaceEntryStatus mirrors store.ScheduleEntryStatus - see that type's doc
+// comment for why this isn't a shared type or a reuse of
+// internal/regattacentral.LaneStatus.
+type RaceEntryStatus string
 
-	// Time - what is the toal time for this boat to finish the race
-	Time string
+const (
+	StatusOK        RaceEntryStatus = ""
+	StatusScratched RaceEntryStatus = "SCR"
+)
+
+// detectStatus derives a RaceEntryStatus from a lane's raw AdditionalInfo
+// text - exact match only (not substring), against every spelling an RD is
+// likely to free-type for a scratch ("scratched", "scratch", "scr"), via a
+// lowercase normalization so any case combination matches. Exact-match, not
+// substring, so a school name or boat-class code that happens to contain
+// "scr" is never mistaken for a scratch.
+func detectStatus(additionalInfo string) RaceEntryStatus {
+	switch strings.ToLower(strings.TrimSpace(additionalInfo)) {
+	case "scratched", "scratch", "scr":
+		return StatusScratched
+	default:
+		return StatusOK
+	}
 }
 
 func (r RaceEntry) isEmptyEntry() bool {
