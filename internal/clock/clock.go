@@ -127,6 +127,12 @@ type Clock struct {
 	// so a finish timer's race tree can pick up saved results.
 	AfterClose func()
 
+	// OnCommit - optional callback fired every time persistFinish successfully
+	// writes finish.json, so a finish timer's own race tree row can refresh
+	// live while the clock window stays open (e.g. primary FT Referee Approval,
+	// which deliberately leaves the window open for a later correction).
+	OnCommit func()
+
 	// closeOnce makes closeWindow idempotent, so a Save and Close tap (which
 	// closes the window itself) followed by the parent tearing the window down
 	// does not drive the fyne close path twice.

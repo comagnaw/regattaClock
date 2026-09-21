@@ -100,3 +100,23 @@ func TestPrimaryFinish_ApproveKeepsWindowOpen(t *testing.T) {
 		t.Error("Referee Approval must not close the primary FT clock window")
 	}
 }
+
+// TestPrimaryFinish_ApproveFiresOnCommit - Referee Approval leaves the clock
+// window open (see TestPrimaryFinish_ApproveKeepsWindowOpen above), so the
+// owning race tree can't rely on AfterClose to learn the result was saved.
+// OnCommit is the live-refresh hook for that case; a regression here would
+// leave the background race tree showing a stale (non-Official) status until
+// the PFT operator eventually closes the clock.
+func TestPrimaryFinish_ApproveFiresOnCommit(t *testing.T) {
+	clk := openBoundClock(t, pftSession(t), &store.FinishLog{Races: map[int]store.RaceResult{}})
+	commits := 0
+	clk.OnCommit = func() { commits++ }
+
+	clk.buttons.start.OnTapped()
+	clk.winningTime.SetText("01:00.0")
+	clk.refereeApprovalFunc(1)(true)
+
+	if commits != 1 {
+		t.Errorf("OnCommit fire count = %d, want 1 after Referee Approval", commits)
+	}
+}
