@@ -49,6 +49,45 @@ point here rather than duplicate this design.
   here — the RD picks the results destination once, at regatta creation,
   and PFT's publish button reads that choice.
 
+## Decisions made (author, 2026-09-26) — implementation
+
+These resolve the open questions left below, as the spreadsheet slice was
+built (#126 writer, #127 PFT wiring):
+
+- **Output location is a per-machine preference on the PFT's host**
+  (`PrefResultsDir`), not a `regattaSchedule.json` field. In the real
+  race-day setup `regattaData` is on a private shared drive and results go
+  to a separate published/external drive, and each machine mounts that
+  drive at a different path. The PFT is prompted for the folder at session
+  start (declinable, since timing never depends on it), can change it on
+  the Configuration screen, and is asked again on Publish if it is unset.
+  `PublishConfig.ResultsDestination` still records the regatta-wide
+  destination *kind*.
+- **No intermediate on-disk results JSON.** `finish.json` and
+  `regattaSchedule.json` stay the only source of truth. `internal/publish`
+  derives the publishable view in memory (`BuildView` / `ScheduleView`),
+  and each destination renders from that view: the spreadsheet now, RC
+  later. This avoids a second copy of results that could drift out of
+  sync.
+- **The workbook is regenerated whole on every publish** and written
+  atomically. It is RegattaClock-owned and not hand-edited. Every
+  scheduled race gets a block, and Place/Split/Time are filled for
+  published races only. Publishing race N also refreshes every race
+  already published: a correction goes out too, and a race that is no
+  longer approved keeps its previously published cells.
+- **Re-publish tracking lives in the workbook itself**, as a very-hidden
+  `_regattaClock` ledger sheet (`race | revision | publishedAt`). There is
+  no preference or JSON copy. The record travels with the published file,
+  so it survives a PFT machine swap. The button shows Publish, Published,
+  or a highlighted Re-publish.
+- **A workbook RegattaClock did not write is never overwritten.** An
+  existing file with the same name but no ledger sheet is refused with an
+  explanation.
+- **The layout** is the manual Results worksheet in
+  `examples/Example Heat Sheets and Results With Macros.xlsm`, written as
+  values rather than formulas. It is exported as a reusable definition in
+  `internal/publish/spreadsheet` for the sample-regatta generator.
+
 ## Does / Does not / Entry / Constraint
 
 - **Does:** Add a per-race **Publish** button to the PFT's existing race
@@ -143,8 +182,9 @@ Sheet` worksheet, which carries no result columns.
    isn't ready first; the field existing is what unblocks this feature.
 2. **Spreadsheet writer**: build the standalone-results-spreadsheet
    output — same visual/column format as the current results worksheet.
-   **The destination location is a deliberate open question, not
-   `regattaData`-adjacent by default** — today's real publish location is
+   *(Resolved 2026-09-26: a per-machine PFT preference; see "Decisions
+   made (author, 2026-09-26)" above.)* **The destination location is a
+   deliberate open question, not `regattaData`-adjacent by default** — today's real publish location is
    a *separate* OneDrive/SharePoint folder, distinct from the shared
    `regattaData` tree, that a public-facing website reads from. That's
    context for the eventual answer, not a decision made here: how
