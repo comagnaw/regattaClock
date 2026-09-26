@@ -3,7 +3,16 @@
 A proposed developer flag that generates a **full-day, realistic
 `regattaData`** — one of our larger real regatta days, obfuscated — so every
 persona can be exercised against production-sized files on the multi-machine
-Windows setup. Nothing here is built yet; this is the design to work from.
+Windows setup. It generates **every race-day artifact**, not just
+`regattaData`, all into one directory the user provides:
+
+- the Heat Sheet workbook the RD imports;
+- the published Results workbook;
+- the full `regattaData` tree.
+
+Load testing then covers the RD's import path, the PFT's publish path, and
+every persona's files together. Nothing here is built yet; this is the design
+to work from.
 
 **Unblocked (2026-09-26):** its hard dependency, the spreadsheet writer from
 [Results Publisher (REP)](../personas/new/results-publisher.md), has landed
@@ -41,6 +50,13 @@ Two things are needed:
   writes the sample and exits, so a Windows test machine needs nothing beyond
   the normal build. Not shown in any UI or help text.
 - **Last five races un-raced** by default, adjustable by flag.
+- **Every artifact under one user-provided directory** (added 2026-09-26).
+  `<Dir>` receives the Heat Sheet workbook, the Results workbook, and
+  `regattaData/`, so a test run starts with everything a race day would have
+  at that point. The Results workbook goes in its own `<Dir>/results/`
+  folder, separate from `regattaData` as it is on race day (a different
+  drive). The primary `finish.json` records that folder as its confirmed
+  `ResultsDir`, the state a real PFT is in mid-day.
 
 ## Design
 
@@ -113,6 +129,22 @@ type Lane struct {
 
 `internal/sample.Generate(opts Options) (Report, error)`, with
 `Options{Dir; Date /*default today, local*/; Unraced /*default 5*/; Now}`.
+`<Dir>` is the **artifact root**. Everything the generator writes lands under
+it, and nothing is written anywhere else:
+
+```text
+<Dir>/
+  Sample Heat Sheet.xlsx                      RD's source workbook (Heat Sheet layout)
+  results/
+    Sample Regatta Day - <Date> Results.xlsx  REP workbook: raced races published, last N blank
+  regattaData/
+    director/regattaSchedule.json             Origin.URI -> absolute path of the heat sheet
+    timing/primary/start.json
+    timing/primary/finish.json                ResultsDir -> absolute path of <Dir>/results
+    timing/secondary/start.json
+    timing/secondary/finish.json
+```
+
 Into `<Dir>` it writes:
 
 1. **`Sample Heat Sheet.xlsx`** — the obfuscated Heat Sheet in the layout
@@ -138,32 +170,40 @@ Into `<Dir>` it writes:
    - Envelopes are stamped directly: `store.SchemaVersion`, role/team,
      `store.RegattaKey(name, date)`, `Machine: "SAMPLE-PFT"` and so on.
 4. **A sample results workbook** for the raced races, written through
-   **REP's `spreadsheet.Write`**. This is the same file the PFT regenerates
-   when the last five races are published on test day. REP rewrites the
-   whole workbook rather than appending, so for the PFT to treat the file
-   as its own and extend it:
-   - Name it `spreadsheet.FileName(name, date)`.
+   **REP's `spreadsheet.Write`** to `<Dir>/results/` (created by the
+   generator). This is the same file the PFT regenerates when the last five
+   races are published on test day. REP rewrites the whole workbook rather
+   than appending, so for the PFT to treat the file as its own and extend
+   it:
+   - Name it `spreadsheet.FileName(name, date)` inside `<Dir>/results/`.
    - Set `Meta.RegattaKey` to `store.RegattaKey(name, date)`. A workbook
      with another regatta's key is refused (`ErrOtherRegatta`).
    - Pass a `Ledger` holding each raced race's `publish.Revision`, taken
      from `publish.BuildView` over the generated schedule and finish.json.
      Those races then show as **Published**.
 
-   Leave `finish.json`'s `ResultsDir` unset: the results folder is a path
-   on the test machine, so the PFT confirms it at session start.
+   The primary `finish.json`'s `ResultsDir` is set to the absolute path of
+   `<Dir>/results` (`filepath.Abs`). The PFT then opens with the raced
+   races showing **Published** and publishes the last five into the same
+   workbook with no folder prompt, provided the share mounts at the same
+   path on the PFT machine. See
+   [Constraints and gotchas](#constraints-and-gotchas).
 
 Timing logs are written with `filesystem.SaveJSONFileAtomic` to
 `persona.Session.WritePath()`, **bypassing the journal**: `store.SaveStart` /
 `SaveFinish` stage through a local write-ahead journal under
-`os.UserCacheDir()`, which a generator must not touch. The generator
-**refuses if `<Dir>/regattaData` already exists**, and prints a report: races
-total / raced / un-raced, the first un-raced race, and each file's size.
+`os.UserCacheDir()`, which a generator must not touch; no Fyne preferences are
+written either. The generator **creates `<Dir>` if it is absent and refuses
+unless it is empty**, so one run never mixes artifacts from two samples.
+It then prints a report: races total / raced / un-raced, the first un-raced
+race, and each artifact's path and size.
 
 ### Command line
 
 In `cmd/regattaClock/main.go`:
 
-- `-dev-sample-regatta <dir>`
+- `-dev-sample-regatta <dir>` — the artifact root; receives the heat sheet,
+  `results/`, and `regattaData/`
 - `-dev-sample-unraced <n>` — default 5
 - `-dev-sample-date <YYYY-MM-DD>` — default today
 
@@ -182,6 +222,18 @@ Parsed by a hand `os.Args` scan beside `versionRequested`, for the same reason
   Start. There is no marker to write.
 - **`LaneMapHash` must match** the schedule's, or the race carries the stale
   lane-map `†`.
+- **Absolute paths are from the generating machine.** Two generated paths
+  are absolute: `Origin.URI` (the heat sheet) and the primary `finish.json`'s
+  `ResultsDir`.
+  - If another machine can't reach `Origin.URI`, the RD's origin poll only
+    logs at debug level (`pollOrigin`, `internal/regatta/origin.go`) and
+    shows no banner. Harmless.
+  - If the PFT can't reach `ResultsDir`, it gets the designed "results
+    folder can't be reached — choose a folder" prompt (`ensureResultsDir`,
+    `internal/regatta/publish_results.go`).
+
+  To skip that prompt, generate on a machine that maps the share at the
+  same path as the test machines (the same drive letter or UNC path).
 - **Use a fresh folder per run.** A new root also gives each persona machine a
   fresh local journal namespace, so stale journal entries from a previous
   sample never replay into a new one.
@@ -220,19 +272,29 @@ Parsed by a hand `os.Args` scan beside `versionRequested`, for the same reason
 - **Ingest tests** — the example `.xlsm` yields the expected race count and
   Place/Split/Time; the same seed gives the same output; one school maps to
   one fake; a planted real name trips the leak check.
-- **Generator tests** — the tree loads through `store.LoadSchedule` /
-  `LoadStart` / `LoadFinish`; `RegattaKey` matches across files;
-  `DeriveTeamState` is Approved (primary) and Saved (secondary) for the raced
-  races and NotStarted for the last five; no `†`;
-  `reader.ReadExcelFile("Sample Heat Sheet.xlsx")` gives the same
-  `ContentHash` as the written schedule; an existing `regattaData` is refused.
+- **Generator tests**:
+  - Every artifact is under `<Dir>` — heat sheet, `results/` workbook,
+    `regattaData/` — and nothing is written outside it.
+  - The tree loads through `store.LoadSchedule` / `LoadStart` / `LoadFinish`,
+    and `RegattaKey` matches across files.
+  - `DeriveTeamState` is Approved (primary) and Saved (secondary) for the
+    raced races and NotStarted for the last five; no `†`.
+  - `reader.ReadExcelFile("Sample Heat Sheet.xlsx")` gives the same
+    `ContentHash` as the written schedule.
+  - `spreadsheet.Read(<Dir>/results/…)` succeeds and `CheckRegatta` passes,
+    and its ledger holds exactly the raced races.
+  - `LoadFinish` (primary) has `ResultsDir` set to the absolute
+    `<Dir>/results`.
+  - A non-empty `<Dir>` is refused.
 - **CLI test** — argument parsing for the three flags.
 - **Manual, Mac** — `go run ./cmd/regattaClock -dev-sample-regatta <tmp>`,
   launch as RD: every race shows, the last five are Pending Start, the rest
   Official, no origin or stale banners.
 - **Manual, Windows domain** — generate onto the share; bring up RD, PST/SST,
-  PFT/SFT, and AWD on separate machines; time, approve, and publish the last
-  five races. Watch load latency, watcher churn, and memory.
+  PFT/SFT, and AWD on separate machines. The PFT should show the raced races
+  as **Published** with no folder prompt. Time, approve, and publish the last
+  five races into the same `<Dir>/results/` workbook. Watch load latency,
+  watcher churn, and memory.
 
 ## Dependencies and sequencing
 
