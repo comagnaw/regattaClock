@@ -1,7 +1,9 @@
 package reader
 
 import (
+	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/xuri/excelize/v2"
@@ -517,5 +519,62 @@ func TestReadExcelFile_InvalidFile(t *testing.T) {
 
 	if _, err := ReadExcelFile(tmpFile); err == nil {
 		t.Error("expected an error for an invalid Excel file, got nil")
+	}
+}
+
+// TestReadExcelFile_BreakBlock pins how a Heat Sheet lunch break reads: a
+// 3-row block with no race number and "Break" in column B is skipped, and
+// the races either side keep their numbers, times, and lanes. Nothing in
+// RegattaData represents the break itself.
+func TestReadExcelFile_BreakBlock(t *testing.T) {
+	f := excelize.NewFile()
+	defer f.Close()
+	sheet := "Heat Sheet"
+	if err := f.SetSheetName("Sheet1", sheet); err != nil {
+		t.Fatal(err)
+	}
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	must(f.MergeCell(sheet, "A1", "I1"))
+	must(f.SetCellValue(sheet, "A1", "Break Test Heat Sheet"))
+	must(f.MergeCell(sheet, "A2", "I2"))
+	must(f.SetCellValue(sheet, "A2", "Saturday, April 18, 2026"))
+
+	block := func(top int, raceNum any, col2 string, class, school string) {
+		must(f.MergeCell(sheet, fmt.Sprintf("A%d", top), fmt.Sprintf("A%d", top+2)))
+		must(f.MergeCell(sheet, fmt.Sprintf("B%d", top), fmt.Sprintf("B%d", top+2)))
+		must(f.SetCellValue(sheet, fmt.Sprintf("A%d", top), raceNum))
+		must(f.SetCellValue(sheet, fmt.Sprintf("B%d", top), col2))
+		must(f.SetCellValue(sheet, fmt.Sprintf("C%d", top), class))
+		must(f.SetCellValue(sheet, fmt.Sprintf("D%d", top), school))
+	}
+	block(5, 36, "01:05 PM", "M-1-8+", "Harbor Crew")
+	block(8, "", "Break", "", "")
+	block(11, 37, "02:09 PM", "M-1-4+", "Lake Crew")
+
+	path := filepath.Join(t.TempDir(), "break.xlsx")
+	must(f.SaveAs(path))
+
+	data := mustReadWorkbook(t, path)
+	if len(data.Races) != 2 {
+		t.Fatalf("races = %d, want 2 (the break is not a race)", len(data.Races))
+	}
+	for i, want := range []struct {
+		number        int
+		scheduledTime string
+		school        string
+	}{
+		{36, "01:05 PM", "Harbor Crew"},
+		{37, "02:09 PM", "Lake Crew"},
+	} {
+		got := data.Races[i]
+		if got.RaceNumber != want.number || got.ScheduledTime != want.scheduledTime || got.Lanes[1].SchoolName != want.school {
+			t.Errorf("race %d = #%d %q %q, want #%d %q %q", i, got.RaceNumber, got.ScheduledTime,
+				got.Lanes[1].SchoolName, want.number, want.scheduledTime, want.school)
+		}
 	}
 }
