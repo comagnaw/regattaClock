@@ -552,7 +552,7 @@ func (r *Regatta) saveRegattaData() {
 		return
 	}
 
-	if err := store.SaveSchedule(session, scheduleFromRegattaData(r.RegattaData)); err != nil {
+	if err := store.SaveSchedule(session, store.ScheduleFromRegattaData(r.RegattaData)); err != nil {
 		r.warnSaveSkipped(err)
 	}
 }
@@ -605,7 +605,7 @@ func (r *Regatta) migrateLegacyData(session persona.Session) {
 		return
 	}
 
-	if err := store.SaveSchedule(session, scheduleFromRegattaData(&legacyData)); err != nil {
+	if err := store.SaveSchedule(session, store.ScheduleFromRegattaData(&legacyData)); err != nil {
 		applog.Error("legacy schedule migration failed", "component", "migrate", "file", legacy, "err", err)
 		return
 	}

@@ -79,44 +79,6 @@ func diffSchedule(old, cur *reader.RegattaData) map[int]scheduleChange {
 	return out
 }
 
-// scheduleFromRegattaData projects a freshly imported RegattaData onto the slim
-// schedule that is persisted: regatta metadata, lane assignments, class and
-// flight only. Places, splits, times, approval flags, and the raw Excel grid
-// are dropped - the finish timer owns those in finish.json
-// (schedule-data-model.md).
-func scheduleFromRegattaData(rd *reader.RegattaData) *store.Schedule {
-	sch := &store.Schedule{
-		Name: rd.Name,
-		Date: rd.Date,
-		Origin: store.Origin{
-			Type: rd.Type,
-			URI:  rd.URI,
-			Hash: rd.Hash,
-		},
-		Races: make([]store.ScheduleRace, 0, len(rd.Races)),
-	}
-
-	for _, race := range rd.Races {
-		out := store.ScheduleRace{
-			RaceNumber:    race.RaceNumber,
-			ScheduledTime: race.ScheduledTime,
-			BoatClass:     race.BoatClass,
-			FlightInfo:    race.FlightInfo,
-			BoatCount:     race.BoatCount,
-			Lanes:         make(map[int]store.ScheduleEntry, len(race.Lanes)),
-		}
-		for lane, entry := range race.Lanes {
-			out.Lanes[lane] = store.ScheduleEntry{
-				SchoolName:     entry.SchoolName,
-				AdditionalInfo: entry.AdditionalInfo,
-				Status:         store.ScheduleEntryStatus(entry.Status),
-			}
-		}
-		sch.Races = append(sch.Races, out)
-	}
-	return sch
-}
-
 // raceLaneMapHash is store.ScheduleRace.LaneMapHash for an in-memory race - the
 // value the clock stamped onto a RaceResult when results were committed, so the
 // RD and FT trees can spot a result that no longer matches the live lane map

@@ -168,7 +168,7 @@ func TestReloadScheduleUnchangedDoesNotRewrite(t *testing.T) {
 
 	// Seed the schedule from that same workbook, so a reload is a no-op. A
 	// sentinel Origin.Hash proves whether SaveSchedule ran.
-	sch := scheduleFromRegattaData(rd)
+	sch := store.ScheduleFromRegattaData(rd)
 	sch.Origin.Hash = "SENTINEL-not-overwritten"
 	root := seedRegatta(t, sch)
 	dir := persona.Session{Definition: persona.DirectorDefinition, Root: root}

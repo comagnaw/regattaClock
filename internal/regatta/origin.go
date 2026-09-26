@@ -68,8 +68,8 @@ func (r *Regatta) inspectOriginCandidate(candidate *reader.RegattaData) {
 	if r.originBanner == nil {
 		return
 	}
-	current := scheduleFromRegattaData(r.RegattaData)
-	next := scheduleFromRegattaData(candidate)
+	current := store.ScheduleFromRegattaData(r.RegattaData)
+	next := store.ScheduleFromRegattaData(candidate)
 	nextHash := next.ContentHash()
 
 	if nextHash == current.ContentHash() {
@@ -111,7 +111,7 @@ func (r *Regatta) applyPendingOrigin() {
 // not re-raise it for the same change.
 func (r *Regatta) dismissOrigin() {
 	if r.pendingOrigin != nil {
-		r.dismissedContentHash = scheduleFromRegattaData(r.pendingOrigin).ContentHash()
+		r.dismissedContentHash = store.ScheduleFromRegattaData(r.pendingOrigin).ContentHash()
 	}
 	r.pendingOrigin = nil
 	r.originBanner.hide()
