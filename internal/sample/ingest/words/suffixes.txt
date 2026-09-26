@@ -1,0 +1,14 @@
+# School suffixes for fake school names, one per line. Deliberately varied
+# lengths, so the sample exercises truncation in the race trees.
+High School
+Academy
+Crew
+Rowing Club
+Prep
+Preparatory Academy
+Rowing Association
+School
+Catholic
+Country Day
+Collegiate
+Boat Club
