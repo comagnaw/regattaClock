@@ -56,6 +56,21 @@ const (
 	// "Ingest source" section).
 	HeatSheetName = "Heat Sheet"
 
+	// ResultsSheetName, ResultsTitleSuffix, ResultsFileSuffix, and the
+	// Results*Label constants are the published results workbook's copy -
+	// the layout officials already recognize from the manual "Results"
+	// worksheet (internal/publish/spreadsheet, results-publisher.md).
+	ResultsSheetName   = "Results"
+	ResultsTitleSuffix = " Regatta Results"
+	ResultsFileSuffix  = " Results.xlsx"
+	ResultsRaceNumHead = "#"
+	ResultsTimeHead    = "Time"
+	ResultsRaceHead    = "Race"
+	ResultsLaneHead    = "Lane %d"
+	ResultsPlaceLabel  = "Place"
+	ResultsSplitLabel  = "Split"
+	ResultsTimeLabel   = "Time"
+
 	EmptyString = ""
 
 	ZeroTime = "00:00.0"
