@@ -5,8 +5,9 @@ A proposed developer flag that generates a **full-day, realistic
 persona can be exercised against production-sized files on the multi-machine
 Windows setup. Nothing here is built yet; this is the design to work from.
 
-**Sequenced after [Results Publisher (REP)](../personas/new/results-publisher.md)**
-— see [Dependencies and sequencing](#dependencies-and-sequencing).
+**Unblocked (2026-09-26):** its hard dependency, the spreadsheet writer from
+[Results Publisher (REP)](../personas/new/results-publisher.md), has landed
+(#126, #127). See [Dependencies and sequencing](#dependencies-and-sequencing).
 
 ## Motivation
 
@@ -57,8 +58,13 @@ logic in `internal/sample/ingest` so it can be tested.
   does not map (`internal/reader/regattaData.go`).
 - **Results sheet** — the 5-row-per-race block (schools / flight+info /
   **Place** / **Split** / **Time**, lanes in columns D–I), read through the
-  **shared Results-layout definition REP's writer introduces**. It stays out
-  of `internal/reader`, whose contract is to read the Heat Sheet only. Races
+  **shared Results-layout definition REP's writer exports**
+  (`internal/publish/spreadsheet`: `BlockOrigin`, `LaneCol`, the `Row*`
+  offsets, `HeaderRows` / `BlockRows`). Read cells through those constants,
+  not `spreadsheet.Read`: `Read` only accepts RegattaClock-written workbooks
+  (it refuses one without its hidden ledger sheet as `ErrForeignWorkbook`),
+  and the real `.xlsm` is hand-kept. It stays out of `internal/reader`,
+  whose contract is to read the Heat Sheet only. Races
   with no results (an all-scratched race, say) are recorded as un-raced and
   reported.
 - **Obfuscation:**
@@ -132,8 +138,19 @@ Into `<Dir>` it writes:
    - Envelopes are stamped directly: `store.SchemaVersion`, role/team,
      `store.RegattaKey(name, date)`, `Machine: "SAMPLE-PFT"` and so on.
 4. **A sample results workbook** for the raced races, written through
-   **REP's spreadsheet writer** — the same file REP appends to when the last
-   five races are published on test day.
+   **REP's `spreadsheet.Write`**. This is the same file the PFT regenerates
+   when the last five races are published on test day. REP rewrites the
+   whole workbook rather than appending, so for the PFT to treat the file
+   as its own and extend it:
+   - Name it `spreadsheet.FileName(name, date)`.
+   - Set `Meta.RegattaKey` to `store.RegattaKey(name, date)`. A workbook
+     with another regatta's key is refused (`ErrOtherRegatta`).
+   - Pass a `Ledger` holding each raced race's `publish.Revision`, taken
+     from `publish.BuildView` over the generated schedule and finish.json.
+     Those races then show as **Published**.
+
+   Leave `finish.json`'s `ResultsDir` unset: the results folder is a path
+   on the test machine, so the PFT confirms it at session start.
 
 Timing logs are written with `filesystem.SaveJSONFileAtomic` to
 `persona.Session.WritePath()`, **bypassing the journal**: `store.SaveStart` /
@@ -180,9 +197,11 @@ Parsed by a hand `os.Args` scan beside `versionRequested`, for the same reason
 - **`internal/persona`** — `Session` path helpers
   (`SchedulePath` / `StartPath` / `FinishPath` / `WritePath`).
 - **`internal/filesystem`** — `SaveJSONFileAtomic`, `FileHash`.
-- **REP** — the Results-layout definition (ingest reads it), the `.xlsx`
-  writer (sample results workbook), and the excelize write-path groundwork
-  that `Sample Heat Sheet.xlsx` builds on.
+- **REP** (`internal/publish/spreadsheet`, `internal/publish`) — the
+  Results-layout definition (ingest reads it), `spreadsheet.Write` and
+  `FileName` (sample results workbook), `publish.BuildView` / `Revision`
+  (its ledger), and the excelize write-path groundwork that
+  `Sample Heat Sheet.xlsx` builds on.
 - **Genuinely new** — the obfuscator and its word lists, the leak check, the
   fixture, the timing synthesizer, and the CLI scan.
 
@@ -217,12 +236,11 @@ Parsed by a hand `os.Args` scan beside `versionRequested`, for the same reason
 
 ## Dependencies and sequencing
 
-- **Hard dependency: REP's local `.xlsx` results write** (its
-  spreadsheet-writer slice, itself after
-  [operational-state.md](../personas/operational-state.md)'s
-  `ResultsDestination`). REP owns the Results-layout definition and the first
-  `.xlsx` writer in the repo; this feature reads the one and calls the other.
-- **Not blocked on** REP's later RegattaCentral destination, or on any
+- **Hard dependency, satisfied: REP's local `.xlsx` results write** (#126,
+  #127). REP owns the Results-layout definition and the first `.xlsx` writer
+  in the repo (`internal/publish/spreadsheet`); this feature reads the one
+  and calls the other.
+- **Not blocked on** REP's deferred RegattaCentral destination, or on any
   [integration-testing.md](integration-testing.md) item.
 
-**Start once REP's local results-spreadsheet write has landed.**
+**No blockers — can start now.**

@@ -260,7 +260,7 @@ ordinary Phase 0 `Scheduled` only once the RD applies it.
 | Winning time / lap rows | `RaceResult.WinningTime`, `.Rows` | Finish Timer (own team) | same | `persistFinish` (`internal/clock/persist.go`) |
 | Official approval | `RaceResult.Approved`, `.ApprovedAt` | **Primary Finish Timer only** | `timing/primary/finish.json` | Referee Approval → `persistFinish(true)` (`internal/clock/buttons.go`'s `refereeApprovalFunc`) |
 | Secondary commit (never official) | `RaceResult.Approved` (permanently `false`) | Secondary Finish Timer | `timing/secondary/finish.json` | Save and Close → `persistFinish(false)` (`buttons.go`'s `initSave`) |
-| Downstream publish/post tracking | e.g. `{raceNumber: Revision}` | REP / SOM / STM, each independently | Fyne `Preferences` (a pref key per consumer), **not** `regattaData` | The consumer's own publish action |
+| Downstream publish/post tracking | e.g. `{raceNumber: Revision}` | REP / SOM / STM, each independently | Per consumer, **not** a `regattaData` results file. REP (built) keeps its ledger in the published workbook's hidden `_regattaClock` sheet. SOM and STM are expected to use Fyne `Preferences`. | The consumer's own publish action |
 
 Every row is enforced by `store.SaveSchedule`/`SaveStart`/`SaveFinish`
 guarding on `persona.Role` (`ErrWrongPersona` otherwise) and, for
@@ -416,10 +416,12 @@ Four concrete, named pieces — delivered across PRs #99-#103:
    }
    ```
 
-   No consumer yet - intentionally build-ahead-of-use. REP, SOM, and STM's
-   results-image path should call `publish.IsStale` against their own
-   `{raceNumber: Revision}` preference map, instead of three independent
-   re-implementations of the same comparison.
+   Built ahead of use. REP is now its first consumer (#126, #127): it
+   renders from `BuildView` / `ScheduleView` and compares `Revision`
+   against its workbook ledger. SOM's and STM's results-image paths should
+   call `publish.IsStale` against their own `{raceNumber: Revision}` map,
+   instead of three independent re-implementations of the same
+   comparison.
 
 4. **Unified `raceRow`/`raceListHeader`** (PR #102) — one shared column set
    (Race number, Scheduled Time, the role's action, Restarts, Start Time,

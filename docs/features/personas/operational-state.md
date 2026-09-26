@@ -134,9 +134,10 @@ choice are asked **at the same moment** (regatta creation) as one coherent
 - This doc is a **dependency of**
   [new/results-publisher.md](new/results-publisher.md) (needs
   `ResultsDestination` to know where to publish) and of the still-deferred
-  SOM persona (needs `SocialPlatforms`) — not the other way around. If
-  engineering capacity allows, this should land at or before the PFT
-  results-publish feature, not after.
+  SOM persona (needs `SocialPlatforms`) — not the other way around. The
+  `ResultsDestination` skeleton landed with the PFT results-publish
+  feature (#127). Still open: the RD's regatta-creation prompt for it, the
+  `SocialPlatforms` field, and the ingest-source choice.
 - Same live process constraint as every other doc in this directory right
   now: `develop` is in feature-freeze (see `AGENTS.md`) — this is a design
   doc, unaffected; implementation waits for the freeze to lift.
