@@ -41,7 +41,7 @@ ideas belong in the relevant design doc first, then here.
 
 ## Testing — sample regattaData (proposed, unblocked)
 
-- [ ] Developer flag `-dev-sample-regatta <dir>` generating a full-day, obfuscated regattaData (last five races un-raced) from a one-time `.xlsm` ingest, for full-size multi-machine testing and an end-of-day finish run. Unblocked: Results Publisher's `.xlsx` write has landed (#126, #127). The generator reuses its Results-layout definition and `spreadsheet.Write` from `internal/publish/spreadsheet` — [sample-regatta.md](testing/sample-regatta.md)
+- [ ] Developer flag `-dev-sample-regatta <dir>` generating a full-day, obfuscated race-day artifact set from a one-time `.xlsm` ingest: the Heat Sheet workbook, the Results workbook (in `results/`), and `regattaData/`, all under the one user-provided directory, with the last five races un-raced, for full-size multi-machine testing and an end-of-day finish run. Unblocked: Results Publisher's `.xlsx` write has landed (#126, #127). The generator reuses its Results-layout definition and `spreadsheet.Write` from `internal/publish/spreadsheet` — [sample-regatta.md](testing/sample-regatta.md)
 
 ## Releases & versioning
 
