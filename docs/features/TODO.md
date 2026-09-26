@@ -39,9 +39,9 @@ ideas belong in the relevant design doc first, then here.
 - [ ] Scenario: schedule change while a clock is open — the stale-lane-map mark, the schedule-conflict banner, and the flagged committed result, end to end
 - [ ] Add the integration CI job to `test.yml` — `ubuntu-latest` + `windows-latest` matrix, `push` / nightly `schedule` / `workflow_dispatch`, **not** `pull_request` — [integration-testing.md](testing/integration-testing.md#ci-lane)
 
-## Testing — sample regattaData (proposed, unblocked)
+## Testing — sample regattaData (built)
 
-- [ ] Developer flag `-dev-sample-regatta <dir>` generating a full-day, obfuscated race-day artifact set from a one-time `.xlsm` ingest: the Heat Sheet workbook, the Results workbook (in `results/`), and `regattaData/`, all under the one user-provided directory, with the last five races un-raced, for full-size multi-machine testing and an end-of-day finish run. Unblocked: Results Publisher's `.xlsx` write has landed (#126, #127). The generator reuses its Results-layout definition and `spreadsheet.Write` from `internal/publish/spreadsheet` — [sample-regatta.md](testing/sample-regatta.md)
+- [ ] Full-size manual run on the multi-machine Windows domain (RD, PST/SST, PFT/SFT, AWD on the share): time, approve, and publish the last five races; watch load latency, watcher churn, and memory — [sample-regatta.md](testing/sample-regatta.md#verification)
 
 ## Releases & versioning
 
@@ -57,6 +57,7 @@ The multi-persona operating model is largely built (`persona-plan.md` phases
 values only (the phase 8b-2 per-value `·2nd` fallback was removed). Captured
 remaining work:
 
+- [ ] Represent Heat Sheet **lunch breaks**. The reader skips a break block (a 3-row block with no race number and `Break` in column B; its length is set in the workbook's "Regatta Attributes" sheet), so a break shows up only as a gap in scheduled times. Nothing in the schedule, race trees, or ST/FT views marks it. Needs a design: a schedule field, how the trees show it, and whether countdowns account for it — [sample-regatta.md](testing/sample-regatta.md#constraints-and-gotchas)
 - [ ] `ScheduleOrigin` interface (`Fingerprint()` / `Load()`) generalising the Excel reader, with a later in-app-authored heat sheet (`Origin.Type = "heatsheet"`) built from the RegattaCentral roster and uploaded back to RegattaCentral, via `regattaDataFromSchedule` / `reader.NewRegattaData` (one entry point, no forked constructor) — [persona-plan.md](personas/persona-plan.md#3b-schedule-origin-refresh-rd-only), [schedule-data-model.md](personas/closed/schedule-data-model.md), [regattacentral-integration.md](personas/regattacentral-integration.md#phase-c--in-app-heat-sheet-authoring)
 - [ ] Windows folder-picker hang on a stale/disconnected mapped network drive — `dialog.NewFolderOpen`'s sidebar enumerates every drive letter and calls `os.Stat` on each before showing, which can hang indefinitely. Current mitigation is operator-side (README.md's Troubleshooting section); investigate a Fyne version bump that might fix this upstream, or a custom enumeration-free directory picker, before this becomes an app-level fix — [README.md](../README.md#troubleshooting)
 

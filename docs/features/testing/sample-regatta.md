@@ -1,6 +1,6 @@
 # Sample regattaData
 
-A proposed developer flag that generates a **full-day, realistic
+A developer flag that generates a **full-day, realistic
 `regattaData`** — one of our larger real regatta days, obfuscated — so every
 persona can be exercised against production-sized files on the multi-machine
 Windows setup. It generates **every race-day artifact**, not just
@@ -11,12 +11,13 @@ Windows setup. It generates **every race-day artifact**, not just
 - the full `regattaData` tree.
 
 Load testing then covers the RD's import path, the PFT's publish path, and
-every persona's files together. Nothing here is built yet; this is the design
-to work from.
+every persona's files together.
 
-**Unblocked (2026-09-26):** its hard dependency, the spreadsheet writer from
-[Results Publisher (REP)](../personas/new/results-publisher.md), has landed
-(#126, #127). See [Dependencies and sequencing](#dependencies-and-sequencing).
+**Built (2026-09-26):** the generator (`internal/sample`), the one-time ingest
+(`internal/sample/ingest`, `cmd/sampleingest`), and the hidden flag. The
+embedded fixture is a real 69-race day (65 raced, a lunch break after race
+36), obfuscated: by default the sample has races 1–60 raced and 61–65
+un-raced.
 
 ## Motivation
 
@@ -71,7 +72,10 @@ logic in `internal/sample/ingest` so it can be tested.
   for race numbers, scheduled times, boat class, flight, and per-lane
   `SchoolName` / `AdditionalInfo` / `Status`. Rower last names (1x/2x) and
   advancement notes come from `RawData` row 2, which the reader parses but
-  does not map (`internal/reader/regattaData.go`).
+  does not map (`internal/reader/regattaData.go`). **Break blocks** — a lunch
+  break: a 3-row column-A merge with no race number and `Break` in column B —
+  are found by a merge scan of their own (the reader skips them) and recorded
+  as the race each one follows.
 - **Results sheet** — the 5-row-per-race block (schools / flight+info /
   **Place** / **Split** / **Time**, lanes in columns D–I), read through the
   **shared Results-layout definition REP's writer exports**
@@ -80,27 +84,43 @@ logic in `internal/sample/ingest` so it can be tested.
   not `spreadsheet.Read`: `Read` only accepts RegattaClock-written workbooks
   (it refuses one without its hidden ledger sheet as `ErrForeignWorkbook`),
   and the real `.xlsm` is hand-kept. It stays out of `internal/reader`,
-  whose contract is to read the Heat Sheet only. Races
-  with no results (an all-scratched race, say) are recorded as un-raced and
-  reported.
+  whose contract is to read the Heat Sheet only.
+  - Each block is joined to its race by its **column-A race number, not its
+    position**. The Results sheet has no break blocks, so from the first break
+    on, block *n* on the two sheets is a different race.
+  - Split and Time are stored as **Excel day fractions** formatted `mm:ss.0`.
+    The raw number is converted and rounded to the tenth into the clock's
+    `MM:SS.t`, rather than trusting Excel's display rounding.
+  - Races with boats but no results (an all-scratched race, say) are reported,
+    and the generator leaves them un-timed.
 - **Obfuscation:**
   - One real→fake map for the whole day, so a school keeps the same fake
     everywhere and crews-per-school stays realistic.
   - The fake is chosen by `sha256(seed + normalized name)` from embedded word
-    lists — place-name stems × {High School, Academy, Crew, Rowing Club, Prep,
-    …} for schools, surnames for rowers — with deterministic collision
-    resolution.
+    lists (`internal/sample/ingest/words/`), probing forward past fakes
+    already taken or containing a real name. Names are assigned in sorted
+    order, so the result is deterministic for a seed.
+  - Candidates come in tiers, the realistic one first. A school gets a place
+    stem no other school has, plus a suffix (High School, Academy, Crew,
+    Rowing Club, Prep, …). A rower gets a plain surname. Only when a tier
+    runs out does a name fall back to any stem × suffix, then hyphenated
+    surname pairs.
   - Only names are replaced. Non-name tokens are kept: boat designators (`A`,
-    `B`, `2V`), `SCRATCHED` / `SCR`, event codes in `AdditionalInfo`, and
-    advancement notes. `Smith/Jones` doubles are split on `/` and mapped per
+    `B`, `2V`), `SCRATCHED` / `SCR`, bow numbers, `Heat n`, `Exhibition`,
+    event codes (`W-Jr-2x`, `M-2x Exhibition`), and advancement notes. Rower
+    and `AdditionalInfo` cells are split on `/`, and each piece is judged on
+    its own: vocabulary is kept, and anything else is mapped as a rower
     name.
   - The regatta name becomes `Sample Regatta Day`; the date is dropped and
     applied at generate time.
-- **Leak check** — before writing, every output string is scanned
-  (case-insensitive substring) against the set of real names collected. Any
-  hit fails the ingest.
-- **`.gitignore` guard** — `*.source.xlsm` and `/sample-source/`, so the real
-  workbook cannot be committed by accident.
+- **Leak check** — before writing, every output string is scanned against the
+  real names collected, plus each distinctive word of them (generic words such
+  as *High*, *School*, *Crew* are exempt). A name or word of four or more
+  letters matches as a case-insensitive substring; a shorter one (`Lee`) only
+  as a whole word, so it cannot trip on an unrelated fake. Any hit fails the
+  ingest, and nothing is written.
+- **`.gitignore` guard** — `*.source.xlsm`, `/sample-source/`, and any
+  root-level `/*.xlsm`, so the real workbook cannot be committed by accident.
 
 ### Fixture
 
@@ -108,8 +128,9 @@ logic in `internal/sample/ingest` so it can be tested.
 
 ```go
 type Fixture struct {
-    Name  string
-    Races []Race
+    Name       string
+    BreakAfter []int // races a Heat Sheet break block follows
+    Races      []Race
 }
 
 type Race struct {
@@ -149,14 +170,21 @@ Into `<Dir>` it writes:
 
 1. **`Sample Heat Sheet.xlsx`** — the obfuscated Heat Sheet in the layout
    `reader.ReadExcelFile` expects (merged A1:I1 name + " Heat Sheet", A2 date,
-   3-row race blocks, row 2 carrying the fake rower names). `Schedule.Origin`
+   3-row race blocks whose third row carries the fake rower names and notes,
+   and a `Break` block after each race in `BreakAfter`). `Schedule.Origin`
    then points at a real file, so the RD's 45 s origin poll
    (`internal/regatta/origin.go`) stays quiet, and testers can also run the
    **RD's import path** at full size.
-2. **`regattaData/director/regattaSchedule.json`** — a `store.Schedule` with
-   `Origin{Type: "excel", URI: <abs xlsx path>, Hash: filesystem.FileHash(…)}`,
-   saved with `store.SaveSchedule` under an RD `persona.Session`.
-3. **Timing logs for every race except the last `Unraced`** (by race number):
+2. **`regattaData/director/regattaSchedule.json`** — made the way the RD's
+   import makes it: the generated Heat Sheet is read back through
+   `reader.ReadExcelFile` and projected by `store.ScheduleFromRegattaData`.
+   That gives `Origin{Type: "excel", URI: <abs xlsx path>, Hash: …}`, and the
+   Heat Sheet and schedule agree by construction. It is saved with
+   `store.SaveSchedule` under an RD `persona.Session`.
+3. **Timing logs for every race with boats except the last `Unraced` of
+   them** (by race number). Numbered-but-empty races, where the RD sized the
+   sheet for more races than ran, are never timed. Neither is a race with
+   boats but no fixture results; the report lists it.
    - `timing/primary/start.json` and `timing/secondary/start.json` —
      `StartedAt` = date + `ScheduledTime` + a deterministic 0–90 s jitter,
      secondary a few tenths off; `Display` in `15:04:05.0`; a plausible
@@ -165,8 +193,9 @@ Into `<Dir>` it writes:
      winner's time), `StoppedAt` (start + slowest time), `WinningTime`, `Rows`
      from the fixture, `LaneMapHash` from `ScheduleRace.LaneMapHash()`,
      `Approved: true`. These show as **Official**.
-   - `timing/secondary/finish.json` — the same rows lightly perturbed,
-     `WinningTime` set, not approved. These show as **Saved**.
+   - `timing/secondary/finish.json` — the same finish order, every Time
+     shifted a few tenths (splits kept), `WinningTime` set, not approved.
+     These show as **Saved**.
    - Envelopes are stamped directly: `store.SchemaVersion`, role/team,
      `store.RegattaKey(name, date)`, `Machine: "SAMPLE-PFT"` and so on.
 4. **A sample results workbook** for the raced races, written through
@@ -195,8 +224,8 @@ Timing logs are written with `filesystem.SaveJSONFileAtomic` to
 `os.UserCacheDir()`, which a generator must not touch; no Fyne preferences are
 written either. The generator **creates `<Dir>` if it is absent and refuses
 unless it is empty**, so one run never mixes artifacts from two samples.
-It then prints a report: races total / raced / un-raced, the first un-raced
-race, and each artifact's path and size.
+It then prints a report: races total / with boats / raced / un-raced, the
+first un-raced race, and each artifact's path and size.
 
 ### Command line
 
@@ -234,6 +263,10 @@ Parsed by a hand `os.Args` scan beside `versionRequested`, for the same reason
 
   To skip that prompt, generate on a machine that maps the share at the
   same path as the test machines (the same drive letter or UNC path).
+- **Lunch breaks are not represented in the app.** The reader skips a break
+  block, so a break shows up only as a gap in scheduled times. The sample
+  reproduces the block, so the RD's import at full size includes one; showing
+  breaks in the app is a separate item in [TODO.md](../TODO.md).
 - **Use a fresh folder per run.** A new root also gives each persona machine a
   fresh local journal namespace, so stale journal entries from a previous
   sample never replay into a new one.
@@ -245,7 +278,9 @@ Parsed by a hand `os.Args` scan beside `versionRequested`, for the same reason
 - **`internal/persona/store`** — every on-disk type (`Schedule`, `StartLog`,
   `FinishLog`, `RaceResult`, `LapRow`, `Envelope`), plus `RegattaKey`,
   `LaneMapHash`, `ContentHash`, `SaveSchedule`, and `DeriveTeamState` for
-  assertions.
+  assertions. `ScheduleFromRegattaData`, the reader → schedule projection,
+  moved here from `internal/regatta`, so the RD and the generator share it
+  without the generator importing a Fyne package.
 - **`internal/persona`** — `Session` path helpers
   (`SchedulePath` / `StartPath` / `FinishPath` / `WritePath`).
 - **`internal/filesystem`** — `SaveJSONFileAtomic`, `FileHash`.
@@ -259,19 +294,25 @@ Parsed by a hand `os.Args` scan beside `versionRequested`, for the same reason
 
 ## Implementation plan
 
-1. Branch from `develop`; build `internal/sample`, `internal/sample/ingest`,
-   `cmd/sampleingest`, and the CLI flag with a **small synthetic fixture**,
-   tested against `examples/Example Heat Sheets and Results With Macros.xlsm`
-   (already public).
-2. Merge through a PR.
-3. The author runs `sampleingest` locally against the real `.xlsm`, reviews
-   the JSON, and commits **only** the fixture.
+1. **Done.** Built on `feature/sample-regatta`: `internal/sample`,
+   `internal/sample/ingest`, `cmd/sampleingest`, and the CLI flag.
+2. **Done.** The author ran `sampleingest` locally against the real `.xlsm`
+   (kept in `sample-source/`) and reviewed the JSON. Only the fixture is
+   committed. To replace it with another day, see
+   [cmd/sampleingest/README.md](../../../cmd/sampleingest/README.md).
+3. Merge through a PR.
 
 ## Verification
 
-- **Ingest tests** — the example `.xlsm` yields the expected race count and
-  Place/Split/Time; the same seed gives the same output; one school maps to
-  one fake; a planted real name trips the leak check.
+- **Ingest tests** — the public example `.xlsm` has no results filled in, so
+  the tests write their own workbook: a Heat Sheet with a break, plus a
+  hand-kept-style Results sheet with invented "real" names.
+  - Place/Split/Time come through, from day fractions and from text.
+  - Results are joined by race number across the break.
+  - The same seed gives the same output; one school maps to one fake.
+  - Vocabulary is kept verbatim.
+  - A planted real name trips the leak check.
+  - The example workbook ingests with the reader's race count.
 - **Generator tests**:
   - Every artifact is under `<Dir>` — heat sheet, `results/` workbook,
     `regattaData/` — and nothing is written outside it.
@@ -305,4 +346,4 @@ Parsed by a hand `os.Args` scan beside `versionRequested`, for the same reason
 - **Not blocked on** REP's deferred RegattaCentral destination, or on any
   [integration-testing.md](integration-testing.md) item.
 
-**No blockers — can start now.**
+**Built**, with the real fixture embedded.

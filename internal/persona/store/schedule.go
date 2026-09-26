@@ -10,6 +10,7 @@ import (
 	"github.com/comagnaw/regattaClock/internal/applog"
 	"github.com/comagnaw/regattaClock/internal/filesystem"
 	"github.com/comagnaw/regattaClock/internal/persona"
+	"github.com/comagnaw/regattaClock/internal/reader"
 )
 
 // Schedule is the slim race program the director owns and every persona reads.
@@ -88,6 +89,48 @@ const (
 	StatusOK        ScheduleEntryStatus = ""
 	StatusScratched ScheduleEntryStatus = "SCR"
 )
+
+// ScheduleFromRegattaData projects a freshly imported RegattaData onto the slim
+// schedule that is persisted: regatta metadata, lane assignments, class and
+// flight only. Places, splits, times, approval flags, and the raw Excel grid
+// are dropped - the finish timer owns those in finish.json
+// (schedule-data-model.md).
+//
+// It lives here rather than in internal/regatta so every producer of a
+// schedule - the RD's import and the sample-regatta generator
+// (docs/features/testing/sample-regatta.md) - projects it identically.
+func ScheduleFromRegattaData(rd *reader.RegattaData) *Schedule {
+	sch := &Schedule{
+		Name: rd.Name,
+		Date: rd.Date,
+		Origin: Origin{
+			Type: rd.Type,
+			URI:  rd.URI,
+			Hash: rd.Hash,
+		},
+		Races: make([]ScheduleRace, 0, len(rd.Races)),
+	}
+
+	for _, race := range rd.Races {
+		out := ScheduleRace{
+			RaceNumber:    race.RaceNumber,
+			ScheduledTime: race.ScheduledTime,
+			BoatClass:     race.BoatClass,
+			FlightInfo:    race.FlightInfo,
+			BoatCount:     race.BoatCount,
+			Lanes:         make(map[int]ScheduleEntry, len(race.Lanes)),
+		}
+		for lane, entry := range race.Lanes {
+			out.Lanes[lane] = ScheduleEntry{
+				SchoolName:     entry.SchoolName,
+				AdditionalInfo: entry.AdditionalInfo,
+				Status:         ScheduleEntryStatus(entry.Status),
+			}
+		}
+		sch.Races = append(sch.Races, out)
+	}
+	return sch
+}
 
 // Key returns the RegattaKey for this schedule.
 func (s *Schedule) Key() string { return RegattaKey(s.Name, s.Date) }

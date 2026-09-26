@@ -1,0 +1,2685 @@
+{
+  "Name": "Sample Regatta Day",
+  "BreakAfter": [
+    36
+  ],
+  "Races": [
+    {
+      "RaceNumber": 1,
+      "ScheduledTime": "09:00 AM",
+      "BoatClass": "W-1x",
+      "FlightInfo": "Final",
+      "Note": "",
+      "Lanes": {
+        "3": {
+          "School": "Windermere School",
+          "AdditionalInfo": "2",
+          "Rowers": "Oakeshott",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "07:03.6"
+        },
+        "4": {
+          "School": "Coventry Crew A",
+          "AdditionalInfo": "3",
+          "Rowers": "Magnusson",
+          "Place": "3",
+          "Split": "00:16.9",
+          "Time": "07:20.5"
+        },
+        "5": {
+          "School": "Coventry Crew B",
+          "Rowers": "Hollister",
+          "Place": "2",
+          "Split": "00:08.6",
+          "Time": "07:12.2"
+        }
+      }
+    },
+    {
+      "RaceNumber": 2,
+      "ScheduledTime": "09:07 AM",
+      "BoatClass": "M-1x",
+      "FlightInfo": "Final",
+      "Note": "",
+      "Lanes": {
+        "2": {
+          "School": "Valley Forge Academy",
+          "Rowers": "Corrigan",
+          "Place": "4",
+          "Split": "00:20.2",
+          "Time": "06:34.3"
+        },
+        "3": {
+          "School": "Saint Cuthbert's Boat Club",
+          "AdditionalInfo": "2",
+          "Rowers": "Lancaster",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "06:14.1"
+        },
+        "4": {
+          "School": "Windermere School A",
+          "AdditionalInfo": "3",
+          "Rowers": "Ibarra",
+          "Place": "5",
+          "Split": "00:49.3",
+          "Time": "07:03.4"
+        },
+        "5": {
+          "School": "Holloway Rowing Club",
+          "Rowers": "Grimaldi",
+          "Place": "3",
+          "Split": "00:06.6",
+          "Time": "06:20.7"
+        },
+        "6": {
+          "School": "Windermere School B",
+          "Rowers": "Santangelo",
+          "Place": "2",
+          "Split": "00:02.9",
+          "Time": "06:17.0"
+        }
+      }
+    },
+    {
+      "RaceNumber": 3,
+      "ScheduledTime": "09:14 AM",
+      "BoatClass": "M-Jr-1x",
+      "FlightInfo": "Final",
+      "Note": "",
+      "Lanes": {
+        "2": {
+          "School": "Alderbrook School",
+          "Rowers": "Mulcahy",
+          "Place": "3",
+          "Split": "00:29.0",
+          "Time": "06:39.4"
+        },
+        "3": {
+          "School": "Crestwood School",
+          "AdditionalInfo": "1",
+          "Rowers": "Leventhal",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "06:10.4"
+        },
+        "4": {
+          "School": "Windermere School",
+          "AdditionalInfo": "2",
+          "Rowers": "Carmody",
+          "Place": "2",
+          "Split": "00:25.4",
+          "Time": "06:35.8"
+        }
+      }
+    },
+    {
+      "RaceNumber": 4,
+      "ScheduledTime": "09:21 AM",
+      "BoatClass": "W-2x",
+      "FlightInfo": "Final",
+      "Note": "",
+      "Lanes": {
+        "2": {
+          "School": "Alderbrook School",
+          "Rowers": "Nakamura",
+          "Place": "4",
+          "Split": "00:45.3",
+          "Time": "07:15.1"
+        },
+        "3": {
+          "School": "Crestwood School",
+          "AdditionalInfo": "2",
+          "Rowers": "Heathcote",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "06:29.8"
+        },
+        "4": {
+          "School": "Ravenswood Boat Club",
+          "Rowers": "Gilchrist",
+          "Place": "5",
+          "Split": "01:55.5",
+          "Time": "08:25.3"
+        },
+        "5": {
+          "School": "Linwood Country Day",
+          "AdditionalInfo": "W-Jr-2x",
+          "Rowers": "Crabtree",
+          "Place": "3",
+          "Split": "00:26.3",
+          "Time": "06:56.1"
+        },
+        "6": {
+          "School": "Queensbury Collegiate",
+          "AdditionalInfo": "Exhibition  W-Jr-2x",
+          "Rowers": "Cadwallader",
+          "Place": "2",
+          "Split": "00:25.3",
+          "Time": "06:55.1"
+        }
+      }
+    },
+    {
+      "RaceNumber": 5,
+      "ScheduledTime": "09:28 AM",
+      "BoatClass": "M-Jr-2x",
+      "FlightInfo": "Final",
+      "Note": "",
+      "Lanes": {
+        "1": {
+          "School": "Ravenswood Boat Club",
+          "Rowers": "Winterbottom",
+          "Place": "6",
+          "Split": "01:25.6",
+          "Time": "06:55.3"
+        },
+        "2": {
+          "School": "Westhaven Prep A",
+          "AdditionalInfo": "1",
+          "Rowers": "Marchetti",
+          "Place": "2",
+          "Split": "00:15.3",
+          "Time": "05:45.0"
+        },
+        "3": {
+          "School": "Windermere School",
+          "AdditionalInfo": "2",
+          "Rowers": "Schoenberg",
+          "Place": "4",
+          "Split": "00:49.5",
+          "Time": "06:19.2"
+        },
+        "4": {
+          "School": "Westhaven Prep B",
+          "Rowers": "Underhill",
+          "Place": "5",
+          "Split": "00:59.8",
+          "Time": "06:29.5"
+        },
+        "5": {
+          "School": "Coldspring Rowing Association",
+          "AdditionalInfo": "M-2x Exhibition",
+          "Rowers": "Fenwick",
+          "Place": "3",
+          "Split": "00:21.6",
+          "Time": "05:51.3"
+        },
+        "6": {
+          "School": "Vandermeer Crew",
+          "AdditionalInfo": "M-2x Exhibition",
+          "Rowers": "Illingworth",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "05:29.7"
+        }
+      }
+    },
+    {
+      "RaceNumber": 6,
+      "ScheduledTime": "09:35 AM",
+      "BoatClass": "W-1-4+",
+      "FlightInfo": "Heat 1",
+      "Note": "2 to Advance",
+      "Lanes": {
+        "1": {
+          "School": "Sherwood School",
+          "AdditionalInfo": "18",
+          "Place": "4",
+          "Split": "00:46.0",
+          "Time": "06:43.2"
+        },
+        "2": {
+          "School": "Mistral Bay Collegiate",
+          "AdditionalInfo": "9",
+          "Place": "5",
+          "Split": "00:58.6",
+          "Time": "06:55.8"
+        },
+        "3": {
+          "School": "Saint Cuthbert's Boat Club",
+          "AdditionalInfo": "2",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "05:57.2"
+        },
+        "4": {
+          "School": "Valley Forge Academy",
+          "AdditionalInfo": "8",
+          "Place": "2",
+          "Split": "00:17.4",
+          "Time": "06:14.6"
+        },
+        "5": {
+          "School": "Linwood Country Day",
+          "AdditionalInfo": "17",
+          "Place": "3",
+          "Split": "00:34.0",
+          "Time": "06:31.2"
+        }
+      }
+    },
+    {
+      "RaceNumber": 7,
+      "ScheduledTime": "09:42 AM",
+      "BoatClass": "W-1-4+",
+      "FlightInfo": "Heat 2",
+      "Note": "2 to Advance",
+      "Lanes": {
+        "1": {
+          "School": "Moorland School",
+          "AdditionalInfo": "19",
+          "Place": "5",
+          "Split": "00:35.6",
+          "Time": "06:37.1"
+        },
+        "2": {
+          "School": "Southport Collegiate",
+          "AdditionalInfo": "13",
+          "Place": "4",
+          "Split": "00:24.5",
+          "Time": "06:26.0"
+        },
+        "3": {
+          "School": "Sterling Heights Rowing Association",
+          "AdditionalInfo": "3",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "06:01.5"
+        },
+        "4": {
+          "School": "Harrowgate Academy",
+          "AdditionalInfo": "7",
+          "Place": "2",
+          "Split": "00:06.3",
+          "Time": "06:07.8"
+        },
+        "5": {
+          "School": "Timberline Boat Club",
+          "AdditionalInfo": "16",
+          "Place": "3",
+          "Split": "00:12.7",
+          "Time": "06:14.2"
+        }
+      }
+    },
+    {
+      "RaceNumber": 8,
+      "ScheduledTime": "09:49 AM",
+      "BoatClass": "W-1-4+",
+      "FlightInfo": "Heat 3",
+      "Note": "2 to Advance",
+      "Lanes": {
+        "2": {
+          "School": "Charlton Park High School",
+          "AdditionalInfo": "14",
+          "Place": "3",
+          "Split": "00:29.3",
+          "Time": "06:22.6"
+        },
+        "3": {
+          "School": "Hawthorne Bay Rowing Club",
+          "AdditionalInfo": "4",
+          "Place": "2",
+          "Split": "00:03.5",
+          "Time": "05:56.8"
+        },
+        "4": {
+          "School": "Wexford Hills Prep",
+          "AdditionalInfo": "6",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "05:53.3"
+        },
+        "5": {
+          "School": "Lindenwood Catholic",
+          "AdditionalInfo": "15",
+          "Place": "4",
+          "Split": "00:37.1",
+          "Time": "06:30.4"
+        }
+      }
+    },
+    {
+      "RaceNumber": 9,
+      "ScheduledTime": "09:56 AM",
+      "BoatClass": "M-1-4+",
+      "FlightInfo": "Heat 1",
+      "Note": "2 to Advance",
+      "Lanes": {
+        "1": {
+          "School": "Crestwood School",
+          "AdditionalInfo": "Exhibition",
+          "Place": "5",
+          "Split": "01:05.7",
+          "Time": "06:31.5"
+        },
+        "2": {
+          "School": "Charlton Park High School",
+          "AdditionalInfo": "11",
+          "Place": "4",
+          "Split": "00:20.3",
+          "Time": "05:46.1"
+        },
+        "3": {
+          "School": "Timberline Boat Club",
+          "AdditionalInfo": "2",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "05:25.8"
+        },
+        "4": {
+          "School": "Mistral Bay Collegiate",
+          "AdditionalInfo": "10",
+          "Place": "2",
+          "Split": "00:02.8",
+          "Time": "05:28.6"
+        },
+        "5": {
+          "School": "Lindenwood Catholic",
+          "Place": "3",
+          "Split": "00:04.7",
+          "Time": "05:30.5"
+        }
+      }
+    },
+    {
+      "RaceNumber": 10,
+      "ScheduledTime": "10:03 AM",
+      "BoatClass": "M-1-4+",
+      "FlightInfo": "Heat 2",
+      "Note": "2 to Advance",
+      "Lanes": {
+        "2": {
+          "School": "Sterling Heights Rowing Association",
+          "AdditionalInfo": "14",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "05:10.7"
+        },
+        "3": {
+          "School": "Windermere School",
+          "AdditionalInfo": "5",
+          "Place": "2",
+          "Split": "00:04.7",
+          "Time": "05:15.4"
+        },
+        "4": {
+          "School": "Sherwood School",
+          "AdditionalInfo": "8",
+          "Rowers": "Exhibition",
+          "Place": "4",
+          "Split": "00:40.9",
+          "Time": "05:51.6"
+        },
+        "5": {
+          "School": "Winslow High School",
+          "AdditionalInfo": "17",
+          "Place": "3",
+          "Split": "00:28.0",
+          "Time": "05:38.7"
+        }
+      }
+    },
+    {
+      "RaceNumber": 11,
+      "ScheduledTime": "10:10 AM",
+      "BoatClass": "M-1-4+",
+      "FlightInfo": "Heat 3",
+      "Note": "2 to Advance",
+      "Lanes": {
+        "2": {
+          "School": "Kingsford Catholic",
+          "AdditionalInfo": "15",
+          "Place": "2",
+          "Split": "00:01.4",
+          "Time": "05:31.2"
+        },
+        "3": {
+          "School": "Linwood Country Day",
+          "AdditionalInfo": "6",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "05:29.8"
+        },
+        "4": {
+          "School": "Hawthorne Bay Rowing Club",
+          "AdditionalInfo": "7",
+          "Place": "4",
+          "Split": "00:10.8",
+          "Time": "05:40.6"
+        },
+        "5": {
+          "School": "Radcliffe Rowing Club",
+          "AdditionalInfo": "16",
+          "Place": "3",
+          "Split": "00:02.5",
+          "Time": "05:32.3"
+        }
+      }
+    },
+    {
+      "RaceNumber": 12,
+      "ScheduledTime": "10:17 AM",
+      "BoatClass": "W-Jr-4+",
+      "FlightInfo": "Heat 1",
+      "Note": "3 to Advance",
+      "Lanes": {
+        "1": {
+          "School": "Coldspring Rowing Association",
+          "Place": "2",
+          "Split": "00:13.6",
+          "Time": "06:20.8"
+        },
+        "2": {
+          "School": "Timberline Boat Club",
+          "AdditionalInfo": "8",
+          "Place": "4",
+          "Split": "00:29.9",
+          "Time": "06:37.1"
+        },
+        "3": {
+          "School": "Harrowgate Academy",
+          "AdditionalInfo": "3",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "06:07.2"
+        },
+        "4": {
+          "School": "Hawthorne Bay Rowing Club",
+          "AdditionalInfo": "7",
+          "Place": "3",
+          "Split": "00:24.8",
+          "Time": "06:32.0"
+        },
+        "5": {
+          "School": "Lowell Park Prep",
+          "Place": "5",
+          "Split": "00:36.0",
+          "Time": "06:43.2"
+        }
+      }
+    },
+    {
+      "RaceNumber": 13,
+      "ScheduledTime": "10:24 AM",
+      "BoatClass": "W-Jr-4+",
+      "FlightInfo": "Heat 2",
+      "Note": "3 to Advance",
+      "Lanes": {
+        "1": {
+          "School": "Saint Cuthbert's Boat Club B",
+          "Place": "5",
+          "Split": "00:32.3",
+          "Time": "06:48.7"
+        },
+        "3": {
+          "School": "Saint Cuthbert's Boat Club A",
+          "AdditionalInfo": "4",
+          "Place": "2",
+          "Split": "00:07.8",
+          "Time": "06:24.2"
+        },
+        "4": {
+          "School": "Beacon Hill Catholic",
+          "AdditionalInfo": "5",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "06:16.4"
+        },
+        "5": {
+          "School": "Cobble Hill Rowing Club",
+          "Place": "3",
+          "Split": "00:17.9",
+          "Time": "06:34.3"
+        },
+        "6": {
+          "School": "Woodhaven Crew",
+          "Place": "4",
+          "Split": "00:20.4",
+          "Time": "06:36.8"
+        }
+      }
+    },
+    {
+      "RaceNumber": 14,
+      "ScheduledTime": "10:31 AM",
+      "BoatClass": "M-Jr-4+",
+      "FlightInfo": "Heat 1",
+      "Note": "3 to Advance",
+      "Lanes": {
+        "2": {
+          "School": "Carrow Rowing Association",
+          "AdditionalInfo": "9",
+          "Place": "2",
+          "Split": "00:06.0",
+          "Time": "05:47.2"
+        },
+        "3": {
+          "School": "Saint Cuthbert's Boat Club",
+          "AdditionalInfo": "1",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "05:41.2"
+        },
+        "4": {
+          "School": "Timberline Boat Club",
+          "AdditionalInfo": "8",
+          "Place": "4",
+          "Split": "00:15.0",
+          "Time": "05:56.2"
+        },
+        "5": {
+          "School": "Deer Park Boat Club",
+          "Place": "3",
+          "Split": "00:08.0",
+          "Time": "05:49.2"
+        }
+      }
+    },
+    {
+      "RaceNumber": 15,
+      "ScheduledTime": "10:38 AM",
+      "BoatClass": "M-Jr-4+",
+      "FlightInfo": "Heat 2",
+      "Note": "3 to Advance",
+      "Lanes": {
+        "2": {
+          "School": "Winslow High School",
+          "Place": "3",
+          "Split": "00:24.0",
+          "Time": "06:05.1"
+        },
+        "3": {
+          "School": "Coldspring Rowing Association",
+          "AdditionalInfo": "4",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "05:41.1"
+        },
+        "4": {
+          "School": "Linwood Country Day",
+          "AdditionalInfo": "5",
+          "Place": "2",
+          "Split": "00:02.0",
+          "Time": "05:43.1"
+        },
+        "5": {
+          "School": "Crestwood School",
+          "Place": "4",
+          "Split": "00:38.6",
+          "Time": "06:19.7"
+        }
+      }
+    },
+    {
+      "RaceNumber": 16,
+      "ScheduledTime": "10:45 AM",
+      "BoatClass": "W-2-4+",
+      "FlightInfo": "Heat 1",
+      "Note": "3 to Advance",
+      "Lanes": {
+        "2": {
+          "School": "Sterling Heights Rowing Association",
+          "AdditionalInfo": "8",
+          "Place": "3",
+          "Split": "00:11.8",
+          "Time": "06:33.4"
+        },
+        "3": {
+          "School": "Hawthorne Bay Rowing Club",
+          "AdditionalInfo": "1",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "06:21.6"
+        },
+        "4": {
+          "School": "Charlton Park High School",
+          "AdditionalInfo": "7",
+          "Place": "5",
+          "Split": "01:18.3",
+          "Time": "07:39.9"
+        },
+        "5": {
+          "School": "Valley Forge Academy",
+          "AdditionalInfo": "W-3-4+",
+          "Place": "4",
+          "Split": "00:18.4",
+          "Time": "06:40.0"
+        },
+        "6": {
+          "School": "Wexford Hills Prep",
+          "AdditionalInfo": "W-3-4+",
+          "Place": "2",
+          "Split": "00:02.7",
+          "Time": "06:24.3"
+        }
+      }
+    },
+    {
+      "RaceNumber": 17,
+      "ScheduledTime": "10:52 AM",
+      "BoatClass": "W-2-4+",
+      "FlightInfo": "Heat 2",
+      "Note": "3 to Advance",
+      "Lanes": {
+        "2": {
+          "School": "Harrowgate Academy",
+          "AdditionalInfo": "10",
+          "Place": "4",
+          "Split": "00:12.3",
+          "Time": "06:24.6"
+        },
+        "3": {
+          "School": "Wexford Hills Prep",
+          "AdditionalInfo": "3",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "06:12.3"
+        },
+        "4": {
+          "School": "Valley Forge Academy",
+          "AdditionalInfo": "5",
+          "Place": "3",
+          "Split": "00:11.3",
+          "Time": "06:23.6"
+        },
+        "5": {
+          "School": "Southport Collegiate",
+          "Place": "2",
+          "Split": "00:08.3",
+          "Time": "06:20.6"
+        }
+      }
+    },
+    {
+      "RaceNumber": 18,
+      "ScheduledTime": "10:59 AM",
+      "BoatClass": "M-2-4+",
+      "FlightInfo": "Heat 1",
+      "Note": "3 to Advance",
+      "Lanes": {
+        "1": {
+          "School": "Timberline Boat Club B",
+          "Place": "3",
+          "Split": "00:10.4",
+          "Time": "05:54.3"
+        },
+        "2": {
+          "School": "Charlton Park High School",
+          "AdditionalInfo": "8",
+          "Place": "5",
+          "Split": "00:51.9",
+          "Time": "06:35.8"
+        },
+        "3": {
+          "School": "Timberline Boat Club A",
+          "AdditionalInfo": "2",
+          "Place": "2",
+          "Split": "00:03.9",
+          "Time": "05:47.8"
+        },
+        "4": {
+          "School": "Hawthorne Bay Rowing Club",
+          "AdditionalInfo": "7",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "05:43.9"
+        },
+        "5": {
+          "School": "Linwood Country Day",
+          "Place": "4",
+          "Split": "00:17.3",
+          "Time": "06:01.2"
+        }
+      }
+    },
+    {
+      "RaceNumber": 19,
+      "ScheduledTime": "11:06 AM",
+      "BoatClass": "M-2-4+",
+      "FlightInfo": "Heat 2",
+      "Note": "3 to Advance",
+      "Lanes": {
+        "2": {
+          "School": "Sterling Heights Rowing Association",
+          "AdditionalInfo": "9",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "05:39.1"
+        },
+        "3": {
+          "School": "Mistral Bay Collegiate",
+          "AdditionalInfo": "4",
+          "Place": "2",
+          "Split": "00:13.3",
+          "Time": "05:52.4"
+        },
+        "4": {
+          "School": "Whitmore Country Day",
+          "AdditionalInfo": "6",
+          "Place": "3",
+          "Split": "00:25.0",
+          "Time": "06:04.1"
+        },
+        "5": {
+          "School": "Lindenwood Catholic",
+          "Place": "DNS"
+        }
+      }
+    },
+    {
+      "RaceNumber": 20,
+      "ScheduledTime": "11:13 AM",
+      "BoatClass": "M-3-4+",
+      "FlightInfo": "",
+      "Note": "",
+      "Lanes": {
+        "2": {
+          "School": "Mistral Bay Collegiate",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "05:43.7"
+        },
+        "3": {
+          "School": "Charlton Park High School",
+          "Place": "3",
+          "Split": "01:11.9",
+          "Time": "06:55.6"
+        },
+        "4": {
+          "School": "Hawthorne Bay Rowing Club",
+          "Place": "2",
+          "Split": "00:26.7",
+          "Time": "06:10.4"
+        }
+      }
+    },
+    {
+      "RaceNumber": 21,
+      "ScheduledTime": "11:20 AM",
+      "BoatClass": "M-Fr-4+",
+      "FlightInfo": "",
+      "Note": "",
+      "Lanes": {
+        "2": {
+          "School": "Crestwood School",
+          "Place": "2",
+          "Split": "00:09.9",
+          "Time": "06:03.3"
+        },
+        "3": {
+          "School": "Rivermont Boat Club",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "05:53.4"
+        },
+        "4": {
+          "School": "Winslow High School",
+          "Place": "3",
+          "Split": "00:17.1",
+          "Time": "06:10.5"
+        }
+      }
+    },
+    {
+      "RaceNumber": 22,
+      "ScheduledTime": "11:27 AM",
+      "BoatClass": "W-N-4+",
+      "FlightInfo": "Flight 1",
+      "Note": "",
+      "Lanes": {
+        "1": {
+          "School": "Windermere School",
+          "Place": "2",
+          "Split": "00:08.8",
+          "Time": "06:44.6"
+        },
+        "2": {
+          "School": "Mistral Bay Collegiate",
+          "AdditionalInfo": "Exhibition",
+          "Place": "3",
+          "Split": "00:30.6",
+          "Time": "07:06.4"
+        },
+        "3": {
+          "School": "Winslow High School",
+          "Place": "5",
+          "Split": "01:06.4",
+          "Time": "07:42.2"
+        },
+        "4": {
+          "School": "Highgate Catholic",
+          "Place": "3",
+          "Split": "00:30.6",
+          "Time": "07:06.4"
+        },
+        "5": {
+          "School": "Saint Cuthbert's Boat Club",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "06:35.8"
+        }
+      }
+    },
+    {
+      "RaceNumber": 23,
+      "ScheduledTime": "11:34 AM",
+      "BoatClass": "W-N-4+",
+      "FlightInfo": "Flight 2",
+      "Note": "",
+      "Lanes": {
+        "1": {
+          "School": "Moorland School",
+          "Place": "4",
+          "Split": "01:07.5",
+          "Time": "07:44.9"
+        },
+        "2": {
+          "School": "Edgemont Prep",
+          "Place": "Excluded"
+        },
+        "3": {
+          "School": "Charlton Park High School",
+          "Place": "5",
+          "Split": "01:07.5",
+          "Time": "07:44.9"
+        },
+        "4": {
+          "School": "Wexford Hills Prep",
+          "Place": "2",
+          "Split": "00:20.2",
+          "Time": "06:57.6"
+        },
+        "5": {
+          "School": "Valley Forge Academy",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "06:37.4"
+        },
+        "6": {
+          "School": "Sterling Heights Rowing Association",
+          "Place": "3",
+          "Split": "00:32.0",
+          "Time": "07:09.4"
+        }
+      }
+    },
+    {
+      "RaceNumber": 24,
+      "ScheduledTime": "11:41 AM",
+      "BoatClass": "W-N-4+",
+      "FlightInfo": "Flight 3",
+      "Note": "",
+      "Lanes": {
+        "1": {
+          "School": "Linwood Country Day",
+          "AdditionalInfo": "Exhibition",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "06:26.2"
+        },
+        "2": {
+          "School": "Coldspring Rowing Association",
+          "Place": "5",
+          "Split": "00:48.1",
+          "Time": "07:14.3"
+        },
+        "3": {
+          "School": "Timberline Boat Club",
+          "AdditionalInfo": "Exhibition",
+          "Place": "6",
+          "Split": "01:22.6",
+          "Time": "07:48.8"
+        },
+        "4": {
+          "School": "Harrowgate Academy",
+          "Place": "2",
+          "Split": "00:10.4",
+          "Time": "06:36.6"
+        },
+        "5": {
+          "School": "Crestwood School",
+          "AdditionalInfo": "Exhibition",
+          "Place": "4",
+          "Split": "00:45.7",
+          "Time": "07:11.9"
+        },
+        "6": {
+          "School": "Woodhaven Crew",
+          "Place": "3",
+          "Split": "00:33.6",
+          "Time": "06:59.8"
+        }
+      }
+    },
+    {
+      "RaceNumber": 25,
+      "ScheduledTime": "11:48 AM",
+      "BoatClass": "M-N-4+",
+      "FlightInfo": "Flight 1",
+      "Note": "",
+      "Lanes": {
+        "1": {
+          "School": "Prescott Preparatory Academy",
+          "Place": "2",
+          "Split": "00:05.0",
+          "Time": "05:55.8"
+        },
+        "2": {
+          "School": "Radcliffe Rowing Club",
+          "Place": "5",
+          "Split": "00:51.2",
+          "Time": "06:42.0"
+        },
+        "3": {
+          "School": "Windermere School",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "05:50.8"
+        },
+        "4": {
+          "School": "Southport Collegiate",
+          "Place": "3",
+          "Split": "00:21.2",
+          "Time": "06:12.0"
+        },
+        "5": {
+          "School": "Linwood Country Day",
+          "Place": "4",
+          "Split": "00:40.3",
+          "Time": "06:31.1"
+        }
+      }
+    },
+    {
+      "RaceNumber": 26,
+      "ScheduledTime": "11:55 AM",
+      "BoatClass": "M-N-4+",
+      "FlightInfo": "Flight 2",
+      "Note": "",
+      "Lanes": {
+        "1": {
+          "School": "Beacon Hill Catholic",
+          "Place": "2",
+          "Split": "00:05.0",
+          "Time": "04:57.1"
+        },
+        "2": {
+          "School": "Charlton Park High School",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "04:52.1"
+        },
+        "3": {
+          "School": "Coldspring Rowing Association",
+          "AdditionalInfo": "Exhibition",
+          "Place": "4",
+          "Split": "00:21.4",
+          "Time": "05:13.5"
+        },
+        "4": {
+          "School": "Sherwood School",
+          "AdditionalInfo": "Exhibition",
+          "Place": "5",
+          "Split": "00:45.6",
+          "Time": "05:37.7"
+        },
+        "5": {
+          "School": "Wexford Hills Prep",
+          "Place": "3",
+          "Split": "00:08.1",
+          "Time": "05:00.2"
+        },
+        "6": {
+          "School": "Candlewood Rowing Association",
+          "Place": "6",
+          "Split": "00:52.4",
+          "Time": "05:44.5"
+        }
+      }
+    },
+    {
+      "RaceNumber": 27,
+      "ScheduledTime": "12:02 PM",
+      "BoatClass": "W-2-8+",
+      "FlightInfo": "Heat 1",
+      "Note": "3 to Advance",
+      "Lanes": {
+        "1": {
+          "School": "Lowell Park Prep",
+          "Place": "5",
+          "Split": "00:40.7",
+          "Time": "05:56.6"
+        },
+        "2": {
+          "School": "Deer Park Boat Club",
+          "AdditionalInfo": "6",
+          "Place": "3",
+          "Split": "00:12.5",
+          "Time": "05:28.4"
+        },
+        "3": {
+          "School": "Highgate Catholic",
+          "AdditionalInfo": "1",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "05:15.9"
+        },
+        "4": {
+          "School": "Edgemont Prep",
+          "AdditionalInfo": "5",
+          "Place": "2",
+          "Split": "00:08.6",
+          "Time": "05:24.5"
+        },
+        "5": {
+          "School": "Dalton Prep",
+          "AdditionalInfo": "10",
+          "Place": "4",
+          "Split": "00:23.6",
+          "Time": "05:39.5"
+        }
+      }
+    },
+    {
+      "RaceNumber": 28,
+      "ScheduledTime": "12:09 PM",
+      "BoatClass": "W-2-8+",
+      "FlightInfo": "Heat 2",
+      "Note": "3 to Advance",
+      "Lanes": {
+        "2": {
+          "School": "Candlewood Rowing Association",
+          "AdditionalInfo": "7",
+          "Place": "4",
+          "Split": "00:29.4",
+          "Time": "05:54.2"
+        },
+        "3": {
+          "School": "Rosewood Rowing Club",
+          "AdditionalInfo": "2",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "05:24.8"
+        },
+        "4": {
+          "School": "Carrow Rowing Association",
+          "AdditionalInfo": "4",
+          "Place": "2",
+          "Split": "00:03.6",
+          "Time": "05:28.4"
+        },
+        "5": {
+          "School": "Prescott Preparatory Academy",
+          "AdditionalInfo": "9",
+          "Place": "3",
+          "Split": "00:11.2",
+          "Time": "05:36.0"
+        }
+      }
+    },
+    {
+      "RaceNumber": 29,
+      "ScheduledTime": "12:16 PM",
+      "BoatClass": "M-2-8+",
+      "FlightInfo": "Heat 1",
+      "Note": "3 to Advance",
+      "Lanes": {
+        "1": {
+          "School": "Candlewood Rowing Association",
+          "AdditionalInfo": "14",
+          "Place": "4",
+          "Split": "00:23.3",
+          "Time": "05:04.4"
+        },
+        "2": {
+          "School": "Highgate Catholic",
+          "AdditionalInfo": "7",
+          "Place": "2",
+          "Split": "00:08.8",
+          "Time": "04:49.9"
+        },
+        "3": {
+          "School": "Edgemont Prep",
+          "AdditionalInfo": "1",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "04:41.1"
+        },
+        "4": {
+          "School": "Prescott Preparatory Academy",
+          "AdditionalInfo": "6",
+          "Place": "3",
+          "Split": "00:12.2",
+          "Time": "04:53.3"
+        },
+        "5": {
+          "School": "Southport Collegiate",
+          "AdditionalInfo": "12",
+          "Place": "5",
+          "Split": "00:28.7",
+          "Time": "05:09.8"
+        }
+      }
+    },
+    {
+      "RaceNumber": 30,
+      "ScheduledTime": "12:23 PM",
+      "BoatClass": "M-2-8+",
+      "FlightInfo": "Heat 2",
+      "Note": "3 to Advance",
+      "Lanes": {
+        "2": {
+          "School": "Wexford Hills Prep",
+          "AdditionalInfo": "8",
+          "Place": "4",
+          "Split": "00:14.5",
+          "Time": "05:01.3"
+        },
+        "3": {
+          "School": "Beacon Hill Catholic",
+          "AdditionalInfo": "3",
+          "Place": "3",
+          "Split": "00:04.1",
+          "Time": "04:50.9"
+        },
+        "4": {
+          "School": "Deer Park Boat Club",
+          "AdditionalInfo": "5",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "04:46.8"
+        },
+        "5": {
+          "School": "Dalton Prep",
+          "AdditionalInfo": "9",
+          "Place": "2",
+          "Split": "00:03.3",
+          "Time": "04:50.1"
+        }
+      }
+    },
+    {
+      "RaceNumber": 31,
+      "ScheduledTime": "12:30 PM",
+      "BoatClass": "M-Jr-8+",
+      "FlightInfo": "Heat 1",
+      "Note": "2 to Advance",
+      "Lanes": {
+        "2": {
+          "School": "Carrow Rowing Association",
+          "Place": "2",
+          "Split": "00:08.4",
+          "Time": "05:05.5"
+        },
+        "3": {
+          "School": "Hawthorne Bay Rowing Club",
+          "AdditionalInfo": "2",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "04:57.1"
+        },
+        "4": {
+          "School": "Kingsford Catholic",
+          "AdditionalInfo": "9",
+          "Place": "3",
+          "Split": "01:03.6",
+          "Time": "06:00.7"
+        }
+      }
+    },
+    {
+      "RaceNumber": 32,
+      "ScheduledTime": "12:37 PM",
+      "BoatClass": "M-Jr-8+",
+      "FlightInfo": "Heat 2",
+      "Note": "3 to Advance",
+      "Lanes": {
+        "2": {
+          "School": "Sterling Heights Rowing Association",
+          "Place": "2",
+          "Split": "00:05.1",
+          "Time": "05:01.3"
+        },
+        "3": {
+          "School": "Rivermont Boat Club",
+          "AdditionalInfo": "3",
+          "Place": "3",
+          "Split": "00:20.5",
+          "Time": "05:16.7"
+        },
+        "4": {
+          "School": "Saint Cuthbert's Boat Club",
+          "AdditionalInfo": "5",
+          "Place": "4",
+          "Split": "00:26.9",
+          "Time": "05:23.1"
+        },
+        "5": {
+          "School": "Lindenwood Catholic",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "04:56.2"
+        }
+      }
+    },
+    {
+      "RaceNumber": 33,
+      "ScheduledTime": "12:44 PM",
+      "BoatClass": "W-1-8+",
+      "FlightInfo": "Heat 1",
+      "Note": "3 to Advance",
+      "Lanes": {
+        "1": {
+          "School": "Dalton Prep",
+          "AdditionalInfo": "11",
+          "Place": "5",
+          "Split": "00:25.9",
+          "Time": "05:26.6"
+        },
+        "2": {
+          "School": "Carrow Rowing Association",
+          "AdditionalInfo": "6",
+          "Place": "3",
+          "Split": "00:11.2",
+          "Time": "05:11.9"
+        },
+        "3": {
+          "School": "Rosewood Rowing Club",
+          "AdditionalInfo": "1",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "05:00.7"
+        },
+        "4": {
+          "School": "Candlewood Rowing Association",
+          "AdditionalInfo": "5",
+          "Place": "2",
+          "Split": "00:04.2",
+          "Time": "05:04.9"
+        },
+        "5": {
+          "School": "Radcliffe Rowing Club",
+          "AdditionalInfo": "10",
+          "Place": "6",
+          "Split": "00:32.4",
+          "Time": "05:33.1"
+        },
+        "6": {
+          "School": "Lowell Park Prep",
+          "Place": "4",
+          "Split": "00:23.2",
+          "Time": "05:23.9"
+        }
+      }
+    },
+    {
+      "RaceNumber": 34,
+      "ScheduledTime": "12:51 PM",
+      "BoatClass": "W-1-8+",
+      "FlightInfo": "Heat 2",
+      "Note": "3 to Advance",
+      "Lanes": {
+        "1": {
+          "School": "Cobble Hill Rowing Club",
+          "AdditionalInfo": "12",
+          "Place": "5",
+          "Split": "00:24.8",
+          "Time": "05:25.8"
+        },
+        "2": {
+          "School": "Deer Park Boat Club",
+          "AdditionalInfo": "7",
+          "Place": "3",
+          "Split": "00:11.1",
+          "Time": "05:12.1"
+        },
+        "3": {
+          "School": "Highgate Catholic",
+          "AdditionalInfo": "2",
+          "Place": "2",
+          "Split": "00:01.5",
+          "Time": "05:02.5"
+        },
+        "4": {
+          "School": "Edgemont Prep",
+          "AdditionalInfo": "4",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "05:01.0"
+        },
+        "5": {
+          "School": "Prescott Preparatory Academy",
+          "AdditionalInfo": "8",
+          "Place": "4",
+          "Split": "00:12.3",
+          "Time": "05:13.3"
+        }
+      }
+    },
+    {
+      "RaceNumber": 35,
+      "ScheduledTime": "12:58 PM",
+      "BoatClass": "M-1-8+",
+      "FlightInfo": "Heat 1",
+      "Note": "3 to Advance",
+      "Lanes": {
+        "1": {
+          "School": "Prescott Preparatory Academy",
+          "AdditionalInfo": "13",
+          "Place": "2",
+          "Split": "00:06.3",
+          "Time": "04:32.0"
+        },
+        "2": {
+          "School": "Dalton Prep",
+          "AdditionalInfo": "7",
+          "Place": "3",
+          "Split": "00:06.7",
+          "Time": "04:32.4"
+        },
+        "3": {
+          "School": "Edgemont Prep",
+          "AdditionalInfo": "1",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "04:25.7"
+        },
+        "4": {
+          "School": "Deer Park Boat Club",
+          "AdditionalInfo": "5",
+          "Place": "4",
+          "Split": "00:07.1",
+          "Time": "04:32.8"
+        },
+        "5": {
+          "School": "Highgate Catholic",
+          "AdditionalInfo": "12",
+          "Place": "5",
+          "Split": "00:09.4",
+          "Time": "04:35.1"
+        }
+      }
+    },
+    {
+      "RaceNumber": 36,
+      "ScheduledTime": "01:05 PM",
+      "BoatClass": "M-1-8+",
+      "FlightInfo": "Heat 2",
+      "Note": "3 to Advance",
+      "Lanes": {
+        "1": {
+          "School": "Southport Collegiate",
+          "AdditionalInfo": "14",
+          "Place": "5",
+          "Split": "00:15.6",
+          "Time": "04:51.3"
+        },
+        "2": {
+          "School": "Wexford Hills Prep",
+          "AdditionalInfo": "8",
+          "Place": "3",
+          "Split": "00:03.6",
+          "Time": "04:39.3"
+        },
+        "3": {
+          "School": "Candlewood Rowing Association",
+          "AdditionalInfo": "3",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "04:35.7"
+        },
+        "4": {
+          "School": "Beacon Hill Catholic",
+          "AdditionalInfo": "4",
+          "Place": "2",
+          "Split": "00:01.4",
+          "Time": "04:37.1"
+        },
+        "5": {
+          "School": "Carrow Rowing Association",
+          "AdditionalInfo": "9",
+          "Place": "4",
+          "Split": "00:05.5",
+          "Time": "04:41.2"
+        }
+      }
+    },
+    {
+      "RaceNumber": 37,
+      "ScheduledTime": "02:09 PM",
+      "BoatClass": "M-1-4+",
+      "FlightInfo": "Final",
+      "Note": "",
+      "Lanes": {
+        "1": {
+          "School": "Waverly Preparatory Academy",
+          "AdditionalInfo": "Heat 3",
+          "Place": "6",
+          "Split": "00:46.0",
+          "Time": "05:42.7"
+        },
+        "2": {
+          "School": "Mistral Bay Collegiate",
+          "AdditionalInfo": "Heat 1",
+          "Place": "4",
+          "Split": "00:24.8",
+          "Time": "05:21.5"
+        },
+        "3": {
+          "School": "Sterling Heights Rowing Association",
+          "AdditionalInfo": "Heat 2",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "04:56.7"
+        },
+        "4": {
+          "School": "Timberline Boat Club",
+          "AdditionalInfo": "Heat 1",
+          "Place": "3",
+          "Split": "00:17.2",
+          "Time": "05:13.9"
+        },
+        "5": {
+          "School": "Linwood Country Day",
+          "AdditionalInfo": "Heat 3",
+          "Place": "5",
+          "Split": "00:37.1",
+          "Time": "05:33.8"
+        },
+        "6": {
+          "School": "Windermere School",
+          "AdditionalInfo": "Heat 2",
+          "Place": "2",
+          "Split": "00:07.0",
+          "Time": "05:03.7"
+        }
+      }
+    },
+    {
+      "RaceNumber": 38,
+      "ScheduledTime": "02:16 PM",
+      "BoatClass": "W-1-4x",
+      "FlightInfo": "Final",
+      "Note": "",
+      "Lanes": {
+        "2": {
+          "School": "Westhaven Prep",
+          "Place": "3",
+          "Split": "01:09.5",
+          "Time": "06:39.2"
+        },
+        "3": {
+          "School": "Alderbrook School",
+          "AdditionalInfo": "4",
+          "Place": "2",
+          "Split": "00:21.3",
+          "Time": "05:51.0"
+        },
+        "4": {
+          "School": "Bayshore Rowing Association",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "05:29.7"
+        },
+        "5": {
+          "School": "Queensbury Collegiate",
+          "AdditionalInfo": "W-2-4x",
+          "Place": "4",
+          "Split": "01:20.5",
+          "Time": "06:50.2"
+        }
+      }
+    },
+    {
+      "RaceNumber": 39,
+      "ScheduledTime": "02:23 PM",
+      "BoatClass": "M-1-4x",
+      "FlightInfo": "Final",
+      "Note": "",
+      "Lanes": {
+        "2": {
+          "School": "Coventry Crew",
+          "Place": "4",
+          "Split": "00:41.4",
+          "Time": "06:11.2"
+        },
+        "3": {
+          "School": "Ravenswood Boat Club",
+          "AdditionalInfo": "2",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "05:29.8"
+        },
+        "4": {
+          "School": "Alderbrook School",
+          "AdditionalInfo": "3",
+          "Place": "3",
+          "Split": "00:33.6",
+          "Time": "06:03.4"
+        },
+        "5": {
+          "School": "Bayshore Rowing Association",
+          "Place": "2",
+          "Split": "00:13.4",
+          "Time": "05:43.2"
+        }
+      }
+    },
+    {
+      "RaceNumber": 40,
+      "ScheduledTime": "02:30 PM",
+      "BoatClass": "W-Jr-4x",
+      "FlightInfo": "Final",
+      "Note": "",
+      "Lanes": {
+        "2": {
+          "School": "Bayshore Rowing Association B",
+          "Place": "3",
+          "Split": "01:14.2",
+          "Time": "07:24.6"
+        },
+        "3": {
+          "School": "Alderbrook School",
+          "AdditionalInfo": "1",
+          "Place": "2",
+          "Split": "00:28.2",
+          "Time": "06:38.6"
+        },
+        "4": {
+          "School": "Bayshore Rowing Association A",
+          "AdditionalInfo": "3",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "06:10.4"
+        }
+      }
+    },
+    {
+      "RaceNumber": 41,
+      "ScheduledTime": "02:37 PM",
+      "BoatClass": "M-Jr-4x",
+      "FlightInfo": "Final",
+      "Note": "",
+      "Lanes": {
+        "2": {
+          "School": "Bayshore Rowing Association B",
+          "Place": "3",
+          "Split": "01:22.1",
+          "Time": "06:37.5"
+        },
+        "3": {
+          "School": "Bayshore Rowing Association A",
+          "AdditionalInfo": "1",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "05:15.4"
+        },
+        "4": {
+          "School": "Westhaven Prep",
+          "AdditionalInfo": "2",
+          "Place": "2",
+          "Split": "00:59.6",
+          "Time": "06:15.0"
+        }
+      }
+    },
+    {
+      "RaceNumber": 42,
+      "ScheduledTime": "02:44 PM",
+      "BoatClass": "W-1-4+",
+      "FlightInfo": "Final",
+      "Note": "",
+      "Lanes": {
+        "1": {
+          "School": "Hawthorne Bay Rowing Club",
+          "AdditionalInfo": "Heat 3",
+          "Place": "2",
+          "Split": "00:04.3",
+          "Time": "05:40.3"
+        },
+        "2": {
+          "School": "Valley Forge Academy",
+          "AdditionalInfo": "Heat 1",
+          "Place": "6",
+          "Split": "00:28.9",
+          "Time": "06:04.9"
+        },
+        "3": {
+          "School": "Sterling Heights Rowing Association",
+          "AdditionalInfo": "Heat 2",
+          "Place": "4",
+          "Split": "00:09.2",
+          "Time": "05:45.2"
+        },
+        "4": {
+          "School": "Saint Cuthbert's Boat Club",
+          "AdditionalInfo": "Heat 1",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "05:36.0"
+        },
+        "5": {
+          "School": "Wexford Hills Prep",
+          "AdditionalInfo": "Heat 3",
+          "Place": "3",
+          "Split": "00:08.4",
+          "Time": "05:44.4"
+        },
+        "6": {
+          "School": "Harrowgate Academy",
+          "AdditionalInfo": "Heat 2",
+          "Place": "5",
+          "Split": "00:25.5",
+          "Time": "06:01.5"
+        }
+      }
+    },
+    {
+      "RaceNumber": 43,
+      "ScheduledTime": "02:51 PM",
+      "BoatClass": "W-Jr-4+",
+      "FlightInfo": "Final",
+      "Note": "",
+      "Lanes": {
+        "1": {
+          "School": "Hawthorne Bay Rowing Club",
+          "AdditionalInfo": "Heat 1",
+          "Place": "6",
+          "Split": "00:33.4",
+          "Time": "06:32.8"
+        },
+        "2": {
+          "School": "Saint Cuthbert's Boat Club A",
+          "AdditionalInfo": "Heat 2",
+          "Place": "5",
+          "Split": "00:23.5",
+          "Time": "06:22.9"
+        },
+        "3": {
+          "School": "Harrowgate Academy",
+          "AdditionalInfo": "Heat 1",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "05:59.4"
+        },
+        "4": {
+          "School": "Beacon Hill Catholic",
+          "AdditionalInfo": "Heat 2",
+          "Place": "2",
+          "Split": "00:05.6",
+          "Time": "06:05.0"
+        },
+        "5": {
+          "School": "Coldspring Rowing Association",
+          "AdditionalInfo": "Heat 1",
+          "Place": "3",
+          "Split": "00:16.2",
+          "Time": "06:15.6"
+        },
+        "6": {
+          "School": "Cobble Hill Rowing Club",
+          "AdditionalInfo": "Heat 2",
+          "Place": "4",
+          "Split": "00:20.2",
+          "Time": "06:19.6"
+        }
+      }
+    },
+    {
+      "RaceNumber": 44,
+      "ScheduledTime": "02:58 PM",
+      "BoatClass": "M-Jr-4+",
+      "FlightInfo": "Final",
+      "Note": "",
+      "Lanes": {
+        "1": {
+          "School": "Deer Park Boat Club",
+          "AdditionalInfo": "Heat 1",
+          "Place": "5",
+          "Split": "00:32.2",
+          "Time": "05:44.9"
+        },
+        "2": {
+          "School": "Linwood Country Day",
+          "AdditionalInfo": "Heat 2",
+          "Place": "4",
+          "Split": "00:23.2",
+          "Time": "05:35.9"
+        },
+        "3": {
+          "School": "Saint Cuthbert's Boat Club",
+          "AdditionalInfo": "Heat 1",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "05:12.7"
+        },
+        "4": {
+          "School": "Coldspring Rowing Association",
+          "AdditionalInfo": "Heat 2",
+          "Place": "3",
+          "Split": "00:21.4",
+          "Time": "05:34.1"
+        },
+        "5": {
+          "School": "Carrow Rowing Association",
+          "AdditionalInfo": "Heat 1",
+          "Place": "6",
+          "Split": "00:45.2",
+          "Time": "05:57.9"
+        },
+        "6": {
+          "School": "Winslow High School",
+          "AdditionalInfo": "Heat 2",
+          "Place": "2",
+          "Split": "00:17.4",
+          "Time": "05:30.1"
+        }
+      }
+    },
+    {
+      "RaceNumber": 45,
+      "ScheduledTime": "03:05 PM",
+      "BoatClass": "W-2-4+",
+      "FlightInfo": "Final",
+      "Note": "",
+      "Lanes": {
+        "1": {
+          "School": "Sterling Heights Rowing Association",
+          "AdditionalInfo": "Heat 1",
+          "Place": "6",
+          "Split": "00:32.6",
+          "Time": "06:36.3"
+        },
+        "2": {
+          "School": "Southport Collegiate",
+          "AdditionalInfo": "Heat 2",
+          "Place": "3",
+          "Split": "00:17.7",
+          "Time": "06:21.4"
+        },
+        "3": {
+          "School": "Hawthorne Bay Rowing Club",
+          "AdditionalInfo": "Heat 1",
+          "Place": "2",
+          "Split": "00:14.7",
+          "Time": "06:18.4"
+        },
+        "4": {
+          "School": "Glen Arbor School",
+          "AdditionalInfo": "Heat 2",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "06:03.7"
+        },
+        "5": {
+          "School": "Wexford Hills Prep",
+          "AdditionalInfo": "Heat 1",
+          "Place": "5",
+          "Split": "00:22.6",
+          "Time": "06:26.3"
+        },
+        "6": {
+          "School": "Valley Forge Academy",
+          "AdditionalInfo": "Heat 2",
+          "Place": "4",
+          "Split": "00:18.6",
+          "Time": "06:22.3"
+        }
+      }
+    },
+    {
+      "RaceNumber": 46,
+      "ScheduledTime": "03:12 PM",
+      "BoatClass": "M-2-4+",
+      "FlightInfo": "Final",
+      "Note": "",
+      "Lanes": {
+        "1": {
+          "School": "Timberline Boat Club B",
+          "AdditionalInfo": "Heat 1",
+          "Place": "5",
+          "Split": "00:27.9",
+          "Time": "05:51.4"
+        },
+        "2": {
+          "School": "Mistral Bay Collegiate",
+          "AdditionalInfo": "Heat 2",
+          "Place": "2",
+          "Split": "00:09.7",
+          "Time": "05:33.2"
+        },
+        "3": {
+          "School": "Hawthorne Bay Rowing Club",
+          "AdditionalInfo": "Heat 1",
+          "Place": "4",
+          "Split": "00:23.0",
+          "Time": "05:46.5"
+        },
+        "4": {
+          "School": "Sterling Heights Rowing Association",
+          "AdditionalInfo": "Heat 2",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "05:23.5"
+        },
+        "5": {
+          "School": "Timberline Boat Club A",
+          "AdditionalInfo": "Heat 1",
+          "Place": "3",
+          "Split": "00:18.6",
+          "Time": "05:42.1"
+        },
+        "6": {
+          "School": "Sherwood School",
+          "AdditionalInfo": "Heat 2",
+          "Place": "6",
+          "Split": "00:37.8",
+          "Time": "06:01.3"
+        }
+      }
+    },
+    {
+      "RaceNumber": 47,
+      "ScheduledTime": "03:19 PM",
+      "BoatClass": "W-3-8+",
+      "FlightInfo": "",
+      "Note": "",
+      "Lanes": {
+        "2": {
+          "School": "Deer Park Boat Club",
+          "Place": "2",
+          "Split": "00:06.9",
+          "Time": "05:43.8"
+        },
+        "3": {
+          "School": "Winslow High School",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "05:36.9"
+        },
+        "4": {
+          "School": "Prescott Preparatory Academy",
+          "Place": "3",
+          "Split": "00:07.6",
+          "Time": "05:44.5"
+        },
+        "5": {
+          "School": "Highgate Catholic",
+          "Place": "4",
+          "Split": "00:14.3",
+          "Time": "05:51.2"
+        },
+        "6": {
+          "School": "Dalton Prep",
+          "Place": "5",
+          "Split": "00:17.3",
+          "Time": "05:54.2"
+        }
+      }
+    },
+    {
+      "RaceNumber": 48,
+      "ScheduledTime": "03:26 PM",
+      "BoatClass": "M-3-8+",
+      "FlightInfo": "Flight 1",
+      "Note": "",
+      "Lanes": {
+        "2": {
+          "School": "Southport Collegiate",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "05:22.2"
+        },
+        "4": {
+          "School": "Beacon Hill Catholic",
+          "Place": "2",
+          "Split": "00:21.4",
+          "Time": "05:43.6"
+        }
+      }
+    },
+    {
+      "RaceNumber": 49,
+      "ScheduledTime": "03:33 PM",
+      "BoatClass": "M-3-8+",
+      "FlightInfo": "Flight 2",
+      "Note": "",
+      "Lanes": {
+        "1": {
+          "School": "Deer Park Boat Club",
+          "Place": "3",
+          "Split": "00:28.1",
+          "Time": "05:09.1"
+        },
+        "2": {
+          "School": "Dalton Prep",
+          "Place": "2",
+          "Split": "00:25.7",
+          "Time": "05:06.7"
+        },
+        "3": {
+          "School": "Highgate Catholic",
+          "Place": "5",
+          "Split": "00:44.1",
+          "Time": "05:25.1"
+        },
+        "4": {
+          "School": "Edgemont Prep",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "04:41.0"
+        },
+        "5": {
+          "School": "Wexford Hills Prep",
+          "Place": "4",
+          "Split": "00:38.3",
+          "Time": "05:19.3"
+        }
+      }
+    },
+    {
+      "RaceNumber": 50,
+      "ScheduledTime": "03:40 PM",
+      "BoatClass": "W-Fr-8+",
+      "FlightInfo": "Flight 1",
+      "Note": "",
+      "Lanes": {
+        "2": {
+          "School": "Highgate Catholic",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "05:34.2"
+        },
+        "3": {
+          "School": "Candlewood Rowing Association",
+          "AdditionalInfo": "Exhibition",
+          "Place": "3",
+          "Split": "00:19.3",
+          "Time": "05:53.5"
+        },
+        "4": {
+          "School": "Beacon Hill Catholic",
+          "Place": "2",
+          "Split": "00:00.9",
+          "Time": "05:35.1"
+        }
+      }
+    },
+    {
+      "RaceNumber": 51,
+      "ScheduledTime": "03:47 PM",
+      "BoatClass": "W-Fr-8+",
+      "FlightInfo": "Flight 2",
+      "Note": "",
+      "Lanes": {
+        "2": {
+          "School": "Harrowgate Academy",
+          "Place": "3",
+          "Split": "00:27.0",
+          "Time": "06:07.2"
+        },
+        "3": {
+          "School": "Lowell Park Prep",
+          "Place": "2",
+          "Split": "00:23.7",
+          "Time": "06:03.9"
+        },
+        "4": {
+          "School": "Carrow Rowing Association",
+          "AdditionalInfo": "Exhibition",
+          "Place": "4",
+          "Split": "00:30.6",
+          "Time": "06:10.8"
+        },
+        "5": {
+          "School": "Edgemont Prep",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "05:40.2"
+        }
+      }
+    },
+    {
+      "RaceNumber": 52,
+      "ScheduledTime": "03:54 PM",
+      "BoatClass": "M-Fr-8+",
+      "FlightInfo": "Flight 1",
+      "Note": "",
+      "Lanes": {
+        "2": {
+          "School": "Wexford Hills Prep",
+          "Place": "2",
+          "Split": "00:10.9",
+          "Time": "05:09.9"
+        },
+        "3": {
+          "School": "Carrow Rowing Association",
+          "Place": "3",
+          "Split": "00:17.7",
+          "Time": "05:16.7"
+        },
+        "4": {
+          "School": "Edgemont Prep",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "04:59.0"
+        },
+        "5": {
+          "School": "Hawthorne Bay Rowing Club",
+          "Place": "4",
+          "Split": "00:23.4",
+          "Time": "05:22.4"
+        }
+      }
+    },
+    {
+      "RaceNumber": 53,
+      "ScheduledTime": "04:01 PM",
+      "BoatClass": "M-Fr-8+",
+      "FlightInfo": "Flight 2",
+      "Note": "",
+      "Lanes": {
+        "2": {
+          "School": "Highgate Catholic",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "04:50.9"
+        },
+        "3": {
+          "School": "Sterling Heights Rowing Association",
+          "Place": "4",
+          "Split": "00:21.7",
+          "Time": "05:12.6"
+        },
+        "4": {
+          "School": "Deer Park Boat Club",
+          "Place": "2",
+          "Split": "00:11.6",
+          "Time": "05:02.5"
+        },
+        "5": {
+          "School": "Prescott Preparatory Academy",
+          "Place": "3",
+          "Split": "00:19.5",
+          "Time": "05:10.4"
+        }
+      }
+    },
+    {
+      "RaceNumber": 54,
+      "ScheduledTime": "04:08 PM",
+      "BoatClass": "W-2-8+",
+      "FlightInfo": "Final",
+      "Note": "",
+      "Lanes": {
+        "1": {
+          "School": "Deer Park Boat Club",
+          "AdditionalInfo": "Heat 1",
+          "Place": "4",
+          "Split": "00:11.3",
+          "Time": "05:26.9"
+        },
+        "2": {
+          "School": "Carrow Rowing Association",
+          "AdditionalInfo": "Heat 2",
+          "Place": "5",
+          "Split": "00:17.0",
+          "Time": "05:32.6"
+        },
+        "3": {
+          "School": "Highgate Catholic",
+          "AdditionalInfo": "Heat 1",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "05:15.6"
+        },
+        "4": {
+          "School": "Rosewood Rowing Club",
+          "AdditionalInfo": "Heat 2",
+          "Place": "3",
+          "Split": "00:07.0",
+          "Time": "05:22.6"
+        },
+        "5": {
+          "School": "Edgemont Prep",
+          "AdditionalInfo": "Heat 1",
+          "Place": "2",
+          "Split": "00:02.8",
+          "Time": "05:18.4"
+        },
+        "6": {
+          "School": "Prescott Preparatory Academy",
+          "AdditionalInfo": "Heat 2",
+          "Place": "6",
+          "Split": "00:24.3",
+          "Time": "05:39.9"
+        }
+      }
+    },
+    {
+      "RaceNumber": 55,
+      "ScheduledTime": "04:15 PM",
+      "BoatClass": "M-2-8+",
+      "FlightInfo": "Final",
+      "Note": "",
+      "Lanes": {
+        "1": {
+          "School": "Prescott Preparatory Academy",
+          "AdditionalInfo": "Heat 1",
+          "Place": "6",
+          "Split": "00:15.9",
+          "Time": "04:52.3"
+        },
+        "2": {
+          "School": "Dalton Prep",
+          "AdditionalInfo": "Heat 2",
+          "Place": "4",
+          "Split": "00:12.3",
+          "Time": "04:48.7"
+        },
+        "3": {
+          "School": "Edgemont Prep",
+          "AdditionalInfo": "Heat 1",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "04:36.4"
+        },
+        "4": {
+          "School": "Deer Park Boat Club",
+          "AdditionalInfo": "Heat 2",
+          "Place": "2",
+          "Split": "00:08.1",
+          "Time": "04:44.5"
+        },
+        "5": {
+          "School": "Highgate Catholic",
+          "AdditionalInfo": "Heat 1",
+          "Place": "5",
+          "Split": "00:13.7",
+          "Time": "04:50.1"
+        },
+        "6": {
+          "School": "Beacon Hill Catholic",
+          "AdditionalInfo": "Heat 2",
+          "Place": "3",
+          "Split": "00:11.8",
+          "Time": "04:48.2"
+        }
+      }
+    },
+    {
+      "RaceNumber": 56,
+      "ScheduledTime": "04:22 PM",
+      "BoatClass": "W-Jr-8+",
+      "FlightInfo": "Final",
+      "Note": "",
+      "Lanes": {
+        "2": {
+          "School": "Lindenwood Catholic",
+          "Place": "3",
+          "Split": "00:14.0",
+          "Time": "05:38.1"
+        },
+        "3": {
+          "School": "Wexford Hills Prep",
+          "AdditionalInfo": "1",
+          "Place": "2",
+          "Split": "00:09.2",
+          "Time": "05:33.3"
+        },
+        "4": {
+          "School": "Beacon Hill Catholic",
+          "AdditionalInfo": "3",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "05:24.1"
+        },
+        "5": {
+          "School": "Kingsford Catholic",
+          "Rowers": "Exhibition",
+          "Place": "4",
+          "Split": "01:18.2",
+          "Time": "06:42.3"
+        }
+      }
+    },
+    {
+      "RaceNumber": 57,
+      "ScheduledTime": "04:29 PM",
+      "BoatClass": "M-Jr-8+",
+      "FlightInfo": "Final",
+      "Note": "",
+      "Lanes": {
+        "2": {
+          "School": "Sterling Heights Rowing Association",
+          "AdditionalInfo": "Heat 2",
+          "Place": "3",
+          "Split": "00:06.1",
+          "Time": "04:54.8"
+        },
+        "3": {
+          "School": "Hawthorne Bay Rowing Club",
+          "AdditionalInfo": "Heat 1",
+          "Place": "2",
+          "Split": "00:03.8",
+          "Time": "04:52.5"
+        },
+        "4": {
+          "School": "Lindenwood Catholic",
+          "AdditionalInfo": "Heat 2",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "04:48.7"
+        },
+        "5": {
+          "School": "Carrow Rowing Association",
+          "AdditionalInfo": "Heat 1",
+          "Place": "4",
+          "Split": "00:10.8",
+          "Time": "04:59.5"
+        },
+        "6": {
+          "School": "Rivermont Boat Club",
+          "AdditionalInfo": "Heat 2",
+          "Place": "5",
+          "Split": "00:28.9",
+          "Time": "05:17.6"
+        }
+      }
+    },
+    {
+      "RaceNumber": 58,
+      "ScheduledTime": "04:36 PM",
+      "BoatClass": "W-1-8+",
+      "FlightInfo": "Final",
+      "Note": "",
+      "Lanes": {
+        "1": {
+          "School": "Carrow Rowing Association",
+          "AdditionalInfo": "Heat 1",
+          "Place": "4",
+          "Split": "00:10.2",
+          "Time": "05:07.8"
+        },
+        "2": {
+          "School": "Highgate Catholic",
+          "AdditionalInfo": "Heat 2",
+          "Place": "3",
+          "Split": "00:01.6",
+          "Time": "04:59.2"
+        },
+        "3": {
+          "School": "Rosewood Rowing Club",
+          "AdditionalInfo": "Heat 1",
+          "Place": "5",
+          "Split": "00:12.5",
+          "Time": "05:10.1"
+        },
+        "4": {
+          "School": "Edgemont Prep",
+          "AdditionalInfo": "Heat 2",
+          "Place": "2",
+          "Split": "00:01.0",
+          "Time": "04:58.6"
+        },
+        "5": {
+          "School": "Candlewood Rowing Association",
+          "AdditionalInfo": "Heat 1",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "04:57.6"
+        },
+        "6": {
+          "School": "Deer Park Boat Club",
+          "AdditionalInfo": "Heat 2",
+          "Place": "6",
+          "Split": "00:14.0",
+          "Time": "05:11.6"
+        }
+      }
+    },
+    {
+      "RaceNumber": 59,
+      "ScheduledTime": "04:43 PM",
+      "BoatClass": "M-1-8+",
+      "FlightInfo": "Final",
+      "Note": "",
+      "Lanes": {
+        "1": {
+          "School": "Dalton Prep",
+          "AdditionalInfo": "Heat 1",
+          "Place": "5",
+          "Split": "00:09.2",
+          "Time": "04:34.4"
+        },
+        "2": {
+          "School": "Beacon Hill Catholic",
+          "AdditionalInfo": "Heat 2",
+          "Place": "3",
+          "Split": "00:05.8",
+          "Time": "04:31.0"
+        },
+        "3": {
+          "School": "Edgemont Prep",
+          "AdditionalInfo": "Heat 1",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "04:25.2"
+        },
+        "4": {
+          "School": "Candlewood Rowing Association",
+          "AdditionalInfo": "Heat 2",
+          "Place": "2",
+          "Split": "00:02.5",
+          "Time": "04:27.7"
+        },
+        "5": {
+          "School": "Prescott Preparatory Academy",
+          "AdditionalInfo": "Heat 1",
+          "Place": "4",
+          "Split": "00:07.6",
+          "Time": "04:32.8"
+        },
+        "6": {
+          "School": "Wexford Hills Prep",
+          "AdditionalInfo": "Heat 2",
+          "Place": "6",
+          "Split": "00:11.7",
+          "Time": "04:36.9"
+        }
+      }
+    },
+    {
+      "RaceNumber": 60,
+      "ScheduledTime": "04:50 PM",
+      "BoatClass": "M-4-8+",
+      "FlightInfo": "",
+      "Note": "",
+      "Lanes": {
+        "2": {
+          "School": "Highgate Catholic",
+          "Place": "3",
+          "Split": "00:25.9",
+          "Time": "05:03.6"
+        },
+        "3": {
+          "School": "Edgemont Prep",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "04:37.7"
+        },
+        "4": {
+          "School": "Dalton Prep",
+          "Place": "4",
+          "Split": "00:48.9",
+          "Time": "05:26.6"
+        },
+        "5": {
+          "School": "Highgate Catholic",
+          "AdditionalInfo": "M-5-8+",
+          "Place": "2",
+          "Split": "00:14.6",
+          "Time": "04:52.3"
+        }
+      }
+    },
+    {
+      "RaceNumber": 61,
+      "ScheduledTime": "04:57 PM",
+      "BoatClass": "W-N-8+",
+      "FlightInfo": "Flight 1",
+      "Note": "",
+      "Lanes": {
+        "1": {
+          "School": "Deer Park Boat Club",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "05:15.4"
+        },
+        "2": {
+          "School": "Cobble Hill Rowing Club",
+          "AdditionalInfo": "Exhibition",
+          "Place": "5",
+          "Split": "00:43.0",
+          "Time": "05:58.4"
+        },
+        "3": {
+          "School": "Prescott Preparatory Academy",
+          "Place": "2",
+          "Split": "00:04.4",
+          "Time": "05:19.8"
+        },
+        "4": {
+          "School": "Beacon Hill Catholic",
+          "Place": "3",
+          "Split": "00:17.7",
+          "Time": "05:33.1"
+        },
+        "5": {
+          "School": "Dalton Prep",
+          "Place": "4",
+          "Split": "00:37.4",
+          "Time": "05:52.8"
+        },
+        "6": {
+          "School": "Highgate Catholic",
+          "Place": "6",
+          "Split": "01:15.0",
+          "Time": "06:30.4"
+        }
+      }
+    },
+    {
+      "RaceNumber": 62,
+      "ScheduledTime": "05:04 PM",
+      "BoatClass": "W-N-8+",
+      "FlightInfo": "Flight 2",
+      "Note": "",
+      "Lanes": {
+        "1": {
+          "School": "Lowell Park Prep",
+          "Place": "6",
+          "Split": "00:45.7",
+          "Time": "05:39.5"
+        },
+        "2": {
+          "School": "Highgate Catholic",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "04:53.8"
+        },
+        "3": {
+          "School": "Rivermont Boat Club",
+          "Place": "4",
+          "Split": "00:26.0",
+          "Time": "05:19.8"
+        },
+        "4": {
+          "School": "Windermere School",
+          "Place": "5",
+          "Split": "00:43.1",
+          "Time": "05:36.9"
+        },
+        "5": {
+          "School": "Southport Collegiate",
+          "Place": "3",
+          "Split": "00:21.2",
+          "Time": "05:15.0"
+        },
+        "6": {
+          "School": "Edgemont Prep",
+          "Place": "2",
+          "Split": "00:18.8",
+          "Time": "05:12.6"
+        }
+      }
+    },
+    {
+      "RaceNumber": 63,
+      "ScheduledTime": "05:11 PM",
+      "BoatClass": "W-N-8+",
+      "FlightInfo": "Flight 3",
+      "Note": "",
+      "Lanes": {
+        "1": {
+          "School": "Radcliffe Rowing Club",
+          "Place": "3",
+          "Split": "00:27.6",
+          "Time": "05:16.4"
+        },
+        "2": {
+          "School": "Wexford Hills Prep",
+          "Place": "2",
+          "Split": "00:15.7",
+          "Time": "05:04.5"
+        },
+        "3": {
+          "School": "Valley Forge Academy",
+          "Place": "5",
+          "Split": "00:54.6",
+          "Time": "05:43.4"
+        },
+        "4": {
+          "School": "Hawthorne Bay Rowing Club",
+          "Place": "4",
+          "Split": "00:38.1",
+          "Time": "05:26.9"
+        },
+        "5": {
+          "School": "Candlewood Rowing Association",
+          "Place": "6",
+          "Split": "00:56.6",
+          "Time": "05:45.4"
+        },
+        "6": {
+          "School": "Sterling Heights Rowing Association",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "04:48.8"
+        }
+      }
+    },
+    {
+      "RaceNumber": 64,
+      "ScheduledTime": "05:18 PM",
+      "BoatClass": "M-N-8+",
+      "FlightInfo": "Flight 1",
+      "Note": "",
+      "Lanes": {
+        "1": {
+          "School": "Saint Cuthbert's Boat Club",
+          "Place": "2",
+          "Split": "00:01.3",
+          "Time": "04:18.9"
+        },
+        "2": {
+          "School": "Windermere School",
+          "Place": "4",
+          "Split": "00:22.0",
+          "Time": "04:39.6"
+        },
+        "3": {
+          "School": "Lindenwood Catholic",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "04:17.6"
+        },
+        "4": {
+          "School": "Prescott Preparatory Academy",
+          "Place": "3",
+          "Split": "00:04.7",
+          "Time": "04:22.3"
+        },
+        "5": {
+          "School": "Hawthorne Bay Rowing Club",
+          "Place": "5",
+          "Split": "00:26.1",
+          "Time": "04:43.7"
+        },
+        "6": {
+          "School": "Highgate Catholic",
+          "Place": "6",
+          "Split": "00:49.1",
+          "Time": "05:06.7"
+        }
+      }
+    },
+    {
+      "RaceNumber": 65,
+      "ScheduledTime": "05:25 PM",
+      "BoatClass": "M-N-8+",
+      "FlightInfo": "Flight 2",
+      "Note": "",
+      "Lanes": {
+        "1": {
+          "School": "Southport Collegiate",
+          "Place": "5",
+          "Split": "00:32.9",
+          "Time": "04:29.6"
+        },
+        "2": {
+          "School": "Timberline Boat Club",
+          "Place": "6",
+          "Split": "01:00.1",
+          "Time": "04:56.8"
+        },
+        "3": {
+          "School": "Candlewood Rowing Association",
+          "Place": "3",
+          "Split": "00:16.1",
+          "Time": "04:12.8"
+        },
+        "4": {
+          "School": "Edgemont Prep",
+          "Place": "2",
+          "Split": "00:10.9",
+          "Time": "04:07.6"
+        },
+        "5": {
+          "School": "Sterling Heights Rowing Association",
+          "AdditionalInfo": "Exhibition",
+          "Place": "4",
+          "Split": "00:19.1",
+          "Time": "04:15.8"
+        },
+        "6": {
+          "School": "Beacon Hill Catholic",
+          "Place": "1",
+          "Split": "00:00.0",
+          "Time": "03:56.7"
+        }
+      }
+    },
+    {
+      "RaceNumber": 66,
+      "ScheduledTime": "05:32 PM",
+      "BoatClass": "",
+      "FlightInfo": "",
+      "Note": ""
+    },
+    {
+      "RaceNumber": 67,
+      "ScheduledTime": "05:39 PM",
+      "BoatClass": "",
+      "FlightInfo": "",
+      "Note": ""
+    },
+    {
+      "RaceNumber": 68,
+      "ScheduledTime": "05:46 PM",
+      "BoatClass": "",
+      "FlightInfo": "",
+      "Note": ""
+    },
+    {
+      "RaceNumber": 69,
+      "ScheduledTime": "05:53 PM",
+      "BoatClass": "",
+      "FlightInfo": "",
+      "Note": ""
+    }
+  ]
+}
