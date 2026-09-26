@@ -8,6 +8,9 @@ persona feature is built on.
 
 - [integration-testing.md](integration-testing.md) — the proposed integration /
   functional test lane: scenarios, mechanics, and a CI job that is not built yet
+- [sample-regatta.md](sample-regatta.md) — the proposed `-dev-sample-regatta`
+  developer flag: a full-day, obfuscated regattaData with the last five races
+  un-raced, sequenced after Results Publisher
 - [known-issues.md](known-issues.md) — upstream bugs that shape how tests are
   written, and the rules that keep the suite from hitting them
 
@@ -25,6 +28,7 @@ clock seams. `.github/workflows/test.yml` gates every pull request on Linux
 | Unit | `go test ./internal/...` — one process, `t.TempDir()`, Fyne `test` driver, injected NTP/clock | local, plus CI `coverage` (Linux) and `test-windows` (fast, `CGO_ENABLED=0`) on every PR |
 | Full native Windows | `go test ./internal/...` including the Fyne packages, with MinGW | CI `test-windows-full`, on merge to `develop`/`main` and via **Run workflow** |
 | Integration | multi-persona, one shared directory, watcher round-trips, atomic-rename races | proposed — see [integration-testing.md](integration-testing.md) |
+| Full-size sample | a generated, obfuscated full-day regattaData loaded onto the multi-machine Windows setup | proposed, after Results Publisher — see [sample-regatta.md](sample-regatta.md) |
 | Manual race-day smoke | `make run`, two personas on one folder, a real clock | maintainer, before a release |
 
 ## Why the Windows job is split

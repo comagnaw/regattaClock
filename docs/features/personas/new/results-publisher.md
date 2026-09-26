@@ -179,6 +179,11 @@ Sheet` worksheet, which carries no result columns.
 - **Not a blocker, but a later branch**: RegattaCentral as a destination
   waits on `heatsheet-rc-pivot-investigation.md`. The spreadsheet
   destination does not.
+- **Downstream dependant**: the
+  [sample-regattaData generator](../../testing/sample-regatta.md) reads the
+  Results worksheet layout this feature writes and emits a sample results
+  workbook through its writer — so the writer should expose the 5-row
+  Results block layout as a reusable definition, not inline cell offsets.
 - **No blocker** from the now-moot sidecar-vs-standalone question — that
   design surface in `sidecar-personas.md` remains open for `social-post`/
   SOM, not for this feature.
