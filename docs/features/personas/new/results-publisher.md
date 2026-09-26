@@ -54,15 +54,24 @@ point here rather than duplicate this design.
 These resolve the open questions left below, as the spreadsheet slice was
 built (#126 writer, #127 PFT wiring):
 
-- **Output location is a per-machine preference on the PFT's host**
-  (`PrefResultsDir`), not a `regattaSchedule.json` field. In the real
-  race-day setup `regattaData` is on a private shared drive and results go
-  to a separate published/external drive, and each machine mounts that
-  drive at a different path. The PFT is prompted for the folder at session
-  start (declinable, since timing never depends on it), can change it on
-  the Configuration screen, and is asked again on Publish if it is unset.
-  `PublishConfig.ResultsDestination` still records the regatta-wide
-  destination *kind*.
+- **Output location is chosen by the PFT and recorded per regatta in
+  the PFT's own `finish.json`** (`FinishLog.ResultsDir`). It is not a
+  `regattaSchedule.json` field. In the real race-day setup `regattaData`
+  is on a private shared drive and results go to a separate
+  published/external drive, and each machine mounts that drive at a
+  different path, so the RD cannot choose it.
+  - **Why `finish.json`:** a new regatta's `finish.json` starts fresh (the
+    old one is set aside on a `RegattaKey` mismatch), so a new regatta
+    **never inherits the previous regatta's folder**. The PFT must confirm
+    one first.
+  - **The machine preference** (`PrefResultsDir`) only remembers the
+    last-used folder, offered as the default in that confirmation.
+  - **On restart**, a folder already saved in `finish.json` is used as-is.
+    If it can't be reached, the PFT is told so; it is never silently
+    swapped.
+  - Every prompt is declinable, since timing never depends on it.
+  - `PublishConfig.ResultsDestination` still records the regatta-wide
+    destination *kind*.
 - **No intermediate on-disk results JSON.** `finish.json` and
   `regattaSchedule.json` stay the only source of truth. `internal/publish`
   derives the publishable view in memory (`BuildView` / `ScheduleView`),
@@ -80,6 +89,11 @@ built (#126 writer, #127 PFT wiring):
   no preference or JSON copy. The record travels with the published file,
   so it survives a PFT machine swap. The button shows Publish, Published,
   or a highlighted Re-publish.
+- **A workbook is tied to its regatta.** The ledger records the
+  `RegattaKey`, and publishing into another regatta's workbook is refused
+  with the file left untouched. The file name also carries the date
+  (`<Name> - <Date> Results.xlsx`), because regatta names repeat year to
+  year.
 - **A workbook RegattaClock did not write is never overwritten.** An
   existing file with the same name but no ledger sheet is refused with an
   explanation.

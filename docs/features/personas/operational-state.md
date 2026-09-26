@@ -92,8 +92,9 @@ is no RD prompt for it yet. **The spreadsheet's output folder is
 deliberately *not* a `PublishConfig` parameter.** The published drive is
 separate from `regattaData` and mounts at a different path on every
 machine, so a path recorded once by the RD would be wrong on the Primary
-Finish Timer's host. It is a per-machine preference on that host
-(`PrefResultsDir`) instead. `PublishConfig` holds regatta-wide choices
+Finish Timer's host. The PFT confirms it and records it in its own
+`finish.json` (regatta-scoped, so a new regatta never inherits the last
+one's folder). `PublishConfig` holds regatta-wide choices
 only (which *kind* of destination), never machine-local locations. See
 [new/results-publisher.md](new/results-publisher.md).
 
