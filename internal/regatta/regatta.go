@@ -139,6 +139,17 @@ type Regatta struct {
 	pendingOrigin        *reader.RegattaData
 	dismissedContentHash string
 
+	// schedule - the timer session's current schedule (set in startSession,
+	// replaced by onScheduleChanged); what results publishing renders from.
+	schedule *store.Schedule
+
+	// publishedRevs / publishing - the primary finish timer's results
+	// publishing state (publish_results.go): race number -> the
+	// publish.Revision the results workbook's ledger says is published, and
+	// whether a publish is in flight (every Publish button disabled).
+	publishedRevs map[int]string
+	publishing    bool
+
 	// regattaKey - the schedule's RegattaKey captured when the session started,
 	// used to reject watched peer data that belongs to another regatta.
 	regattaKey string

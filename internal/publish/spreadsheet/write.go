@@ -19,9 +19,11 @@ import (
 // to close it and retry. The previous workbook is left intact.
 var ErrLocked = errors.New("results workbook is open in another program")
 
-// Meta is the regatta-level text at the top of the sheet.
+// Meta is the regatta-level text at the top of the sheet, plus the
+// store.RegattaKey the workbook belongs to - recorded in the ledger sheet so
+// a later publish can refuse to merge into another regatta's workbook.
 type Meta struct {
-	Name, Date string
+	Name, Date, RegattaKey string
 }
 
 // LedgerEntry records one published race: the publish.Revision the public
@@ -172,7 +174,7 @@ func render(meta Meta, races []publish.PublishableRace, ledger Ledger) (*exceliz
 		writeBlock(w, BlockOrigin(i), race)
 	}
 
-	writeLedger(w, ledger)
+	writeLedger(w, meta.RegattaKey, ledger)
 	if w.err != nil {
 		f.Close()
 		return nil, fmt.Errorf("results workbook could not be built: %w", w.err)
@@ -217,8 +219,9 @@ func writeBlock(w *sheetWriter, origin int, race publish.PublishableRace) {
 }
 
 // writeLedger adds the very-hidden ledger sheet: a header row, then one
-// "race | revision | publishedAt" row per published race in race order.
-func writeLedger(w *sheetWriter, ledger Ledger) {
+// "race | revision | publishedAt" row per published race in race order, with
+// the workbook's regatta key beside the header (ledgerKeyHead / its value).
+func writeLedger(w *sheetWriter, regattaKey string, ledger Ledger) {
 	if w.err != nil {
 		return
 	}
@@ -230,6 +233,8 @@ func writeLedger(w *sheetWriter, ledger Ledger) {
 	lw.str(1, 1, ledgerRaceHead)
 	lw.str(2, 1, ledgerRevisionHead)
 	lw.str(3, 1, ledgerPublishedHead)
+	lw.str(ledgerKeyCol, 1, ledgerKeyHead)
+	lw.str(ledgerKeyCol+1, 1, regattaKey)
 
 	races := make([]int, 0, len(ledger))
 	for n := range ledger {
@@ -254,6 +259,8 @@ const (
 	ledgerRaceHead      = "race"
 	ledgerRevisionHead  = "revision"
 	ledgerPublishedHead = "publishedAt"
+	ledgerKeyHead       = "regattaKey"
+	ledgerKeyCol        = 5 // E - key label, its value in F
 )
 
 func titleStyle() *excelize.Style {

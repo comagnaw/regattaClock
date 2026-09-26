@@ -335,6 +335,7 @@ func (r *Regatta) startSession(session persona.Session, schedule *store.Schedule
 		"root", session.Root, "regatta", schedule.Name)
 
 	r.RegattaData = regattaDataFromSchedule(schedule)
+	r.schedule = schedule
 
 	key := store.RegattaKey(schedule.Name, schedule.Date)
 	r.regattaKey = key
@@ -366,6 +367,7 @@ func (r *Regatta) startSession(session persona.Session, schedule *store.Schedule
 	r.refreshContent()
 	r.showRaceTree()
 	r.startWatcher(session)
+	r.startPublishing()
 }
 
 // hydrateOwnStart loads the start timer's own start.json under the four rules
@@ -739,6 +741,7 @@ func (r *Regatta) watchedContentChanged(ev watcher.Event) bool {
 func (r *Regatta) onScheduleChanged(sch *store.Schedule) {
 	old := r.RegattaData
 	r.RegattaData = regattaDataFromSchedule(sch)
+	r.schedule = sch
 	changed := diffSchedule(old, r.RegattaData)
 
 	if r.raceSetChanged() {

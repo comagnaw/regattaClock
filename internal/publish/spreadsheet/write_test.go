@@ -47,9 +47,10 @@ func fixtureRaces() []publish.PublishableRace {
 
 func writeFixture(t *testing.T) string {
 	t.Helper()
-	path := filepath.Join(t.TempDir(), FileName("Charlie Brown Classic"))
+	path := filepath.Join(t.TempDir(), FileName("Charlie Brown Classic", "Saturday, May 30, 2027"))
 	ledger := Ledger{1: {Revision: "abc123", PublishedAt: publishedAt}}
-	if err := Write(path, Meta{Name: "Charlie Brown Classic", Date: "Saturday, May 30, 2027"}, fixtureRaces(), ledger); err != nil {
+	meta := Meta{Name: "Charlie Brown Classic", Date: "Saturday, May 30, 2027", RegattaKey: "key-2027"}
+	if err := Write(path, meta, fixtureRaces(), ledger); err != nil {
 		t.Fatalf("Write() error = %v", err)
 	}
 	return path
@@ -139,6 +140,9 @@ func TestRead_RoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Read() error = %v", err)
 	}
+	if !got.Exists || got.RegattaKey != "key-2027" {
+		t.Errorf("Exists/RegattaKey = %v/%q, want true/key-2027", got.Exists, got.RegattaKey)
+	}
 	if e := got.Ledger[1]; e.Revision != "abc123" || !e.PublishedAt.Equal(publishedAt) {
 		t.Errorf("Ledger[1] = %+v", e)
 	}
@@ -161,7 +165,7 @@ func TestRead_RoundTrip(t *testing.T) {
 
 func TestRead_MissingFileIsEmpty(t *testing.T) {
 	got, err := Read(filepath.Join(t.TempDir(), "nope.xlsx"))
-	if err != nil || len(got.Ledger) != 0 {
+	if err != nil || got.Exists || len(got.Ledger) != 0 {
 		t.Errorf("Read(missing) = %+v, %v; want empty, nil", got, err)
 	}
 }
@@ -211,9 +215,34 @@ func TestWrite_ReadOnlyFolderIsLocked(t *testing.T) {
 	}
 }
 
-func TestFileName_Sanitized(t *testing.T) {
-	if got := FileName(`Fall: "Classic"`); got != "Fall_ _Classic_ Results.xlsx" {
+func TestFileName_SanitizedAndDated(t *testing.T) {
+	if got := FileName(`Fall: "Classic"`, "10/3/2026"); got != "Fall_ _Classic_ - 10_3_2026 Results.xlsx" {
 		t.Errorf("FileName() = %q", got)
+	}
+	if got := FileName("Fall Classic", ""); got != "Fall Classic Results.xlsx" {
+		t.Errorf("FileName(no date) = %q", got)
+	}
+	if FileName("Fall Classic", "2026-10-03") == FileName("Fall Classic", "2027-10-02") {
+		t.Error("same-named regattas in different years share a file name")
+	}
+}
+
+func TestPublished_CheckRegatta(t *testing.T) {
+	got, err := Read(writeFixture(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := got.CheckRegatta("key-2027"); err != nil {
+		t.Errorf("CheckRegatta(own key) = %v, want nil", err)
+	}
+	if err := got.CheckRegatta("key-2028"); !errors.Is(err, ErrOtherRegatta) {
+		t.Errorf("CheckRegatta(other key) = %v, want ErrOtherRegatta", err)
+	}
+	if err := (Published{}).CheckRegatta("any"); err != nil {
+		t.Errorf("CheckRegatta(no file) = %v, want nil", err)
+	}
+	if err := (Published{Exists: true}).CheckRegatta("any"); !errors.Is(err, ErrOtherRegatta) {
+		t.Errorf("CheckRegatta(unkeyed workbook) = %v, want ErrOtherRegatta", err)
 	}
 }
 
