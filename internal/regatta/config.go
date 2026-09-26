@@ -90,11 +90,13 @@ func (r *Regatta) changeButtonFunc() func() {
 }
 
 // resultsDirRow - Configuration entry for the primary finish timer's results
-// publish folder (common.PrefResultsDir). Mirrors regattaDir(); Change goes
-// through pickResultsFolder so the published state is re-read from the
-// workbook in the new folder.
+// publish folder. The field shows this machine's last-used folder
+// (common.PrefResultsDir) and is read-only: the folder that counts is the one
+// recorded for the regatta in finish.json, so a change goes only through
+// Change -> pickResultsFolder, which records it there during a PFT session.
 func (r *Regatta) resultsDirRow() *fyne.Container {
 	entry := widget.NewEntryWithData(binding.BindPreferenceString(common.PrefResultsDir, r.App.Preferences()))
+	entry.Disable()
 	return container.NewBorder(nil, nil, nil,
 		widget.NewButton(common.ResultsDirChangeButtonText, func() { r.pickResultsFolder(nil) }),
 		widget.NewForm(widget.NewFormItem(common.ResultsDirRowLabel, entry)),

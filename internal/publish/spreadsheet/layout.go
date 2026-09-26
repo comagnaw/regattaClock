@@ -81,9 +81,17 @@ func HeaderLabels() []string {
 }
 
 // FileName is the results workbook's file name for a regatta - one workbook
-// per regatta, safe to create on Windows and POSIX.
-func FileName(regattaName string) string {
-	return filesystem.SanitizeForFilename(regattaName + common.ResultsFileSuffix)
+// per regatta, safe to create on Windows and POSIX. The date is part of it
+// because regatta names repeat year to year ("Charlie Brown Classic"); the
+// name alone would point this year's publish at last year's file. The
+// ledger's regatta key (Published.CheckRegatta) is the hard guard; this just
+// keeps the two from colliding in the first place.
+func FileName(regattaName, regattaDate string) string {
+	base := regattaName
+	if regattaDate != common.EmptyString {
+		base += " - " + regattaDate
+	}
+	return filesystem.SanitizeForFilename(base + common.ResultsFileSuffix)
 }
 
 // cell names a 1-based (col, row); the geometry above is always in range.

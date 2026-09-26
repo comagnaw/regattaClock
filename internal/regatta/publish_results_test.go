@@ -162,8 +162,8 @@ func TestMergePublished(t *testing.T) {
 
 func TestPublishResults_WritesAndRereads(t *testing.T) {
 	skeleton, approved := publishViews(approvedFinish("k"))
-	path := filepath.Join(t.TempDir(), spreadsheet.FileName("Lock Test"))
-	meta := spreadsheet.Meta{Name: "Lock Test", Date: "2026-10-02"}
+	path := filepath.Join(t.TempDir(), spreadsheet.FileName("Lock Test", "2026-10-02"))
+	meta := spreadsheet.Meta{Name: "Lock Test", Date: "2026-10-02", RegattaKey: "k"}
 
 	ledger, err := publishResults(path, 1, meta, skeleton, approved, publishNow)
 	if err != nil {
@@ -180,7 +180,7 @@ func TestPublishResults_WritesAndRereads(t *testing.T) {
 
 func TestPublishResults_ForeignWorkbookUntouched(t *testing.T) {
 	skeleton, approved := publishViews(approvedFinish("k"))
-	path := filepath.Join(t.TempDir(), spreadsheet.FileName("Lock Test"))
+	path := filepath.Join(t.TempDir(), spreadsheet.FileName("Lock Test", "2026-10-02"))
 	if err := os.WriteFile(path, []byte("not ours"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -200,5 +200,127 @@ func TestPublishErrorMessage(t *testing.T) {
 	}
 	if got := publishErrorMessage("r.xlsx", errors.New("boom")); got != "boom" {
 		t.Errorf("default message = %q", got)
+	}
+}
+
+func TestPublishResults_OtherRegattasWorkbookRefused(t *testing.T) {
+	skeleton, approved := publishViews(approvedFinish("k"))
+	path := filepath.Join(t.TempDir(), spreadsheet.FileName("Lock Test", "2026-10-02"))
+	lastYear := spreadsheet.Meta{Name: "Lock Test", RegattaKey: "last-year"}
+	if _, err := publishResults(path, 1, lastYear, skeleton, approved, publishNow); err != nil {
+		t.Fatal(err)
+	}
+	before, _ := os.ReadFile(path)
+
+	thisYear := spreadsheet.Meta{Name: "Lock Test", RegattaKey: "this-year"}
+	_, err := publishResults(path, 1, thisYear, skeleton, approved, publishNow)
+	if !errors.Is(err, spreadsheet.ErrOtherRegatta) {
+		t.Fatalf("publishResults() error = %v, want ErrOtherRegatta", err)
+	}
+	if after, _ := os.ReadFile(path); string(after) != string(before) {
+		t.Error("the other regatta's workbook was rewritten")
+	}
+}
+
+// startedPublisherWith starts a pft session whose finish.json (for sch)
+// records resultsDir, with this machine's last-used folder set to lastUsed.
+func startedPublisherWith(t *testing.T, sch *store.Schedule, root, resultsDir, lastUsed string) *Regatta {
+	t.Helper()
+	fin := approvedFinish(store.RegattaKey(sch.Name, sch.Date))
+	fin.ResultsDir = resultsDir
+	if err := store.SaveFinish(timerSession(t, "pft", root), fin); err != nil {
+		t.Fatal(err)
+	}
+	app := test.NewTempApp(t)
+	app.Preferences().SetString(common.PrefResultsDir, lastUsed)
+	r := NewTimer(app)
+	stopWatch(t, r)
+	r.startSession(timerSession(t, "pft", root), sch)
+	return r
+}
+
+// TestResultsDir_NewRegattaDoesNotInheritLastUsedFolder is the guard: a
+// regatta with no folder recorded in finish.json must not publish to this
+// machine's last-used folder (likely the previous regatta's) until the PFT
+// confirms it.
+func TestResultsDir_NewRegattaDoesNotInheritLastUsedFolder(t *testing.T) {
+	sch := twoRaceSchedule()
+	r := startedPublisherWith(t, sch, seedRegatta(t, sch), "", t.TempDir())
+
+	if got := r.resultsPath(); got != "" {
+		t.Errorf("resultsPath() = %q, want none until this regatta's folder is confirmed", got)
+	}
+}
+
+func TestResultsDir_SavedFolderWinsOverLastUsed(t *testing.T) {
+	sch := twoRaceSchedule()
+	saved := t.TempDir()
+	r := startedPublisherWith(t, sch, seedRegatta(t, sch), saved, t.TempDir())
+
+	if got := r.resultsDir(); got != saved {
+		t.Errorf("resultsDir() = %q, want the folder saved in finish.json %q", got, saved)
+	}
+}
+
+func TestResultsDir_UnreachableSavedFolderIsNotUsed(t *testing.T) {
+	sch := twoRaceSchedule()
+	gone := filepath.Join(t.TempDir(), "unplugged")
+	r := startedPublisherWith(t, sch, seedRegatta(t, sch), gone, t.TempDir())
+
+	if got := r.resultsPath(); got != "" {
+		t.Errorf("resultsPath() = %q, want none for an unreachable folder", got)
+	}
+	if got := r.savedResultsDir(); got != gone {
+		t.Errorf("savedResultsDir() = %q, want it kept (the drive may come back)", got)
+	}
+}
+
+func TestResultsDir_NewRegattaDropsPreviousRegattasFolder(t *testing.T) {
+	prev := twoRaceSchedule()
+	root := seedRegatta(t, prev)
+	fin := approvedFinish(store.RegattaKey(prev.Name, prev.Date))
+	fin.ResultsDir = t.TempDir()
+	if err := store.SaveFinish(timerSession(t, "pft", root), fin); err != nil {
+		t.Fatal(err)
+	}
+
+	next := twoRaceSchedule()
+	next.Date = "2027-10-01" // next year's running, same name
+	if err := store.SaveSchedule(timerSession(t, "rd", root), next); err != nil {
+		t.Fatal(err)
+	}
+	app := test.NewTempApp(t)
+	r := NewTimer(app)
+	stopWatch(t, r)
+	r.startSession(timerSession(t, "pft", root), next)
+
+	if got := r.savedResultsDir(); got != "" {
+		t.Errorf("savedResultsDir() = %q, want none - the previous regatta's finish.json was set aside", got)
+	}
+}
+
+func TestSetResultsDir_RecordsForThisRegatta(t *testing.T) {
+	sch := twoRaceSchedule()
+	r := startedPublisherWith(t, sch, seedRegatta(t, sch), "", "")
+	dir := t.TempDir()
+
+	if !r.setResultsDir(dir) {
+		t.Fatal("setResultsDir() = false")
+	}
+	if r.finishLog.ResultsDir != dir || r.resultsDir() != dir {
+		t.Errorf("finishLog.ResultsDir = %q, want %q", r.finishLog.ResultsDir, dir)
+	}
+	if got := r.App.Preferences().String(common.PrefResultsDir); got != dir {
+		t.Errorf("last-used folder = %q, want %q", got, dir)
+	}
+}
+
+func TestSetResultsDir_RefusedWhileWritesBlocked(t *testing.T) {
+	sch := twoRaceSchedule()
+	r := startedPublisherWith(t, sch, seedRegatta(t, sch), "", "")
+	r.writesBlocked = true
+
+	if r.setResultsDir(t.TempDir()) || r.finishLog.ResultsDir != "" {
+		t.Error("setResultsDir() recorded a folder while finish.json writes are blocked")
 	}
 }

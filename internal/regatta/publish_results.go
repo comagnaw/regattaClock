@@ -22,11 +22,17 @@ import (
 
 // Results publishing (results-publisher.md): the Primary Finish Timer's
 // per-race Publish button regenerates the RegattaClock-owned results
-// workbook in the operator's results folder (common.PrefResultsDir - a
-// per-machine path, since the published drive is not regattaData). Nothing
-// new is written to regattaData: the workbook is rendered from finish.json +
-// the schedule via internal/publish, and its own very-hidden ledger sheet is
-// the record of what has been published.
+// workbook in this regatta's results folder. Nothing new is written to
+// regattaData beyond that folder's path: the workbook is rendered from
+// finish.json + the schedule via internal/publish, and its own very-hidden
+// ledger sheet is the record of what has been published.
+//
+// The folder is regatta-scoped, not just a machine setting: it is recorded
+// in finish.json (store.FinishLog.ResultsDir) once the PFT confirms it. A new
+// regatta starts with a fresh finish.json, so it has no folder until the PFT
+// confirms one - never silently the previous regatta's. common.PrefResultsDir
+// only remembers the last folder used on this machine, to offer as the
+// default in that confirmation.
 
 // isPublisher reports whether this session owns the Publish button - only
 // the primary finish timer, whose Approved result is the official one.
@@ -34,10 +40,19 @@ func (r *Regatta) isPublisher() bool {
 	return r.session.Role == persona.RoleFinish && r.session.Team == persona.TeamPrimary
 }
 
-// resultsDir is the configured results folder, or "" when unset or no longer
-// reachable (an unplugged drive, a renamed share).
+// savedResultsDir is the folder confirmed for this regatta (finish.json), or
+// "" when none has been confirmed yet.
+func (r *Regatta) savedResultsDir() string {
+	if r.finishLog == nil {
+		return common.EmptyString
+	}
+	return r.finishLog.ResultsDir
+}
+
+// resultsDir is this regatta's confirmed results folder, or "" when none is
+// confirmed or it is no longer reachable (an unplugged drive, a renamed share).
 func (r *Regatta) resultsDir() string {
-	dir := r.App.Preferences().String(common.PrefResultsDir)
+	dir := r.savedResultsDir()
 	if dir == common.EmptyString || !filesystem.DirExists(dir) {
 		return common.EmptyString
 	}
@@ -50,24 +65,73 @@ func (r *Regatta) resultsPath() string {
 	if dir == common.EmptyString || r.schedule == nil {
 		return common.EmptyString
 	}
-	return filepath.Join(dir, spreadsheet.FileName(r.schedule.Name))
+	return filepath.Join(dir, spreadsheet.FileName(r.schedule.Name, r.schedule.Date))
 }
 
 // startPublishing runs once a publisher's session is on screen: load what the
-// existing workbook says is published, or - with no usable results folder -
-// offer to choose one. Declining is fine; timing never depends on it, and
+// existing workbook says is published, or - with no usable folder for this
+// regatta - ask for one. Declining is fine; timing never depends on it, and
 // Publish asks again.
 func (r *Regatta) startPublishing() {
-	if !r.isPublisher() {
-		return
+	if r.isPublisher() {
+		r.ensureResultsDir(r.loadPublishedLedger)
 	}
+}
+
+// ensureResultsDir runs onReady once this regatta has a reachable results
+// folder, first asking for one when it does not:
+//   - a folder saved for this regatta but unreachable: say so, and offer to
+//     choose one (the drive may just need reconnecting - Later leaves it);
+//   - none saved (a new regatta) and this machine's last-used folder is
+//     reachable: ask to confirm it for this regatta, or choose another;
+//   - otherwise: offer to choose one.
+func (r *Regatta) ensureResultsDir(onReady func()) {
 	if r.resultsDir() != common.EmptyString {
-		r.loadPublishedLedger()
+		onReady()
 		return
 	}
-	d := dialog.NewConfirm(common.ResultsFolderPromptTitle, common.ResultsFolderPromptMessage, func(ok bool) {
+	if saved := r.savedResultsDir(); saved != common.EmptyString {
+		r.promptChooseResultsFolder(fmt.Sprintf(common.ResultsFolderUnreachableFormat, saved), onReady)
+		return
+	}
+	if last := r.App.Preferences().String(common.PrefResultsDir); last != common.EmptyString && filesystem.DirExists(last) {
+		r.confirmResultsFolder(last, onReady)
+		return
+	}
+	r.promptChooseResultsFolder(common.ResultsFolderPromptMessage, onReady)
+}
+
+// confirmResultsFolder asks whether this regatta publishes to last - the
+// folder this machine used most recently, quite possibly for a previous
+// regatta. Only an explicit "Use This Folder" records it for this regatta.
+func (r *Regatta) confirmResultsFolder(last string, onReady func()) {
+	msg := fmt.Sprintf(common.ConfirmResultsFolderFormat, r.schedule.Name, r.schedule.Date, last)
+	useBtn := widget.NewButton(common.UseThisFolderText, nil)
+	useBtn.Importance = widget.HighImportance
+	chooseBtn := widget.NewButton(common.ChooseAnotherFolderButtonText, nil)
+	laterBtn := widget.NewButton(common.LaterButtonText, nil)
+
+	d := dialog.NewCustomWithoutButtons(common.ResultsFolderPromptTitle, widget.NewLabel(msg), r.window)
+	d.SetButtons([]fyne.CanvasObject{laterBtn, chooseBtn, useBtn})
+	useBtn.OnTapped = func() {
+		d.Hide()
+		if r.setResultsDir(last) {
+			onReady()
+		}
+	}
+	chooseBtn.OnTapped = func() {
+		d.Hide()
+		r.pickResultsFolder(onReady)
+	}
+	laterBtn.OnTapped = d.Hide
+	d.Show()
+}
+
+// promptChooseResultsFolder explains msg and offers the folder browser.
+func (r *Regatta) promptChooseResultsFolder(msg string, onReady func()) {
+	d := dialog.NewConfirm(common.ResultsFolderPromptTitle, msg, func(ok bool) {
 		if ok {
-			r.pickResultsFolder(nil)
+			r.pickResultsFolder(onReady)
 		}
 	}, r.window)
 	d.SetConfirmText(common.ChooseFolderButtonText)
@@ -75,10 +139,10 @@ func (r *Regatta) startPublishing() {
 	d.Show()
 }
 
-// pickResultsFolder opens the folder browser (at the current results folder
-// when there is one), remembers the choice, reloads the ledger from the
-// workbook there, then runs then (if any).
-func (r *Regatta) pickResultsFolder(then func()) {
+// pickResultsFolder opens the folder browser (at this regatta's folder, else
+// this machine's last-used one), records the choice for this regatta, then
+// runs onReady (if any).
+func (r *Regatta) pickResultsFolder(onReady func()) {
 	fd := dialog.NewFolderOpen(func(dir fyne.ListableURI, err error) {
 		if err != nil {
 			dialog.ShowError(err, r.window)
@@ -87,41 +151,68 @@ func (r *Regatta) pickResultsFolder(then func()) {
 		if dir == nil {
 			return // cancelled
 		}
-		r.setResultsDir(filepath.FromSlash(dir.Path()))
-		if then != nil {
-			then()
+		if r.setResultsDir(filepath.FromSlash(dir.Path())) && onReady != nil {
+			onReady()
 		}
 	}, r.window)
 	fd.SetTitleText(common.ResultsFolderTitle)
 	fd.SetConfirmText(common.UseThisFolderText)
-	if cur := r.resultsDir(); cur != common.EmptyString {
-		if location, err := storage.ListerForURI(storage.NewFileURI(cur)); err == nil {
+	start := r.resultsDir()
+	if start == common.EmptyString {
+		start = r.App.Preferences().String(common.PrefResultsDir)
+	}
+	if start != common.EmptyString && filesystem.DirExists(start) {
+		if location, err := storage.ListerForURI(storage.NewFileURI(start)); err == nil {
 			fd.SetLocation(location)
 		}
 	}
 	fd.Show()
 }
 
-// setResultsDir persists dir and re-reads the published state from the
-// workbook there - a different folder is a different publish history.
-func (r *Regatta) setResultsDir(dir string) {
+// setResultsDir records dir as this regatta's results folder in finish.json
+// (and as this machine's last-used folder), and clears the published state -
+// a different folder is a different publish history. Reports whether it was
+// recorded; outside a publisher session (the Configuration screen before a
+// PFT session starts) only the machine default is updated.
+func (r *Regatta) setResultsDir(dir string) bool {
 	r.App.Preferences().SetString(common.PrefResultsDir, dir)
+	if !r.isPublisher() || r.finishLog == nil {
+		return false
+	}
+	if r.writesBlocked {
+		r.showPublishError(common.ResultsFolderNotRecordedMessage)
+		return false
+	}
+	prev := r.finishLog.ResultsDir
+	r.finishLog.ResultsDir = dir
+	if err := store.SaveFinish(r.session, r.finishLog); err != nil {
+		r.finishLog.ResultsDir = prev
+		applog.Error("results folder not recorded", "component", "publish", "dir", dir, "error", err)
+		r.showPublishError(common.ResultsFolderNotRecordedMessage)
+		return false
+	}
 	applog.Info("results folder set", "component", "publish", "dir", dir)
 	r.applyLedger(nil)
-	r.loadPublishedLedger()
+	return true
 }
 
 // loadPublishedLedger reads the results workbook off the UI goroutine (the
-// published drive may be slow or remote) and applies its ledger.
+// published drive may be slow or remote) and applies its ledger. A workbook
+// belonging to another regatta contributes nothing - Publish will refuse it.
 func (r *Regatta) loadPublishedLedger() {
 	path := r.resultsPath()
 	if path == common.EmptyString {
 		return
 	}
+	key := r.regattaKey
 	go func() {
 		pub, err := spreadsheet.Read(path)
+		if err == nil {
+			err = pub.CheckRegatta(key)
+		}
 		if err != nil {
 			applog.Warn(common.PublishLedgerUnreadableNote, "component", "publish", "path", path, "error", err)
+			pub.Ledger = nil
 		}
 		fyne.Do(func() { r.applyLedger(pub.Ledger) })
 	}()
@@ -149,11 +240,11 @@ func (r *Regatta) publishRace(n int) {
 	}
 	path := r.resultsPath()
 	if path == common.EmptyString {
-		r.pickResultsFolder(func() { r.publishRace(n) })
+		r.ensureResultsDir(func() { r.publishRace(n) })
 		return
 	}
 
-	meta := spreadsheet.Meta{Name: r.schedule.Name, Date: r.schedule.Date}
+	meta := spreadsheet.Meta{Name: r.schedule.Name, Date: r.schedule.Date, RegattaKey: r.regattaKey}
 	skeleton := publish.ScheduleView(r.schedule)
 	approved := publish.BuildView(r.schedule, r.finishLog)
 
@@ -175,10 +266,14 @@ func (r *Regatta) publishRace(n int) {
 
 // publishResults reads the existing workbook at path, merges race n into
 // what it already publishes (mergePublished), and regenerates it. Returns
-// the ledger now in the file.
+// the ledger now in the file. A workbook belonging to another regatta
+// (meta.RegattaKey) is refused, never merged into or overwritten.
 func publishResults(path string, n int, meta spreadsheet.Meta, skeleton, approved []publish.PublishableRace, now time.Time) (spreadsheet.Ledger, error) {
 	prev, err := spreadsheet.Read(path)
 	if err != nil {
+		return nil, err
+	}
+	if err := prev.CheckRegatta(meta.RegattaKey); err != nil {
 		return nil, err
 	}
 	races, ledger := mergePublished(n, skeleton, approved, prev, now)
@@ -236,6 +331,8 @@ func publishErrorMessage(path string, err error) string {
 		return fmt.Sprintf(common.PublishLockedFormat, path)
 	case errors.Is(err, spreadsheet.ErrForeignWorkbook):
 		return fmt.Sprintf(common.PublishForeignFormat, path, common.AppTitle)
+	case errors.Is(err, spreadsheet.ErrOtherRegatta):
+		return fmt.Sprintf(common.PublishOtherRegattaFormat, path)
 	default:
 		return err.Error()
 	}

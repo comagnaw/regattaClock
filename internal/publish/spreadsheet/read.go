@@ -19,13 +19,33 @@ import (
 // overwrite it: regenerating would silently discard someone else's work.
 var ErrForeignWorkbook = errors.New("not a RegattaClock results workbook")
 
+// ErrOtherRegatta is returned when an existing results workbook belongs to a
+// different regatta than the one being published - e.g. last year's regatta
+// of the same name, in a results folder carried over from it. Merging into it
+// would republish that regatta's races under this one's, so a caller must
+// refuse rather than overwrite.
+var ErrOtherRegatta = errors.New("results workbook belongs to a different regatta")
+
 // Published is what an existing results workbook says has been published:
 // its ledger, plus each ledger race's lane rows as they appear in the sheet.
 // Rows lets a republish carry forward a race that is in the ledger but no
 // longer approved, instead of blanking a result the public has already seen.
+// Exists is false (and everything else empty) when there was no file.
 type Published struct {
-	Ledger Ledger
-	Rows   map[int][]publish.Row
+	Exists     bool
+	RegattaKey string
+	Ledger     Ledger
+	Rows       map[int][]publish.Row
+}
+
+// CheckRegatta returns ErrOtherRegatta when an existing workbook is not
+// regattaKey's. A workbook with no recorded key is treated as another
+// regatta's: its provenance cannot be confirmed.
+func (p Published) CheckRegatta(regattaKey string) error {
+	if p.Exists && p.RegattaKey != regattaKey {
+		return fmt.Errorf("%w (workbook %q, this regatta %q)", ErrOtherRegatta, p.RegattaKey, regattaKey)
+	}
+	return nil
 }
 
 // Read loads path's ledger and published rows. A missing file is not an
@@ -48,6 +68,10 @@ func Read(path string) (Published, error) {
 	ledgerRows, err := f.GetRows(LedgerSheetName)
 	if err != nil {
 		return out, fmt.Errorf("results workbook %s ledger could not be read: %w", path, err)
+	}
+	out.Exists = true
+	if len(ledgerRows) > 0 && len(ledgerRows[0]) > ledgerKeyCol {
+		out.RegattaKey = ledgerRows[0][ledgerKeyCol] // F1, beside the ledgerKeyHead label
 	}
 	for i, row := range ledgerRows {
 		if i == 0 || len(row) < 2 {

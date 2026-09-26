@@ -337,21 +337,26 @@ const (
 	// Results publishing - the Primary Finish Timer's per-race Publish button
 	// and its results folder (internal/regatta publish_results.go,
 	// results-publisher.md).
-	PublishButtonText           = "Publish"
-	PublishedButtonText         = "Published"
-	RepublishButtonText         = "Re-publish"
-	ResultsDirRowLabel          = "Results Dir:"
-	ResultsDirChangeButtonText  = "Change Results Folder"
-	ResultsFolderTitle          = "Select the results publish folder"
-	ResultsFolderPromptTitle    = "Results folder"
-	ResultsFolderPromptMessage  = "Choose the folder approved results are published to.\nThis is usually a separate drive from the regatta folder.\n\nYou can also set it later on the Configuration screen."
-	ChooseFolderButtonText      = "Choose Folder"
-	LaterButtonText             = "Later"
-	PublishFailedTitle          = "Results not published"
-	PublishLockedFormat         = "%s could not be written - it may be open in another program (close it and try again), or the folder may be read-only."
-	PublishForeignFormat        = "%s already exists and was not written by %s, so it was left untouched. Move or rename it, or choose a different results folder."
-	PublishDestinationFormat    = "Publishing to %q is not available yet."
-	PublishLedgerUnreadableNote = "The existing results workbook could not be read; published status is unknown until the next publish."
+	PublishButtonText          = "Publish"
+	PublishedButtonText        = "Published"
+	RepublishButtonText        = "Re-publish"
+	ResultsDirRowLabel         = "Results Dir:"
+	ResultsDirChangeButtonText = "Change Results Folder"
+	ResultsFolderTitle         = "Select the results publish folder"
+	ResultsFolderPromptTitle   = "Results folder"
+	ResultsFolderPromptMessage = "Choose the folder approved results are published to.\nThis is usually a separate drive from the regatta folder.\n\nYou can also set it later on the Configuration screen."
+	ChooseFolderButtonText     = "Choose Folder"
+	LaterButtonText            = "Later"
+	PublishFailedTitle         = "Results not published"
+	PublishLockedFormat        = "%s could not be written - it may be open in another program (close it and try again), or the folder may be read-only."
+	PublishForeignFormat       = "%s already exists and was not written by %s, so it was left untouched. Move or rename it, or choose a different results folder."
+	PublishDestinationFormat   = "Publishing to %q is not available yet."
+	PublishOtherRegattaFormat  = "%s belongs to a different regatta, so it was left untouched. Choose a different results folder (Configuration screen), or move that file."
+
+	ConfirmResultsFolderFormat      = "Publish results for\n%s\n%s\n\nto this folder?\n%s\n\nThis is the last folder used on this computer - possibly for a previous regatta."
+	ResultsFolderUnreachableFormat  = "The results folder saved for this regatta cannot be reached:\n%s\n\nReconnect the drive and restart, or choose a different folder."
+	ResultsFolderNotRecordedMessage = "The results folder could not be saved to this regatta's finish.json, so it was not changed."
+	PublishLedgerUnreadableNote     = "The existing results workbook could not be read; published status is unknown until the next publish."
 
 	// Past-regatta gate (internal/regatta date_guard.go). Shown to a timer when
 	// the schedule's date is before the host's current local date - the
