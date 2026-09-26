@@ -1,10 +1,12 @@
 package store
 
 import (
+	"encoding/json"
 	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/comagnaw/regattaClock/internal/persona"
@@ -230,5 +232,34 @@ func TestContentHash(t *testing.T) {
 				t.Errorf("ContentHash unchanged after %s", tc.name)
 			}
 		})
+	}
+}
+
+func TestPublishConfig_DestinationDefaultsToSpreadsheet(t *testing.T) {
+	if got := (PublishConfig{}).Destination(); got != DestinationSpreadsheet {
+		t.Errorf("Destination() = %q, want %q", got, DestinationSpreadsheet)
+	}
+	rc := PublishConfig{ResultsDestination: DestinationRegattaCentral}
+	if got := rc.Destination(); got != DestinationRegattaCentral {
+		t.Errorf("Destination() = %q, want %q", got, DestinationRegattaCentral)
+	}
+}
+
+func TestPublishConfig_NotInContentHash(t *testing.T) {
+	a := Schedule{Name: "Fall Classic", Date: "2026-10-03"}
+	b := a
+	b.Publish.ResultsDestination = DestinationRegattaCentral
+	if a.ContentHash() != b.ContentHash() {
+		t.Error("ContentHash changed on a PublishConfig-only edit")
+	}
+}
+
+func TestPublishConfig_OmittedFromJSONWhenUnset(t *testing.T) {
+	data, err := json.Marshal(Schedule{Name: "Fall Classic"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "Publish") {
+		t.Errorf("json = %s, want no Publish key for an unset config", data)
 	}
 }

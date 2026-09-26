@@ -23,18 +23,23 @@ import (
 // number. Lane is a display string, not the join key itself - "" when the
 // underlying LapRow has no lane assignment (Lane == 0).
 type Row struct {
-	Place, Lane, School, AdditionalInfo, Time string
+	Place, Lane, School, AdditionalInfo, Split, Time string
 }
 
 // PublishableRace is the publish-ready view of one approved race - every
 // field reproducible from finish.json + regattaSchedule.json, so it is a
-// cache, never an authority (future-result-driven-persona.md).
+// cache, never an authority (future-result-driven-persona.md). Lanes is the
+// schedule's full lane map, not just the lanes Rows mentions: a grid-shaped
+// destination (the results spreadsheet) shows every scheduled boat,
+// including a scratched lane that never gets a LapRow.
 type PublishableRace struct {
-	RaceNumber                     int
-	Title, RegattaKey, WinningTime string
-	Rows                           []Row
-	ApprovedAt, SourceUpdatedAt    time.Time
-	LaneMapHash, Revision          string
+	RaceNumber                           int
+	Title, RegattaKey, WinningTime       string
+	ScheduledTime, BoatClass, FlightInfo string
+	Lanes                                map[int]store.ScheduleEntry
+	Rows                                 []Row
+	ApprovedAt, SourceUpdatedAt          time.Time
+	LaneMapHash, Revision                string
 }
 
 // BuildView joins every approved race in fin against sch, in ascending race
@@ -66,22 +71,49 @@ func BuildView(sch *store.Schedule, fin *store.FinishLog) []PublishableRace {
 			approvedAt = *res.ApprovedAt
 		}
 
-		pr := PublishableRace{
-			RaceNumber:      n,
-			Title:           raceTitle(sr),
-			RegattaKey:      regattaKey,
-			WinningTime:     res.WinningTime,
-			Rows:            joinRows(res.Rows, sr.Lanes),
-			ApprovedAt:      approvedAt,
-			SourceUpdatedAt: res.UpdatedAt,
-			LaneMapHash:     res.LaneMapHash,
-		}
+		pr := scheduledRace(sr, regattaKey)
+		pr.WinningTime = res.WinningTime
+		pr.Rows = joinRows(res.Rows, sr.Lanes)
+		pr.ApprovedAt = approvedAt
+		pr.SourceUpdatedAt = res.UpdatedAt
+		pr.LaneMapHash = res.LaneMapHash
 		pr.Revision = Revision(pr)
 		out = append(out, pr)
 	}
 
 	sort.Slice(out, func(i, j int) bool { return out[i].RaceNumber < out[j].RaceNumber })
 	return out
+}
+
+// ScheduleView returns every race on sch, in ascending race order, with only
+// its schedule fields set - no Rows, no Revision. It is the skeleton a
+// grid-shaped destination lays out before filling in the races BuildView
+// returns, so an unraced or unapproved race still gets its (empty) place.
+func ScheduleView(sch *store.Schedule) []PublishableRace {
+	if sch == nil {
+		return nil
+	}
+	regattaKey := store.RegattaKey(sch.Name, sch.Date)
+	out := make([]PublishableRace, 0, len(sch.Races))
+	for _, sr := range sch.Races {
+		out = append(out, scheduledRace(sr, regattaKey))
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].RaceNumber < out[j].RaceNumber })
+	return out
+}
+
+// scheduledRace fills the schedule-side fields of a PublishableRace - shared
+// by BuildView and ScheduleView so the two never disagree on them.
+func scheduledRace(sr store.ScheduleRace, regattaKey string) PublishableRace {
+	return PublishableRace{
+		RaceNumber:    sr.RaceNumber,
+		Title:         raceTitle(sr),
+		RegattaKey:    regattaKey,
+		ScheduledTime: sr.ScheduledTime,
+		BoatClass:     sr.BoatClass,
+		FlightInfo:    sr.FlightInfo,
+		Lanes:         sr.Lanes,
+	}
 }
 
 // raceTitle reuses reader.RaceData.RaceTitle() rather than re-deriving the
@@ -99,7 +131,7 @@ func raceTitle(sr store.ScheduleRace) string {
 func joinRows(rows []store.LapRow, lanes map[int]store.ScheduleEntry) []Row {
 	out := make([]Row, 0, len(rows))
 	for _, lr := range rows {
-		row := Row{Place: lr.Place, Time: lr.Time}
+		row := Row{Place: lr.Place, Split: lr.Split, Time: lr.Time}
 		if lr.Lane != 0 {
 			row.Lane = strconv.Itoa(lr.Lane)
 			if e, ok := lanes[lr.Lane]; ok {
@@ -112,8 +144,8 @@ func joinRows(rows []store.LapRow, lanes map[int]store.ScheduleEntry) []Row {
 	return out
 }
 
-// Revision hashes only the fields a reader would see - place/lane/school/time
-// per row (in stable lane order, so out-of-order input rows still hash
+// Revision hashes only the fields a reader would see - place/lane/school/
+// split/time per row (in stable lane order, so out-of-order input rows still hash
 // identically), plus winningTime and title. An incidental write that changes
 // nothing visible (e.g. UpdatedAt alone) must not move it.
 func Revision(pr PublishableRace) string {
@@ -123,7 +155,7 @@ func Revision(pr PublishableRace) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s\x00%s\x1d", pr.Title, pr.WinningTime)
 	for _, row := range rows {
-		fmt.Fprintf(&b, "%s\x1e%s\x1e%s\x1e%s\x1d", row.Place, row.Lane, row.School, row.Time)
+		fmt.Fprintf(&b, "%s\x1e%s\x1e%s\x1e%s\x1e%s\x1d", row.Place, row.Lane, row.School, row.Split, row.Time)
 	}
 	return filesystem.HashBytes([]byte(b.String()))[:16]
 }

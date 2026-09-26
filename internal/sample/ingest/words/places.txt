@@ -1,0 +1,158 @@
+# Place-name stems for fake school names, one per line. Combined with
+# suffixes.txt; any stem that collides with a real name in the source workbook
+# is skipped at ingest time.
+Alderbrook
+Ambrose Hill
+Ashbury
+Ashcombe
+Aspen Ridge
+Avonleigh
+Barrowfield
+Bayshore
+Beacon Hill
+Beechwood
+Bellhaven
+Birchmont
+Blackstone Valley
+Bramblewood
+Brantley
+Briarcliff Manor
+Bridgewater
+Brookhollow
+Burnside
+Calloway
+Cambria
+Candlewood
+Carrow
+Castleton
+Cedar Grove
+Chadwick
+Chapel Ridge
+Charlton Park
+Chesterfield
+Claremont
+Clearwater Bay
+Clifton Forge
+Cobble Hill
+Coldspring
+Copper Creek
+Cortland
+Coventry
+Crestwood
+Cromwell
+Crystal Lake
+Dalton
+Deer Park
+Dorchester
+Dover Heights
+Dunmore
+Eastbrook
+Easton Falls
+Edgemont
+Elmhurst
+Emberly
+Evergreen
+Fairhaven
+Falconridge
+Fernwood
+Fox Hollow
+Franklin Lakes
+Glen Arbor
+Glenmoor
+Granite Falls
+Greystone
+Hadley
+Halverson
+Hampstead
+Harbor View
+Harrowgate
+Hartwell
+Hawthorne Bay
+Heathrow Park
+Highgate
+Hollis Crossing
+Holloway
+Hunter's Point
+Ironwood
+Juniper Hill
+Kensington Park
+Kestrel Bay
+Kingsbridge
+Kingsford
+Lakemont
+Larkspur
+Laurel Hollow
+Lindenwood
+Linwood
+Lockhaven
+Longmeadow
+Lowell Park
+Mapleton
+Marlowe
+Meadowbrook
+Merrifield Lake
+Millbrook
+Mistral Bay
+Montrose
+Moorland
+Mystic Harbor
+Newbury
+North Haven
+Northgate
+Oakhaven
+Old Mill
+Orchard Park
+Overbrook
+Palisade
+Pembroke
+Pinecrest
+Portsmouth Bay
+Prescott
+Quarry Hill
+Queensbury
+Radcliffe
+Ravenswood
+Redfield
+Ridgecrest
+Rivermont
+Rockport
+Rosewood
+Rutherford
+Saddle Brook
+Saint Aldric's
+Saint Brendan's
+Saint Cuthbert's
+Saint Hilda's
+Sandcastle Point
+Seabrook
+Shadow Lake
+Sherwood
+Silver Lake
+Southport
+Spring Hollow
+Stanfield
+Sterling Heights
+Stonebridge
+Summit Ridge
+Sycamore
+Tamarack
+Thornfield
+Timberline
+Trenton Falls
+Tunbridge
+Valley Forge
+Vandermeer
+Waverly
+Wellesford
+Westbury
+Westhaven
+Wexford Hills
+Whitby
+Whitmore
+Wildwood
+Willow Creek
+Windermere
+Winslow
+Woodhaven
+Wrenfield
+Yarmouth

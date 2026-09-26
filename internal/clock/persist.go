@@ -338,6 +338,10 @@ func (c *Clock) persistFinish(approved bool) {
 		"approved", approved, "winning_time", res.WinningTime)
 
 	c.refreshCommitStatus()
+
+	if c.OnCommit != nil {
+		c.OnCommit()
+	}
 }
 
 func (c *Clock) setRace(n int, res store.RaceResult) {

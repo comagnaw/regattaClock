@@ -10,6 +10,7 @@ import (
 	"github.com/comagnaw/regattaClock/internal/applog"
 	"github.com/comagnaw/regattaClock/internal/filesystem"
 	"github.com/comagnaw/regattaClock/internal/persona"
+	"github.com/comagnaw/regattaClock/internal/reader"
 )
 
 // Schedule is the slim race program the director owns and every persona reads.
@@ -17,10 +18,36 @@ import (
 // times, or approval flags. Those belong to the finish timer in finish.json
 // (schedule-data-model.md).
 type Schedule struct {
-	Name   string
-	Date   string
-	Origin Origin
-	Races  []ScheduleRace
+	Name    string
+	Date    string
+	Origin  Origin
+	Publish PublishConfig `json:",omitzero"`
+	Races   []ScheduleRace
+}
+
+// Results destinations a PublishConfig can name (operational-state.md).
+const (
+	DestinationSpreadsheet    = "spreadsheet"
+	DestinationRegattaCentral = "regattacentral"
+)
+
+// PublishConfig is the RD's regatta-wide choice of where results are
+// published (operational-state.md) - the destination *kind* only. Where a
+// spreadsheet lands is a per-machine path on the Primary Finish Timer's host
+// (the published drive mounts differently on every machine), so it is a
+// local preference, never stored here. Metadata, not schedule content:
+// ContentHash deliberately ignores it.
+type PublishConfig struct {
+	ResultsDestination string `json:",omitempty"`
+}
+
+// Destination is the configured results destination, defaulting to the
+// spreadsheet - today's only built one - when the RD has not chosen.
+func (c PublishConfig) Destination() string {
+	if c.ResultsDestination == "" {
+		return DestinationSpreadsheet
+	}
+	return c.ResultsDestination
 }
 
 // Origin describes where the schedule was ingested from, for the director's
@@ -62,6 +89,48 @@ const (
 	StatusOK        ScheduleEntryStatus = ""
 	StatusScratched ScheduleEntryStatus = "SCR"
 )
+
+// ScheduleFromRegattaData projects a freshly imported RegattaData onto the slim
+// schedule that is persisted: regatta metadata, lane assignments, class and
+// flight only. Places, splits, times, approval flags, and the raw Excel grid
+// are dropped - the finish timer owns those in finish.json
+// (schedule-data-model.md).
+//
+// It lives here rather than in internal/regatta so every producer of a
+// schedule - the RD's import and the sample-regatta generator
+// (docs/features/testing/sample-regatta.md) - projects it identically.
+func ScheduleFromRegattaData(rd *reader.RegattaData) *Schedule {
+	sch := &Schedule{
+		Name: rd.Name,
+		Date: rd.Date,
+		Origin: Origin{
+			Type: rd.Type,
+			URI:  rd.URI,
+			Hash: rd.Hash,
+		},
+		Races: make([]ScheduleRace, 0, len(rd.Races)),
+	}
+
+	for _, race := range rd.Races {
+		out := ScheduleRace{
+			RaceNumber:    race.RaceNumber,
+			ScheduledTime: race.ScheduledTime,
+			BoatClass:     race.BoatClass,
+			FlightInfo:    race.FlightInfo,
+			BoatCount:     race.BoatCount,
+			Lanes:         make(map[int]ScheduleEntry, len(race.Lanes)),
+		}
+		for lane, entry := range race.Lanes {
+			out.Lanes[lane] = ScheduleEntry{
+				SchoolName:     entry.SchoolName,
+				AdditionalInfo: entry.AdditionalInfo,
+				Status:         ScheduleEntryStatus(entry.Status),
+			}
+		}
+		sch.Races = append(sch.Races, out)
+	}
+	return sch
+}
 
 // Key returns the RegattaKey for this schedule.
 func (s *Schedule) Key() string { return RegattaKey(s.Name, s.Date) }

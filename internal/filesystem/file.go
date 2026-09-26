@@ -3,7 +3,9 @@ package filesystem
 import (
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"time"
 
@@ -88,6 +90,14 @@ func SaveBytesFileAtomic(fileBytes []byte, filename string) error {
 		return fmt.Errorf("temp file %s could not replace %s: %w", tmp, filename, err)
 	}
 	return nil
+}
+
+// IsFileLocked reports whether err (from a write or SaveBytesFileAtomic)
+// means another process holds the target open - on Windows, Excel keeps an
+// open workbook locked, so a caller can tell the user to close it and retry
+// rather than showing a raw OS error.
+func IsFileLocked(err error) bool {
+	return errors.Is(err, fs.ErrPermission) || isRetryableRenameError(err)
 }
 
 // renameWithRetry renames oldPath to newPath, retrying transient failures that

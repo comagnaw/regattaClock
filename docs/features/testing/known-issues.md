@@ -33,12 +33,16 @@ touched concurrently there.
 ## Testing rule
 
 **A test must not let a background goroutine drive a Fyne render while the test
-goroutine also renders.** The two background render sources in this codebase:
+goroutine also renders.** The three background render sources in this codebase:
 
 - the `internal/regatta` schedule watcher — `consumeWatcher` → `applyWatchEvent`
   → `fyne.Do(onScheduleChanged)` → `showRaceTree` / `refreshAllRows`;
 - the `internal/clock` stopwatch ticker — `startClockUpdate` →
-  `fyne.Do(c.clock.Refresh())` every 100 ms while the clock is running.
+  `fyne.Do(c.clock.Refresh())` every 100 ms while the clock is running;
+- the `internal/regatta` published-ledger load — a primary finish timer with a
+  usable results folder reads the workbook in `loadPublishedLedger` →
+  `fyne.Do(applyLedger)` → `refreshAllRows`. Unwaited, its repaint can land in
+  the *next* test's window build.
 
 Quiesce the background source before the test measures text itself:
 
@@ -52,6 +56,9 @@ Quiesce the background source before the test measures text itself:
   text. (No `internal/clock` test currently hits the overlap — the ticker only
   re-renders the short digit string, which does not exercise the crashing GSUB
   ligature path — but the helper is there if one is added.)
+- `quiescePublisher(t, r)` (in `internal/regatta`) — waits for the ledger load.
+  `startedPublisherWith` already does this; call it in any other test that
+  starts a `pft` session whose `finish.json` records a reachable `ResultsDir`.
 
 Timer tests that call `store.SaveStart` / `SaveFinish` / `SaveSchedule` **before**
 `startSession` are safe: the watcher seeds its hashes from the already-written

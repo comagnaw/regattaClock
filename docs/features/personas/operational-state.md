@@ -78,13 +78,25 @@ file.
 // director/regattaSchedule.json the RD already owns.
 type PublishConfig struct {
     ResultsDestination string // "spreadsheet" | "regattacentral"
-    // Destination-specific parameters - e.g. a spreadsheet path, or an RC
-    // regatta id - shaped once the chosen destination's own design
-    // (results-publisher.md for spreadsheet; the RC investigation's
-    // outcome for regattacentral) is further along.
+    // Destination-specific parameters - e.g. an RC regatta id - shaped
+    // once the RC investigation's outcome is further along. Never a
+    // filesystem path: see the note below.
     SocialPlatforms []string // e.g. ["x", "instagram"]; empty/omitted = none enabled
 }
 ```
+
+**Update (2026-09-26): `ResultsDestination` has landed** as
+`store.PublishConfig` on `store.Schedule` (`omitzero`, excluded from
+`Schedule.ContentHash()`), defaulting to `"spreadsheet"` when unset; there
+is no RD prompt for it yet. **The spreadsheet's output folder is
+deliberately *not* a `PublishConfig` parameter.** The published drive is
+separate from `regattaData` and mounts at a different path on every
+machine, so a path recorded once by the RD would be wrong on the Primary
+Finish Timer's host. The PFT confirms it and records it in its own
+`finish.json` (regatta-scoped, so a new regatta never inherits the last
+one's folder). `PublishConfig` holds regatta-wide choices
+only (which *kind* of destination), never machine-local locations. See
+[new/results-publisher.md](new/results-publisher.md).
 
 `SourceInfo.Type` already carries the ingest-source axis; this doc does not
 propose changing it, only formalizing that once Phase C's `ScheduleOrigin`
@@ -122,9 +134,10 @@ choice are asked **at the same moment** (regatta creation) as one coherent
 - This doc is a **dependency of**
   [new/results-publisher.md](new/results-publisher.md) (needs
   `ResultsDestination` to know where to publish) and of the still-deferred
-  SOM persona (needs `SocialPlatforms`) — not the other way around. If
-  engineering capacity allows, this should land at or before the PFT
-  results-publish feature, not after.
+  SOM persona (needs `SocialPlatforms`) — not the other way around. The
+  `ResultsDestination` skeleton landed with the PFT results-publish
+  feature (#127). Still open: the RD's regatta-creation prompt for it, the
+  `SocialPlatforms` field, and the ingest-source choice.
 - Same live process constraint as every other doc in this directory right
   now: `develop` is in feature-freeze (see `AGENTS.md`) — this is a design
   doc, unaffected; implementation waits for the freeze to lift.

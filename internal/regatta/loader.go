@@ -9,6 +9,7 @@ import (
 
 	"github.com/comagnaw/regattaClock/internal/applog"
 	"github.com/comagnaw/regattaClock/internal/common"
+	"github.com/comagnaw/regattaClock/internal/persona/store"
 	"github.com/comagnaw/regattaClock/internal/reader"
 )
 
@@ -134,7 +135,7 @@ func (r *Regatta) reloadSchedule() {
 		dialog.ShowInformation(common.ReloadScheduleTitle, common.NoOriginRecordedMessage, r.window)
 		return
 	}
-	before := scheduleFromRegattaData(r.RegattaData).ContentHash()
+	before := store.ScheduleFromRegattaData(r.RegattaData).ContentHash()
 	if err := r.setRegattaData(uri); err != nil {
 		applog.Error("schedule reload failed", "component", "loader", "path", uri, "err", err)
 		dialog.ShowError(fmt.Errorf("%s: %w", common.ReloadFailedMessage, err), r.window)
@@ -144,7 +145,7 @@ func (r *Regatta) reloadSchedule() {
 
 	// persona-plan.md 3b step 4/7: a reload that does not change the schedule
 	// content must not rewrite regattaSchedule.json.
-	if scheduleFromRegattaData(r.RegattaData).ContentHash() == before {
+	if store.ScheduleFromRegattaData(r.RegattaData).ContentHash() == before {
 		applog.Info("reload: workbook has not changed the schedule", "component", "loader")
 		dialog.ShowInformation(common.ReloadScheduleTitle, common.OriginUnchangedMessage, r.window)
 		return

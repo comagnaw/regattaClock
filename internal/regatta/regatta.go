@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -138,6 +139,22 @@ type Regatta struct {
 	originBanner         *actionBanner
 	pendingOrigin        *reader.RegattaData
 	dismissedContentHash string
+
+	// schedule - the timer session's current schedule (set in startSession,
+	// replaced by onScheduleChanged); what results publishing renders from.
+	schedule *store.Schedule
+
+	// publishedRevs / publishing - the primary finish timer's results
+	// publishing state (publish_results.go): race number -> the
+	// publish.Revision the results workbook's ledger says is published, and
+	// whether a publish is in flight (every Publish button disabled).
+	publishedRevs map[int]string
+	publishing    bool
+
+	// ledgerLoads tracks loadPublishedLedger's background read, whose
+	// fyne.Do repaints every row - so a test can wait it out rather than
+	// let it render concurrently with the next (known-issues.md).
+	ledgerLoads sync.WaitGroup
 
 	// regattaKey - the schedule's RegattaKey captured when the session started,
 	// used to reject watched peer data that belongs to another regatta.
@@ -541,7 +558,7 @@ func (r *Regatta) saveRegattaData() {
 		return
 	}
 
-	if err := store.SaveSchedule(session, scheduleFromRegattaData(r.RegattaData)); err != nil {
+	if err := store.SaveSchedule(session, store.ScheduleFromRegattaData(r.RegattaData)); err != nil {
 		r.warnSaveSkipped(err)
 	}
 }
@@ -594,7 +611,7 @@ func (r *Regatta) migrateLegacyData(session persona.Session) {
 		return
 	}
 
-	if err := store.SaveSchedule(session, scheduleFromRegattaData(&legacyData)); err != nil {
+	if err := store.SaveSchedule(session, store.ScheduleFromRegattaData(&legacyData)); err != nil {
 		applog.Error("legacy schedule migration failed", "component", "migrate", "file", legacy, "err", err)
 		return
 	}

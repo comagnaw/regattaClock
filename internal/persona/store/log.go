@@ -65,9 +65,18 @@ type ClearedStart struct {
 }
 
 // FinishLog is the whole of one team's race results.
+//
+// ResultsDir is the folder the primary finish timer confirmed for publishing
+// this regatta's results workbook (results-publisher.md) - "" until
+// confirmed. It lives here, not only in a machine preference, because it is
+// regatta-scoped: finish.json is set aside when a new regatta starts
+// (RegattaKey mismatch), so a new regatta always begins with no folder and
+// must be confirmed, instead of silently publishing into the folder the
+// previous regatta used.
 type FinishLog struct {
 	Envelope
-	Races map[int]RaceResult
+	ResultsDir string `json:",omitempty"`
+	Races      map[int]RaceResult
 }
 
 // RaceResult carries everything needed to rehydrate the clock window exactly as

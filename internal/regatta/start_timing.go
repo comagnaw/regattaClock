@@ -177,8 +177,10 @@ func (r *Regatta) warnWritesBlocked() {
 
 // openClock opens the race-timing window for a finish timer, bound to this
 // session's finish.json so the clock persists results and, on its Start click,
-// engages the Start Timer lock. The FT race tree refreshes when the window
-// closes.
+// engages the Start Timer lock. The FT race tree refreshes on every finish
+// commit (OnCommit) and again when the window closes (AfterClose) - the
+// former keeps the tree live while the primary FT's clock stays open after
+// Referee Approval (buttons.go's refereeApprovalFunc).
 func (r *Regatta) openClock(n int) {
 	race, ok := r.raceByNumber(n)
 	if !ok {
@@ -203,6 +205,11 @@ func (r *Regatta) openClock(n int) {
 		fyne.Do(func() {
 			delete(r.openClocks, n)
 			r.refreshAllRows()
+		})
+	}
+	clk.OnCommit = func() {
+		fyne.Do(func() {
+			r.refreshRow(n)
 		})
 	}
 	clk.OpenRaceClock()

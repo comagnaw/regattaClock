@@ -34,6 +34,7 @@ fyne-cross/
 # root named after a dev-tool command; keep those out.
 /rcprobe
 /rcreconcile
+/sampleingest
 
 # Live RegattaCentral API captures from cmd/rcprobe contain athlete PII and a
 # real access token. Never commit them; committed test fixtures are hand-authored
@@ -45,3 +46,13 @@ rc-secrets*.json
 # from a real regatta. A catch-all local output directory - point --report-out
 # / --upload-preview-out here. See cmd/rcreconcile/README.md.
 /out/
+
+# Real race-day workbooks feed cmd/sampleingest once, on a developer machine,
+# and name real schools and athletes. Only the obfuscated fixture it writes
+# (internal/sample/data/) is committed - keep source workbooks in
+# /sample-source/ or name them *.source.xlsm. A root-level .xlsm is ignored
+# too; the public example workbooks live under examples/.
+# See docs/features/testing/sample-regatta.md.
+/sample-source/
+*.source.xlsm
+/*.xlsm

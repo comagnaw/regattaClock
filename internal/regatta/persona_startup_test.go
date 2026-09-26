@@ -166,6 +166,15 @@ func quiesceWatcher(t *testing.T, r *Regatta) {
 	}
 }
 
+// quiescePublisher waits for the primary finish timer's background ledger
+// load (loadPublishedLedger), whose fyne.Do repaints every row. Left running,
+// that repaint can land while the next test renders, and Fyne's global text
+// shaper is not goroutine-safe (see docs/features/testing/known-issues.md).
+func quiescePublisher(t *testing.T, r *Regatta) {
+	t.Helper()
+	stopWithTimeout(t, r.ledgerLoads.Wait)
+}
+
 func TestTimerShowsPersonaPicker(t *testing.T) {
 	app := test.NewTempApp(t)
 	r := NewTimer(app)

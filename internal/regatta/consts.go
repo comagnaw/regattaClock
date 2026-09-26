@@ -76,6 +76,10 @@ const (
 	// plus the inset).
 	timeRaceColWidth = float32(120)
 
+	// publishColWidth - the primary finish timer's Publish button beside Time
+	// Race (fits "Re-publish").
+	publishColWidth = float32(120)
+
 	// viewResultsColWidth - the Director/Awards "View Results" button (fits
 	// the button plus the inset).
 	viewResultsColWidth = float32(140)
