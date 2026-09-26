@@ -38,6 +38,7 @@ type raceRow struct {
 	clearBtn   *widget.Button // start timer
 	restoreBtn *widget.Button // start timer
 	timeBtn    *widget.Button // finish timer
+	publishBtn *widget.Button // primary finish timer
 	resultsBtn *widget.Button // director, awards
 }
 
@@ -102,6 +103,13 @@ func (r *Regatta) newRaceRow(race reader.RaceData) *raceRow {
 		row.startTime.SetText(common.WaitingForStartText)
 		row.timeBtn = widget.NewButton(common.TimeRaceButtonText, func() { r.openClock(n) })
 		action = fixedCell(timeRaceColWidth, row.timeBtn)
+		if r.isPublisher() {
+			// Disabled until refreshFinishRow sees an approved result
+			// (store.CanPublish) - same slot-keeping as resultsBtn below.
+			row.publishBtn = widget.NewButton(common.PublishButtonText, func() { r.publishRace(n) })
+			row.publishBtn.Disable()
+			action = fixedCell(r.finishActionWidth(), container.NewGridWithColumns(2, row.timeBtn, row.publishBtn))
+		}
 
 	case persona.RoleDirector, persona.RoleAwards:
 		// Disabled until refreshDirectorRow sees an approved result
@@ -255,6 +263,17 @@ func (r *Regatta) refreshFinishRow(row *raceRow) {
 	// not just whether this FT has opened its own clock - a peer ST recording
 	// a start already moves the race to StateStartRecorded ("On the Water").
 	row.progress.SetText(raceProgressStatus(rec, res, r.session.Team))
+	r.refreshPublishButton(row, res)
+}
+
+// finishActionWidth is a finish timer row's action cell: Time Race, plus
+// Publish for the primary finish timer. Shared by the row and the header so
+// the columns stay aligned.
+func (r *Regatta) finishActionWidth() float32 {
+	if r.isPublisher() {
+		return timeRaceColWidth + publishColWidth
+	}
+	return timeRaceColWidth
 }
 
 // restartsCell renders a StartRecord's restart count, or the shared

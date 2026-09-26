@@ -24,6 +24,7 @@ func (r *Regatta) configContent() *fyne.Container {
 	return container.NewVBox(
 		r.regattaDir(),
 		r.personaConfigRow(),
+		r.resultsDirRow(),
 		widget.NewForm(
 			widget.NewFormItem("Debug:", widget.NewCheckWithData("", binding.BindPreferenceBool(common.PrefDebug, r.App.Preferences()))),
 			widget.NewFormItem("Logging:", widget.NewCheckWithData("", binding.BindPreferenceBool(common.PrefLogging, r.App.Preferences()))),
@@ -86,6 +87,18 @@ func (r *Regatta) changeButtonFunc() func() {
 	return func() {
 		dialog.ShowFolderOpen(r.changeCallBack(), r.window)
 	}
+}
+
+// resultsDirRow - Configuration entry for the primary finish timer's results
+// publish folder (common.PrefResultsDir). Mirrors regattaDir(); Change goes
+// through pickResultsFolder so the published state is re-read from the
+// workbook in the new folder.
+func (r *Regatta) resultsDirRow() *fyne.Container {
+	entry := widget.NewEntryWithData(binding.BindPreferenceString(common.PrefResultsDir, r.App.Preferences()))
+	return container.NewBorder(nil, nil, nil,
+		widget.NewButton(common.ResultsDirChangeButtonText, func() { r.pickResultsFolder(nil) }),
+		widget.NewForm(widget.NewFormItem(common.ResultsDirRowLabel, entry)),
+	)
 }
 
 // personaConfigRow - Configuration entry for the optional deployment persona
