@@ -236,6 +236,7 @@ func startedPublisherWith(t *testing.T, sch *store.Schedule, root, resultsDir, l
 	r := NewTimer(app)
 	stopWatch(t, r)
 	r.startSession(timerSession(t, "pft", root), sch)
+	quiescePublisher(t, r)
 	return r
 }
 

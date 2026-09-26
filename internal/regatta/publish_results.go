@@ -205,7 +205,7 @@ func (r *Regatta) loadPublishedLedger() {
 		return
 	}
 	key := r.regattaKey
-	go func() {
+	r.ledgerLoads.Go(func() {
 		pub, err := spreadsheet.Read(path)
 		if err == nil {
 			err = pub.CheckRegatta(key)
@@ -215,7 +215,7 @@ func (r *Regatta) loadPublishedLedger() {
 			pub.Ledger = nil
 		}
 		fyne.Do(func() { r.applyLedger(pub.Ledger) })
-	}()
+	})
 }
 
 // applyLedger swaps in the published revisions and repaints the rows.
