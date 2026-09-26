@@ -1,5 +1,15 @@
 # Results Publisher (REP)
 
+**Status (2026-09-26): spreadsheet destination shipped; RegattaCentral
+destination deferred.** The PFT's Publish button and the results workbook
+writer landed in #126 and #127. The shipped behavior is now documented in
+PFT's section of [README.md](../README.md#finish-timer-ft), which is the
+authoritative description. **This doc stays open only for implementation
+plan step 5, the RegattaCentral destination.** That step is gated on
+[heatsheet-rc-pivot-investigation.md](../heatsheet-rc-pivot-investigation.md)
+concluding. Delete this doc when RC lands and fold that destination into
+README.md. The decision trail below is kept for that slice.
+
 **Resolution: not a new persona.** REP started as a "new persona" request
 (Executive team, Media UI, results-driven) but resolved, after clarifying
 the architecture options with the author, to a **native feature added to
@@ -128,8 +138,9 @@ built (#126 writer, #127 PFT wiring):
 
 **Confirmed (2026-09-20): this decision fully resolves the circular-file
 concern raised about the RD's read and REP's write ever touching the same
-workbook.** No Excel-writing code exists anywhere in the repo today (REP
-is unbuilt), and even if it did, `store.ScheduleRace`/`ScheduleEntry`
+workbook.** No Excel-writing code existed anywhere in the repo at the time
+(REP was then unbuilt; it now writes only its own standalone workbook), and
+even if it had, `store.ScheduleRace`/`ScheduleEntry`
 structurally have no Place/Split/Time fields, and `Schedule.ContentHash()`
 — what actually gates the RD's "apply this schedule change?" banner —
 never hashes a result cell. This "Does not: write to the RD's own source
@@ -153,11 +164,9 @@ Sheet` worksheet, which carries no result columns.
   from scratch). The "publish" button most naturally sits near the
   existing Referee Approval control, since it only makes sense once that
   race is approved.
-- **Spreadsheet writing** — no existing code writes `.xlsx` today;
-  `internal/reader` only reads Excel workbooks
-  (`internal/reader/excel.go`). A results-spreadsheet writer is genuinely
-  new work — check whether the Excel library already in `go.mod` for
-  reading also supports writing before assuming a new dependency is
+- **Spreadsheet writing** — *(built, #126)*
+  `internal/publish/spreadsheet` writes the workbook with the excelize v2
+  dependency already in `go.mod` for reading, so no new dependency was
   needed.
 - **The exact "same format as the current manual results worksheet" this
   section's own Does bullet commits to** (2026-09-20): before the RD's
@@ -194,56 +203,57 @@ Sheet` worksheet, which carries no result columns.
    `regattaSchedule.json` — this feature has nothing to read otherwise.
    Can default to `"spreadsheet"` with no RD prompt yet if that survey UI
    isn't ready first; the field existing is what unblocks this feature.
+   *(Done, #127: `store.PublishConfig` on `Schedule`, defaulting to
+   `"spreadsheet"`; no RD prompt yet.)*
 2. **Spreadsheet writer**: build the standalone-results-spreadsheet
    output — same visual/column format as the current results worksheet.
-   *(Resolved 2026-09-26: a per-machine PFT preference; see "Decisions
-   made (author, 2026-09-26)" above.)* **The destination location is a
-   deliberate open question, not `regattaData`-adjacent by default** — today's real publish location is
-   a *separate* OneDrive/SharePoint folder, distinct from the shared
-   `regattaData` tree, that a public-facing website reads from. That's
-   context for the eventual answer, not a decision made here: how
-   RegattaClock reaches that location (a configured path, a picked folder,
-   something SharePoint-API-specific, or a different mechanism entirely)
-   is an **implementation-time discovery**, deliberately left open per the
-   author. `operational-state.md`'s `PublishConfig` already reserves a
-   generic "destination-specific parameters" slot for whatever that turns
-   out to be — nothing here should be taken as pre-deciding it.
+   *(Done, #126 + #127. The output location — originally an open question,
+   since the real publish location is a separate OneDrive/SharePoint folder
+   a public website reads from — resolved to a folder the PFT confirms and
+   records per regatta in its `finish.json`. See "Decisions made (author,
+   2026-09-26)" above.)*
 3. **Publish button + gating**: add to PFT's existing race view, enabled
    on `RaceResult.Approved`, calls the spreadsheet writer for that race.
+   *(Done, #127.)*
 4. **Re-publish detection**: track a per-race revision/hash so an
    approved-then-edited result is flagged for re-publish rather than
-   silently going stale (carrying forward the idea from
-   `sidecar-personas.md`'s deferred revision-tracking design, applied
-   directly rather than via a sidecar).
-5. **RegattaCentral destination** (later, once the investigation
-   concludes): a second branch in the same publish path, reusing whatever
-   client the investigation lands on.
-6. **Docs** (once built): extend PFT's section in
-   `docs/features/personas/README.md` with the Publish button; update
-   `docs/features/TODO.md`; delete this file (per `AGENTS.md`'s New
-   personas workflow — even though the outcome isn't a new persona, the
-   same "proposal doc → fold into real docs → delete" lifecycle applies).
+   silently going stale. *(Done, #127: `publish.Revision` compared against
+   the workbook's hidden ledger sheet.)*
+5. **RegattaCentral destination** — **deferred** until
+   [heatsheet-rc-pivot-investigation.md](../heatsheet-rc-pivot-investigation.md)
+   concludes. It adds a second branch in the same publish path, reusing
+   whatever client the investigation lands on. The seams are already in
+   place:
+   - `publishRace` switches on `PublishConfig.Destination()`, and its
+     `"regattacentral"` case currently reports "not available yet".
+   - The RC writer renders from the same `internal/publish` view.
+   - Re-publish tracking needs an RC-side equivalent of the workbook
+     ledger.
+   - `PublishConfig` also still needs its RD prompt at regatta creation
+     ([operational-state.md](../operational-state.md)).
+6. **Docs**: *(done for the spreadsheet slice)* PFT's section in
+   `docs/features/personas/README.md` and `docs/features/TODO.md` are
+   updated. After step 5 lands, fold RC into README.md and delete this
+   file, per `AGENTS.md`'s New personas workflow — the same "proposal doc
+   → fold into real docs → delete" lifecycle, even though the outcome
+   isn't a new persona.
 
 ## Dependencies and sequencing
 
-- **Hard dependency**: [operational-state.md](../operational-state.md)'s
-  `ResultsDestination` field, at least in skeleton form (step 1 above).
-  Not yet built, but not gated on anything external — see that doc's own
-  sequencing note.
-- **Not a blocker, but a later branch**: RegattaCentral as a destination
-  waits on `heatsheet-rc-pivot-investigation.md`. The spreadsheet
-  destination does not.
-- **Downstream dependant**: the
+- **Remaining gate (RC destination only)**:
+  [heatsheet-rc-pivot-investigation.md](../heatsheet-rc-pivot-investigation.md)
+  must conclude first. Nothing else blocks it.
+- **Satisfied**: `operational-state.md`'s `ResultsDestination` skeleton
+  (#127); the spreadsheet destination (#126, #127).
+- **Downstream dependant, now unblocked**: the
   [sample-regattaData generator](../../testing/sample-regatta.md) reads the
-  Results worksheet layout this feature writes and emits a sample results
-  workbook through its writer — so the writer should expose the 5-row
-  Results block layout as a reusable definition, not inline cell offsets.
+  Results layout through the definition the writer exports
+  (`internal/publish/spreadsheet`), and emits a sample results workbook
+  through `spreadsheet.Write`.
 - **No blocker** from the now-moot sidecar-vs-standalone question — that
   design surface in `sidecar-personas.md` remains open for `social-post`/
   SOM, not for this feature.
 
-**No architectural blockers for the spreadsheet-destination slice.**
-Sequencing: `operational-state.md`'s config field first, then this
-feature. As with the other proposals in this directory, the live process
-constraint as of this writing is `develop`'s feature-freeze (see
-`AGENTS.md`) — implementation waits for that to lift.
+**When to start the RC slice:** after
+`heatsheet-rc-pivot-investigation.md` concludes and its
+`internal/regattacentral` client shape is settled.

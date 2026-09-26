@@ -98,8 +98,8 @@ exact bar is mostly TBD, with one concrete goal set so far:
   (`schedule-data-model.md`'s "Ingest source" section); ST/FT own their
   own `start.json`/`finish.json`; Referee Approval already happens
   in-app, not via a `Referee Heat Sheet` tab. The one piece still missing
-  is Results Publisher (REP, `new/results-publisher.md`, still unbuilt) —
-  once real organizations have a destination for approved results that
+  was Results Publisher (REP, `new/results-publisher.md`); its spreadsheet
+  destination has now shipped (#126, #127). Now that real organizations have a destination for approved results that
   isn't hand-updating the workbook's `Results` tab, the whole multi-tab
   macro format has no remaining reason to exist, and the example
   workbook demonstrating it should retire alongside it. Not something to
