@@ -1,10 +1,12 @@
 package sample
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -255,15 +257,58 @@ func TestGenerate_Deterministic(t *testing.T) {
 	a, _ := generate(t, DefaultUnraced)
 	b, _ := generate(t, DefaultUnraced)
 	for _, rel := range []string{
+		"regattaData/director/regattaSchedule.json",
 		"regattaData/timing/primary/start.json",
+		"regattaData/timing/primary/finish.json",
+		"regattaData/timing/secondary/start.json",
 		"regattaData/timing/secondary/finish.json",
 	} {
+		// Each run's own directory is in the absolute paths it records
+		// (Origin.URI, ResultsDir); everything else must match byte for byte.
 		x, _ := os.ReadFile(filepath.Join(a, rel))
 		y, _ := os.ReadFile(filepath.Join(b, rel))
-		if string(x) != string(y) {
+		if withoutDir(x, a) != withoutDir(y, b) {
 			t.Errorf("%s differs between runs", rel)
 		}
 	}
+}
+
+// withoutDir is a JSON artifact's text with dir (as JSON-escaped) replaced
+// by a placeholder.
+func withoutDir(b []byte, dir string) string {
+	esc, _ := json.Marshal(dir)
+	return strings.ReplaceAll(string(b), strings.Trim(string(esc), `"`), "<dir>")
+}
+
+func TestFinishRows_Order(t *testing.T) {
+	race := Race{Lanes: map[int]Lane{
+		1: {Place: "DNS"},
+		2: {Place: "3", Split: "00:05.0", Time: "06:05.0"},
+		3: {Place: "1", Split: "00:00.0", Time: "06:00.0"},
+		4: {Place: "Excluded", Split: "00:09.0", Time: "06:09.0"},
+		5: {Place: "3", Split: "00:05.0", Time: "06:05.0"}, // dead heat with lane 2
+		6: {Place: "2", Split: "00:02.0", Time: "06:02.0"},
+	}}
+	want := []int{3, 6, 2, 5, 1, 4}
+	for range 20 { // map iteration order varies run to run
+		rows, err := finishRows(race)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for i, r := range rows {
+			if r.Lane != want[i] {
+				t.Fatalf("lane order = %v, want %v", lanesOf(rows), want)
+			}
+		}
+	}
+}
+
+func lanesOf(rows []store.LapRow) []int {
+	out := make([]int, len(rows))
+	for i, r := range rows {
+		out[i] = r.Lane
+	}
+	return out
 }
 
 func TestParseClock(t *testing.T) {

@@ -2,6 +2,8 @@ package sample
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 
 	"github.com/xuri/excelize/v2"
 
@@ -123,7 +125,11 @@ func (w *heatWriter) block(row int, race Race) {
 	w.set(3, row, race.BoatClass)
 	w.set(3, row+1, race.FlightInfo)
 	w.set(3, row+2, race.Note)
-	for lane, l := range race.Lanes {
+	// Lane order, not map order: excelize numbers shared strings in the order
+	// cells are written, so map order would change the file's bytes (and the
+	// schedule's Origin.Hash) from run to run.
+	for _, lane := range slices.Sorted(maps.Keys(race.Lanes)) {
+		l := race.Lanes[lane]
 		col := spreadsheet.LaneCol(lane)
 		w.set(col, row, l.School)
 		w.set(col, row+1, l.AdditionalInfo)

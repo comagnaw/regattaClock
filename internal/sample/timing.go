@@ -152,8 +152,10 @@ func result(team persona.Team, n int, start time.Time, ref timesync.ClockRef, ro
 }
 
 // finishRows is the fixture race's finish order as LapRows: numeric places
-// first, ascending, then non-numeric ones (DNS, Excluded, ...) by lane. A lane
-// with no Place never reached the finish line and has no row.
+// first, ascending, then non-numeric ones (DNS, Excluded, ...). Ties - a dead
+// heat, or two non-numeric places - go by lane, so the order never depends
+// on map iteration. A lane with no Place never reached the finish line and
+// has no row.
 func finishRows(race Race) ([]store.LapRow, error) {
 	var rows []store.LapRow
 	for lane, l := range race.Lanes {
@@ -174,8 +176,10 @@ func finishRows(race Race) ([]store.LapRow, error) {
 		pi, ei := strconv.Atoi(rows[i].Place)
 		pj, ej := strconv.Atoi(rows[j].Place)
 		switch {
-		case ei == nil && ej == nil:
+		case ei == nil && ej == nil && pi != pj:
 			return pi < pj
+		case ei == nil && ej == nil:
+			return rows[i].Lane < rows[j].Lane
 		case ei == nil:
 			return true
 		case ej == nil:
