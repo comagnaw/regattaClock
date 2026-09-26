@@ -214,3 +214,47 @@ func TestIsStale(t *testing.T) {
 		t.Error("IsStale() = false when the published revision is stale, want true")
 	}
 }
+
+func TestScheduleView_EveryRaceInOrderNoResults(t *testing.T) {
+	sch := sampleSchedule()
+	sch.Races[0], sch.Races[1] = sch.Races[1], sch.Races[0] // out of order on disk
+
+	got := ScheduleView(sch)
+	if len(got) != 2 || got[0].RaceNumber != 1 || got[1].RaceNumber != 2 {
+		t.Fatalf("ScheduleView() = %+v, want races 1, 2 in order", got)
+	}
+	if got[0].Rows != nil || got[0].Revision != "" {
+		t.Errorf("race 1 = %+v, want schedule fields only (no Rows, no Revision)", got[0])
+	}
+	if got[0].BoatClass != "Varsity 8" || got[0].FlightInfo != "Heat 1" {
+		t.Errorf("race 1 class/flight = %q/%q", got[0].BoatClass, got[0].FlightInfo)
+	}
+	if ScheduleView(nil) != nil {
+		t.Error("ScheduleView(nil) != nil")
+	}
+}
+
+func TestBuildView_CarriesFullLaneMapAndSplit(t *testing.T) {
+	res := approvedResult()
+	res.Rows = []store.LapRow{{Lane: 1, Place: "1", Split: "03:00.0", Time: "06:00.0"}} // lane 2 never timed
+	got := BuildView(sampleSchedule(), &store.FinishLog{Races: map[int]store.RaceResult{1: res}})[0]
+
+	if got.Lanes[2].SchoolName != "Gloucester" {
+		t.Errorf("Lanes[2] = %+v, want the untimed lane's schedule entry kept", got.Lanes[2])
+	}
+	if got.Rows[0].Split != "03:00.0" {
+		t.Errorf("Rows[0].Split = %q, want 03:00.0", got.Rows[0].Split)
+	}
+}
+
+func TestRevision_ChangesOnSplitEdit(t *testing.T) {
+	base := BuildView(sampleSchedule(), &store.FinishLog{Races: map[int]store.RaceResult{1: approvedResult()}})[0]
+
+	edited := approvedResult()
+	edited.Rows[0].Split = "02:59.0"
+	after := BuildView(sampleSchedule(), &store.FinishLog{Races: map[int]store.RaceResult{1: edited}})[0]
+
+	if base.Revision == after.Revision {
+		t.Error("Revision did not change after a split edit")
+	}
+}

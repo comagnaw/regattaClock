@@ -1,6 +1,8 @@
 package filesystem
 
 import (
+	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -245,5 +247,14 @@ func TestFileHash_Directory(t *testing.T) {
 
 	if hash != common.EmptyString {
 		t.Errorf("Expected empty hash on error, got %q", hash)
+	}
+}
+
+func TestIsFileLocked(t *testing.T) {
+	if !IsFileLocked(fmt.Errorf("wrapped: %w", fs.ErrPermission)) {
+		t.Error("IsFileLocked(ErrPermission) = false, want true")
+	}
+	if IsFileLocked(fs.ErrNotExist) {
+		t.Error("IsFileLocked(ErrNotExist) = true, want false")
 	}
 }
