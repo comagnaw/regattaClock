@@ -12,8 +12,13 @@ import (
 // On Windows the target of the rename can be briefly held open by a cloud-sync
 // client, Windows Defender, or an SMB peer that has just noticed the file
 // change; both cases surface as ERROR_SHARING_VIOLATION (32) or
-// ERROR_ACCESS_DENIED (5) and clear within milliseconds.
+// ERROR_ACCESS_DENIED (5) and clear within milliseconds. ERROR_LOCK_VIOLATION
+// (33) is the byte-range variant - Excel locks ranges of a workbook it has
+// open, notably on SMB shares - and is held just as briefly by a sync client.
+// IsFileLocked builds on this set, so it also defines "another program has
+// the file open".
 func isRetryableRenameError(err error) bool {
 	return errors.Is(err, windows.ERROR_SHARING_VIOLATION) ||
-		errors.Is(err, windows.ERROR_ACCESS_DENIED)
+		errors.Is(err, windows.ERROR_ACCESS_DENIED) ||
+		errors.Is(err, windows.ERROR_LOCK_VIOLATION)
 }

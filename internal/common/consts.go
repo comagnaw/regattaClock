@@ -167,6 +167,15 @@ const (
 	OriginChangedBannerFormat = "The regatta workbook has changed: %s. Apply to publish it to every timer, or dismiss."
 	OriginUnchangedMessage    = "The workbook has not changed the schedule."
 
+	// Shown when the regatta workbook cannot be read because another program -
+	// on Windows, almost always Excel with the workbook open - holds it.
+	// OriginLockedBannerFormat is the RD-tree banner the origin poll raises
+	// (it clears itself once a poll can read the file again);
+	// WorkbookLockedFormat is the import / Reload Schedule error. Arg: the
+	// workbook's file name.
+	OriginLockedBannerFormat = "The regatta workbook %s is open in another program (usually Excel), so changes saved there can't be read yet. Close it in Excel and they will be picked up automatically."
+	WorkbookLockedFormat     = "The regatta workbook %s is open in another program (usually Excel). Close it there and try again."
+
 	NumScheduledRacesTitle = "Scheduled Races: %d"
 
 	// TreeRegattaKey / TreeScheduledRacesKey / TreeDateKey / TreeRoleKey - the
