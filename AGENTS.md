@@ -87,15 +87,15 @@ Releases are cut from the release branch for the active line — today always
    - **Patch** (`v0.4.1` → `v0.4.2`) — only bug fixes, docs, chore, tests, or CI since
      the last tag; no user-facing change.
    - The chosen `x.y.z[-pre]` (no `v`) is written to the repo-root `version` file
-     **only in the `develop` → `main` promotion PR** — nowhere else does that
-     file change. `main`'s `version` therefore always equals the newest release;
-     `develop` keeps the last released value until the next promotion, so a dev
-     build's `-v` shows that version with a newer `commit`/`branch`.
+     **only in the `develop` → `main` promotion PR** — no other PR edits that
+     file. Step 10's back-merge then carries it to `develop`, so after a release
+     both branches' `version` equals the newest release, and a dev build's `-v`
+     shows that version with a newer `commit`/`branch`.
 
 4. **Choose the pre-release suffix.** If the previous tag ends in `-alpha` or `-beta`,
    ask the team whether the new tag keeps that suffix, advances it (`-alpha` → `-beta`),
-   or drops it for a stable `v0.x.y`. Default: keep the previous suffix (every tag so
-   far is `-alpha`).
+   or drops it for a stable `v0.x.y`. Default: keep the previous suffix (every tag
+   since `v0.7.0-beta` is `-beta`).
 
 5. **Draft the notes** — a short, summarised **bullet list of changes since the last
    tag**, grouped by area (Personas, Finish Timer, Docs, CI, …), written from the merged
@@ -140,7 +140,26 @@ Releases are cut from the release branch for the active line — today always
      workflow forced `prerelease: false`).
    - `gh release view <version>` — confirm all four assets are attached.
 
-10. **Report** the tag, the reason for that bump, the pre-release status, and the
+10. **Back-merge `main` into `develop`.** The promotion PR bumped `version` on
+    `main` only. Bring it back so `develop` reports the new release and the next
+    promotion PR does not conflict on that file:
+
+    ```sh
+    git fetch origin
+    git merge-base --is-ancestor origin/develop origin/main || echo "develop has moved on - merge main into a branch from develop instead"
+    git checkout -b chore/sync-version-<version> origin/main
+    git push -u origin chore/sync-version-<version>
+    gh pr create --base develop --title "chore: sync develop's version file with main (<x.y.z[-pre]>)"
+    ```
+
+    When `develop` has gained no commits since the promotion, the PR's only
+    change is `version`. If it has, branch from `origin/develop` and
+    `git merge origin/main` instead; resolve any `version` conflict to the new
+    release. Ask the team to merge with **"Create a merge commit"**, never
+    squash: a squash copies the file change without the shared history, so the
+    conflict returns at the next promotion.
+
+11. **Report** the tag, the reason for that bump, the pre-release status, and the
     release URL.
 
 ### Version bumps & maintained lines
