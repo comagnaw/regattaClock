@@ -41,11 +41,12 @@ func (r *Regatta) originPoller(uri, acceptedHash string, stop <-chan struct{}) {
 // carry forward (unchanged when the file could not be read - a partial save
 // retries next tick).
 //
-// A workbook another program holds open (on Windows, Excel - especially on an
-// SMB share) cannot even be hashed, and stays that way until Excel closes it,
-// so every tick fails. That is surfaced as the originLocked banner rather than
-// a Debug line: otherwise the RD saves changes in Excel and nothing happens,
-// with no sign why. The banner clears on the first tick that reads the file.
+// A workbook Excel holds open on Windows - on this computer (including in a
+// OneDrive-synced folder), or on another one sharing it over SMB - cannot even
+// be hashed, and stays that way until Excel closes it, so every tick fails.
+// That is surfaced as the originLocked banner rather than a Debug line:
+// otherwise the RD saves changes in Excel and nothing happens, with no sign
+// why. The banner clears on the first tick that reads the file.
 func (r *Regatta) pollOrigin(uri, lastHash string) string {
 	h, err := originHashFunc(uri)
 	if err != nil {
@@ -68,6 +69,18 @@ func (r *Regatta) pollOrigin(uri, lastHash string) string {
 	r.setOriginLocked(uri, false)
 	fyne.Do(func() { r.inspectOriginCandidate(candidate) })
 	return h
+}
+
+// workbookLockedText formats a locked-workbook message for path: byFormat
+// (file name, user) when Excel's owner file says who has it open, otherwise
+// format (file name). Reading the owner file is a tiny local/share read, fine
+// on the poll goroutine or for a one-off import error.
+func workbookLockedText(path, format, byFormat string) string {
+	file := filepath.Base(path)
+	if who, ok := reader.ExcelLockOwner(path); ok {
+		return fmt.Sprintf(byFormat, file, who)
+	}
+	return fmt.Sprintf(format, file)
 }
 
 // originHashFunc is an indirection seam so a test can simulate a workbook
@@ -96,7 +109,7 @@ func (r *Regatta) setOriginLocked(uri string, locked bool) {
 			return
 		}
 		if locked {
-			b.show(fmt.Sprintf(common.OriginLockedBannerFormat, filepath.Base(uri)))
+			b.show(workbookLockedText(uri, common.OriginLockedBannerFormat, common.OriginLockedByBannerFormat))
 			return
 		}
 		b.dismissed = false

@@ -1,8 +1,8 @@
 package regatta
 
 import (
+	"errors"
 	"fmt"
-	"path/filepath"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/dialog"
@@ -172,7 +172,7 @@ func (r *Regatta) setRegattaData(filePath string) error {
 			// another process" - say what to do instead. The cause stays in
 			// the log (callers log err before showing it).
 			applog.Warn("regatta workbook is open in another program", "component", "loader", "path", filePath, "err", err)
-			return fmt.Errorf(common.WorkbookLockedFormat, filepath.Base(filePath))
+			return errors.New(workbookLockedText(filePath, common.WorkbookLockedFormat, common.WorkbookLockedByFormat))
 		}
 		return err
 	}

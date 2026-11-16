@@ -196,6 +196,29 @@ func TestPollOrigin_LockedWorkbookRaisesBanner(t *testing.T) {
 	}
 }
 
+// TestPollOrigin_LockedBannerNamesOwner: when Excel's owner file says who has
+// the workbook open, the banner names them - so the RD knows whom to ask,
+// rather than hunting for an Excel window that may be on another computer.
+func TestPollOrigin_LockedBannerNamesOwner(t *testing.T) {
+	r := directorWithBanner(t, rdWith("Test", "2026-10-02", oneRace(1, "A")))
+	dir := t.TempDir()
+	uri := filepath.Join(dir, "Heat Sheet.xlsm")
+	owner := make([]byte, 165)
+	owner[0] = byte(len("Jane Smith"))
+	copy(owner[1:], "Jane Smith")
+	if err := os.WriteFile(filepath.Join(dir, "~$Heat Sheet.xlsm"), owner, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	swapOriginHash(t, func(string) (string, error) {
+		return "", fmt.Errorf("open: %w", fs.ErrPermission)
+	})
+	r.pollOrigin(uri, "h")
+	if txt := r.originLocked.label.Text; !strings.Contains(txt, "by Jane Smith") {
+		t.Errorf("banner text = %q, want it to name the owner", txt)
+	}
+}
+
 // TestPollOrigin_DismissSilencesOneLockedSpell: Dismiss hides the banner for
 // the rest of that locked spell, but a later spell raises it again.
 func TestPollOrigin_DismissSilencesOneLockedSpell(t *testing.T) {
@@ -245,7 +268,7 @@ func TestSetRegattaData_LockedWorkbookMessage(t *testing.T) {
 
 	r := directorWithRaces(t, nil)
 	err := r.setRegattaData(path)
-	if err == nil || !strings.Contains(err.Error(), "open in another program") {
+	if err == nil || !strings.Contains(err.Error(), "is open in Excel") {
 		t.Errorf("setRegattaData(locked) error = %v, want the workbook-locked message", err)
 	}
 }

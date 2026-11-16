@@ -168,13 +168,18 @@ const (
 	OriginUnchangedMessage    = "The workbook has not changed the schedule."
 
 	// Shown when the regatta workbook cannot be read because another program -
-	// on Windows, almost always Excel with the workbook open - holds it.
-	// OriginLockedBannerFormat is the RD-tree banner the origin poll raises
+	// on Windows, almost always Excel with the workbook open - holds it. That
+	// can be Excel on this computer or, for a workbook on a network share,
+	// on another one, so the text does not assume which.
+	// OriginLocked*BannerFormat is the RD-tree banner the origin poll raises
 	// (it clears itself once a poll can read the file again);
-	// WorkbookLockedFormat is the import / Reload Schedule error. Arg: the
-	// workbook's file name.
-	OriginLockedBannerFormat = "The regatta workbook %s is open in another program (usually Excel), so changes saved there can't be read yet. Close it in Excel and they will be picked up automatically."
-	WorkbookLockedFormat     = "The regatta workbook %s is open in another program (usually Excel). Close it there and try again."
+	// WorkbookLocked*Format is the import / Reload Schedule error. The "By"
+	// variants are used when Excel's owner file names who has it open
+	// (reader.ExcelLockOwner). Args: the workbook's file name[, the user].
+	OriginLockedBannerFormat   = "The regatta workbook %s is open in Excel - on this computer or another one using the same folder - so changes saved there can't be read yet. They will be picked up automatically once it is closed."
+	OriginLockedByBannerFormat = "The regatta workbook %s is open in Excel by %s, so changes saved there can't be read yet. They will be picked up automatically once it is closed."
+	WorkbookLockedFormat       = "The regatta workbook %s is open in Excel - on this computer or another one using the same folder. Close it there and try again."
+	WorkbookLockedByFormat     = "The regatta workbook %s is open in Excel by %s. Close it there and try again."
 
 	NumScheduledRacesTitle = "Scheduled Races: %d"
 
