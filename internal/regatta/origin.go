@@ -2,6 +2,7 @@ package regatta
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -39,13 +40,21 @@ func (r *Regatta) originPoller(uri, acceptedHash string, stop <-chan struct{}) {
 // and hands the candidate to inspectOriginCandidate. Returns the file hash to
 // carry forward (unchanged when the file could not be read - a partial save
 // retries next tick).
+//
+// A workbook Excel holds open on Windows - on this computer (including in a
+// OneDrive-synced folder), or on another one sharing it over SMB - cannot even
+// be hashed, and stays that way until Excel closes it, so every tick fails.
+// That is surfaced as the originLocked banner rather than a Debug line:
+// otherwise the RD saves changes in Excel and nothing happens, with no sign
+// why. The banner clears on the first tick that reads the file.
 func (r *Regatta) pollOrigin(uri, lastHash string) string {
-	h, err := filesystem.FileHash(uri)
+	h, err := originHashFunc(uri)
 	if err != nil {
-		applog.Debug("origin poll: hash failed", "component", "origin", "err", err)
+		r.noteOriginReadFailure(uri, "hash", err)
 		return lastHash
 	}
 	if h == lastHash {
+		r.setOriginLocked(uri, false)
 		return lastHash
 	}
 
@@ -53,12 +62,59 @@ func (r *Regatta) pollOrigin(uri, lastHash string) string {
 	if err != nil {
 		// Locked or mid-save (Excel writes a temp then renames). Do not advance
 		// the hash so the next tick tries again.
-		applog.Debug("origin poll: re-read failed", "component", "origin", "err", err)
+		r.noteOriginReadFailure(uri, "re-read", err)
 		return lastHash
 	}
 
+	r.setOriginLocked(uri, false)
 	fyne.Do(func() { r.inspectOriginCandidate(candidate) })
 	return h
+}
+
+// workbookLockedText formats a locked-workbook message for path: byFormat
+// (file name, user) when Excel's owner file says who has it open, otherwise
+// format (file name). Reading the owner file is a tiny local/share read, fine
+// on the poll goroutine or for a one-off import error.
+func workbookLockedText(path, format, byFormat string) string {
+	file := filepath.Base(path)
+	if who, ok := reader.ExcelLockOwner(path); ok {
+		return fmt.Sprintf(byFormat, file, who)
+	}
+	return fmt.Sprintf(format, file)
+}
+
+// originHashFunc is an indirection seam so a test can simulate a workbook
+// another program holds open on any OS.
+var originHashFunc = filesystem.FileHash
+
+// noteOriginReadFailure logs a failed origin poll step and, when the cause is
+// another program holding the workbook, raises the locked banner. Other
+// failures (mid-save, a missing share) stay at Debug and are retried quietly.
+func (r *Regatta) noteOriginReadFailure(uri, step string, err error) {
+	if filesystem.IsFileLocked(err) {
+		applog.Warn("origin poll: workbook is open in another program", "component", "origin", "step", step, "path", uri, "err", err)
+		r.setOriginLocked(uri, true)
+		return
+	}
+	applog.Debug("origin poll: "+step+" failed", "component", "origin", "err", err)
+}
+
+// setOriginLocked shows or clears the originLocked banner on the UI thread.
+// Clearing also re-arms it: a Dismiss silences one locked spell, not every
+// later one.
+func (r *Regatta) setOriginLocked(uri string, locked bool) {
+	fyne.Do(func() {
+		b := r.originLocked
+		if b == nil {
+			return
+		}
+		if locked {
+			b.show(workbookLockedText(uri, common.OriginLockedBannerFormat, common.OriginLockedByBannerFormat))
+			return
+		}
+		b.dismissed = false
+		b.hide()
+	})
 }
 
 // inspectOriginCandidate compares a freshly parsed workbook to the live schedule

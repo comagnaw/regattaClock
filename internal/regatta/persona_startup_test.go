@@ -104,6 +104,9 @@ func timerSession(t *testing.T, id, root string) persona.Session {
 	return persona.Session{Definition: def, Root: root}
 }
 
+// testSchedule's Date is fixed and now in the past. A test that drives a
+// session start through confirmRegattaDate must set sch.Date to today, or it
+// stops at the past-regatta dialog.
 func testSchedule() *store.Schedule {
 	return &store.Schedule{
 		Name: "Head of the Test",
@@ -628,6 +631,12 @@ func TestOnPersonaChosen_ValidLastRoot_OffersPreviousRegatta(t *testing.T) {
 func TestConfirmPreviousRegatta_Yes_StartsSession(t *testing.T) {
 	app := test.NewTempApp(t)
 	sch := testSchedule()
+	// Load Previous Regatta goes through confirmRegattaDate, which holds a
+	// past regatta behind a confirm dialog instead of starting the session.
+	// testSchedule's fixed date went past on 2026-10-02, so pin this one to
+	// today: the test is about the resume path, not the past-date gate
+	// (date_guard_test.go covers that).
+	sch.Date = time.Now().Format("2006-01-02")
 	root := seedRegatta(t, sch)
 	app.Preferences().SetString(common.PrefLastRegattaRoot, root)
 	r := NewTimer(app)

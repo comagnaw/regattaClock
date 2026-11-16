@@ -131,6 +131,9 @@ type Regatta struct {
 	// 2.1), and no timing file has been written for a while (persona-plan.md 9).
 	directorSkew  *dismissibleBanner
 	directorStale *dismissibleBanner
+	// originLocked - RD-tree banner raised while the origin poll cannot read
+	// the source workbook because another program (Excel) holds it open.
+	originLocked *dismissibleBanner
 
 	// origin-refresh (persona-plan.md 3b): a background poll notices the source
 	// workbook changed; originBanner offers Apply/Dismiss for the parsed

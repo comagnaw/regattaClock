@@ -352,7 +352,11 @@ func (c *Clock) setRace(n int, res store.RaceResult) {
 }
 
 // serializeLapRows turns the six lap widgets into store.LapRow values, a
-// one-to-one copy (persona-plan.md section 4).
+// one-to-one copy (persona-plan.md section 4) - except that a DNF / DNS row's
+// split and time are left blank (keepsTime), so finish.json and everything
+// published from it match what the referee approved. The lap widgets
+// themselves keep the values, so switching the lane back to Next Place can
+// restore its time.
 func (c *Clock) serializeLapRows() []store.LapRow {
 	rows := make([]store.LapRow, 0, len(c.laps))
 	for i := range c.laps {
@@ -360,12 +364,16 @@ func (c *Clock) serializeLapRows() []store.LapRow {
 		if n := getGoodLaneNum(c.laps.oofLaneNum(i)); n != badLaneNum {
 			lane = n
 		}
-		rows = append(rows, store.LapRow{
+		row := store.LapRow{
 			Lane:  lane,
 			Place: c.laps.place(i),
 			Split: c.laps.split(i),
 			Time:  c.laps.calculatedTime(i),
-		})
+		}
+		if c.laps.isNonPlace(i) && !keepsTime(row.Place) {
+			row.Split, row.Time = common.EmptyString, common.EmptyString
+		}
+		rows = append(rows, row)
 	}
 	return rows
 }

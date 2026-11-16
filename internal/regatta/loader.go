@@ -1,6 +1,7 @@
 package regatta
 
 import (
+	"errors"
 	"fmt"
 
 	"fyne.io/fyne/v2"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/comagnaw/regattaClock/internal/applog"
 	"github.com/comagnaw/regattaClock/internal/common"
+	"github.com/comagnaw/regattaClock/internal/filesystem"
 	"github.com/comagnaw/regattaClock/internal/persona/store"
 	"github.com/comagnaw/regattaClock/internal/reader"
 )
@@ -165,6 +167,13 @@ func getFilePath(fileReader fyne.URIReadCloser) (string, error) {
 func (r *Regatta) setRegattaData(filePath string) error {
 	regattaData, err := reader.ReadExcelFile(filePath)
 	if err != nil {
+		if filesystem.IsFileLocked(err) {
+			// Excel holding the workbook surfaces as a raw "being used by
+			// another process" - say what to do instead. The cause stays in
+			// the log (callers log err before showing it).
+			applog.Warn("regatta workbook is open in another program", "component", "loader", "path", filePath, "err", err)
+			return errors.New(workbookLockedText(filePath, common.WorkbookLockedFormat, common.WorkbookLockedByFormat))
+		}
 		return err
 	}
 
