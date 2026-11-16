@@ -199,6 +199,27 @@ func TestWrite_RegeneratesWhole(t *testing.T) {
 	}
 }
 
+// TestWrite_RepublishKeepsFileIdentity: a republish edits the existing
+// workbook rather than replacing it, so OneDrive uploads it as a new version
+// of the same file instead of losing it to an "unmerged" conflict in Excel.
+func TestWrite_RepublishKeepsFileIdentity(t *testing.T) {
+	path := writeFixture(t)
+	before, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := Write(path, Meta{Name: "X"}, fixtureRaces()[:1], Ledger{}); err != nil {
+		t.Fatal(err)
+	}
+	after, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !os.SameFile(before, after) {
+		t.Error("republish replaced the workbook file instead of rewriting it in place")
+	}
+}
+
 func TestWrite_ReadOnlyFolderIsLocked(t *testing.T) {
 	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
 		t.Skip("directory permissions do not block writes here")

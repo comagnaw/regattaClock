@@ -45,9 +45,13 @@ const (
 	white        = "FFFFFF"
 )
 
-// Write renders a complete results workbook to path, replacing whatever was
-// there atomically (filesystem.SaveBytesFileAtomic) - the file is always
-// regenerated whole, never patched. races is every block to lay out, in
+// Write renders a complete results workbook to path, overwriting whatever was
+// there in place (filesystem.SaveBytesFileInPlace) - the file is always
+// regenerated whole, never patched. In place rather than temp-file-and-rename
+// so the workbook keeps its file identity: the results folder is typically
+// OneDrive-synced and opened in Excel, and a rename-over makes OneDrive and
+// Excel treat each publish as an unrelated file - it is not uploaded, and
+// Excel offers the stale server copy over it. races is every block to lay out, in
 // order; a race's Place/Split/Time cells are filled from its Rows, so a race
 // with no Rows is an empty block. A Row with no lane, or a lane beyond
 // MaxLanes, has no cell to go in and is skipped. ledger is written as given.
@@ -62,7 +66,7 @@ func Write(path string, meta Meta, races []publish.PublishableRace, ledger Ledge
 	if err != nil {
 		return fmt.Errorf("results workbook could not be rendered: %w", err)
 	}
-	if err := filesystem.SaveBytesFileAtomic(buf.Bytes(), path); err != nil {
+	if err := filesystem.SaveBytesFileInPlace(buf.Bytes(), path); err != nil {
 		if filesystem.IsFileLocked(err) {
 			return fmt.Errorf("%w: %w", ErrLocked, err)
 		}

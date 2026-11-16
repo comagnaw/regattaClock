@@ -10,6 +10,7 @@ import (
 	"github.com/xuri/excelize/v2"
 
 	"github.com/comagnaw/regattaClock/internal/common"
+	"github.com/comagnaw/regattaClock/internal/filesystem"
 	"github.com/comagnaw/regattaClock/internal/publish"
 )
 
@@ -58,6 +59,9 @@ func Read(path string) (Published, error) {
 		return out, nil
 	}
 	if err != nil {
+		if filesystem.IsFileLocked(err) {
+			return out, fmt.Errorf("%w: %w", ErrLocked, err)
+		}
 		return out, fmt.Errorf("results workbook %s could not be opened: %w", path, err)
 	}
 	defer f.Close()
