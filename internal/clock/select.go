@@ -54,9 +54,16 @@ func (c *Clock) placeSelectionFunc(row, lane int) func(newPlace string) {
 			c.results.updatePlace(lane, newPlace)
 			c.laps.setPlace(row, newPlace)
 
-			// Clear Split and Time values in results table
-			c.results.updateSplit(lane, common.EmptyString)
-			c.results.updateTime(lane, common.EmptyString)
+			// A DQ'd boat keeps its captured Split and Time on show (coaches
+			// want how it finished); DNF / DNS clear them (keepsTime).
+			split, tm := common.EmptyString, common.EmptyString
+			if keepsTime(newPlace) {
+				if lRow := c.laps.getLapRowByLaneNum(laneNumAsStr); lRow != (lapRow{}) {
+					split, tm = lRow.split.Text, lRow.calculatedTime.Text
+				}
+			}
+			c.results.updateSplit(lane, split)
+			c.results.updateTime(lane, tm)
 
 			if oldPlaceNum := getGoodLaneNum(oldPlace); oldPlaceNum != badLaneNum {
 				c.adjustPlaceForDQ(oldPlaceNum)

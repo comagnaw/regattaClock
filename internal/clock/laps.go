@@ -167,6 +167,21 @@ func (l laps) isNonPlace(row int) bool {
 	return false
 }
 
+// keepsTime reports whether a lane with this place shows - and records - its
+// captured split and time: a numeric place, Next Place, or DQ. A DQ'd boat
+// crossed the line, and coaches want its time even though it loses its place.
+// DNF and DNS have no meaningful finish time, so their split and time are
+// cleared from the results table and blanked in finish.json.
+func keepsTime(place string) bool {
+	switch place {
+	case nextPlace, common.RaceDisqualification:
+		return true
+	case common.RaceDidNotStart, common.RaceDidNotFinish:
+		return false
+	}
+	return getGoodPlaceNum(place) != badPlaceNum
+}
+
 // split - with provided row as lapRow index, return split as string
 func (l laps) split(row int) string {
 	return l[row].split.Text

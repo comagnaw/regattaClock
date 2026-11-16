@@ -141,6 +141,32 @@ func TestBuildView_DQDNFDNSRowsPassThrough(t *testing.T) {
 	}
 }
 
+// TestBuildView_DQRowKeepsTime: a DQ'd boat's split and time reach the
+// published results - coaches want how it finished even though it has no
+// place.
+func TestBuildView_DQRowKeepsTime(t *testing.T) {
+	fin := &store.FinishLog{Races: map[int]store.RaceResult{
+		1: {
+			RaceNumber:  1,
+			WinningTime: "06:00.0",
+			Approved:    true,
+			Rows: []store.LapRow{
+				{Lane: 2, Place: "1", Split: "00:00.0", Time: "06:00.0"},
+				{Lane: 1, Place: "DQ", Split: "00:03.1", Time: "06:03.1"},
+			},
+		},
+	}}
+
+	got := BuildView(sampleSchedule(), fin)
+	if len(got) != 1 || len(got[0].Rows) != 2 {
+		t.Fatalf("BuildView() = %+v", got)
+	}
+	dq := got[0].Rows[1]
+	if dq.Place != "DQ" || dq.Lane != "1" || dq.Split != "00:03.1" || dq.Time != "06:03.1" {
+		t.Errorf("DQ row = %+v, want DQ for lane 1 with split 00:03.1 and time 06:03.1", dq)
+	}
+}
+
 func TestRevision_StableAcrossUpdatedAtOnlyRewrite(t *testing.T) {
 	base := BuildView(sampleSchedule(), &store.FinishLog{Races: map[int]store.RaceResult{1: approvedResult()}})[0]
 

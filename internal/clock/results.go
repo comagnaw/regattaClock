@@ -32,9 +32,10 @@ func initResults(rd reader.RaceData) results {
 }
 
 // updateFromLapRows - using provide lane, row, and laps update the lane column
-// - only if the lap place is non-place (DQ, DNF, DNS)
+// - only if the lap place keeps its time (a place, Next Place, or DQ); a DNF /
+// DNS lane keeps the cleared split and time it was given on selection
 func (r results) updateFromLapRows(lane, row int, l laps) {
-	if !l.isNonPlace(row) {
+	if keepsTime(l.place(row)) {
 		r.updatePlace(lane, l.place(row))
 		r.updateSplit(lane, l.split(row))
 		r.updateTime(lane, l.calculatedTime(row))
