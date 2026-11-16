@@ -17,7 +17,9 @@ func ReadExcelFile(filePath string) (*RegattaData, error) {
 	// Open the Excel file
 	f, err := excelize.OpenFile(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open Excel file: %v", err)
+		// %w, not %v: callers use filesystem.IsFileLocked to tell "Excel has
+		// it open" apart from a missing or corrupt workbook.
+		return nil, fmt.Errorf("failed to open Excel file: %w", err)
 	}
 	defer f.Close()
 

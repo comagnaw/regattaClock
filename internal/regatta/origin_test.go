@@ -1,7 +1,11 @@
 package regatta
 
 import (
+	"fmt"
+	"io/fs"
+	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -153,6 +157,119 @@ func TestPollOriginNoChange(t *testing.T) {
 	got := r.pollOrigin(xlsx, rd.Hash)
 	if got != rd.Hash {
 		t.Errorf("pollOrigin advanced the hash for an unchanged file: %q -> %q", rd.Hash, got)
+	}
+}
+
+// swapOriginHash replaces the origin poll's hash seam for one test.
+func swapOriginHash(t *testing.T, fn func(string) (string, error)) {
+	t.Helper()
+	orig := originHashFunc
+	originHashFunc = fn
+	t.Cleanup(func() { originHashFunc = orig })
+}
+
+// TestPollOrigin_LockedWorkbookRaisesBanner: the RD has the heat sheet open in
+// Excel, so every poll fails to read it. That must be visible, not a silent
+// Debug line, and must clear itself once Excel lets go.
+func TestPollOrigin_LockedWorkbookRaisesBanner(t *testing.T) {
+	r := directorWithBanner(t, rdWith("Test", "2026-10-02", oneRace(1, "A")))
+	uri := filepath.Join("share", "Heat Sheet.xlsm")
+
+	swapOriginHash(t, func(string) (string, error) {
+		return "", fmt.Errorf("open: %w", fs.ErrPermission)
+	})
+	if got := r.pollOrigin(uri, "accepted"); got != "accepted" {
+		t.Errorf("a locked poll advanced the hash to %q", got)
+	}
+	if r.originLocked.root.Hidden {
+		t.Fatal("locked banner should show while the workbook cannot be read")
+	}
+	if txt := r.originLocked.label.Text; !strings.Contains(txt, "Heat Sheet.xlsm") {
+		t.Errorf("banner text = %q, want the workbook name", txt)
+	}
+
+	// Excel closed: the next poll reads the file and the banner clears.
+	swapOriginHash(t, func(string) (string, error) { return "accepted", nil })
+	r.pollOrigin(uri, "accepted")
+	if !r.originLocked.root.Hidden {
+		t.Error("locked banner should clear once the workbook is readable again")
+	}
+}
+
+// TestPollOrigin_LockedBannerNamesOwner: when Excel's owner file says who has
+// the workbook open, the banner names them - so the RD knows whom to ask,
+// rather than hunting for an Excel window that may be on another computer.
+func TestPollOrigin_LockedBannerNamesOwner(t *testing.T) {
+	r := directorWithBanner(t, rdWith("Test", "2026-10-02", oneRace(1, "A")))
+	dir := t.TempDir()
+	uri := filepath.Join(dir, "Heat Sheet.xlsm")
+	owner := make([]byte, 165)
+	owner[0] = byte(len("Jane Smith"))
+	copy(owner[1:], "Jane Smith")
+	if err := os.WriteFile(filepath.Join(dir, "~$Heat Sheet.xlsm"), owner, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	swapOriginHash(t, func(string) (string, error) {
+		return "", fmt.Errorf("open: %w", fs.ErrPermission)
+	})
+	r.pollOrigin(uri, "h")
+	if txt := r.originLocked.label.Text; !strings.Contains(txt, "by Jane Smith") {
+		t.Errorf("banner text = %q, want it to name the owner", txt)
+	}
+}
+
+// TestPollOrigin_DismissSilencesOneLockedSpell: Dismiss hides the banner for
+// the rest of that locked spell, but a later spell raises it again.
+func TestPollOrigin_DismissSilencesOneLockedSpell(t *testing.T) {
+	r := directorWithBanner(t, rdWith("Test", "2026-10-02", oneRace(1, "A")))
+	locked := func(string) (string, error) { return "", fmt.Errorf("open: %w", fs.ErrPermission) }
+	readable := func(string) (string, error) { return "h", nil }
+
+	swapOriginHash(t, locked)
+	r.pollOrigin("w.xlsx", "h")
+	r.originLocked.dismiss.OnTapped()
+	r.pollOrigin("w.xlsx", "h")
+	if !r.originLocked.root.Hidden {
+		t.Fatal("a dismissed banner should stay hidden for the same locked spell")
+	}
+
+	swapOriginHash(t, readable)
+	r.pollOrigin("w.xlsx", "h")
+	swapOriginHash(t, locked)
+	r.pollOrigin("w.xlsx", "h")
+	if r.originLocked.root.Hidden {
+		t.Error("a new locked spell after the file was readable should raise the banner again")
+	}
+}
+
+// TestPollOrigin_OtherFailureStaysQuiet: a failure that is not a lock (a
+// share briefly unreachable, a mid-save) is retried without the banner.
+func TestPollOrigin_OtherFailureStaysQuiet(t *testing.T) {
+	r := directorWithBanner(t, rdWith("Test", "2026-10-02", oneRace(1, "A")))
+	swapOriginHash(t, func(string) (string, error) { return "", fs.ErrNotExist })
+	r.pollOrigin("w.xlsx", "h")
+	if !r.originLocked.root.Hidden {
+		t.Error("a non-lock read failure should not raise the locked banner")
+	}
+}
+
+// TestSetRegattaData_LockedWorkbookMessage: Import / Reload Schedule on a
+// workbook another program holds gets a "close it in Excel" message instead
+// of the raw OS error. An unreadable file stands in for Excel's lock.
+func TestSetRegattaData_LockedWorkbookMessage(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("file permissions do not block reads here")
+	}
+	path := filepath.Join(t.TempDir(), "Heat Sheet.xlsx")
+	if err := os.WriteFile(path, []byte("x"), 0o000); err != nil {
+		t.Fatal(err)
+	}
+
+	r := directorWithRaces(t, nil)
+	err := r.setRegattaData(path)
+	if err == nil || !strings.Contains(err.Error(), "is open in Excel") {
+		t.Errorf("setRegattaData(locked) error = %v, want the workbook-locked message", err)
 	}
 }
 

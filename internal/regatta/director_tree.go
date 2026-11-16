@@ -202,11 +202,13 @@ func (r *Regatta) directorHeaderExtras() fyne.CanvasObject {
 	r.directorSkew = newDismissibleBanner()
 	r.directorStale = newDismissibleBanner()
 	r.originBanner = newActionBanner(common.ApplyButtonText, r.applyPendingOrigin, r.dismissOrigin)
+	r.originLocked = newDismissibleBanner()
 
 	r.checkDirectorSkew()
 	r.checkDirectorStale()
 
 	return container.NewVBox(
+		r.originLocked.root,
 		r.originBanner.root,
 		r.directorSkew.root,
 		r.directorStale.root,
