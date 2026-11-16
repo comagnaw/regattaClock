@@ -99,6 +99,7 @@ jobs:
             ./internal/filesystem/... `
             ./internal/persona/... `
             ./internal/personacfg/... `
+            ./internal/publish/... `
             ./internal/reader/... `
             ./internal/timesync/... `
             ./internal/watcher/...
