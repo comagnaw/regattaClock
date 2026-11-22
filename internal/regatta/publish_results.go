@@ -123,6 +123,7 @@ func (r *Regatta) resultsPath(kind string) string {
 // published, or - with no usable folder for this regatta - ask for one.
 // Declining is fine; timing never depends on it, and Publish asks again.
 func (r *Regatta) startPublishing() {
+	r.refreshPublishSummary()
 	if r.isPublisher() {
 		r.ensureResultsDirs(r.folderKinds(), nil, r.loadPublishedLedgers)
 	}
@@ -229,6 +230,18 @@ func (r *Regatta) promptChooseResultsFolder(kind, msg string, onReady, done func
 // regatta, else this machine's last-used one), records the choice for this
 // regatta, then runs onReady and done (either may be nil).
 func (r *Regatta) pickResultsFolder(kind string, onReady, done func()) {
+	r.browseResultsFolder(kind, r.resultsDir(kind), func(dir string) {
+		if r.setResultsDir(kind, dir) {
+			call(onReady)
+		}
+	}, done)
+}
+
+// browseResultsFolder opens the folder browser for kind at start (else this
+// machine's last-used folder for kind) and passes the chosen folder to
+// onPicked without recording it anywhere. done (if any) runs when the
+// browser closes, whether or not a folder was chosen.
+func (r *Regatta) browseResultsFolder(kind, start string, onPicked func(dir string), done func()) {
 	fd := dialog.NewFolderOpen(func(dir fyne.ListableURI, err error) {
 		defer call(done)
 		if err != nil {
@@ -238,14 +251,11 @@ func (r *Regatta) pickResultsFolder(kind string, onReady, done func()) {
 		if dir == nil {
 			return // cancelled
 		}
-		if r.setResultsDir(kind, filepath.FromSlash(dir.Path())) {
-			call(onReady)
-		}
+		onPicked(filepath.FromSlash(dir.Path()))
 	}, r.window)
 	fd.SetTitleText(fmt.Sprintf(common.ResultsFolderTitleFormat, kindLabel(kind)))
 	fd.SetConfirmText(common.UseThisFolderText)
-	start := r.resultsDir(kind)
-	if start == common.EmptyString {
+	if start == common.EmptyString || !filesystem.DirExists(start) {
 		start = r.App.Preferences().String(resultsDirPref(kind))
 	}
 	if start != common.EmptyString && filesystem.DirExists(start) {
@@ -281,6 +291,7 @@ func (r *Regatta) setResultsDir(kind, dir string) bool {
 	}
 	applog.Info("results folder set", "component", "publish", "kind", kind, "dir", dir)
 	r.applyLedger(kind, nil)
+	r.refreshPublishSummary()
 	return true
 }
 
