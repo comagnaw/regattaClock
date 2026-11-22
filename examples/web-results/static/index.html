@@ -52,7 +52,7 @@
   }
   .race h2 small { font-weight: normal; color: var(--muted); }
   .prog {
-    display: inline-block; margin-right: 8px; padding: 1px 6px; border-radius: 4px;
+    display: inline-block; margin-left: 8px; padding: 1px 6px; border-radius: 4px;
     font-size: .75rem; font-weight: 600; color: var(--accent); border: 1px solid var(--accent);
   }
   .note { padding: 6px 12px 0; color: var(--muted); font-size: .85rem; }
@@ -219,8 +219,8 @@
         main.appendChild(el("section", { "class": "race", id: "race-" + race.raceNumber }, [
           el("h2", {}, [
             el("span", {}, [
-              race.progression ? el("span", { "class": "prog", text: race.progression }) : null,
-              el("span", { text: race.title })
+              el("span", { text: race.title }),
+              race.progression ? el("span", { "class": "prog", text: race.progression }) : null
             ]),
             el("small", { text: race.scheduledTime + (race.winningTime ? SEP + "winner " + race.winningTime : "") })
           ]),
