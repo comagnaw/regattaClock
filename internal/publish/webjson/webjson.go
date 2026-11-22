@@ -1,7 +1,7 @@
 // Package webjson is the web-results publish destination: one JSON file per
-// regatta, read by the club's Google Sites results page (an Apps Script web
-// app listing results-*.json in a Drive-synced folder - see
-// examples/google-sites-poc and publish-destinations.md).
+// regatta, read by a public results page - a Google Sites page (Apps Script
+// listing results-*.json in a Drive-synced folder) or a page on any plain web
+// host. See examples/web-results and publish-destinations.md.
 //
 // Like the results workbook, the file is regenerated whole on every publish
 // and carries its own ledger (each race's revision + publishedAt), so it is a
