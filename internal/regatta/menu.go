@@ -14,6 +14,9 @@ func (r *Regatta) makeMenu() *fyne.MainMenu {
 	if r.mode == modeDirector {
 		items = append(items, r.importItem(), r.reloadScheduleItem(), r.createLaneImages())
 	}
+	if r.mode == modeTimer && r.isPublisher() {
+		items = append(items, r.publishDestinationsItem())
+	}
 	items = append(items,
 		r.showWindowItem(),
 		fyne.NewMenuItemSeparator(),

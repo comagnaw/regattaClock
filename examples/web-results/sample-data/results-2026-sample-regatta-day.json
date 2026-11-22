@@ -1,0 +1,446 @@
+{
+  "schemaVersion": 1,
+  "generator": "regattaClock",
+  "regatta": {
+    "name": "Sample Regatta Day",
+    "date": "2026-05-02",
+    "season": "2026",
+    "regattaKey": "c92da04ba1f9"
+  },
+  "publishedAt": "2026-05-02T13:36:00Z",
+  "races": [
+    {
+      "raceNumber": 1,
+      "title": "Race 1 - W-1x - Final",
+      "scheduledTime": "09:00 AM",
+      "boatClass": "W-1x",
+      "flightInfo": "Final",
+      "winningTime": "07:03.6",
+      "approvedAt": "2026-05-02T13:00:00Z",
+      "revision": "e088f4d39ba155f7",
+      "publishedAt": "2026-05-02T13:01:00Z",
+      "lanes": {
+        "3": {
+          "school": "Windermere School",
+          "additionalInfo": "",
+          "status": ""
+        },
+        "4": {
+          "school": "Coventry Crew A",
+          "additionalInfo": "",
+          "status": ""
+        },
+        "5": {
+          "school": "Coventry Crew B",
+          "additionalInfo": "",
+          "status": ""
+        }
+      },
+      "results": [
+        {
+          "place": "1",
+          "lane": "3",
+          "school": "Windermere School",
+          "additionalInfo": "",
+          "split": "00:00.0",
+          "time": "07:03.6"
+        },
+        {
+          "place": "2",
+          "lane": "5",
+          "school": "Coventry Crew B",
+          "additionalInfo": "",
+          "split": "00:08.6",
+          "time": "07:12.2"
+        },
+        {
+          "place": "3",
+          "lane": "4",
+          "school": "Coventry Crew A",
+          "additionalInfo": "",
+          "split": "00:16.9",
+          "time": "07:20.5"
+        }
+      ]
+    },
+    {
+      "raceNumber": 2,
+      "title": "Race 2 - M-1x - Final",
+      "scheduledTime": "09:07 AM",
+      "boatClass": "M-1x",
+      "flightInfo": "Final",
+      "winningTime": "06:14.1",
+      "approvedAt": "2026-05-02T13:07:00Z",
+      "revision": "cd8145bf34275644",
+      "publishedAt": "2026-05-02T13:08:00Z",
+      "lanes": {
+        "2": {
+          "school": "Valley Forge Academy",
+          "additionalInfo": "",
+          "status": ""
+        },
+        "3": {
+          "school": "Saint Cuthbert's Boat Club",
+          "additionalInfo": "",
+          "status": ""
+        },
+        "4": {
+          "school": "Windermere School A",
+          "additionalInfo": "",
+          "status": "SCR"
+        },
+        "5": {
+          "school": "Holloway Rowing Club",
+          "additionalInfo": "",
+          "status": ""
+        },
+        "6": {
+          "school": "Windermere School B",
+          "additionalInfo": "",
+          "status": ""
+        }
+      },
+      "results": [
+        {
+          "place": "1",
+          "lane": "3",
+          "school": "Saint Cuthbert's Boat Club",
+          "additionalInfo": "",
+          "split": "00:00.0",
+          "time": "06:14.1"
+        },
+        {
+          "place": "2",
+          "lane": "6",
+          "school": "Windermere School B",
+          "additionalInfo": "",
+          "split": "00:02.9",
+          "time": "06:17.0"
+        },
+        {
+          "place": "3",
+          "lane": "5",
+          "school": "Holloway Rowing Club",
+          "additionalInfo": "",
+          "split": "00:06.6",
+          "time": "06:20.7"
+        },
+        {
+          "place": "4",
+          "lane": "2",
+          "school": "Valley Forge Academy",
+          "additionalInfo": "",
+          "split": "00:20.2",
+          "time": "06:34.3"
+        }
+      ]
+    },
+    {
+      "raceNumber": 3,
+      "title": "Race 3 - M-Jr-1x - Final",
+      "scheduledTime": "09:14 AM",
+      "boatClass": "M-Jr-1x",
+      "flightInfo": "Final",
+      "winningTime": "06:10.4",
+      "approvedAt": "2026-05-02T13:14:00Z",
+      "revision": "db6fdfa9d4b48ba7",
+      "publishedAt": "2026-05-02T13:15:00Z",
+      "lanes": {
+        "2": {
+          "school": "Alderbrook School",
+          "additionalInfo": "",
+          "status": ""
+        },
+        "3": {
+          "school": "Crestwood School",
+          "additionalInfo": "",
+          "status": ""
+        },
+        "4": {
+          "school": "Windermere School",
+          "additionalInfo": "",
+          "status": ""
+        }
+      },
+      "results": [
+        {
+          "place": "1",
+          "lane": "3",
+          "school": "Crestwood School",
+          "additionalInfo": "",
+          "split": "00:00.0",
+          "time": "06:10.4"
+        },
+        {
+          "place": "2",
+          "lane": "4",
+          "school": "Windermere School",
+          "additionalInfo": "",
+          "split": "00:25.4",
+          "time": "06:35.8"
+        },
+        {
+          "place": "3",
+          "lane": "2",
+          "school": "Alderbrook School",
+          "additionalInfo": "",
+          "split": "00:29.0",
+          "time": "06:39.4"
+        }
+      ]
+    },
+    {
+      "raceNumber": 4,
+      "title": "Race 4 - W-2x - Final",
+      "scheduledTime": "09:21 AM",
+      "boatClass": "W-2x",
+      "flightInfo": "Final",
+      "winningTime": "06:29.8",
+      "approvedAt": "2026-05-02T13:21:00Z",
+      "revision": "ef44b2388c0e9eec",
+      "publishedAt": "2026-05-02T13:22:00Z",
+      "lanes": {
+        "2": {
+          "school": "Alderbrook School",
+          "additionalInfo": "",
+          "status": ""
+        },
+        "3": {
+          "school": "Crestwood School",
+          "additionalInfo": "",
+          "status": ""
+        },
+        "4": {
+          "school": "Ravenswood Boat Club",
+          "additionalInfo": "",
+          "status": ""
+        },
+        "5": {
+          "school": "Linwood Country Day",
+          "additionalInfo": "W-Jr-2x",
+          "status": ""
+        },
+        "6": {
+          "school": "Queensbury Collegiate",
+          "additionalInfo": "Exhibition W-Jr-2x",
+          "status": ""
+        }
+      },
+      "results": [
+        {
+          "place": "1",
+          "lane": "3",
+          "school": "Crestwood School",
+          "additionalInfo": "",
+          "split": "00:00.0",
+          "time": "06:29.8"
+        },
+        {
+          "place": "2",
+          "lane": "6",
+          "school": "Queensbury Collegiate",
+          "additionalInfo": "Exhibition W-Jr-2x",
+          "split": "00:25.3",
+          "time": "06:55.1"
+        },
+        {
+          "place": "3",
+          "lane": "5",
+          "school": "Linwood Country Day",
+          "additionalInfo": "W-Jr-2x",
+          "split": "00:26.3",
+          "time": "06:56.1"
+        },
+        {
+          "place": "4",
+          "lane": "2",
+          "school": "Alderbrook School",
+          "additionalInfo": "",
+          "split": "00:45.3",
+          "time": "07:15.1"
+        },
+        {
+          "place": "DNF",
+          "lane": "4",
+          "school": "Ravenswood Boat Club",
+          "additionalInfo": "",
+          "split": "",
+          "time": ""
+        }
+      ]
+    },
+    {
+      "raceNumber": 5,
+      "title": "Race 5 - M-Jr-2x - Final",
+      "scheduledTime": "09:28 AM",
+      "boatClass": "M-Jr-2x",
+      "flightInfo": "Final",
+      "winningTime": "05:29.7",
+      "approvedAt": "2026-05-02T13:28:00Z",
+      "revision": "a4c8dd1270d1bdbb",
+      "publishedAt": "2026-05-02T13:29:00Z",
+      "lanes": {
+        "1": {
+          "school": "Ravenswood Boat Club",
+          "additionalInfo": "",
+          "status": ""
+        },
+        "2": {
+          "school": "Westhaven Prep A",
+          "additionalInfo": "",
+          "status": ""
+        },
+        "3": {
+          "school": "Windermere School",
+          "additionalInfo": "",
+          "status": ""
+        },
+        "4": {
+          "school": "Westhaven Prep B",
+          "additionalInfo": "",
+          "status": ""
+        },
+        "5": {
+          "school": "Coldspring Rowing Association",
+          "additionalInfo": "M-2x Exhibition",
+          "status": ""
+        },
+        "6": {
+          "school": "Vandermeer Crew",
+          "additionalInfo": "M-2x Exhibition",
+          "status": ""
+        }
+      },
+      "results": [
+        {
+          "place": "1",
+          "lane": "6",
+          "school": "Vandermeer Crew",
+          "additionalInfo": "M-2x Exhibition",
+          "split": "00:00.0",
+          "time": "05:29.7"
+        },
+        {
+          "place": "2",
+          "lane": "2",
+          "school": "Westhaven Prep A",
+          "additionalInfo": "",
+          "split": "00:15.3",
+          "time": "05:45.0"
+        },
+        {
+          "place": "3",
+          "lane": "5",
+          "school": "Coldspring Rowing Association",
+          "additionalInfo": "M-2x Exhibition",
+          "split": "00:21.6",
+          "time": "05:51.3"
+        },
+        {
+          "place": "4",
+          "lane": "3",
+          "school": "Windermere School",
+          "additionalInfo": "",
+          "split": "00:49.5",
+          "time": "06:19.2"
+        },
+        {
+          "place": "5",
+          "lane": "4",
+          "school": "Westhaven Prep B",
+          "additionalInfo": "",
+          "split": "00:59.8",
+          "time": "06:29.5"
+        },
+        {
+          "place": "6",
+          "lane": "1",
+          "school": "Ravenswood Boat Club",
+          "additionalInfo": "",
+          "split": "01:25.6",
+          "time": "06:55.3"
+        }
+      ]
+    },
+    {
+      "raceNumber": 6,
+      "title": "Race 6 - W-1-4+ - Heat 1",
+      "scheduledTime": "09:35 AM",
+      "boatClass": "W-1-4+",
+      "flightInfo": "Heat 1",
+      "winningTime": "05:57.2",
+      "approvedAt": "2026-05-02T13:35:00Z",
+      "revision": "c0a1ce9d7d8909c2",
+      "publishedAt": "2026-05-02T13:36:00Z",
+      "lanes": {
+        "1": {
+          "school": "Sherwood School",
+          "additionalInfo": "",
+          "status": ""
+        },
+        "2": {
+          "school": "Mistral Bay Collegiate",
+          "additionalInfo": "",
+          "status": ""
+        },
+        "3": {
+          "school": "Saint Cuthbert's Boat Club",
+          "additionalInfo": "",
+          "status": ""
+        },
+        "4": {
+          "school": "Valley Forge Academy",
+          "additionalInfo": "",
+          "status": ""
+        },
+        "5": {
+          "school": "Linwood Country Day",
+          "additionalInfo": "",
+          "status": ""
+        }
+      },
+      "results": [
+        {
+          "place": "1",
+          "lane": "3",
+          "school": "Saint Cuthbert's Boat Club",
+          "additionalInfo": "",
+          "split": "00:00.0",
+          "time": "05:57.2"
+        },
+        {
+          "place": "2",
+          "lane": "4",
+          "school": "Valley Forge Academy",
+          "additionalInfo": "",
+          "split": "00:17.4",
+          "time": "06:14.6"
+        },
+        {
+          "place": "3",
+          "lane": "5",
+          "school": "Linwood Country Day",
+          "additionalInfo": "",
+          "split": "00:34.0",
+          "time": "06:31.2"
+        },
+        {
+          "place": "4",
+          "lane": "1",
+          "school": "Sherwood School",
+          "additionalInfo": "",
+          "split": "00:46.0",
+          "time": "06:43.2"
+        },
+        {
+          "place": "DQ",
+          "lane": "2",
+          "school": "Mistral Bay Collegiate",
+          "additionalInfo": "",
+          "split": "",
+          "time": ""
+        }
+      ]
+    }
+  ]
+}

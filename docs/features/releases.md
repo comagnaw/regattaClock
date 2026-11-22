@@ -12,10 +12,13 @@ need ever arrives. The operational step-by-step lives in
 - **`main`** is the release branch for that line. It moves only when a
   `develop` → `main` **promotion PR** is merged.
 - The repo-root **`version`** file (`export VERSION=<x.y.z[-pre]>`) is the single
-  source of truth for the version string, and it changes **only** in the
-  promotion PR — nowhere else. `main`'s `version` therefore always equals the
-  newest release; `develop` carries the last released value until the next
-  promotion.
+  source of truth for the version string, and it is bumped **only** in the
+  promotion PR. After the tag, a `main` → `develop` **back-merge PR** (merge
+  commit, never squash) carries the bump to `develop`. Both branches' `version`
+  then equals the newest release, and the two share history, so the next
+  promotion PR does not conflict on that file. Before this step existed,
+  `develop` drifted (it read `0.6.0-alpha` until `v0.10.0-beta`), and every
+  promotion hit a `version` conflict.
 - A release is an annotated git tag `v<VERSION>` cut from `main`, plus the
   GitHub release and artifacts that `.github/workflows/release.yml` builds from
   that tag.

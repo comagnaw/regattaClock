@@ -13,6 +13,7 @@ import (
 	"github.com/comagnaw/regattaClock/internal/common"
 	"github.com/comagnaw/regattaClock/internal/persona/store"
 	"github.com/comagnaw/regattaClock/internal/publish"
+	"github.com/comagnaw/regattaClock/internal/publish/destinations"
 	"github.com/comagnaw/regattaClock/internal/publish/spreadsheet"
 )
 
@@ -69,12 +70,12 @@ func TestPublishButton_StateFollowsApprovalAndLedger(t *testing.T) {
 	}
 
 	rev := r.raceRevision(1, r.finishLog.Races[1])
-	r.applyLedger(spreadsheet.Ledger{1: {Revision: rev}})
+	r.applyLedger(store.DestinationSpreadsheet, spreadsheet.Ledger{1: {Revision: rev}})
 	if b := r.rows[1].publishBtn; b.Text != common.PublishedButtonText || b.Importance == widget.HighImportance {
 		t.Errorf("published, current: %q importance=%v, want Published", b.Text, b.Importance)
 	}
 
-	r.applyLedger(spreadsheet.Ledger{1: {Revision: "an-older-rev"}})
+	r.applyLedger(store.DestinationSpreadsheet, spreadsheet.Ledger{1: {Revision: "an-older-rev"}})
 	if b := r.rows[1].publishBtn; b.Text != common.RepublishButtonText || b.Importance != widget.HighImportance {
 		t.Errorf("published, stale: %q importance=%v, want highlighted Re-publish", b.Text, b.Importance)
 	}
@@ -165,7 +166,7 @@ func TestPublishResults_WritesAndRereads(t *testing.T) {
 	path := filepath.Join(t.TempDir(), spreadsheet.FileName("Lock Test", "2026-10-02"))
 	meta := spreadsheet.Meta{Name: "Lock Test", Date: "2026-10-02", RegattaKey: "k"}
 
-	ledger, err := publishResults(path, 1, meta, skeleton, approved, publishNow)
+	ledger, err := publishResults(spreadsheet.Destination{}, path, 1, meta, skeleton, approved, publishNow)
 	if err != nil {
 		t.Fatalf("publishResults() error = %v", err)
 	}
@@ -185,7 +186,7 @@ func TestPublishResults_ForeignWorkbookUntouched(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err := publishResults(path, 1, spreadsheet.Meta{}, skeleton, approved, publishNow)
+	_, err := publishResults(spreadsheet.Destination{}, path, 1, spreadsheet.Meta{}, skeleton, approved, publishNow)
 	if err == nil {
 		t.Fatal("publishResults() over a foreign file succeeded")
 	}
@@ -207,13 +208,13 @@ func TestPublishResults_OtherRegattasWorkbookRefused(t *testing.T) {
 	skeleton, approved := publishViews(approvedFinish("k"))
 	path := filepath.Join(t.TempDir(), spreadsheet.FileName("Lock Test", "2026-10-02"))
 	lastYear := spreadsheet.Meta{Name: "Lock Test", RegattaKey: "last-year"}
-	if _, err := publishResults(path, 1, lastYear, skeleton, approved, publishNow); err != nil {
+	if _, err := publishResults(spreadsheet.Destination{}, path, 1, lastYear, skeleton, approved, publishNow); err != nil {
 		t.Fatal(err)
 	}
 	before, _ := os.ReadFile(path)
 
 	thisYear := spreadsheet.Meta{Name: "Lock Test", RegattaKey: "this-year"}
-	_, err := publishResults(path, 1, thisYear, skeleton, approved, publishNow)
+	_, err := publishResults(spreadsheet.Destination{}, path, 1, thisYear, skeleton, approved, publishNow)
 	if !errors.Is(err, spreadsheet.ErrOtherRegatta) {
 		t.Fatalf("publishResults() error = %v, want ErrOtherRegatta", err)
 	}
@@ -248,7 +249,7 @@ func TestResultsDir_NewRegattaDoesNotInheritLastUsedFolder(t *testing.T) {
 	sch := twoRaceSchedule()
 	r := startedPublisherWith(t, sch, seedRegatta(t, sch), "", t.TempDir())
 
-	if got := r.resultsPath(); got != "" {
+	if got := r.resultsPath(store.DestinationSpreadsheet); got != "" {
 		t.Errorf("resultsPath() = %q, want none until this regatta's folder is confirmed", got)
 	}
 }
@@ -258,7 +259,7 @@ func TestResultsDir_SavedFolderWinsOverLastUsed(t *testing.T) {
 	saved := t.TempDir()
 	r := startedPublisherWith(t, sch, seedRegatta(t, sch), saved, t.TempDir())
 
-	if got := r.resultsDir(); got != saved {
+	if got := r.resultsDir(store.DestinationSpreadsheet); got != saved {
 		t.Errorf("resultsDir() = %q, want the folder saved in finish.json %q", got, saved)
 	}
 }
@@ -268,10 +269,10 @@ func TestResultsDir_UnreachableSavedFolderIsNotUsed(t *testing.T) {
 	gone := filepath.Join(t.TempDir(), "unplugged")
 	r := startedPublisherWith(t, sch, seedRegatta(t, sch), gone, t.TempDir())
 
-	if got := r.resultsPath(); got != "" {
+	if got := r.resultsPath(store.DestinationSpreadsheet); got != "" {
 		t.Errorf("resultsPath() = %q, want none for an unreachable folder", got)
 	}
-	if got := r.savedResultsDir(); got != gone {
+	if got := r.savedResultsDir(store.DestinationSpreadsheet); got != gone {
 		t.Errorf("savedResultsDir() = %q, want it kept (the drive may come back)", got)
 	}
 }
@@ -295,7 +296,7 @@ func TestResultsDir_NewRegattaDropsPreviousRegattasFolder(t *testing.T) {
 	stopWatch(t, r)
 	r.startSession(timerSession(t, "pft", root), next)
 
-	if got := r.savedResultsDir(); got != "" {
+	if got := r.savedResultsDir(store.DestinationSpreadsheet); got != "" {
 		t.Errorf("savedResultsDir() = %q, want none - the previous regatta's finish.json was set aside", got)
 	}
 }
@@ -305,11 +306,11 @@ func TestSetResultsDir_RecordsForThisRegatta(t *testing.T) {
 	r := startedPublisherWith(t, sch, seedRegatta(t, sch), "", "")
 	dir := t.TempDir()
 
-	if !r.setResultsDir(dir) {
+	if !r.setResultsDir(store.DestinationSpreadsheet, dir) {
 		t.Fatal("setResultsDir() = false")
 	}
-	if r.finishLog.ResultsDir != dir || r.resultsDir() != dir {
-		t.Errorf("finishLog.ResultsDir = %q, want %q", r.finishLog.ResultsDir, dir)
+	if r.finishLog.PublishDir(store.DestinationSpreadsheet) != dir || r.resultsDir(store.DestinationSpreadsheet) != dir {
+		t.Errorf("finishLog spreadsheet folder = %q, want %q", r.finishLog.PublishDir(store.DestinationSpreadsheet), dir)
 	}
 	if got := r.App.Preferences().String(common.PrefResultsDir); got != dir {
 		t.Errorf("last-used folder = %q, want %q", got, dir)
@@ -321,7 +322,134 @@ func TestSetResultsDir_RefusedWhileWritesBlocked(t *testing.T) {
 	r := startedPublisherWith(t, sch, seedRegatta(t, sch), "", "")
 	r.writesBlocked = true
 
-	if r.setResultsDir(t.TempDir()) || r.finishLog.ResultsDir != "" {
+	if r.setResultsDir(store.DestinationSpreadsheet, t.TempDir()) || r.finishLog.PublishDir(store.DestinationSpreadsheet) != "" {
 		t.Error("setResultsDir() recorded a folder while finish.json writes are blocked")
+	}
+}
+
+// startedMultiPublisher starts a pft session whose finish.json enables kinds,
+// each with its own fresh folder. Returns the folders by kind.
+func startedMultiPublisher(t *testing.T, kinds ...string) (*Regatta, map[string]string) {
+	t.Helper()
+	sch := twoRaceSchedule()
+	root := seedRegatta(t, sch)
+	fin := approvedFinish(store.RegattaKey(sch.Name, sch.Date))
+	dirs := map[string]string{}
+	fin.SetPublishDestinations(kinds)
+	for _, k := range kinds {
+		dirs[k] = t.TempDir()
+		fin.SetPublishDir(k, dirs[k])
+	}
+	if err := store.SaveFinish(timerSession(t, "pft", root), fin); err != nil {
+		t.Fatal(err)
+	}
+	app := test.NewTempApp(t)
+	r := NewTimer(app)
+	stopWatch(t, r)
+	r.startSession(timerSession(t, "pft", root), sch)
+	quiescePublisher(t, r)
+	return r, dirs
+}
+
+func publishAndWait(t *testing.T, r *Regatta, n int) {
+	t.Helper()
+	r.publishRace(n)
+	stopWithTimeout(t, r.publishes.Wait)
+}
+
+func TestPublishRace_FansOutToEveryDestination(t *testing.T) {
+	r, _ := startedMultiPublisher(t, store.DestinationSpreadsheet, store.DestinationWebJSON)
+	publishAndWait(t, r, 1)
+
+	for _, kind := range []string{store.DestinationSpreadsheet, store.DestinationWebJSON} {
+		k, _ := destinations.ByID(kind)
+		pub, err := k.New().Read(r.resultsPath(kind))
+		if err != nil || len(pub.Rows[1]) != 2 {
+			t.Errorf("%s: read back %+v, %v; want race 1 published", kind, pub, err)
+		}
+	}
+	if b := r.rows[1].publishBtn; b.Text != common.PublishedButtonText {
+		t.Errorf("button = %q, want Published once every destination has it", b.Text)
+	}
+}
+
+func TestPublishRace_OneDestinationFailingStillWritesTheOther(t *testing.T) {
+	r, _ := startedMultiPublisher(t, store.DestinationSpreadsheet, store.DestinationWebJSON)
+	workbook := r.resultsPath(store.DestinationSpreadsheet)
+	if err := os.WriteFile(workbook, []byte("not ours"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	publishAndWait(t, r, 1)
+
+	if data, _ := os.ReadFile(workbook); string(data) != "not ours" {
+		t.Error("the foreign workbook was overwritten")
+	}
+	k, _ := destinations.ByID(store.DestinationWebJSON)
+	if pub, err := k.New().Read(r.resultsPath(store.DestinationWebJSON)); err != nil || len(pub.Ledger) != 1 {
+		t.Errorf("web results = %+v, %v; want race 1 published despite the workbook failure", pub, err)
+	}
+	if _, ok := r.publishedLedgers[store.DestinationWebJSON][1]; !ok {
+		t.Error("web results ledger not recorded after a partial failure")
+	}
+	if b := r.rows[1].publishBtn; b.Text != common.RepublishButtonText {
+		t.Errorf("button = %q, want Re-publish while one destination lags", b.Text)
+	}
+}
+
+func TestPublishedRev_CombinesDestinations(t *testing.T) {
+	r, _ := startedMultiPublisher(t, store.DestinationSpreadsheet, store.DestinationWebJSON)
+	ss, wj := store.DestinationSpreadsheet, store.DestinationWebJSON
+
+	if _, ok := r.publishedRev(1); ok {
+		t.Error("published before any destination has it")
+	}
+	r.applyLedger(ss, publish.Ledger{1: {Revision: "r1"}})
+	if rev, ok := r.publishedRev(1); !ok || rev != "" {
+		t.Errorf("one of two = (%q, %v), want published-but-stale", rev, ok)
+	}
+	r.applyLedger(wj, publish.Ledger{1: {Revision: "r0"}})
+	if rev, ok := r.publishedRev(1); !ok || rev != "" {
+		t.Errorf("disagreeing = (%q, %v), want published-but-stale", rev, ok)
+	}
+	r.applyLedger(wj, publish.Ledger{1: {Revision: "r1"}})
+	if rev, ok := r.publishedRev(1); !ok || rev != "r1" {
+		t.Errorf("agreeing = (%q, %v), want (r1, true)", rev, ok)
+	}
+}
+
+func TestPublishRace_UnavailableDestinationReportedNotWritten(t *testing.T) {
+	r, _ := startedMultiPublisher(t, store.DestinationRegattaCentral, store.DestinationWebJSON)
+	publishAndWait(t, r, 1)
+
+	if _, ok := r.publishedLedgers[store.DestinationWebJSON][1]; !ok {
+		t.Error("web results not published alongside an unavailable destination")
+	}
+	// The unavailable kind does not count against "Published".
+	if b := r.rows[1].publishBtn; b.Text != common.PublishedButtonText {
+		t.Errorf("button = %q, want Published", b.Text)
+	}
+}
+
+func TestSetResultsDir_NewKindKeepsLegacyWorkbookFolder(t *testing.T) {
+	sch := twoRaceSchedule()
+	legacy := t.TempDir()
+	r := startedPublisherWith(t, sch, seedRegatta(t, sch), legacy, "")
+	web := t.TempDir()
+
+	if !r.setResultsDir(store.DestinationWebJSON, web) {
+		t.Fatal("setResultsDir(webjson) = false")
+	}
+	if got := r.resultsDir(store.DestinationSpreadsheet); got != legacy {
+		t.Errorf("workbook folder = %q, want the legacy %q kept", got, legacy)
+	}
+	if got := r.resultsDir(store.DestinationWebJSON); got != web {
+		t.Errorf("web folder = %q, want %q", got, web)
+	}
+	if got := r.App.Preferences().String(resultsDirPref(store.DestinationWebJSON)); got != web {
+		t.Errorf("web last-used folder = %q, want %q", got, web)
+	}
+	if got := r.App.Preferences().String(common.PrefResultsDir); got == web {
+		t.Error("web folder overwrote the workbook's last-used preference")
 	}
 }

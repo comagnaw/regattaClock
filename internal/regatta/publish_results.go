@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -17,22 +18,25 @@ import (
 	"github.com/comagnaw/regattaClock/internal/persona"
 	"github.com/comagnaw/regattaClock/internal/persona/store"
 	"github.com/comagnaw/regattaClock/internal/publish"
-	"github.com/comagnaw/regattaClock/internal/publish/spreadsheet"
+	"github.com/comagnaw/regattaClock/internal/publish/destinations"
 )
 
-// Results publishing (results-publisher.md): the Primary Finish Timer's
-// per-race Publish button regenerates the RegattaClock-owned results
-// workbook in this regatta's results folder. Nothing new is written to
-// regattaData beyond that folder's path: the workbook is rendered from
-// finish.json + the schedule via internal/publish, and its own very-hidden
-// ledger sheet is the record of what has been published.
+// Results publishing (results-publisher.md, publish-destinations.md): the
+// Primary Finish Timer's per-race Publish button regenerates this regatta's
+// public results in every enabled destination - the results workbook, the
+// web-results JSON file, later RegattaCentral. Nothing new is written to
+// regattaData beyond the PFT's publish settings: each output is rendered from
+// finish.json + the schedule via internal/publish, and records what has been
+// published in its own ledger (the workbook's very-hidden sheet, the JSON's
+// per-race revision).
 //
-// The folder is regatta-scoped, not just a machine setting: it is recorded
-// in finish.json (store.FinishLog.ResultsDir) once the PFT confirms it. A new
-// regatta starts with a fresh finish.json, so it has no folder until the PFT
-// confirms one - never silently the previous regatta's. common.PrefResultsDir
-// only remembers the last folder used on this machine, to offer as the
-// default in that confirmation.
+// The destinations and their folders are regatta-scoped, not just machine
+// settings: they are recorded in finish.json (store.FinishLog.Publish) once
+// the PFT confirms them. A new regatta starts with a fresh finish.json - the
+// results workbook only, and no folder until the PFT confirms one, never
+// silently the previous regatta's. The per-machine preferences
+// (resultsDirPref) only remember the last folder used for each destination,
+// to offer as the default in that confirmation.
 
 // isPublisher reports whether this session owns the Publish button - only
 // the primary finish timer, whose Approved result is the official one.
@@ -40,110 +44,206 @@ func (r *Regatta) isPublisher() bool {
 	return r.session.Role == persona.RoleFinish && r.session.Team == persona.TeamPrimary
 }
 
-// savedResultsDir is the folder confirmed for this regatta (finish.json), or
-// "" when none has been confirmed yet.
-func (r *Regatta) savedResultsDir() string {
-	if r.finishLog == nil {
-		return common.EmptyString
+// resultsDirPref is the preference remembering this machine's last-used
+// folder for kind. The workbook keeps the original key, so an existing
+// machine's default carries over.
+func resultsDirPref(kind string) string {
+	if kind == store.DestinationSpreadsheet {
+		return common.PrefResultsDir
 	}
-	return r.finishLog.ResultsDir
+	return common.PrefResultsDir + "." + kind
 }
 
-// resultsDir is this regatta's confirmed results folder, or "" when none is
-// confirmed or it is no longer reachable (an unplugged drive, a renamed share).
-func (r *Regatta) resultsDir() string {
-	dir := r.savedResultsDir()
+// enabledKinds is this regatta's enabled destinations, in order. A kind this
+// build does not know (written by a newer one) is skipped.
+func (r *Regatta) enabledKinds() []destinations.Kind {
+	var out []destinations.Kind
+	for _, id := range r.finishLog.PublishDestinations() {
+		if k, ok := destinations.ByID(id); ok {
+			out = append(out, k)
+		} else {
+			applog.Warn("unknown results destination skipped", "component", "publish", "kind", id)
+		}
+	}
+	return out
+}
+
+// folderKinds is the enabled, built destinations that publish into a folder.
+func (r *Regatta) folderKinds() []string {
+	var out []string
+	for _, k := range r.enabledKinds() {
+		if k.Available && k.NeedsFolder {
+			out = append(out, k.ID)
+		}
+	}
+	return out
+}
+
+func kindLabel(kind string) string {
+	if k, ok := destinations.ByID(kind); ok {
+		return k.Label
+	}
+	return kind
+}
+
+// publishMeta is the regatta-level text every destination prints.
+func (r *Regatta) publishMeta() publish.Meta {
+	return publish.Meta{Name: r.schedule.Name, Date: r.schedule.Date, RegattaKey: r.regattaKey}
+}
+
+// savedResultsDir is the folder confirmed for kind in this regatta
+// (finish.json), or "" when none has been confirmed yet.
+func (r *Regatta) savedResultsDir(kind string) string {
+	return r.finishLog.PublishDir(kind)
+}
+
+// resultsDir is kind's confirmed folder, or "" when none is confirmed or it
+// is no longer reachable (an unplugged drive, a renamed share).
+func (r *Regatta) resultsDir(kind string) string {
+	dir := r.savedResultsDir(kind)
 	if dir == common.EmptyString || !filesystem.DirExists(dir) {
 		return common.EmptyString
 	}
 	return dir
 }
 
-// resultsPath is this regatta's results workbook, or "" with no usable folder.
-func (r *Regatta) resultsPath() string {
-	dir := r.resultsDir()
-	if dir == common.EmptyString || r.schedule == nil {
+// resultsPath is kind's output file for this regatta, or "" with no usable
+// folder.
+func (r *Regatta) resultsPath(kind string) string {
+	k, ok := destinations.ByID(kind)
+	dir := r.resultsDir(kind)
+	if !ok || k.New == nil || dir == common.EmptyString || r.schedule == nil {
 		return common.EmptyString
 	}
-	return filepath.Join(dir, spreadsheet.FileName(r.schedule.Name, r.schedule.Date))
+	return filepath.Join(dir, k.New().FileName(r.publishMeta()))
 }
 
-// startPublishing runs once a publisher's session is on screen: load what the
-// existing workbook says is published, or - with no usable folder for this
-// regatta - ask for one. Declining is fine; timing never depends on it, and
-// Publish asks again.
+// startPublishing runs once a publisher's session is on screen: for each
+// enabled folder destination in turn, load what its existing output says is
+// published, or - with no usable folder for this regatta - ask for one.
+// Declining is fine; timing never depends on it, and Publish asks again.
 func (r *Regatta) startPublishing() {
+	r.refreshPublishSummary()
 	if r.isPublisher() {
-		r.ensureResultsDir(r.loadPublishedLedger)
+		r.ensureResultsDirs(r.folderKinds(), nil, r.loadPublishedLedgers)
 	}
 }
 
-// ensureResultsDir runs onReady once this regatta has a reachable results
-// folder, first asking for one when it does not:
+// ensureResultsDirs runs ensureResultsDir for each kind in turn - one prompt
+// at a time - calling each(kind) for every kind that ends up with a folder,
+// then final (if any) once all have been offered.
+func (r *Regatta) ensureResultsDirs(kinds []string, each func(kind string), final func()) {
+	if len(kinds) == 0 {
+		call(final)
+		return
+	}
+	kind := kinds[0]
+	r.ensureResultsDir(kind,
+		func() {
+			if each != nil {
+				each(kind)
+			}
+		},
+		func() { r.ensureResultsDirs(kinds[1:], each, final) })
+}
+
+// ensureResultsDir runs onReady once kind has a reachable folder for this
+// regatta, first asking for one when it does not:
 //   - a folder saved for this regatta but unreachable: say so, and offer to
 //     choose one (the drive may just need reconnecting - Later leaves it);
 //   - none saved (a new regatta) and this machine's last-used folder is
 //     reachable: ask to confirm it for this regatta, or choose another;
 //   - otherwise: offer to choose one.
-func (r *Regatta) ensureResultsDir(onReady func()) {
-	if r.resultsDir() != common.EmptyString {
-		onReady()
+//
+// done (if any) runs when the flow ends either way - after onReady, or once
+// the operator declines or cancels - so callers can offer the next kind.
+func (r *Regatta) ensureResultsDir(kind string, onReady, done func()) {
+	if r.resultsDir(kind) != common.EmptyString {
+		call(onReady)
+		call(done)
 		return
 	}
-	if saved := r.savedResultsDir(); saved != common.EmptyString {
-		r.promptChooseResultsFolder(fmt.Sprintf(common.ResultsFolderUnreachableFormat, saved), onReady)
+	label := kindLabel(kind)
+	if saved := r.savedResultsDir(kind); saved != common.EmptyString {
+		r.promptChooseResultsFolder(kind, fmt.Sprintf(common.ResultsFolderUnreachableFormat, label, saved), onReady, done)
 		return
 	}
-	if last := r.App.Preferences().String(common.PrefResultsDir); last != common.EmptyString && filesystem.DirExists(last) {
-		r.confirmResultsFolder(last, onReady)
+	if last := r.App.Preferences().String(resultsDirPref(kind)); last != common.EmptyString && filesystem.DirExists(last) {
+		r.confirmResultsFolder(kind, last, onReady, done)
 		return
 	}
-	r.promptChooseResultsFolder(common.ResultsFolderPromptMessage, onReady)
+	r.promptChooseResultsFolder(kind, fmt.Sprintf(common.ResultsFolderPromptFormat, label), onReady, done)
 }
 
-// confirmResultsFolder asks whether this regatta publishes to last - the
-// folder this machine used most recently, quite possibly for a previous
+func call(f func()) {
+	if f != nil {
+		f()
+	}
+}
+
+// confirmResultsFolder asks whether this regatta publishes kind to last -
+// the folder this machine used most recently, quite possibly for a previous
 // regatta. Only an explicit "Use This Folder" records it for this regatta.
-func (r *Regatta) confirmResultsFolder(last string, onReady func()) {
-	msg := fmt.Sprintf(common.ConfirmResultsFolderFormat, r.schedule.Name, r.schedule.Date, last)
+func (r *Regatta) confirmResultsFolder(kind, last string, onReady, done func()) {
+	label := kindLabel(kind)
+	msg := fmt.Sprintf(common.ConfirmResultsFolderFormat, label, r.schedule.Name, r.schedule.Date, last)
 	useBtn := widget.NewButton(common.UseThisFolderText, nil)
 	useBtn.Importance = widget.HighImportance
 	chooseBtn := widget.NewButton(common.ChooseAnotherFolderButtonText, nil)
 	laterBtn := widget.NewButton(common.LaterButtonText, nil)
 
-	d := dialog.NewCustomWithoutButtons(common.ResultsFolderPromptTitle, widget.NewLabel(msg), r.window)
+	d := dialog.NewCustomWithoutButtons(fmt.Sprintf(common.ResultsFolderPromptTitleFormat, label), widget.NewLabel(msg), r.window)
 	d.SetButtons([]fyne.CanvasObject{laterBtn, chooseBtn, useBtn})
 	useBtn.OnTapped = func() {
 		d.Hide()
-		if r.setResultsDir(last) {
-			onReady()
+		if r.setResultsDir(kind, last) {
+			call(onReady)
 		}
+		call(done)
 	}
 	chooseBtn.OnTapped = func() {
 		d.Hide()
-		r.pickResultsFolder(onReady)
+		r.pickResultsFolder(kind, onReady, done)
 	}
-	laterBtn.OnTapped = d.Hide
+	laterBtn.OnTapped = func() {
+		d.Hide()
+		call(done)
+	}
 	d.Show()
 }
 
 // promptChooseResultsFolder explains msg and offers the folder browser.
-func (r *Regatta) promptChooseResultsFolder(msg string, onReady func()) {
-	d := dialog.NewConfirm(common.ResultsFolderPromptTitle, msg, func(ok bool) {
+func (r *Regatta) promptChooseResultsFolder(kind, msg string, onReady, done func()) {
+	d := dialog.NewConfirm(fmt.Sprintf(common.ResultsFolderPromptTitleFormat, kindLabel(kind)), msg, func(ok bool) {
 		if ok {
-			r.pickResultsFolder(onReady)
+			r.pickResultsFolder(kind, onReady, done)
+			return
 		}
+		call(done)
 	}, r.window)
 	d.SetConfirmText(common.ChooseFolderButtonText)
 	d.SetDismissText(common.LaterButtonText)
 	d.Show()
 }
 
-// pickResultsFolder opens the folder browser (at this regatta's folder, else
-// this machine's last-used one), records the choice for this regatta, then
-// runs onReady (if any).
-func (r *Regatta) pickResultsFolder(onReady func()) {
+// pickResultsFolder opens the folder browser (at kind's folder for this
+// regatta, else this machine's last-used one), records the choice for this
+// regatta, then runs onReady and done (either may be nil).
+func (r *Regatta) pickResultsFolder(kind string, onReady, done func()) {
+	r.browseResultsFolder(kind, r.resultsDir(kind), func(dir string) {
+		if r.setResultsDir(kind, dir) {
+			call(onReady)
+		}
+	}, done)
+}
+
+// browseResultsFolder opens the folder browser for kind at start (else this
+// machine's last-used folder for kind) and passes the chosen folder to
+// onPicked without recording it anywhere. done (if any) runs when the
+// browser closes, whether or not a folder was chosen.
+func (r *Regatta) browseResultsFolder(kind, start string, onPicked func(dir string), done func()) {
 	fd := dialog.NewFolderOpen(func(dir fyne.ListableURI, err error) {
+		defer call(done)
 		if err != nil {
 			dialog.ShowError(err, r.window)
 			return
@@ -151,15 +251,12 @@ func (r *Regatta) pickResultsFolder(onReady func()) {
 		if dir == nil {
 			return // cancelled
 		}
-		if r.setResultsDir(filepath.FromSlash(dir.Path())) && onReady != nil {
-			onReady()
-		}
+		onPicked(filepath.FromSlash(dir.Path()))
 	}, r.window)
-	fd.SetTitleText(common.ResultsFolderTitle)
+	fd.SetTitleText(fmt.Sprintf(common.ResultsFolderTitleFormat, kindLabel(kind)))
 	fd.SetConfirmText(common.UseThisFolderText)
-	start := r.resultsDir()
-	if start == common.EmptyString {
-		start = r.App.Preferences().String(common.PrefResultsDir)
+	if start == common.EmptyString || !filesystem.DirExists(start) {
+		start = r.App.Preferences().String(resultsDirPref(kind))
 	}
 	if start != common.EmptyString && filesystem.DirExists(start) {
 		if location, err := storage.ListerForURI(storage.NewFileURI(start)); err == nil {
@@ -169,13 +266,14 @@ func (r *Regatta) pickResultsFolder(onReady func()) {
 	fd.Show()
 }
 
-// setResultsDir records dir as this regatta's results folder in finish.json
-// (and as this machine's last-used folder), and clears the published state -
-// a different folder is a different publish history. Reports whether it was
-// recorded; outside a publisher session (the Configuration screen before a
-// PFT session starts) only the machine default is updated.
-func (r *Regatta) setResultsDir(dir string) bool {
-	r.App.Preferences().SetString(common.PrefResultsDir, dir)
+// setResultsDir records dir as kind's folder for this regatta in finish.json
+// (and as this machine's last-used folder for kind), and clears kind's
+// published state - a different folder is a different publish history.
+// Reports whether it was recorded; outside a publisher session (the
+// Configuration screen before a PFT session starts) only the machine default
+// is updated.
+func (r *Regatta) setResultsDir(kind, dir string) bool {
+	r.App.Preferences().SetString(resultsDirPref(kind), dir)
 	if !r.isPublisher() || r.finishLog == nil {
 		return false
 	}
@@ -183,93 +281,207 @@ func (r *Regatta) setResultsDir(dir string) bool {
 		r.showPublishError(common.ResultsFolderNotRecordedMessage)
 		return false
 	}
-	prev := r.finishLog.ResultsDir
-	r.finishLog.ResultsDir = dir
+	prevDir, prevPublish := r.finishLog.ResultsDir, r.finishLog.Publish.Clone()
+	r.finishLog.SetPublishDir(kind, dir)
 	if err := store.SaveFinish(r.session, r.finishLog); err != nil {
-		r.finishLog.ResultsDir = prev
-		applog.Error("results folder not recorded", "component", "publish", "dir", dir, "error", err)
+		r.finishLog.ResultsDir, r.finishLog.Publish = prevDir, prevPublish
+		applog.Error("results folder not recorded", "component", "publish", "kind", kind, "dir", dir, "error", err)
 		r.showPublishError(common.ResultsFolderNotRecordedMessage)
 		return false
 	}
-	applog.Info("results folder set", "component", "publish", "dir", dir)
-	r.applyLedger(nil)
+	applog.Info("results folder set", "component", "publish", "kind", kind, "dir", dir)
+	r.applyLedger(kind, nil)
+	r.refreshPublishSummary()
 	return true
 }
 
-// loadPublishedLedger reads the results workbook off the UI goroutine (the
-// published drive may be slow or remote) and applies its ledger. A workbook
-// belonging to another regatta contributes nothing - Publish will refuse it.
-func (r *Regatta) loadPublishedLedger() {
-	path := r.resultsPath()
-	if path == common.EmptyString {
+// loadPublishedLedgers reads every enabled destination's existing output in
+// one background task (the published drive may be slow or remote) and
+// applies the ledgers together, in one fyne.Do. Output belonging to another
+// regatta contributes nothing - Publish will refuse it.
+func (r *Regatta) loadPublishedLedgers() {
+	type source struct {
+		kind, path string
+		dest       publish.Destination
+	}
+	var sources []source
+	for _, kind := range r.folderKinds() {
+		if path := r.resultsPath(kind); path != common.EmptyString {
+			k, _ := destinations.ByID(kind)
+			sources = append(sources, source{kind: kind, path: path, dest: k.New()})
+		}
+	}
+	if len(sources) == 0 {
 		return
 	}
 	key := r.regattaKey
 	r.ledgerLoads.Go(func() {
-		pub, err := spreadsheet.Read(path)
-		if err == nil {
-			err = pub.CheckRegatta(key)
+		ledgers := make([]publish.Ledger, len(sources))
+		for i, src := range sources {
+			pub, err := src.dest.Read(src.path)
+			if err == nil {
+				err = pub.CheckRegatta(key)
+			}
+			if err != nil {
+				applog.Warn(common.PublishLedgerUnreadableNote, "component", "publish", "kind", src.kind, "path", src.path, "error", err)
+				continue
+			}
+			ledgers[i] = pub.Ledger
 		}
-		if err != nil {
-			applog.Warn(common.PublishLedgerUnreadableNote, "component", "publish", "path", path, "error", err)
-			pub.Ledger = nil
-		}
-		fyne.Do(func() { r.applyLedger(pub.Ledger) })
+		fyne.Do(func() {
+			for i, src := range sources {
+				r.setLedger(src.kind, ledgers[i])
+			}
+			r.refreshAllRows()
+		})
 	})
 }
 
-// applyLedger swaps in the published revisions and repaints the rows.
-func (r *Regatta) applyLedger(ledger spreadsheet.Ledger) {
-	r.publishedRevs = make(map[int]string, len(ledger))
-	for n, e := range ledger {
-		r.publishedRevs[n] = e.Revision
-	}
+// applyLedger swaps in kind's published revisions and repaints the rows.
+func (r *Regatta) applyLedger(kind string, ledger publish.Ledger) {
+	r.setLedger(kind, ledger)
 	r.refreshAllRows()
 }
 
-// publishRace publishes race n: the schedule and approved results are
-// snapshotted here on the UI goroutine, and the workbook read + write runs
-// off it. Every Publish button is disabled while one is in flight.
+// setLedger records kind's published revisions without repainting.
+func (r *Regatta) setLedger(kind string, ledger publish.Ledger) {
+	revs := make(map[int]string, len(ledger))
+	for n, e := range ledger {
+		revs[n] = e.Revision
+	}
+	if r.publishedLedgers == nil {
+		r.publishedLedgers = map[string]map[int]string{}
+	}
+	r.publishedLedgers[kind] = revs
+}
+
+// publishedRev is race n's published revision across every enabled, built
+// destination: (rev, true) when all of them hold the same revision; ("",
+// true) when some have published it but they disagree or one has not - so the
+// button shows Re-publish, which back-fills the laggard; ("", false) when
+// none has published it.
+func (r *Regatta) publishedRev(n int) (string, bool) {
+	rev, seen, agree := common.EmptyString, false, true
+	for _, k := range r.enabledKinds() {
+		if !k.Available {
+			continue
+		}
+		v, ok := r.publishedLedgers[k.ID][n]
+		switch {
+		case !ok:
+			agree = false
+		case !seen:
+			rev, seen = v, true
+		case v != rev:
+			agree = false
+		}
+	}
+	if !seen {
+		return common.EmptyString, false
+	}
+	if !agree {
+		return common.EmptyString, true
+	}
+	return rev, true
+}
+
+// publishRace publishes race n to every enabled destination. A folder
+// destination with no usable folder is asked for one first (one prompt at a
+// time); one still without a folder is skipped and reported, never blocking
+// the others.
 func (r *Regatta) publishRace(n int) {
 	if r.publishing || r.schedule == nil {
 		return
 	}
-	if dest := r.schedule.Publish.Destination(); dest != store.DestinationSpreadsheet {
-		r.showPublishError(fmt.Sprintf(common.PublishDestinationFormat, dest))
+	var missing []string
+	for _, kind := range r.folderKinds() {
+		if r.resultsPath(kind) == common.EmptyString {
+			missing = append(missing, kind)
+		}
+	}
+	if len(missing) > 0 {
+		r.ensureResultsDirs(missing, nil, func() { r.publishTargets(n) })
 		return
 	}
-	path := r.resultsPath()
-	if path == common.EmptyString {
-		r.ensureResultsDir(func() { r.publishRace(n) })
-		return
-	}
-
-	meta := spreadsheet.Meta{Name: r.schedule.Name, Date: r.schedule.Date, RegattaKey: r.regattaKey}
-	skeleton := publish.ScheduleView(r.schedule)
-	approved := publish.BuildView(r.schedule, r.finishLog)
-
-	r.setPublishing(true)
-	go func() {
-		ledger, err := publishResults(path, n, meta, skeleton, approved, time.Now())
-		fyne.Do(func() {
-			r.setPublishing(false)
-			if err != nil {
-				applog.Error("results publish failed", "component", "publish", "race", n, "path", path, "error", err)
-				r.showPublishError(publishErrorMessage(path, err))
-				return
-			}
-			applog.Info("results published", "component", "publish", "race", n, "path", path)
-			r.applyLedger(ledger)
-		})
-	}()
+	r.publishTargets(n)
 }
 
-// publishResults reads the existing workbook at path, merges race n into
+// publishTarget is one destination a publish writes, resolved on the UI
+// goroutine.
+type publishTarget struct {
+	kind destinations.Kind
+	path string
+}
+
+// publishTargets snapshots the schedule and approved results on the UI
+// goroutine and writes each ready destination off it, independently: a
+// locked workbook does not stop the web results going out. Every Publish
+// button is disabled while one is in flight.
+func (r *Regatta) publishTargets(n int) {
+	if r.publishing || r.schedule == nil {
+		return
+	}
+	kinds := r.enabledKinds()
+	labelled := len(kinds) > 1
+	var targets []publishTarget
+	var problems []string
+	for _, k := range kinds {
+		switch {
+		case !k.Available:
+			problems = append(problems, fmt.Sprintf(common.PublishDestinationFormat, k.Label))
+		case k.NeedsFolder && r.resultsPath(k.ID) == common.EmptyString:
+			problems = append(problems, fmt.Sprintf(common.PublishNoFolderFormat, k.Label))
+		default:
+			targets = append(targets, publishTarget{kind: k, path: r.resultsPath(k.ID)})
+		}
+	}
+	if len(targets) == 0 {
+		if len(problems) > 0 {
+			r.showPublishError(strings.Join(problems, "\n\n"))
+		}
+		return
+	}
+
+	meta := r.publishMeta()
+	skeleton := publish.ScheduleView(r.schedule)
+	approved := publish.BuildView(r.schedule, r.finishLog)
+	now := time.Now()
+
+	r.setPublishing(true)
+	r.publishes.Go(func() {
+		ledgers := make([]publish.Ledger, len(targets))
+		errs := make([]error, len(targets))
+		for i, t := range targets {
+			ledgers[i], errs[i] = publishResults(t.kind.New(), t.path, n, meta, skeleton, approved, now)
+		}
+		fyne.Do(func() {
+			for i, t := range targets {
+				if errs[i] != nil {
+					applog.Error("results publish failed", "component", "publish", "race", n, "kind", t.kind.ID, "path", t.path, "error", errs[i])
+					msg := publishErrorMessage(t.path, errs[i])
+					if labelled {
+						msg = fmt.Sprintf(common.PublishPartialFormat, t.kind.Label, msg)
+					}
+					problems = append(problems, msg)
+					continue
+				}
+				applog.Info("results published", "component", "publish", "race", n, "kind", t.kind.ID, "path", t.path)
+				r.setLedger(t.kind.ID, ledgers[i])
+			}
+			r.setPublishing(false)
+			if len(problems) > 0 {
+				r.showPublishError(strings.Join(problems, "\n\n"))
+			}
+		})
+	})
+}
+
+// publishResults reads dest's existing output at path, merges race n into
 // what it already publishes (mergePublished), and regenerates it. Returns
-// the ledger now in the file. A workbook belonging to another regatta
+// the ledger now in the file. Output belonging to another regatta
 // (meta.RegattaKey) is refused, never merged into or overwritten.
-func publishResults(path string, n int, meta spreadsheet.Meta, skeleton, approved []publish.PublishableRace, now time.Time) (spreadsheet.Ledger, error) {
-	prev, err := spreadsheet.Read(path)
+func publishResults(dest publish.Destination, path string, n int, meta publish.Meta, skeleton, approved []publish.PublishableRace, now time.Time) (publish.Ledger, error) {
+	prev, err := dest.Read(path)
 	if err != nil {
 		return nil, err
 	}
@@ -277,13 +489,13 @@ func publishResults(path string, n int, meta spreadsheet.Meta, skeleton, approve
 		return nil, err
 	}
 	races, ledger := mergePublished(n, skeleton, approved, prev, now)
-	if err := spreadsheet.Write(path, meta, races, ledger); err != nil {
+	if err := dest.Write(path, meta, races, ledger); err != nil {
 		return nil, err
 	}
 	return ledger, nil
 }
 
-// mergePublished decides the regenerated workbook's contents. Every scheduled
+// mergePublished decides a regenerated output's contents. Every scheduled
 // race gets its block; results are filled for race n plus every race already
 // in the ledger:
 //   - still approved: rendered from the current result, so a correction made
@@ -294,14 +506,14 @@ func publishResults(path string, n int, meta spreadsheet.Meta, skeleton, approve
 //     the public has already seen.
 //
 // A ledger race that is no longer on the schedule has no block and drops out.
-func mergePublished(n int, skeleton, approved []publish.PublishableRace, prev spreadsheet.Published, now time.Time) ([]publish.PublishableRace, spreadsheet.Ledger) {
+func mergePublished(n int, skeleton, approved []publish.PublishableRace, prev publish.Published, now time.Time) ([]publish.PublishableRace, publish.Ledger) {
 	approvedBy := make(map[int]publish.PublishableRace, len(approved))
 	for _, pr := range approved {
 		approvedBy[pr.RaceNumber] = pr
 	}
 
 	races := append([]publish.PublishableRace(nil), skeleton...)
-	ledger := spreadsheet.Ledger{}
+	ledger := publish.Ledger{}
 	for i, race := range races {
 		num := race.RaceNumber
 		old, wasPublished := prev.Ledger[num]
@@ -311,7 +523,7 @@ func mergePublished(n int, skeleton, approved []publish.PublishableRace, prev sp
 		if cur, ok := approvedBy[num]; ok {
 			races[i] = cur
 			if !wasPublished || old.Revision != cur.Revision {
-				old = spreadsheet.LedgerEntry{Revision: cur.Revision, PublishedAt: now}
+				old = publish.LedgerEntry{Revision: cur.Revision, PublishedAt: now}
 			}
 			ledger[num] = old
 			continue
@@ -327,11 +539,11 @@ func mergePublished(n int, skeleton, approved []publish.PublishableRace, prev sp
 // publishErrorMessage turns a publish failure into operator-facing copy.
 func publishErrorMessage(path string, err error) string {
 	switch {
-	case errors.Is(err, spreadsheet.ErrLocked):
+	case errors.Is(err, publish.ErrLocked):
 		return fmt.Sprintf(common.PublishLockedFormat, path)
-	case errors.Is(err, spreadsheet.ErrForeignWorkbook):
+	case errors.Is(err, publish.ErrForeign):
 		return fmt.Sprintf(common.PublishForeignFormat, path, common.AppTitle)
-	case errors.Is(err, spreadsheet.ErrOtherRegatta):
+	case errors.Is(err, publish.ErrOtherRegatta):
 		return fmt.Sprintf(common.PublishOtherRegattaFormat, path)
 	default:
 		return err.Error()
@@ -384,7 +596,7 @@ func (r *Regatta) refreshPublishButton(row *raceRow, res store.RaceResult) {
 	if canPublish {
 		revision = r.raceRevision(row.raceNumber, res)
 	}
-	publishedRev, published := r.publishedRevs[row.raceNumber]
+	publishedRev, published := r.publishedRev(row.raceNumber)
 	st := derivePublishState(canPublish, revision, publishedRev, published)
 
 	row.publishBtn.SetText(st.label)

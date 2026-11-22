@@ -10,7 +10,7 @@ ideas belong in the relevant design doc first, then here.
 - [ ] Activate the `sign-windows` job — `signtool` / `osslsigncode` (self-signed) or `azure/trusted-signing-action` + OIDC — RFC 3161 timestamped, signing the exe then the installer built around it — [ci-and-provenance.md](trusted-distribution/ci-and-provenance.md#secrets-vs-oidc)
 - [ ] Push the cert to the managed fleet via Intune — a Trusted-certificate profile for the root plus a platform script for the Trusted Publishers store; deliver releases from an internal share / Intune so Mark-of-the-Web never engages — [windows-internal-pki.md](trusted-distribution/windows-internal-pki.md#deploying-trust-to-the-fleet)
 - [ ] Add a WiX / MSI build alongside the Inno installer for silent `msiexec /qn` deployment via GPO / Intune / SCCM — [windows-packaging.md](trusted-distribution/windows-packaging.md)
-- [ ] Native Windows ARM64 build — today's release ships amd64 only; an ARM-based Windows machine (e.g. Surface Pro X, Surface Pro 9 5G/11 with Snapdragon) falls back to Windows' x64 emulation, untested with this app. Not pursued unless real demand shows up (no regatta hardware runs ARM today) — [README.md](../README.md#downloading-and-verifying)
+- [ ] Native Windows ARM64 build — today's release ships amd64 only; an ARM-based Windows machine (e.g. Surface Pro X, Surface Pro 9 5G/11 with Snapdragon) falls back to Windows' x64 emulation, untested with this app. Not pursued unless real demand shows up (no regatta hardware runs ARM today) — [README.md](../../README.md#downloading-and-verifying)
 
 ## Trusted distribution — macOS
 
@@ -59,7 +59,7 @@ remaining work:
 
 - [ ] Represent Heat Sheet **lunch breaks**. The reader skips a break block (a 3-row block with no race number and `Break` in column B; its length is set in the workbook's "Regatta Attributes" sheet), so a break shows up only as a gap in scheduled times. Nothing in the schedule, race trees, or ST/FT views marks it. Needs a design: a schedule field, how the trees show it, and whether countdowns account for it — [sample-regatta.md](testing/sample-regatta.md#constraints-and-gotchas)
 - [ ] `ScheduleOrigin` interface (`Fingerprint()` / `Load()`) generalising the Excel reader, with a later in-app-authored heat sheet (`Origin.Type = "heatsheet"`) built from the RegattaCentral roster and uploaded back to RegattaCentral, via `regattaDataFromSchedule` / `reader.NewRegattaData` (one entry point, no forked constructor) — [persona-plan.md](personas/persona-plan.md#3b-schedule-origin-refresh-rd-only), [schedule-data-model.md](personas/closed/schedule-data-model.md), [regattacentral-integration.md](personas/regattacentral-integration.md#phase-c--in-app-heat-sheet-authoring)
-- [ ] Windows folder-picker hang on a stale/disconnected mapped network drive — `dialog.NewFolderOpen`'s sidebar enumerates every drive letter and calls `os.Stat` on each before showing, which can hang indefinitely. Current mitigation is operator-side (README.md's Troubleshooting section); investigate a Fyne version bump that might fix this upstream, or a custom enumeration-free directory picker, before this becomes an app-level fix — [README.md](../README.md#troubleshooting)
+- [ ] Windows folder-picker hang on a stale/disconnected mapped network drive — `dialog.NewFolderOpen`'s sidebar enumerates every drive letter and calls `os.Stat` on each before showing, which can hang indefinitely. Current mitigation is operator-side (README.md's Troubleshooting section); investigate a Fyne version bump that might fix this upstream, or a custom enumeration-free directory picker, before this becomes an app-level fix — [README.md](../../README.md#troubleshooting)
 
 ## Persona additions — requirements & constraints not yet charted
 
@@ -68,8 +68,9 @@ Placeholders. Each needs its own design pass (requirements, constraints, a
 
 - [ ] **Heat Sheet Creator (HSC)** — Executive-team, **standalone persona**, not a sidecar. Foundational: originates regatta data from RegattaCentral (roster/events/entries) so the RD can turn it into `regattaSchedule.json`, replacing the current manual RC-export-to-Excel process. Staged: **v1** (read-only local working copy, participant/waiver filtering, RC-id fields added directly to `store.ScheduleRace`/`store.ScheduleEntry`, deadline/finalize workflow, fully-manual post-finalize sync) has no blockers and does not depend on the RC write-path investigation; **v2** (pushing the finalized Heat Sheet back to RC) is hard-gated on that investigation concluding; **v3** (heat→semi/final progression seeding, per a VASRA reference algorithm — computes a later race's lane draw from an earlier heat's approved result and proposes it for the RD to apply) is a separate later increment with no RC dependency, but needs its own design pass for round-type/progression metadata and placeholder-race creation first. The editing-UI question (Fyne in-app authoring, resolved by a dedicated throwaway feasibility spike, vs. generate-and-reconcile-Excel) is deliberately left open pending that spike. Does not block Developer/Results Publisher/SOM/Streamer, but its RC-id indexing decision should inform their own later RC-dependent slices — [heat-sheet-creator.md](personas/new/heat-sheet-creator.md)
 - [ ] **Regatta operational state** (not a persona — shared config) — the
-  RD's regatta-creation-time choice of schedule-ingest source and official
-  results-publish destination (spreadsheet or RegattaCentral), plus social
+  RD's regatta-creation-time choice of schedule-ingest source (the
+  results-publish destination moved to the PFT, see
+  [publish-destinations.md](publish-destinations.md)), plus social
   platform selection for Social Media (SOM, below) and any future
   social-publishing work. A dependency of Results Publisher and SOM below,
   not the other way around — [operational-state.md](personas/operational-state.md)

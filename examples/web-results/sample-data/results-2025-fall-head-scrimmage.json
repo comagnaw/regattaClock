@@ -1,0 +1,240 @@
+{
+  "schemaVersion": 1,
+  "generator": "regattaClock",
+  "regatta": {
+    "name": "Fall Head Scrimmage",
+    "date": "2025-10-11",
+    "season": "2025",
+    "regattaKey": "041af5141971"
+  },
+  "publishedAt": "2025-10-11T13:15:00Z",
+  "races": [
+    {
+      "raceNumber": 11,
+      "title": "Race 11 - M-1-4+ - Heat 3",
+      "scheduledTime": "10:10 AM",
+      "boatClass": "M-1-4+",
+      "flightInfo": "Heat 3",
+      "winningTime": "05:29.8",
+      "approvedAt": "2025-10-11T13:00:00Z",
+      "revision": "6d81aa454ce76970",
+      "publishedAt": "2025-10-11T13:01:00Z",
+      "lanes": {
+        "2": {
+          "school": "Kingsford Catholic",
+          "additionalInfo": "",
+          "status": ""
+        },
+        "3": {
+          "school": "Linwood Country Day",
+          "additionalInfo": "",
+          "status": ""
+        },
+        "4": {
+          "school": "Hawthorne Bay Rowing Club",
+          "additionalInfo": "",
+          "status": ""
+        },
+        "5": {
+          "school": "Radcliffe Rowing Club",
+          "additionalInfo": "",
+          "status": ""
+        }
+      },
+      "results": [
+        {
+          "place": "1",
+          "lane": "3",
+          "school": "Linwood Country Day",
+          "additionalInfo": "",
+          "split": "00:00.0",
+          "time": "05:29.8"
+        },
+        {
+          "place": "2",
+          "lane": "2",
+          "school": "Kingsford Catholic",
+          "additionalInfo": "",
+          "split": "00:01.4",
+          "time": "05:31.2"
+        },
+        {
+          "place": "3",
+          "lane": "5",
+          "school": "Radcliffe Rowing Club",
+          "additionalInfo": "",
+          "split": "00:02.5",
+          "time": "05:32.3"
+        },
+        {
+          "place": "4",
+          "lane": "4",
+          "school": "Hawthorne Bay Rowing Club",
+          "additionalInfo": "",
+          "split": "00:10.8",
+          "time": "05:40.6"
+        }
+      ]
+    },
+    {
+      "raceNumber": 12,
+      "title": "Race 12 - W-Jr-4+ - Heat 1",
+      "scheduledTime": "10:17 AM",
+      "boatClass": "W-Jr-4+",
+      "flightInfo": "Heat 1",
+      "winningTime": "06:07.2",
+      "approvedAt": "2025-10-11T13:07:00Z",
+      "revision": "1a1be3220c7574b5",
+      "publishedAt": "2025-10-11T13:08:00Z",
+      "lanes": {
+        "1": {
+          "school": "Coldspring Rowing Association",
+          "additionalInfo": "",
+          "status": ""
+        },
+        "2": {
+          "school": "Timberline Boat Club",
+          "additionalInfo": "",
+          "status": ""
+        },
+        "3": {
+          "school": "Harrowgate Academy",
+          "additionalInfo": "",
+          "status": ""
+        },
+        "4": {
+          "school": "Hawthorne Bay Rowing Club",
+          "additionalInfo": "",
+          "status": ""
+        },
+        "5": {
+          "school": "Lowell Park Prep",
+          "additionalInfo": "",
+          "status": ""
+        }
+      },
+      "results": [
+        {
+          "place": "1",
+          "lane": "3",
+          "school": "Harrowgate Academy",
+          "additionalInfo": "",
+          "split": "00:00.0",
+          "time": "06:07.2"
+        },
+        {
+          "place": "2",
+          "lane": "1",
+          "school": "Coldspring Rowing Association",
+          "additionalInfo": "",
+          "split": "00:13.6",
+          "time": "06:20.8"
+        },
+        {
+          "place": "3",
+          "lane": "4",
+          "school": "Hawthorne Bay Rowing Club",
+          "additionalInfo": "",
+          "split": "00:24.8",
+          "time": "06:32.0"
+        },
+        {
+          "place": "4",
+          "lane": "2",
+          "school": "Timberline Boat Club",
+          "additionalInfo": "",
+          "split": "00:29.9",
+          "time": "06:37.1"
+        },
+        {
+          "place": "5",
+          "lane": "5",
+          "school": "Lowell Park Prep",
+          "additionalInfo": "",
+          "split": "00:36.0",
+          "time": "06:43.2"
+        }
+      ]
+    },
+    {
+      "raceNumber": 13,
+      "title": "Race 13 - W-Jr-4+ - Heat 2",
+      "scheduledTime": "10:24 AM",
+      "boatClass": "W-Jr-4+",
+      "flightInfo": "Heat 2",
+      "winningTime": "06:16.4",
+      "approvedAt": "2025-10-11T13:14:00Z",
+      "revision": "6b4bd6a4497e5565",
+      "publishedAt": "2025-10-11T13:15:00Z",
+      "lanes": {
+        "1": {
+          "school": "Saint Cuthbert's Boat Club B",
+          "additionalInfo": "",
+          "status": ""
+        },
+        "3": {
+          "school": "Saint Cuthbert's Boat Club A",
+          "additionalInfo": "",
+          "status": ""
+        },
+        "4": {
+          "school": "Beacon Hill Catholic",
+          "additionalInfo": "",
+          "status": ""
+        },
+        "5": {
+          "school": "Cobble Hill Rowing Club",
+          "additionalInfo": "",
+          "status": ""
+        },
+        "6": {
+          "school": "Woodhaven Crew",
+          "additionalInfo": "",
+          "status": ""
+        }
+      },
+      "results": [
+        {
+          "place": "1",
+          "lane": "4",
+          "school": "Beacon Hill Catholic",
+          "additionalInfo": "",
+          "split": "00:00.0",
+          "time": "06:16.4"
+        },
+        {
+          "place": "2",
+          "lane": "3",
+          "school": "Saint Cuthbert's Boat Club A",
+          "additionalInfo": "",
+          "split": "00:07.8",
+          "time": "06:24.2"
+        },
+        {
+          "place": "3",
+          "lane": "5",
+          "school": "Cobble Hill Rowing Club",
+          "additionalInfo": "",
+          "split": "00:17.9",
+          "time": "06:34.3"
+        },
+        {
+          "place": "4",
+          "lane": "6",
+          "school": "Woodhaven Crew",
+          "additionalInfo": "",
+          "split": "00:20.4",
+          "time": "06:36.8"
+        },
+        {
+          "place": "5",
+          "lane": "1",
+          "school": "Saint Cuthbert's Boat Club B",
+          "additionalInfo": "",
+          "split": "00:32.3",
+          "time": "06:48.7"
+        }
+      ]
+    }
+  ]
+}

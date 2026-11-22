@@ -43,3 +43,12 @@ some cell ranges are protected. If you try to edit one, Excel warns:
 
 You can unprotect a sheet, but do so carefully — the protection keeps the
 formulas from being accidentally changed or deleted.
+
+## Publishing results to the public: `web-results/`
+
+How an organization can show the results the Primary Finish Timer publishes:
+on a Google Sites website, on its own web host (Apache, nginx, shared
+hosting), or as the Excel results workbook. It includes a ready-made results
+page, sample data written by the app, and a race-day guide for getting
+results from the PFT laptop to the website. See
+[web-results/README.md](web-results/README.md).

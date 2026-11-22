@@ -11,6 +11,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
@@ -147,17 +148,23 @@ type Regatta struct {
 	// replaced by onScheduleChanged); what results publishing renders from.
 	schedule *store.Schedule
 
-	// publishedRevs / publishing - the primary finish timer's results
-	// publishing state (publish_results.go): race number -> the
-	// publish.Revision the results workbook's ledger says is published, and
-	// whether a publish is in flight (every Publish button disabled).
-	publishedRevs map[int]string
-	publishing    bool
+	// publishedLedgers / publishing - the primary finish timer's results
+	// publishing state (publish_results.go): destination kind -> race number
+	// -> the publish.Revision that destination's ledger says is published,
+	// and whether a publish is in flight (every Publish button disabled).
+	publishedLedgers map[string]map[int]string
+	publishing       bool
 
-	// ledgerLoads tracks loadPublishedLedger's background read, whose
+	// ledgerLoads tracks loadPublishedLedgers' background read, whose
 	// fyne.Do repaints every row - so a test can wait it out rather than
 	// let it render concurrently with the next (known-issues.md).
 	ledgerLoads sync.WaitGroup
+	// publishes tracks publishTargets' background writes the same way.
+	publishes sync.WaitGroup
+
+	// publishSummary - the Configuration screen's text for this regatta's
+	// publish destinations (publish_settings.go), refreshed as they change.
+	publishSummary binding.String
 
 	// regattaKey - the schedule's RegattaKey captured when the session started,
 	// used to reject watched peer data that belongs to another regatta.
