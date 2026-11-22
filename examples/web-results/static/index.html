@@ -14,13 +14,11 @@
   :root {
     --bg: #f6f7f9; --card: #ffffff; --ink: #1b1f24; --muted: #5d6670;
     --line: #dde1e6; --accent: #0b5cad; --hi: #fff3bf; --scr: #8a929b;
-    --gold: #f2c94c; --silver: #c9ced6; --bronze: #d9a066;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #111418; --card: #1a1f25; --ink: #e8ebef; --muted: #9aa3ad;
       --line: #2c333b; --accent: #6cb0ff; --hi: #4a4118; --scr: #6b737c;
-      --gold: #b8962e; --silver: #7d838c; --bronze: #9a6a3c;
     }
   }
   * { box-sizing: border-box; }
@@ -53,6 +51,10 @@
     border-bottom: 1px solid var(--line);
   }
   .race h2 small { font-weight: normal; color: var(--muted); }
+  .prog {
+    display: inline-block; margin-left: 8px; padding: 1px 6px; border-radius: 4px;
+    font-size: .75rem; font-weight: 600; color: var(--accent); border: 1px solid var(--accent);
+  }
   .note { padding: 6px 12px 0; color: var(--muted); font-size: .85rem; }
   table { width: 100%; border-collapse: collapse; }
   th, td { text-align: left; padding: 6px 12px; border-bottom: 1px solid var(--line); }
@@ -60,7 +62,6 @@
   tr:last-child td { border-bottom: 0; }
   td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
   .place { display: inline-block; min-width: 2.2em; text-align: center; border-radius: 4px; font-weight: 600; }
-  .p1 { background: var(--gold); } .p2 { background: var(--silver); } .p3 { background: var(--bronze); }
   tr.scr td { color: var(--scr); font-style: italic; }
   tr.match td { background: var(--hi); }
   .info { color: var(--muted); font-size: .85rem; }
@@ -169,8 +170,6 @@
   }
 
   // --- rendering ----------------------------------------------------------
-  function placeClass(p) { return /^[123]$/.test(p) ? "place p" + p : "place"; }
-
   function rowsFor(race) {
     // Finish order first, then any scheduled lane with no result (a scratch).
     var rows = race.results.map(function (x) { return { r: x, scr: false }; });
@@ -208,7 +207,7 @@
         var body = el("tbody", {}, rows.map(function (x) {
           var cls = (x.scr ? "scr " : "") + (hit(x) ? "match" : "");
           return el("tr", { "class": cls.trim() }, [
-            el("td", {}, [el("span", { "class": x.scr ? "place" : placeClass(x.r.place), text: x.r.place })]),
+            el("td", {}, [el("span", { "class": "place", text: x.r.place })]),
             el("td", { "class": "num", text: x.r.lane }),
             el("td", { text: x.r.school }),
             el("td", { "class": "info col-info", text: x.r.additionalInfo || "" }),
@@ -219,7 +218,10 @@
 
         main.appendChild(el("section", { "class": "race", id: "race-" + race.raceNumber }, [
           el("h2", {}, [
-            el("span", { text: race.title }),
+            el("span", {}, [
+              el("span", { text: race.title }),
+              race.progression ? el("span", { "class": "prog", text: race.progression }) : null
+            ]),
             el("small", { text: race.scheduledTime + (race.winningTime ? SEP + "winner " + race.winningTime : "") })
           ]),
           race.note ? el("div", { "class": "note", text: race.note }) : null,
