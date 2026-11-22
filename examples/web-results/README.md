@@ -43,6 +43,7 @@ Anything that can read JSON can show these results. Readers **must ignore fields
 | `races[].winningTime` | The winner's time. |
 | `races[].approvedAt`, `races[].publishedAt` | When the referee approved it, and when it was published (UTC). |
 | `races[].revision` | Changes whenever anything visible in the race changes. |
+| `races[].progression` | Optional. A heat's advancement rule, e.g. `Top 3 to Final` or `Top 2 to Final, Next 2 to Petite Final`. The page shows it before the race title. Imported past results carry it; the app doesn't write it yet. |
 | `races[].lanes` | Lane number → `{school, additionalInfo, status}`. `status` is `"SCR"` for a scratched boat, otherwise empty. |
 | `races[].results[]` | Finish order: `{place, lane, school, additionalInfo, split, time}`. `place` is `1`–`6`, or `DQ`, `DNF` or `DNS`. |
 | `additionalInfo` (in lanes and results) | The heat sheet's info for that entry, often empty. For example `Exhibition`, `A` / `B` / `C` for a school's second or third entry, or a boat class when it differs from the race's (`W-Jr-2x`). |
