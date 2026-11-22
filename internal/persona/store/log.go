@@ -3,6 +3,7 @@ package store
 import (
 	"errors"
 	"io/fs"
+	"maps"
 	"time"
 
 	"github.com/comagnaw/regattaClock/internal/applog"
@@ -66,17 +67,102 @@ type ClearedStart struct {
 
 // FinishLog is the whole of one team's race results.
 //
-// ResultsDir is the folder the primary finish timer confirmed for publishing
-// this regatta's results workbook (results-publisher.md) - "" until
-// confirmed. It lives here, not only in a machine preference, because it is
-// regatta-scoped: finish.json is set aside when a new regatta starts
-// (RegattaKey mismatch), so a new regatta always begins with no folder and
-// must be confirmed, instead of silently publishing into the folder the
-// previous regatta used.
+// Publish is the primary finish timer's choice of where this regatta's
+// approved results are published, and the folder confirmed for each
+// destination that needs one (publish-destinations.md). It lives here, not
+// only in machine preferences, because it is regatta-scoped: finish.json is
+// set aside when a new regatta starts (RegattaKey mismatch), so a new regatta
+// always begins with the default destination and no folder, instead of
+// silently publishing into the folders the previous regatta used.
+//
+// ResultsDir is the legacy (pre-Publish) record of the results-workbook
+// folder. It is still read - as the spreadsheet destination's folder when
+// Publish is nil - and is cleared the first time Publish is saved.
 type FinishLog struct {
 	Envelope
-	ResultsDir string `json:",omitempty"`
+	ResultsDir string           `json:",omitempty"`
+	Publish    *PublishSettings `json:",omitempty"`
 	Races      map[int]RaceResult
+}
+
+// Results destination kinds a PublishSettings can name. The registry of what
+// each one is lives in internal/publish/destinations; these are the stored IDs.
+const (
+	DestinationSpreadsheet    = "spreadsheet"
+	DestinationWebJSON        = "webjson"
+	DestinationRegattaCentral = "regattacentral"
+)
+
+// PublishSettings is the primary finish timer's per-regatta publish setup:
+// the enabled destination kinds, in display order, and the folder confirmed
+// for each kind that publishes to one.
+type PublishSettings struct {
+	Destinations []string          `json:",omitempty"`
+	Dirs         map[string]string `json:",omitempty"`
+}
+
+// PublishDestinations is the enabled destination kinds, defaulting to the
+// results workbook alone - the behaviour before destinations were configurable.
+func (f *FinishLog) PublishDestinations() []string {
+	if f == nil || f.Publish == nil || len(f.Publish.Destinations) == 0 {
+		return []string{DestinationSpreadsheet}
+	}
+	return append([]string(nil), f.Publish.Destinations...)
+}
+
+// PublishDir is the folder confirmed for kind, or "" when none is. The
+// spreadsheet falls back to the legacy ResultsDir while Publish is unset.
+func (f *FinishLog) PublishDir(kind string) string {
+	if f == nil {
+		return ""
+	}
+	if f.Publish == nil {
+		if kind == DestinationSpreadsheet {
+			return f.ResultsDir
+		}
+		return ""
+	}
+	return f.Publish.Dirs[kind]
+}
+
+// SetPublishDir records dir as kind's folder, migrating a legacy ResultsDir
+// into Publish first so nothing recorded before is lost.
+func (f *FinishLog) SetPublishDir(kind, dir string) {
+	f.migratePublish()
+	if f.Publish.Dirs == nil {
+		f.Publish.Dirs = map[string]string{}
+	}
+	f.Publish.Dirs[kind] = dir
+}
+
+// SetPublishDestinations records the enabled destination kinds, migrating a
+// legacy ResultsDir into Publish first.
+func (f *FinishLog) SetPublishDestinations(kinds []string) {
+	f.migratePublish()
+	f.Publish.Destinations = append([]string(nil), kinds...)
+}
+
+func (f *FinishLog) migratePublish() {
+	if f.Publish != nil {
+		return
+	}
+	f.Publish = &PublishSettings{Destinations: []string{DestinationSpreadsheet}}
+	if f.ResultsDir != "" {
+		f.Publish.Dirs = map[string]string{DestinationSpreadsheet: f.ResultsDir}
+	}
+	f.ResultsDir = ""
+}
+
+// Clone is a deep copy, so a caller can roll back a failed save.
+func (p *PublishSettings) Clone() *PublishSettings {
+	if p == nil {
+		return nil
+	}
+	out := &PublishSettings{Destinations: append([]string(nil), p.Destinations...)}
+	if p.Dirs != nil {
+		out.Dirs = maps.Clone(p.Dirs)
+	}
+	return out
 }
 
 // RaceResult carries everything needed to rehydrate the clock window exactly as
