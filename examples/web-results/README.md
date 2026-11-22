@@ -11,6 +11,8 @@ regattaClock's Primary Finish Timer (PFT) publishes each race once the referee a
 
 The two web options use the **same page and the same files**. Choose by where your website already lives. Both can run from one PFT folder at the same time.
 
+**Audience size matters for Google Sites.** Google allows only 30 of the script's executions at once, so a large regatta's audience reloading after popular races can hit that limit. See the [worked example and mitigations](google-sites/README.md#capacity-and-rate-limits-a-risk-for-large-regattas). A plain web host has no such limit.
+
 ## What the PFT writes
 
 With **Web results (JSON)** ticked, every Publish rewrites one file per regatta in the folder the PFT chose:

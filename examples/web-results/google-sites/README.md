@@ -102,11 +102,69 @@ Use **Deploy → Manage deployments → edit (pencil) → Version: New version �
 | --- | --- | --- |
 | `/exec` works but the Sites embed is blank or asks for sign-in | The deployment access isn't *Anyone*, or the account's Workspace policy blocks anonymous web apps | Recheck step ② 6, or check the Workspace admin setting for Apps Script web-app access |
 | A "This application was created by another user" banner appears | Normal for personal (gmail) accounts | Deploy from a Workspace account on the same domain as the site, or accept the banner |
-| "Could not load results" | The script threw an error | Run `checkSetup` in the editor, and check **Executions** in the Apps Script sidebar |
+| "Could not load results" | The script threw an error, or too many visitors loaded at once (see [Capacity](#capacity-and-rate-limits-a-risk-for-large-regattas)) | Run `checkSetup` in the editor, and check **Executions** in the Apps Script sidebar for failures |
 | A published race never appears | Drive for Desktop isn't syncing that folder, it's signed in to the wrong account, or the PFT points at another folder | Check the Drive for Desktop status, and the folder in **Publish Destinations…** |
 
 ## Things to check
 
 - **Banner:** web apps deployed from a personal Google account show a notice bar. A Workspace account usually avoids it, especially on a Workspace-owned site.
-- **Quotas:** Apps Script's free daily limits are far above a regatta audience. Each page view makes a few Drive metadata calls, and file contents come from cache.
+- **Quotas:** the daily totals are not the problem; short bursts are. See [Capacity and rate limits](#capacity-and-rate-limits-a-risk-for-large-regattas).
 - **Load time:** the first view after a deploy or a quiet spell may take a second or two while the script starts up. This is normal for Apps Script.
+
+## Capacity and rate limits: a risk for large regattas
+
+Google limits how many Apps Script executions can run **at the same time** (Google's [Apps Script quotas](https://developers.google.com/apps-script/guides/services/quotas) page, as of November 2026):
+
+- **30 simultaneous executions per user**, for both personal and Workspace accounts;
+- **1,000 per script.**
+
+This web app runs **as the account that deployed it**, so every visitor's request counts against that one account's **30**. There is no published daily cap on web-app executions, Drive reads or the cache, so the day's total is not the problem. **The burst is:** everyone pressing Reload in the few minutes after a race they care about is published.
+
+When the limit is hit, the extra requests fail and the page shows "Could not load results". Visitors tend to press Reload again, which adds to the burst.
+
+### Worked example: a large regatta
+
+Take a regatta of 2,000 athletes from 50 teams, with 60 races over 8 hours (one every 8 minutes). The possible audience:
+
+- 2,000 athletes;
+- 200 coaches (4 per team);
+- 6,000 family members (3 per athlete).
+
+That's **8,200 people** in all.
+
+| Assumption | Low | Typical | High |
+| --- | --- | --- | --- |
+| Share of the audience that uses the page | 10% (820) | 30% (2,460) | 60% (4,920) |
+| Races each viewer follows | 2 | 4 | 8 |
+| Reloads per followed race | 2 | 5 | 6 |
+| Popularity of the busiest race (vs. average) | 1.5× | 2× | 3× |
+
+Reloads per day = viewers × races followed × reloads per race. Reloads for one race bunch up in about **3 minutes** around its result. Each reload runs about 2.5 executions: **Reload** runs `getIndex` and `getResults`, and opening the page also runs `doGet`. Each execution takes about **0.7 s** today.
+
+So **simultaneous executions ≈ reloads per second × 2.5 × 0.7.**
+
+| Result | Low | Typical | High |
+| --- | --- | --- | --- |
+| Reloads over the day | 3,280 | 49,200 | 236,160 |
+| Average per hour | 410 | 6,150 | 29,520 |
+| Reloads for the busiest race | 82 | 1,640 | 11,808 |
+| Peak reloads per second | 0.5 | 9 | 66 |
+| **Simultaneous executions at the peak (limit 30)** | **≈1** | **≈16** | **≈115** |
+| …once the folder holds about 20 regattas | ≈3 | **≈56** | **≈400** |
+| …after the planned speed-up (below) | ≈0 | ≈7 | **≈49** |
+
+**Reading it:**
+
+- **Low use is comfortable.**
+- **Typical use averages about half the limit.** But the averages hide spikes, for example when a result appears and many people reload within the same 30 seconds. Expect occasional failures at the busiest races.
+- **High use is well over the limit,** and some visitors will see errors for much of the day.
+- **The page slows as the folder fills.** `getIndex` currently reads every results file in the folder, about 0.25 s per file. With a season or two of regattas it takes several seconds, so each visitor holds an execution open for longer. That is the "about 20 regattas" row.
+
+These are estimates from the assumptions above, not measurements. To redo them for your own regatta, change the first table and recompute with the formula.
+
+### Reducing the risk
+
+1. **Keep the folder small.** Move past regattas' files into another folder (for example `Archive 2025`). The page only lists the live folder. This is the cheapest fix today.
+2. **The planned speed-up** (a follow-up to this example) caches the regatta list and sends the first view's data with the page. That cuts each reload to about 1.5 shorter executions and keeps the time flat however many files the folder holds. It brings typical use well under the limit, but not the high case.
+3. **For large regattas, use a plain web host instead** ([`../static/`](../static/README.md)). There, visitors fetch static JSON files, which an ordinary web server, or a free CDN in front of it, serves at thousands of requests per second with no execution limit. The same PFT folder can feed both, so you can keep the Google Sites page for small events and point a big regatta at the web host.
+4. **Watch it on the day.** Apps Script's **Executions** page lists failed runs. If failures appear around popular races, the limit is being hit.
