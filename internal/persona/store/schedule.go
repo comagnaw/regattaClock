@@ -18,36 +18,10 @@ import (
 // times, or approval flags. Those belong to the finish timer in finish.json
 // (schedule-data-model.md).
 type Schedule struct {
-	Name    string
-	Date    string
-	Origin  Origin
-	Publish PublishConfig `json:",omitzero"`
-	Races   []ScheduleRace
-}
-
-// Results destinations a PublishConfig can name (operational-state.md).
-const (
-	DestinationSpreadsheet    = "spreadsheet"
-	DestinationRegattaCentral = "regattacentral"
-)
-
-// PublishConfig is the RD's regatta-wide choice of where results are
-// published (operational-state.md) - the destination *kind* only. Where a
-// spreadsheet lands is a per-machine path on the Primary Finish Timer's host
-// (the published drive mounts differently on every machine), so it is a
-// local preference, never stored here. Metadata, not schedule content:
-// ContentHash deliberately ignores it.
-type PublishConfig struct {
-	ResultsDestination string `json:",omitempty"`
-}
-
-// Destination is the configured results destination, defaulting to the
-// spreadsheet - today's only built one - when the RD has not chosen.
-func (c PublishConfig) Destination() string {
-	if c.ResultsDestination == "" {
-		return DestinationSpreadsheet
-	}
-	return c.ResultsDestination
+	Name   string
+	Date   string
+	Origin Origin
+	Races  []ScheduleRace
 }
 
 // Origin describes where the schedule was ingested from, for the director's

@@ -1,7 +1,6 @@
 package spreadsheet
 
 import (
-	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -14,28 +13,32 @@ import (
 	"github.com/comagnaw/regattaClock/internal/publish"
 )
 
-// ErrLocked is returned (wrapped) by Write when another program - typically
-// Excel on Windows - holds the workbook open, so the caller can ask the user
-// to close it and retry. The previous workbook is left intact.
-var ErrLocked = errors.New("results workbook is open in another program")
+// The workbook's shared publish types and errors (internal/publish), kept as
+// aliases so callers can go on naming them through this package.
+type (
+	Meta        = publish.Meta
+	LedgerEntry = publish.LedgerEntry
+	Ledger      = publish.Ledger
+	Published   = publish.Published
+)
 
-// Meta is the regatta-level text at the top of the sheet, plus the
-// store.RegattaKey the workbook belongs to - recorded in the ledger sheet so
-// a later publish can refuse to merge into another regatta's workbook.
-type Meta struct {
-	Name, Date, RegattaKey string
+// ErrLocked is returned (wrapped) by Write and Read when another program -
+// typically Excel on Windows - holds the workbook open.
+var ErrLocked = publish.ErrLocked
+
+// Destination is the results workbook as a publish.Destination.
+type Destination struct{}
+
+// FileName is FileName(meta.Name, meta.Date).
+func (Destination) FileName(meta Meta) string { return FileName(meta.Name, meta.Date) }
+
+// Read is Read(path).
+func (Destination) Read(path string) (Published, error) { return Read(path) }
+
+// Write is Write(path, ...).
+func (Destination) Write(path string, meta Meta, races []publish.PublishableRace, ledger Ledger) error {
+	return Write(path, meta, races, ledger)
 }
-
-// LedgerEntry records one published race: the publish.Revision the public
-// copy was rendered from, and when.
-type LedgerEntry struct {
-	Revision    string
-	PublishedAt time.Time
-}
-
-// Ledger is the published-race record, keyed by race number, kept in the
-// workbook's very-hidden LedgerSheetName sheet.
-type Ledger map[int]LedgerEntry
 
 const (
 	borderThin   = 1

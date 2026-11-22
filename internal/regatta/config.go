@@ -13,6 +13,7 @@ import (
 
 	"github.com/comagnaw/regattaClock/internal/applog"
 	"github.com/comagnaw/regattaClock/internal/common"
+	"github.com/comagnaw/regattaClock/internal/persona/store"
 	"github.com/comagnaw/regattaClock/internal/personacfg"
 	"github.com/comagnaw/regattaClock/internal/watcher"
 )
@@ -98,7 +99,7 @@ func (r *Regatta) resultsDirRow() *fyne.Container {
 	entry := widget.NewEntryWithData(binding.BindPreferenceString(common.PrefResultsDir, r.App.Preferences()))
 	entry.Disable()
 	return container.NewBorder(nil, nil, nil,
-		widget.NewButton(common.ResultsDirChangeButtonText, func() { r.pickResultsFolder(nil) }),
+		widget.NewButton(common.ResultsDirChangeButtonText, func() { r.pickResultsFolder(store.DestinationSpreadsheet, nil, nil) }),
 		widget.NewForm(widget.NewFormItem(common.ResultsDirRowLabel, entry)),
 	)
 }
