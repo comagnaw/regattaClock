@@ -78,7 +78,7 @@ Use **Deploy → Manage deployments → edit (pencil) → Version: New version �
 ## Linking behavior
 
 - **Deep links don't pass through the Sites embed.** The embed URL is fixed when you insert it, so adding `?season=2025` to the Sites page's own URL has no effect. Two ways to link to a specific season or school:
-  - The page's **Open full page** link opens the `/exec` URL for the current selection (season, regatta and school filter) in a new tab. That is the shareable deep link.
+  - Share the `/exec` URL with the selection added, e.g. `…/exec?season=2025&school=coldspring`. It opens the page on its own, outside the site.
   - Or create one Sites page per season, each embedding `/exec?season=<year>`.
 - **Links inside the app** open in the top window (`<base target="_top">`) or a new tab. Apps Script's sandbox frame can't navigate itself.
 

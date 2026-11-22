@@ -23,8 +23,7 @@ function doGet(e) {
   page.initial = safeJSON({
     season: p.season || '',
     regatta: p.regatta || '',
-    school: p.school || '',
-    appUrl: ScriptApp.getService().getUrl()
+    school: p.school || ''
   });
   return page.evaluate()
     .setTitle('Regatta Results')
