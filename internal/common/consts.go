@@ -351,18 +351,16 @@ const (
 	// Results publishing - the Primary Finish Timer's per-race Publish button
 	// and its results folder (internal/regatta publish_results.go,
 	// results-publisher.md).
-	PublishButtonText          = "Publish"
-	PublishedButtonText        = "Published"
-	RepublishButtonText        = "Re-publish"
-	ResultsDirRowLabel         = "Results Dir:"
-	ResultsDirChangeButtonText = "Change Results Folder"
-	ChooseFolderButtonText     = "Choose Folder"
-	LaterButtonText            = "Later"
-	PublishFailedTitle         = "Results not published"
-	PublishLockedFormat        = "%s could not be written - it may be open in another program (close it and try again), or the folder may be read-only."
-	PublishForeignFormat       = "%s already exists and was not written by %s, so it was left untouched. Move or rename it, or choose a different results folder."
-	PublishDestinationFormat   = "Publishing to %s is not available yet."
-	PublishOtherRegattaFormat  = "%s belongs to a different regatta, so it was left untouched. Choose a different results folder (Configuration screen), or move that file."
+	PublishButtonText         = "Publish"
+	PublishedButtonText       = "Published"
+	RepublishButtonText       = "Re-publish"
+	ChooseFolderButtonText    = "Choose Folder"
+	LaterButtonText           = "Later"
+	PublishFailedTitle        = "Results not published"
+	PublishLockedFormat       = "%s could not be written - it may be open in another program (close it and try again), or the folder may be read-only."
+	PublishForeignFormat      = "%s already exists and was not written by %s, so it was left untouched. Move or rename it, or choose a different results folder."
+	PublishDestinationFormat  = "Publishing to %s is not available yet."
+	PublishOtherRegattaFormat = "%s belongs to a different regatta, so it was left untouched. Choose a different results folder (Configuration screen), or move that file."
 
 	// Results destination kinds (internal/publish/destinations,
 	// publish-destinations.md) and the per-destination folder prompts.
@@ -373,7 +371,22 @@ const (
 	ResultsFolderTitleFormat       = "Select the folder for %s"
 	ResultsFolderPromptFormat      = "Choose the folder %s is published to.\nThis is usually a separate drive from the regatta folder.\n\nYou can also set it later on the Configuration screen."
 	PublishNoFolderFormat          = "No folder is set for %s, so it was not published."
-	PublishPartialFormat           = "%s: %s"
+
+	// The PFT's Publish Destinations dialog and Configuration summary
+	// (internal/regatta publish_settings.go).
+	PublishDestinationsTitle             = "Publish Destinations"
+	PublishDestinationsButtonText        = "Publish Destinations..."
+	PublishDestinationsIntro             = "Choose where this regatta's approved results are published. Publish writes every ticked destination."
+	PublishDestinationsPFTOnlyMessage    = "Publish destinations are chosen in a Primary Finish Timer session, on the computer that publishes the results."
+	PublishDestinationsNoneMessage       = "Tick at least one destination."
+	PublishDestinationsNeedsFolderFormat = "Choose a folder for %s, or untick it."
+	PublishSettingsNotRecordedMessage    = "The publish destinations could not be saved to this regatta's finish.json, so they were not changed."
+	ComingSoonFormat                     = "%s (coming soon)"
+	NoFolderChosenText                   = "No folder chosen"
+	PublishSummaryRowLabel               = "Publishing:"
+	PublishSummaryLineFormat             = "%s - %s"
+	PublishSummaryNotPFT                 = "Set in a Primary Finish Timer session."
+	PublishPartialFormat                 = "%s: %s"
 
 	ConfirmResultsFolderFormat      = "Publish the %s for\n%s\n%s\n\nto this folder?\n%s\n\nThis is the last folder used on this computer - possibly for a previous regatta."
 	ResultsFolderUnreachableFormat  = "The %s folder saved for this regatta cannot be reached:\n%s\n\nReconnect the drive and restart, or choose a different folder."

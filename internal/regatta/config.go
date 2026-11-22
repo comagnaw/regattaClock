@@ -13,7 +13,6 @@ import (
 
 	"github.com/comagnaw/regattaClock/internal/applog"
 	"github.com/comagnaw/regattaClock/internal/common"
-	"github.com/comagnaw/regattaClock/internal/persona/store"
 	"github.com/comagnaw/regattaClock/internal/personacfg"
 	"github.com/comagnaw/regattaClock/internal/watcher"
 )
@@ -25,7 +24,7 @@ func (r *Regatta) configContent() *fyne.Container {
 	return container.NewVBox(
 		r.regattaDir(),
 		r.personaConfigRow(),
-		r.resultsDirRow(),
+		r.publishSummaryRow(),
 		widget.NewForm(
 			widget.NewFormItem("Debug:", widget.NewCheckWithData("", binding.BindPreferenceBool(common.PrefDebug, r.App.Preferences()))),
 			widget.NewFormItem("Logging:", widget.NewCheckWithData("", binding.BindPreferenceBool(common.PrefLogging, r.App.Preferences()))),
@@ -88,20 +87,6 @@ func (r *Regatta) changeButtonFunc() func() {
 	return func() {
 		dialog.ShowFolderOpen(r.changeCallBack(), r.window)
 	}
-}
-
-// resultsDirRow - Configuration entry for the primary finish timer's results
-// publish folder. The field shows this machine's last-used folder
-// (common.PrefResultsDir) and is read-only: the folder that counts is the one
-// recorded for the regatta in finish.json, so a change goes only through
-// Change -> pickResultsFolder, which records it there during a PFT session.
-func (r *Regatta) resultsDirRow() *fyne.Container {
-	entry := widget.NewEntryWithData(binding.BindPreferenceString(common.PrefResultsDir, r.App.Preferences()))
-	entry.Disable()
-	return container.NewBorder(nil, nil, nil,
-		widget.NewButton(common.ResultsDirChangeButtonText, func() { r.pickResultsFolder(store.DestinationSpreadsheet, nil, nil) }),
-		widget.NewForm(widget.NewFormItem(common.ResultsDirRowLabel, entry)),
-	)
 }
 
 // personaConfigRow - Configuration entry for the optional deployment persona

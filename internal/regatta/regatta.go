@@ -11,6 +11,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
@@ -160,6 +161,10 @@ type Regatta struct {
 	ledgerLoads sync.WaitGroup
 	// publishes tracks publishTargets' background writes the same way.
 	publishes sync.WaitGroup
+
+	// publishSummary - the Configuration screen's text for this regatta's
+	// publish destinations (publish_settings.go), refreshed as they change.
+	publishSummary binding.String
 
 	// regattaKey - the schedule's RegattaKey captured when the session started,
 	// used to reject watched peer data that belongs to another regatta.
