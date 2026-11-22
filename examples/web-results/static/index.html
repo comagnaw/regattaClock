@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<!--
+  regattaClock web results page - for any plain web host (Apache, nginx, ...).
+  One self-contained file: plain HTML/CSS/JS, no build step, no CDN. It reads
+  index.json (written by build-index.py) and the results-*.json files the
+  Primary Finish Timer publishes. See README.md in this folder.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Regatta Results</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --ink: #1b1f24; --muted: #5d6670;
+    --line: #dde1e6; --accent: #0b5cad; --hi: #fff3bf; --scr: #8a929b;
+    --gold: #f2c94c; --silver: #c9ced6; --bronze: #d9a066;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111418; --card: #1a1f25; --ink: #e8ebef; --muted: #9aa3ad;
+      --line: #2c333b; --accent: #6cb0ff; --hi: #4a4118; --scr: #6b737c;
+      --gold: #b8962e; --silver: #7d838c; --bronze: #9a6a3c;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.4 "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+  header {
+    position: sticky; top: 0; z-index: 1; background: var(--card);
+    border-bottom: 1px solid var(--line); padding: 12px 16px;
+  }
+  h1 { margin: 0 0 2px; font-size: 1.3rem; }
+  .meta { color: var(--muted); font-size: .85rem; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .controls label { display: flex; flex-direction: column; font-size: .75rem; color: var(--muted); }
+  select, input, button {
+    font: inherit; color: var(--ink); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px;
+  }
+  input[type=search] { min-width: 200px; }
+  button { cursor: pointer; align-self: flex-end; }
+  main { max-width: 900px; margin: 0 auto; padding: 12px 16px 40px; }
+  .race {
+    background: var(--card); border: 1px solid var(--line); border-radius: 8px;
+    margin: 0 0 12px; overflow: hidden;
+  }
+  .race h2 {
+    margin: 0; padding: 10px 12px; font-size: 1rem; display: flex;
+    justify-content: space-between; gap: 8px; flex-wrap: wrap;
+    border-bottom: 1px solid var(--line);
+  }
+  .race h2 small { font-weight: normal; color: var(--muted); }
+  .note { padding: 6px 12px 0; color: var(--muted); font-size: .85rem; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 6px 12px; border-bottom: 1px solid var(--line); }
+  th { font-size: .75rem; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  tr:last-child td { border-bottom: 0; }
+  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .place { display: inline-block; min-width: 2.2em; text-align: center; border-radius: 4px; font-weight: 600; }
+  .p1 { background: var(--gold); } .p2 { background: var(--silver); } .p3 { background: var(--bronze); }
+  tr.scr td { color: var(--scr); font-style: italic; }
+  tr.match td { background: var(--hi); }
+  .info { color: var(--muted); font-size: .85rem; }
+  .status { padding: 24px; text-align: center; color: var(--muted); }
+  .error { color: #c0392b; }
+  @media (max-width: 560px) {
+    .col-info, .col-split { display: none; }
+    th, td { padding: 6px 8px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title">Regatta Results</h1>
+  <div class="meta" id="meta">Loading...</div>
+  <div class="controls">
+    <label>Season <select id="season"></select></label>
+    <label>Regatta <select id="regatta"></select></label>
+    <label>School <input type="search" id="school" placeholder="Filter by school"></label>
+    <button type="button" id="reload" title="Fetch the latest published results">Reload</button>
+  </div>
+</header>
+<main id="races"><div class="status">Loading results...</div></main>
+
+<script>
+/*
+ * All behaviour lives in this one block. A React (or other) front end would
+ * do the same two fetches: DATA_URL + "index.json", then the chosen file.
+ */
+(function () {
+  "use strict";
+
+  // Where index.json and the results-*.json files live, relative to this page
+  // or absolute (another host then needs CORS - see README.md).
+  var DATA_URL = "./";
+  var INDEX_FILE = "index.json";
+  // Middle dot as an escape, not a literal, so the page renders correctly even
+  // if a server labels it with the wrong character set.
+  var SEP = " \u00B7 ";
+  var $ = function (id) { return document.getElementById(id); };
+  var state = { index: null, results: null };
+
+  // fetchJSON reads one file from DATA_URL, bypassing any cache so a Reload
+  // shows a publish made a moment ago.
+  function fetchJSON(file) {
+    var url = new URL(file, new URL(DATA_URL, location.href)).href;
+    url += (url.indexOf("?") < 0 ? "?" : "&") + "t=" + Date.now();
+    return fetch(url, { cache: "no-store", headers: { Accept: "application/json" } })
+      .then(function (r) {
+        if (!r.ok) { throw new Error(r.status + " " + r.statusText + " - " + file); }
+        return r.json();
+      });
+  }
+
+  function el(tag, attrs, children) {
+    var n = document.createElement(tag);
+    Object.keys(attrs || {}).forEach(function (k) {
+      if (k === "text") { n.textContent = attrs[k]; } else { n.setAttribute(k, attrs[k]); }
+    });
+    (children || []).forEach(function (c) { if (c) { n.appendChild(c); } });
+    return n;
+  }
+
+  function option(value, label) { return el("option", { value: value, text: label }); }
+
+  // --- URL state: ?season=2026&regatta=<regattaKey>&school=<text> ----------
+  function readQuery() {
+    var q = new URLSearchParams(location.search);
+    return { season: q.get("season"), regatta: q.get("regatta"), school: q.get("school") || "" };
+  }
+  function writeQuery() {
+    var q = new URLSearchParams();
+    if ($("season").value) { q.set("season", $("season").value); }
+    if ($("regatta").value) { q.set("regatta", $("regatta").value); }
+    if ($("school").value) { q.set("school", $("school").value); }
+    history.replaceState(null, "", location.pathname + (q.toString() ? "?" + q : ""));
+  }
+
+  // --- pickers ------------------------------------------------------------
+  function seasons() {
+    var seen = {};
+    return state.index.regattas.map(function (r) { return r.season; })
+      .filter(function (s) { return !seen[s] && (seen[s] = true); })
+      .sort().reverse();
+  }
+
+  function fillSeasons(want) {
+    var s = $("season"); s.innerHTML = "";
+    seasons().forEach(function (v) { s.appendChild(option(v, v)); });
+    if (want && seasons().indexOf(want) >= 0) { s.value = want; }
+  }
+
+  function fillRegattas(want) {
+    var r = $("regatta"); r.innerHTML = "";
+    state.index.regattas
+      .filter(function (g) { return g.season === $("season").value; })
+      .sort(function (a, b) { return b.date.localeCompare(a.date); })
+      .forEach(function (g) { r.appendChild(option(g.regattaKey, g.date + " - " + g.name)); });
+    if (want) { r.value = want; }
+    if (!r.value && r.options.length) { r.selectedIndex = 0; }
+  }
+
+  function selectedEntry() {
+    var key = $("regatta").value;
+    return state.index.regattas.filter(function (g) { return g.regattaKey === key; })[0];
+  }
+
+  // --- rendering ----------------------------------------------------------
+  function placeClass(p) { return /^[123]$/.test(p) ? "place p" + p : "place"; }
+
+  function rowsFor(race) {
+    // Finish order first, then any scheduled lane with no result (a scratch).
+    var rows = race.results.map(function (x) { return { r: x, scr: false }; });
+    Object.keys(race.lanes || {}).sort(function (a, b) { return a - b; }).forEach(function (ln) {
+      var e = race.lanes[ln];
+      if (e.status === "SCR") {
+        rows.push({ scr: true, r: { place: "SCR", lane: ln, school: e.school,
+                                    additionalInfo: e.additionalInfo, split: "", time: "" } });
+      }
+    });
+    return rows;
+  }
+
+  function render() {
+    var main = $("races"), data = state.results;
+    main.innerHTML = "";
+    if (!data) { return; }
+
+    $("title").textContent = data.regatta.name + " Results";
+    $("meta").textContent = data.regatta.date + SEP + data.races.length +
+      " race" + (data.races.length === 1 ? "" : "s") + " published" + SEP + "updated " +
+      new Date(data.publishedAt).toLocaleString();
+    document.title = data.regatta.name + " Results";
+
+    var needle = $("school").value.trim().toLowerCase();
+    var shown = 0;
+
+    data.races.slice().sort(function (a, b) { return a.raceNumber - b.raceNumber; })
+      .forEach(function (race) {
+        var rows = rowsFor(race);
+        var hit = function (x) { return needle && x.r.school.toLowerCase().indexOf(needle) >= 0; };
+        if (needle && !rows.some(hit)) { return; }
+        shown++;
+
+        var body = el("tbody", {}, rows.map(function (x) {
+          var cls = (x.scr ? "scr " : "") + (hit(x) ? "match" : "");
+          return el("tr", { "class": cls.trim() }, [
+            el("td", {}, [el("span", { "class": x.scr ? "place" : placeClass(x.r.place), text: x.r.place })]),
+            el("td", { "class": "num", text: x.r.lane }),
+            el("td", { text: x.r.school }),
+            el("td", { "class": "info col-info", text: x.r.additionalInfo || "" }),
+            el("td", { "class": "num col-split", text: x.r.split }),
+            el("td", { "class": "num", text: x.r.time })
+          ]);
+        }));
+
+        main.appendChild(el("section", { "class": "race", id: "race-" + race.raceNumber }, [
+          el("h2", {}, [
+            el("span", { text: race.title }),
+            el("small", { text: race.scheduledTime + (race.winningTime ? SEP + "winner " + race.winningTime : "") })
+          ]),
+          race.note ? el("div", { "class": "note", text: race.note }) : null,
+          el("table", {}, [
+            el("thead", {}, [el("tr", {}, ["Place", "Lane", "School", "Info", "Split", "Time"].map(function (h) {
+              var c = h === "Info" ? "col-info" : h === "Split" ? "col-split" : "";
+              return el("th", c ? { "class": c, text: h } : { text: h });
+            }))]),
+            body
+          ])
+        ]));
+      });
+
+    if (!shown) {
+      main.appendChild(el("div", { "class": "status",
+        text: needle ? "No results for \"" + $("school").value + "\"." : "No races published yet." }));
+    }
+  }
+
+  function showError(err) {
+    $("meta").textContent = "";
+    $("races").innerHTML = "";
+    $("races").appendChild(el("div", { "class": "status error", text: "Could not load results: " + err.message }));
+  }
+
+  // --- loading ------------------------------------------------------------
+  function loadRegatta() {
+    var entry = selectedEntry();
+    if (!entry) { state.results = null; render(); return Promise.resolve(); }
+    $("meta").textContent = "Loading " + entry.name + "...";
+    return fetchJSON(entry.file).then(function (data) {
+      if (data.schemaVersion !== 1) { throw new Error("unsupported schemaVersion " + data.schemaVersion); }
+      if (data.regatta.regattaKey !== entry.regattaKey) {
+        throw new Error(entry.file + " belongs to a different regatta (" + data.regatta.name + ")");
+      }
+      state.results = data;
+      render();
+    });
+  }
+
+  function loadAll() {
+    var q = readQuery();
+    var keep = { season: $("season").value || q.season, regatta: $("regatta").value || q.regatta };
+    return fetchJSON(INDEX_FILE).then(function (idx) {
+      if (idx.schemaVersion !== 1) { throw new Error("unsupported index schemaVersion " + idx.schemaVersion); }
+      state.index = idx;
+      fillSeasons(keep.season);
+      fillRegattas(keep.regatta);
+      return loadRegatta();
+    }).catch(showError);
+  }
+
+  $("season").addEventListener("change", function () { fillRegattas(); writeQuery(); loadRegatta().catch(showError); });
+  $("regatta").addEventListener("change", function () { writeQuery(); loadRegatta().catch(showError); });
+  $("school").addEventListener("input", function () { writeQuery(); render(); });
+  $("reload").addEventListener("click", loadAll);
+
+  $("school").value = readQuery().school;
+  loadAll();
+})();
+</script>
+</body>
+</html>

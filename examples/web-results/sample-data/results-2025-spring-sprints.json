@@ -1,0 +1,307 @@
+{
+  "schemaVersion": 1,
+  "generator": "regattaClock",
+  "regatta": {
+    "name": "Spring Sprints",
+    "date": "2025-04-26",
+    "season": "2025",
+    "regattaKey": "9935a5510d4b"
+  },
+  "publishedAt": "2025-04-26T13:22:00Z",
+  "races": [
+    {
+      "raceNumber": 7,
+      "title": "Race 7 - W-1-4+ - Heat 2",
+      "scheduledTime": "09:42 AM",
+      "boatClass": "W-1-4+",
+      "flightInfo": "Heat 2",
+      "winningTime": "06:01.5",
+      "approvedAt": "2025-04-26T13:00:00Z",
+      "revision": "bd21a964fbb08a34",
+      "publishedAt": "2025-04-26T13:01:00Z",
+      "lanes": {
+        "1": {
+          "school": "Moorland School",
+          "additionalInfo": "19",
+          "status": ""
+        },
+        "2": {
+          "school": "Southport Collegiate",
+          "additionalInfo": "13",
+          "status": ""
+        },
+        "3": {
+          "school": "Sterling Heights Rowing Association",
+          "additionalInfo": "3",
+          "status": ""
+        },
+        "4": {
+          "school": "Harrowgate Academy",
+          "additionalInfo": "7",
+          "status": ""
+        },
+        "5": {
+          "school": "Timberline Boat Club",
+          "additionalInfo": "16",
+          "status": ""
+        }
+      },
+      "results": [
+        {
+          "place": "1",
+          "lane": "3",
+          "school": "Sterling Heights Rowing Association",
+          "additionalInfo": "3",
+          "split": "00:00.0",
+          "time": "06:01.5"
+        },
+        {
+          "place": "2",
+          "lane": "4",
+          "school": "Harrowgate Academy",
+          "additionalInfo": "7",
+          "split": "00:06.3",
+          "time": "06:07.8"
+        },
+        {
+          "place": "3",
+          "lane": "5",
+          "school": "Timberline Boat Club",
+          "additionalInfo": "16",
+          "split": "00:12.7",
+          "time": "06:14.2"
+        },
+        {
+          "place": "4",
+          "lane": "2",
+          "school": "Southport Collegiate",
+          "additionalInfo": "13",
+          "split": "00:24.5",
+          "time": "06:26.0"
+        },
+        {
+          "place": "5",
+          "lane": "1",
+          "school": "Moorland School",
+          "additionalInfo": "19",
+          "split": "00:35.6",
+          "time": "06:37.1"
+        }
+      ]
+    },
+    {
+      "raceNumber": 8,
+      "title": "Race 8 - W-1-4+ - Heat 3",
+      "scheduledTime": "09:49 AM",
+      "boatClass": "W-1-4+",
+      "flightInfo": "Heat 3",
+      "winningTime": "05:53.3",
+      "approvedAt": "2025-04-26T13:07:00Z",
+      "revision": "27e45c3c8dffb566",
+      "publishedAt": "2025-04-26T13:08:00Z",
+      "lanes": {
+        "2": {
+          "school": "Charlton Park High School",
+          "additionalInfo": "14",
+          "status": ""
+        },
+        "3": {
+          "school": "Hawthorne Bay Rowing Club",
+          "additionalInfo": "4",
+          "status": ""
+        },
+        "4": {
+          "school": "Wexford Hills Prep",
+          "additionalInfo": "6",
+          "status": ""
+        },
+        "5": {
+          "school": "Lindenwood Catholic",
+          "additionalInfo": "15",
+          "status": ""
+        }
+      },
+      "results": [
+        {
+          "place": "1",
+          "lane": "4",
+          "school": "Wexford Hills Prep",
+          "additionalInfo": "6",
+          "split": "00:00.0",
+          "time": "05:53.3"
+        },
+        {
+          "place": "2",
+          "lane": "3",
+          "school": "Hawthorne Bay Rowing Club",
+          "additionalInfo": "4",
+          "split": "00:03.5",
+          "time": "05:56.8"
+        },
+        {
+          "place": "3",
+          "lane": "2",
+          "school": "Charlton Park High School",
+          "additionalInfo": "14",
+          "split": "00:29.3",
+          "time": "06:22.6"
+        },
+        {
+          "place": "4",
+          "lane": "5",
+          "school": "Lindenwood Catholic",
+          "additionalInfo": "15",
+          "split": "00:37.1",
+          "time": "06:30.4"
+        }
+      ]
+    },
+    {
+      "raceNumber": 9,
+      "title": "Race 9 - M-1-4+ - Heat 1",
+      "scheduledTime": "09:56 AM",
+      "boatClass": "M-1-4+",
+      "flightInfo": "Heat 1",
+      "winningTime": "05:25.8",
+      "approvedAt": "2025-04-26T13:14:00Z",
+      "revision": "5c7aedc33fb42097",
+      "publishedAt": "2025-04-26T13:15:00Z",
+      "lanes": {
+        "1": {
+          "school": "Crestwood School",
+          "additionalInfo": "Exhibition",
+          "status": ""
+        },
+        "2": {
+          "school": "Charlton Park High School",
+          "additionalInfo": "11",
+          "status": ""
+        },
+        "3": {
+          "school": "Timberline Boat Club",
+          "additionalInfo": "2",
+          "status": ""
+        },
+        "4": {
+          "school": "Mistral Bay Collegiate",
+          "additionalInfo": "10",
+          "status": ""
+        },
+        "5": {
+          "school": "Lindenwood Catholic",
+          "additionalInfo": "",
+          "status": ""
+        }
+      },
+      "results": [
+        {
+          "place": "1",
+          "lane": "3",
+          "school": "Timberline Boat Club",
+          "additionalInfo": "2",
+          "split": "00:00.0",
+          "time": "05:25.8"
+        },
+        {
+          "place": "2",
+          "lane": "4",
+          "school": "Mistral Bay Collegiate",
+          "additionalInfo": "10",
+          "split": "00:02.8",
+          "time": "05:28.6"
+        },
+        {
+          "place": "3",
+          "lane": "5",
+          "school": "Lindenwood Catholic",
+          "additionalInfo": "",
+          "split": "00:04.7",
+          "time": "05:30.5"
+        },
+        {
+          "place": "4",
+          "lane": "2",
+          "school": "Charlton Park High School",
+          "additionalInfo": "11",
+          "split": "00:20.3",
+          "time": "05:46.1"
+        },
+        {
+          "place": "5",
+          "lane": "1",
+          "school": "Crestwood School",
+          "additionalInfo": "Exhibition",
+          "split": "01:05.7",
+          "time": "06:31.5"
+        }
+      ]
+    },
+    {
+      "raceNumber": 10,
+      "title": "Race 10 - M-1-4+ - Heat 2",
+      "scheduledTime": "10:03 AM",
+      "boatClass": "M-1-4+",
+      "flightInfo": "Heat 2",
+      "winningTime": "05:10.7",
+      "approvedAt": "2025-04-26T13:21:00Z",
+      "revision": "ceea0ad0880a8115",
+      "publishedAt": "2025-04-26T13:22:00Z",
+      "lanes": {
+        "2": {
+          "school": "Sterling Heights Rowing Association",
+          "additionalInfo": "14",
+          "status": ""
+        },
+        "3": {
+          "school": "Windermere School",
+          "additionalInfo": "5",
+          "status": ""
+        },
+        "4": {
+          "school": "Sherwood School",
+          "additionalInfo": "8",
+          "status": ""
+        },
+        "5": {
+          "school": "Winslow High School",
+          "additionalInfo": "17",
+          "status": ""
+        }
+      },
+      "results": [
+        {
+          "place": "1",
+          "lane": "2",
+          "school": "Sterling Heights Rowing Association",
+          "additionalInfo": "14",
+          "split": "00:00.0",
+          "time": "05:10.7"
+        },
+        {
+          "place": "2",
+          "lane": "3",
+          "school": "Windermere School",
+          "additionalInfo": "5",
+          "split": "00:04.7",
+          "time": "05:15.4"
+        },
+        {
+          "place": "3",
+          "lane": "5",
+          "school": "Winslow High School",
+          "additionalInfo": "17",
+          "split": "00:28.0",
+          "time": "05:38.7"
+        },
+        {
+          "place": "4",
+          "lane": "4",
+          "school": "Sherwood School",
+          "additionalInfo": "8",
+          "split": "00:40.9",
+          "time": "05:51.6"
+        }
+      ]
+    }
+  ]
+}

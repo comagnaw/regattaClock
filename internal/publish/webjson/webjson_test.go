@@ -212,3 +212,33 @@ func TestDestination_IsAPublishDestination(t *testing.T) {
 		t.Error("Destination.FileName differs from FileName")
 	}
 }
+
+// sampleData is the hosting examples' sample results (examples/web-results).
+const sampleData = "../../../examples/web-results/sample-data"
+
+// TestSampleData_MatchesWriter keeps the published examples honest: every
+// sample must be readable by this package and named as Write would name it,
+// so a format change cannot leave the examples silently stale.
+func TestSampleData_MatchesWriter(t *testing.T) {
+	paths, err := filepath.Glob(filepath.Join(sampleData, "results-*.json"))
+	if err != nil || len(paths) == 0 {
+		t.Fatalf("no sample results in %s (%v)", sampleData, err)
+	}
+	for _, path := range paths {
+		pub, err := Read(path)
+		if err != nil || !pub.Exists || len(pub.Ledger) == 0 {
+			t.Errorf("%s: Read() = %+v, %v; want a published regattaClock file", path, pub, err)
+			continue
+		}
+		data, _ := os.ReadFile(path)
+		var f file
+		if err := json.Unmarshal(data, &f); err != nil {
+			t.Fatal(err)
+		}
+		// The file's date is ISO; FileName only takes its year, so the name
+		// still matches what Write produced from the schedule's own date.
+		if want := FileName(f.Regatta.Name, f.Regatta.Date); filepath.Base(path) != want {
+			t.Errorf("%s: named %q, want %q", path, filepath.Base(path), want)
+		}
+	}
+}
