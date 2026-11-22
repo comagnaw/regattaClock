@@ -22,27 +22,27 @@
       "lanes": {
         "1": {
           "school": "Moorland School",
-          "additionalInfo": "19",
+          "additionalInfo": "",
           "status": ""
         },
         "2": {
           "school": "Southport Collegiate",
-          "additionalInfo": "13",
+          "additionalInfo": "",
           "status": ""
         },
         "3": {
           "school": "Sterling Heights Rowing Association",
-          "additionalInfo": "3",
+          "additionalInfo": "",
           "status": ""
         },
         "4": {
           "school": "Harrowgate Academy",
-          "additionalInfo": "7",
+          "additionalInfo": "",
           "status": ""
         },
         "5": {
           "school": "Timberline Boat Club",
-          "additionalInfo": "16",
+          "additionalInfo": "",
           "status": ""
         }
       },
@@ -51,7 +51,7 @@
           "place": "1",
           "lane": "3",
           "school": "Sterling Heights Rowing Association",
-          "additionalInfo": "3",
+          "additionalInfo": "",
           "split": "00:00.0",
           "time": "06:01.5"
         },
@@ -59,7 +59,7 @@
           "place": "2",
           "lane": "4",
           "school": "Harrowgate Academy",
-          "additionalInfo": "7",
+          "additionalInfo": "",
           "split": "00:06.3",
           "time": "06:07.8"
         },
@@ -67,7 +67,7 @@
           "place": "3",
           "lane": "5",
           "school": "Timberline Boat Club",
-          "additionalInfo": "16",
+          "additionalInfo": "",
           "split": "00:12.7",
           "time": "06:14.2"
         },
@@ -75,7 +75,7 @@
           "place": "4",
           "lane": "2",
           "school": "Southport Collegiate",
-          "additionalInfo": "13",
+          "additionalInfo": "",
           "split": "00:24.5",
           "time": "06:26.0"
         },
@@ -83,7 +83,7 @@
           "place": "5",
           "lane": "1",
           "school": "Moorland School",
-          "additionalInfo": "19",
+          "additionalInfo": "",
           "split": "00:35.6",
           "time": "06:37.1"
         }
@@ -102,22 +102,22 @@
       "lanes": {
         "2": {
           "school": "Charlton Park High School",
-          "additionalInfo": "14",
+          "additionalInfo": "",
           "status": ""
         },
         "3": {
           "school": "Hawthorne Bay Rowing Club",
-          "additionalInfo": "4",
+          "additionalInfo": "",
           "status": ""
         },
         "4": {
           "school": "Wexford Hills Prep",
-          "additionalInfo": "6",
+          "additionalInfo": "",
           "status": ""
         },
         "5": {
           "school": "Lindenwood Catholic",
-          "additionalInfo": "15",
+          "additionalInfo": "",
           "status": ""
         }
       },
@@ -126,7 +126,7 @@
           "place": "1",
           "lane": "4",
           "school": "Wexford Hills Prep",
-          "additionalInfo": "6",
+          "additionalInfo": "",
           "split": "00:00.0",
           "time": "05:53.3"
         },
@@ -134,7 +134,7 @@
           "place": "2",
           "lane": "3",
           "school": "Hawthorne Bay Rowing Club",
-          "additionalInfo": "4",
+          "additionalInfo": "",
           "split": "00:03.5",
           "time": "05:56.8"
         },
@@ -142,7 +142,7 @@
           "place": "3",
           "lane": "2",
           "school": "Charlton Park High School",
-          "additionalInfo": "14",
+          "additionalInfo": "",
           "split": "00:29.3",
           "time": "06:22.6"
         },
@@ -150,7 +150,7 @@
           "place": "4",
           "lane": "5",
           "school": "Lindenwood Catholic",
-          "additionalInfo": "15",
+          "additionalInfo": "",
           "split": "00:37.1",
           "time": "06:30.4"
         }
@@ -174,17 +174,17 @@
         },
         "2": {
           "school": "Charlton Park High School",
-          "additionalInfo": "11",
+          "additionalInfo": "",
           "status": ""
         },
         "3": {
           "school": "Timberline Boat Club",
-          "additionalInfo": "2",
+          "additionalInfo": "",
           "status": ""
         },
         "4": {
           "school": "Mistral Bay Collegiate",
-          "additionalInfo": "10",
+          "additionalInfo": "",
           "status": ""
         },
         "5": {
@@ -198,7 +198,7 @@
           "place": "1",
           "lane": "3",
           "school": "Timberline Boat Club",
-          "additionalInfo": "2",
+          "additionalInfo": "",
           "split": "00:00.0",
           "time": "05:25.8"
         },
@@ -206,7 +206,7 @@
           "place": "2",
           "lane": "4",
           "school": "Mistral Bay Collegiate",
-          "additionalInfo": "10",
+          "additionalInfo": "",
           "split": "00:02.8",
           "time": "05:28.6"
         },
@@ -222,7 +222,7 @@
           "place": "4",
           "lane": "2",
           "school": "Charlton Park High School",
-          "additionalInfo": "11",
+          "additionalInfo": "",
           "split": "00:20.3",
           "time": "05:46.1"
         },
@@ -249,22 +249,22 @@
       "lanes": {
         "2": {
           "school": "Sterling Heights Rowing Association",
-          "additionalInfo": "14",
+          "additionalInfo": "",
           "status": ""
         },
         "3": {
           "school": "Windermere School",
-          "additionalInfo": "5",
+          "additionalInfo": "",
           "status": ""
         },
         "4": {
           "school": "Sherwood School",
-          "additionalInfo": "8",
+          "additionalInfo": "",
           "status": ""
         },
         "5": {
           "school": "Winslow High School",
-          "additionalInfo": "17",
+          "additionalInfo": "",
           "status": ""
         }
       },
@@ -273,7 +273,7 @@
           "place": "1",
           "lane": "2",
           "school": "Sterling Heights Rowing Association",
-          "additionalInfo": "14",
+          "additionalInfo": "",
           "split": "00:00.0",
           "time": "05:10.7"
         },
@@ -281,7 +281,7 @@
           "place": "2",
           "lane": "3",
           "school": "Windermere School",
-          "additionalInfo": "5",
+          "additionalInfo": "",
           "split": "00:04.7",
           "time": "05:15.4"
         },
@@ -289,7 +289,7 @@
           "place": "3",
           "lane": "5",
           "school": "Winslow High School",
-          "additionalInfo": "17",
+          "additionalInfo": "",
           "split": "00:28.0",
           "time": "05:38.7"
         },
@@ -297,7 +297,7 @@
           "place": "4",
           "lane": "4",
           "school": "Sherwood School",
-          "additionalInfo": "8",
+          "additionalInfo": "",
           "split": "00:40.9",
           "time": "05:51.6"
         }

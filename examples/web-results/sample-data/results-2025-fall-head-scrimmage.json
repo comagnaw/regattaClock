@@ -22,22 +22,22 @@
       "lanes": {
         "2": {
           "school": "Kingsford Catholic",
-          "additionalInfo": "15",
+          "additionalInfo": "",
           "status": ""
         },
         "3": {
           "school": "Linwood Country Day",
-          "additionalInfo": "6",
+          "additionalInfo": "",
           "status": ""
         },
         "4": {
           "school": "Hawthorne Bay Rowing Club",
-          "additionalInfo": "7",
+          "additionalInfo": "",
           "status": ""
         },
         "5": {
           "school": "Radcliffe Rowing Club",
-          "additionalInfo": "16",
+          "additionalInfo": "",
           "status": ""
         }
       },
@@ -46,7 +46,7 @@
           "place": "1",
           "lane": "3",
           "school": "Linwood Country Day",
-          "additionalInfo": "6",
+          "additionalInfo": "",
           "split": "00:00.0",
           "time": "05:29.8"
         },
@@ -54,7 +54,7 @@
           "place": "2",
           "lane": "2",
           "school": "Kingsford Catholic",
-          "additionalInfo": "15",
+          "additionalInfo": "",
           "split": "00:01.4",
           "time": "05:31.2"
         },
@@ -62,7 +62,7 @@
           "place": "3",
           "lane": "5",
           "school": "Radcliffe Rowing Club",
-          "additionalInfo": "16",
+          "additionalInfo": "",
           "split": "00:02.5",
           "time": "05:32.3"
         },
@@ -70,7 +70,7 @@
           "place": "4",
           "lane": "4",
           "school": "Hawthorne Bay Rowing Club",
-          "additionalInfo": "7",
+          "additionalInfo": "",
           "split": "00:10.8",
           "time": "05:40.6"
         }
@@ -94,17 +94,17 @@
         },
         "2": {
           "school": "Timberline Boat Club",
-          "additionalInfo": "8",
+          "additionalInfo": "",
           "status": ""
         },
         "3": {
           "school": "Harrowgate Academy",
-          "additionalInfo": "3",
+          "additionalInfo": "",
           "status": ""
         },
         "4": {
           "school": "Hawthorne Bay Rowing Club",
-          "additionalInfo": "7",
+          "additionalInfo": "",
           "status": ""
         },
         "5": {
@@ -118,7 +118,7 @@
           "place": "1",
           "lane": "3",
           "school": "Harrowgate Academy",
-          "additionalInfo": "3",
+          "additionalInfo": "",
           "split": "00:00.0",
           "time": "06:07.2"
         },
@@ -134,7 +134,7 @@
           "place": "3",
           "lane": "4",
           "school": "Hawthorne Bay Rowing Club",
-          "additionalInfo": "7",
+          "additionalInfo": "",
           "split": "00:24.8",
           "time": "06:32.0"
         },
@@ -142,7 +142,7 @@
           "place": "4",
           "lane": "2",
           "school": "Timberline Boat Club",
-          "additionalInfo": "8",
+          "additionalInfo": "",
           "split": "00:29.9",
           "time": "06:37.1"
         },
@@ -174,12 +174,12 @@
         },
         "3": {
           "school": "Saint Cuthbert's Boat Club A",
-          "additionalInfo": "4",
+          "additionalInfo": "",
           "status": ""
         },
         "4": {
           "school": "Beacon Hill Catholic",
-          "additionalInfo": "5",
+          "additionalInfo": "",
           "status": ""
         },
         "5": {
@@ -198,7 +198,7 @@
           "place": "1",
           "lane": "4",
           "school": "Beacon Hill Catholic",
-          "additionalInfo": "5",
+          "additionalInfo": "",
           "split": "00:00.0",
           "time": "06:16.4"
         },
@@ -206,7 +206,7 @@
           "place": "2",
           "lane": "3",
           "school": "Saint Cuthbert's Boat Club A",
-          "additionalInfo": "4",
+          "additionalInfo": "",
           "split": "00:07.8",
           "time": "06:24.2"
         },
