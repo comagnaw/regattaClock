@@ -77,7 +77,8 @@ The Apps Script lists `results-*.json` in its folder, so **no `index.json`** is 
 ```json
 {
   "schemaVersion": 1,
-  "regatta": { "name": "…", "date": "…", "season": "2026", "regattaKey": "12 hex" },
+  "generator": "regattaClock",
+  "regatta": { "name": "…", "date": "YYYY-MM-DD", "season": "2026", "regattaKey": "12 hex" },
   "publishedAt": "RFC 3339 UTC",
   "races": [{
     "raceNumber": 1, "title": "Race 1 - W-1x - Final", "scheduledTime": "09:00 AM",
@@ -90,7 +91,9 @@ The Apps Script lists `results-*.json` in its folder, so **no `index.json`** is 
 }
 ```
 
-This is the PoC format plus a per-race **`publishedAt`**. With it, the file carries its own ledger (`revision` + `publishedAt` per race), as the workbook's hidden sheet does. `Read` rebuilds `Published{RegattaKey, Ledger, Rows}` from the file, so re-publish detection and the carry-forward of un-approved races (`mergePublished`) work the same as for Excel.
+This is the PoC format plus two fields. **`generator`** marks the file as RegattaClock's, so `Read` can refuse one it didn't write. A per-race **`publishedAt`** is the second. `regatta.date` is ISO when the schedule's date parses, so the page can sort regattas, and is passed through as written otherwise.
+
+With `publishedAt`, the file carries its own ledger (`revision` + `publishedAt` per race), as the workbook's hidden sheet does. `Read` rebuilds `Published{RegattaKey, Ledger, Rows}` from the file, so re-publish detection and the carry-forward of un-approved races (`mergePublished`) work the same as for Excel.
 
 **Writing:**
 
