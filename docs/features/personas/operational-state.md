@@ -1,5 +1,14 @@
 # Regatta operational state: schedule ingest + results publish + social platforms
 
+> **Update (2026-11-21): the results-publish axis moved to the PFT.** The
+> destination is no longer an RD choice in `regattaSchedule.json`. The
+> Primary Finish Timer picks one or more destinations (Excel workbook, web
+> JSON for the Google Sites page, later RegattaCentral) per regatta and
+> stores them in its own `finish.json`, because only the PFT laptop has the
+> destination folders mapped. `store.PublishConfig` is being removed. See
+> [../publish-destinations.md](../publish-destinations.md). The ingest-source
+> and social-platform axes below are unchanged.
+
 Cross-cutting configuration, not a persona. Captured once by the Regatta
 Director when `regattaData` is first created, and read by any feature or
 persona whose behavior depends on where the schedule comes from or where

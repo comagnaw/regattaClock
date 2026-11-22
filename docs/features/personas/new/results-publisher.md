@@ -10,6 +10,12 @@ plan step 5, the RegattaCentral destination.** That step is gated on
 concluding. Delete this doc when RC lands and fold that destination into
 README.md. The decision trail below is kept for that slice.
 
+**Update (2026-11-21):** destinations become configurable on the PFT
+(several at once: the workbook, web JSON for the Google Sites page, and RC
+as a placeholder), replacing the RD-owned `ResultsDestination`. The RC
+destination described here becomes one implementation of the `Destination`
+interface in [../../publish-destinations.md](../../publish-destinations.md).
+
 **Resolution: not a new persona.** REP started as a "new persona" request
 (Executive team, Media UI, results-driven) but resolved, after clarifying
 the architecture options with the author, to a **native feature added to
