@@ -47,6 +47,7 @@ function getIndex() {
       var entry = { season: String(r.season), name: r.name, date: r.date,
                     regattaKey: r.regattaKey, file: f.getId(),
                     updated: f.getLastUpdated().getTime() };
+      if (r.cancelled) { entry.cancelled = r.cancelled; } // a regatta cancelled outright
       // Two files for one regatta (e.g. a duplicate web upload): newest wins.
       var seen = byKey[entry.regattaKey];
       if (!seen || seen.updated < entry.updated) { byKey[entry.regattaKey] = entry; }

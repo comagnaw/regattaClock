@@ -43,6 +43,8 @@ Anything that can read JSON can show these results. Readers **must ignore fields
 | `races[].winningTime` | The winner's time. |
 | `races[].approvedAt`, `races[].publishedAt` | When the referee approved it, and when it was published (UTC). |
 | `races[].revision` | Changes whenever anything visible in the race changes. |
+| `races[].cancelled` | Optional. `{reason, note}` for a race that was cancelled: `reason` is `weather`, `water` (water / course conditions) or `other` (then `note` says why). Its `results` are empty; its `lanes` still list the boats entered. |
+| `regatta.cancelled` | Optional. The same shape for a regatta cancelled outright. Its `races` list is empty. |
 | `races[].progression` | Optional. A heat's advancement rule, e.g. `Top 3 to Final` or `Top 2 to Final, Next 2 to Petite Final`. The page shows it after the race title. Imported past results carry it; the app doesn't write it yet. |
 | `races[].lanes` | Lane number → `{school, additionalInfo, status}`. `status` is `"SCR"` for a scratched boat, otherwise empty. |
 | `races[].results[]` | Finish order: `{place, lane, school, additionalInfo, split, time}`. `place` is `1`–`6`, or `DQ`, `DNF` or `DNS`. |
@@ -56,7 +58,7 @@ The PFT only ever writes to a folder on the laptop. **For Google Sites,** that f
 
 [`static/index.html`](static/index.html) is a complete, framework-free reference, one file with no build step. A React, Vue or any other front end needs only two requests:
 
-1. `index.json`: the list of regattas, written by [`static/build-index.py`](static/build-index.py): `{schemaVersion, generatedAt, regattas: [{season, name, date, regattaKey, file, publishedAt}]}`.
+1. `index.json`: the list of regattas, written by [`static/build-index.py`](static/build-index.py): `{schemaVersion, generatedAt, regattas: [{season, name, date, regattaKey, file, publishedAt, cancelled?}]}`.
 2. The chosen regatta's `file`, in the format above.
 
 Fetch both without caching (for example `cache: "no-store"`), so a reload shows a race published a moment ago.

@@ -14,11 +14,13 @@
   :root {
     --bg: #f6f7f9; --card: #ffffff; --ink: #1b1f24; --muted: #5d6670;
     --line: #dde1e6; --accent: #0b5cad; --hi: #fff3bf; --scr: #8a929b;
+    --head: #f2c94c; --head-ink: #1b1f24; --cancel: #b3261e;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #111418; --card: #1a1f25; --ink: #e8ebef; --muted: #9aa3ad;
       --line: #2c333b; --accent: #6cb0ff; --hi: #4a4118; --scr: #6b737c;
+      --head: #c9a227; --head-ink: #111418; --cancel: #ff8a80;
     }
   }
   * { box-sizing: border-box; }
@@ -49,13 +51,18 @@
     margin: 0; padding: 10px 12px; font-size: 1rem; display: flex;
     justify-content: space-between; gap: 8px; flex-wrap: wrap;
     border-bottom: 1px solid var(--line);
+    background: var(--head); color: var(--head-ink);
   }
-  .race h2 small { font-weight: normal; color: var(--muted); }
+  .race h2 small { font-weight: normal; color: var(--head-ink); opacity: .8; }
   .prog {
     display: inline-block; margin-left: 8px; padding: 1px 6px; border-radius: 4px;
     font-size: .75rem; font-weight: 600; color: var(--accent); border: 1px solid var(--accent);
+    background: var(--card);
   }
   .note { padding: 6px 12px 0; color: var(--muted); font-size: .85rem; }
+  .cancel { padding: 8px 12px; color: var(--cancel); font-weight: 600; }
+  .status.cancel { padding: 24px; }
+  tr.entry td { color: var(--muted); }
   table { width: 100%; border-collapse: collapse; }
   th, td { text-align: left; padding: 6px 12px; border-bottom: 1px solid var(--line); }
   th { font-size: .75rem; text-transform: uppercase; color: var(--muted); font-weight: 600; }
@@ -159,7 +166,9 @@
     state.index.regattas
       .filter(function (g) { return g.season === $("season").value; })
       .sort(function (a, b) { return b.date.localeCompare(a.date); })
-      .forEach(function (g) { r.appendChild(option(g.regattaKey, g.date + " - " + g.name)); });
+      .forEach(function (g) {
+        r.appendChild(option(g.regattaKey, g.date + " - " + g.name + (g.cancelled ? " (cancelled)" : "")));
+      });
     if (want) { r.value = want; }
     if (!r.value && r.options.length) { r.selectedIndex = 0; }
   }
@@ -170,15 +179,26 @@
   }
 
   // --- rendering ----------------------------------------------------------
+  // "Cancelled · Weather"; "other" shows its note.
+  var REASONS = { weather: "Weather", water: "Water / course conditions" };
+  function cancelText(c) {
+    var why = c.reason === "other" ? (c.note || "Other")
+      : (REASONS[c.reason] || c.reason) + (c.note ? " (" + c.note + ")" : "");
+    return "Cancelled" + SEP + why;
+  }
+
   function rowsFor(race) {
-    // Finish order first, then any scheduled lane with no result (a scratch).
-    var rows = race.results.map(function (x) { return { r: x, scr: false }; });
+    // Finish order first, then every entered lane without a result: a scratch,
+    // or a boat in a race that was cancelled or has no results yet.
+    var rows = race.results.map(function (x) { return { r: x, kind: "" }; });
+    var placed = {};
+    race.results.forEach(function (x) { placed[x.lane] = true; });
     Object.keys(race.lanes || {}).sort(function (a, b) { return a - b; }).forEach(function (ln) {
       var e = race.lanes[ln];
-      if (e.status === "SCR") {
-        rows.push({ scr: true, r: { place: "SCR", lane: ln, school: e.school,
-                                    additionalInfo: e.additionalInfo, split: "", time: "" } });
-      }
+      if (placed[ln]) { return; }
+      var scr = e.status === "SCR";
+      rows.push({ kind: scr ? "scr" : "entry", r: { place: scr ? "SCR" : "", lane: ln, school: e.school,
+                                                     additionalInfo: e.additionalInfo, split: "", time: "" } });
     });
     return rows;
   }
@@ -194,6 +214,13 @@
       new Date(data.publishedAt).toLocaleString();
     document.title = data.regatta.name + " Results";
 
+    if (data.regatta.cancelled) {
+      $("meta").textContent = data.regatta.date + SEP + cancelText(data.regatta.cancelled);
+      main.appendChild(el("div", { "class": "status cancel", text: "This regatta was " +
+        cancelText(data.regatta.cancelled).replace("Cancelled", "cancelled") + "." }));
+      return;
+    }
+
     var needle = $("school").value.trim().toLowerCase();
     var shown = 0;
 
@@ -205,7 +232,7 @@
         shown++;
 
         var body = el("tbody", {}, rows.map(function (x) {
-          var cls = (x.scr ? "scr " : "") + (hit(x) ? "match" : "");
+          var cls = x.kind + (hit(x) ? " match" : "");
           return el("tr", { "class": cls.trim() }, [
             el("td", {}, [el("span", { "class": "place", text: x.r.place })]),
             el("td", { "class": "num", text: x.r.lane }),
@@ -224,8 +251,9 @@
             ]),
             el("small", { text: race.scheduledTime + (race.winningTime ? SEP + "winner " + race.winningTime : "") })
           ]),
+          race.cancelled ? el("div", { "class": "cancel", text: cancelText(race.cancelled) }) : null,
           race.note ? el("div", { "class": "note", text: race.note }) : null,
-          el("table", {}, [
+          rows.length === 0 ? null : el("table", {}, [
             el("thead", {}, [el("tr", {}, ["Place", "Lane", "School", "Info", "Split", "Time"].map(function (h) {
               var c = h === "Info" ? "col-info" : h === "Split" ? "col-split" : "";
               return el("th", c ? { "class": c, text: h } : { text: h });
