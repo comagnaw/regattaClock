@@ -41,7 +41,7 @@ def read_entry(path):
         print(f"skip {os.path.basename(path)}: unsupported schemaVersion {data.get('schemaVersion')}", file=sys.stderr)
         return None
     regatta = data.get("regatta") or {}
-    return {
+    entry = {
         "season": str(regatta.get("season", "")),
         "name": regatta.get("name", ""),
         "date": regatta.get("date", ""),
@@ -49,6 +49,9 @@ def read_entry(path):
         "file": os.path.basename(path),
         "publishedAt": data.get("publishedAt", ""),
     }
+    if isinstance(regatta.get("cancelled"), dict):
+        entry["cancelled"] = regatta["cancelled"]  # a regatta cancelled outright
+    return entry
 
 
 def build(results_dir):
