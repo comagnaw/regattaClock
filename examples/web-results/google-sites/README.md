@@ -45,7 +45,7 @@ This is one of the hosting options in [`../README.md`](../README.md). It uses th
 
 ### ① Drive folder
 
-1. In Google Drive (the account that will own the web app), create a folder, for example **`regattaClock Results`**. **Don't share it.**
+1. In Google Drive (the account that will own the web app), create a folder, for example **`regattaClock Results`**. **Don't share it.** It can be in My Drive or in a Shared Drive.
 2. To try it before a real regatta, upload the three sample files from [`../sample-data/`](../sample-data/). On race day the PFT writes its own file here.
 3. Open the folder and copy the ID from the address bar: `drive.google.com/drive/folders/`**`<FOLDER_ID>`**.
 

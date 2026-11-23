@@ -206,7 +206,13 @@
   function render() {
     var main = $("races"), data = state.results;
     main.innerHTML = "";
-    if (!data) { return; }
+    if (!data) {
+      if (state.index && !state.index.regattas.length) {
+        $("meta").textContent = "";
+        main.appendChild(el("div", { "class": "status", text: "No regatta results have been published yet." }));
+      }
+      return;
+    }
 
     $("title").textContent = data.regatta.name + " Results";
     $("meta").textContent = data.regatta.date + SEP + data.races.length +

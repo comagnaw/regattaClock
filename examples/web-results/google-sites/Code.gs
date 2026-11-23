@@ -96,8 +96,12 @@ function inResultsFolder_(fileId) {
 function diagnose() {
   var t = Date.now(), lap = function () { var d = Date.now() - t; t = Date.now(); return d + ' ms'; };
   console.log('Drive API service: ' + (typeof Drive === 'undefined' ? 'OFF' : 'on'));
-  var api = listFolder_();
-  console.log('listing: ' + api.length + ' results files (' + lap() + ')');
+  if (typeof Drive !== 'undefined') {
+    var meta = Drive.Files.get(FOLDER_ID, { supportsAllDrives: true, fields: 'id, name, driveId' });
+    console.log('folder "' + meta.name + '" is in ' + (meta.driveId ? 'a Shared Drive (' + meta.driveId + ')' : 'My Drive'));
+  }
+  var api = typeof Drive === 'undefined' ? [] : listFolderApi_();
+  console.log('Drive API listing: ' + api.length + ' results files (' + lap() + ')');
   var direct = [], it = folder_().getFiles();
   while (it.hasNext()) { var f = it.next(); if (RESULTS_NAME.test(f.getName())) { direct.push(f.getId()); } }
   console.log('DriveApp listing: ' + direct.length + ' results files (' + lap() + ')');
@@ -212,25 +216,39 @@ function buildIndex_() {
  * appsscript.json); otherwise DriveApp, one call per file per field.
  */
 function listFolder_() {
-  var out = [];
   if (FOLDER_ID === 'PASTE_FOLDER_ID_HERE') { folder_(); } // throws the setup message
   if (typeof Drive !== 'undefined') {
-    var token;
-    do {
-      var page = Drive.Files.list({
-        q: "'" + FOLDER_ID + "' in parents and trashed = false",
-        fields: 'nextPageToken, files(id, name, modifiedTime)',
-        pageSize: 1000, pageToken: token
-      });
-      (page.files || []).forEach(function (f) {
-        if (RESULTS_NAME.test(f.name)) {
-          out.push({ id: f.id, name: f.name, modified: new Date(f.modifiedTime).getTime() });
-        }
-      });
-      token = page.nextPageToken;
-    } while (token);
-    return out;
+    var out = listFolderApi_();
+    if (out.length) { return out; }
+    // Never build an empty list on the API's word alone: an empty answer is
+    // also what a misconfigured listing looks like. Ask DriveApp.
+    console.warn('Drive API listed no results files; checking with DriveApp');
   }
+  return listFolderDriveApp_();
+}
+
+function listFolderApi_() {
+  var out = [], token;
+  do {
+    var page = Drive.Files.list({
+      q: "'" + FOLDER_ID + "' in parents and trashed = false",
+      fields: 'nextPageToken, files(id, name, modifiedTime)',
+      pageSize: 1000, pageToken: token,
+      // A folder in a Shared Drive is invisible to the listing without these.
+      supportsAllDrives: true, includeItemsFromAllDrives: true, corpora: 'allDrives'
+    });
+    (page.files || []).forEach(function (f) {
+      if (RESULTS_NAME.test(f.name)) {
+        out.push({ id: f.id, name: f.name, modified: new Date(f.modifiedTime).getTime() });
+      }
+    });
+    token = page.nextPageToken;
+  } while (token);
+  return out;
+}
+
+function listFolderDriveApp_() {
+  var out = [];
   var files = folder_().getFiles();
   while (files.hasNext()) {
     var f = files.next();
