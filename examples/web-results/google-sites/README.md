@@ -29,22 +29,23 @@ This is one of the hosting options in [`../README.md`](../README.md). It uses th
 
 | File | Purpose |
 | --- | --- |
-| `Code.gs` | Server side. `doGet` serves the page, `getIndex` lists `results-*.json` in the folder, `getResults` returns one file, and `checkSetup` is a one-time check run from the editor. |
+| `Code.gs` | Server side. `doGet` serves the page with the regatta list and the first regatta's results already in it; `getIndex` and `getResults` answer **Reload** and later picks; `checkSetup` is a one-time check, and `installWarmer` an optional race-day helper, both run from the editor. |
 | `Index.html` | The page: the same layout, pickers and school filter as [`../static/index.html`](../static/index.html). It asks `Code.gs` for its data with `google.script.run`. |
-| `appsscript.json` | Optional manifest. It sets the Drive read-only scope and the web-app settings (runs as you, anyone can open it). |
+| `appsscript.json` | The manifest. It turns on the **Drive API** advanced service (lists the folder in one call), sets the Drive read-only and trigger scopes, and the web-app settings (runs as you, anyone can open it). |
 
 **Points about the design:**
 
 - **No `index.json` to maintain.** The script builds the catalog by listing the folder. Any file named `results-*.json` that parses appears under its `regatta.season`. Other files are ignored, and a half-synced file that doesn't parse yet is skipped.
 - **The folder stays private.** Visitors never get a Drive link. `getResults` only returns files that are inside the configured folder, so a guessed file ID can't read anything else in the account.
-- **No staleness.** Each file is cached under its ID plus its last-modified time. A new sync changes that time, so the next page load or **Reload** shows the new results immediately.
+- **Fast, whatever the folder holds.** The regatta list is cached for 7 minutes. Rebuilding it lists the folder in one Drive API call and opens only files it hasn't seen before; each file's regatta name and date are remembered in the script's properties. The page arrives with the list and the newest regatta's results inside it, so the first view makes no further calls.
+- **No staleness for results.** Each results file is cached under its ID plus its last-modified time. A new sync changes that time, so the next page load or **Reload** shows the new results immediately. Only a **new** regatta file can take up to 7 minutes to appear in the list (up to 5 with the race-day warmer).
 - **If two files contain the same regatta,** the newer file wins. This can happen with a duplicate web upload.
 
 ## Setup
 
 ### ① Drive folder
 
-1. In Google Drive (the account that will own the web app), create a folder, for example **`regattaClock Results`**. **Don't share it.**
+1. In Google Drive (the account that will own the web app), create a folder, for example **`regattaClock Results`**. **Don't share it.** It can be in My Drive or in a Shared Drive.
 2. To try it before a real regatta, upload the three sample files from [`../sample-data/`](../sample-data/). On race day the PFT writes its own file here.
 3. Open the folder and copy the ID from the address bar: `drive.google.com/drive/folders/`**`<FOLDER_ID>`**.
 
@@ -55,8 +56,8 @@ This is one of the hosting options in [`../README.md`](../README.md). It uses th
 1. Go to [script.google.com](https://script.google.com) → **New project**, and name it, for example, *regattaClock Results*.
 2. Replace the contents of `Code.gs` with this folder's `Code.gs`, and set `FOLDER_ID` at the top.
 3. Choose **+** next to *Files* → **HTML**, name it **`Index`** (the editor adds `.html`), and paste in `Index.html`.
-4. Optional: under **Project Settings**, tick *Show "appsscript.json" manifest file*, then replace that file's contents with this folder's `appsscript.json`. Change `timeZone` if needed.
-5. In the editor, choose the **`checkSetup`** function and **Run** it. Approve the Drive permission prompt. The log should list the three sample regattas.
+4. Under **Project Settings**, tick *Show "appsscript.json" manifest file*, then replace that file's contents with this folder's `appsscript.json`. Change `timeZone` if needed. This also turns on the Drive API service. Without it, the page still works but rebuilds the regatta list far more slowly (about 0.4 s per file in the folder).
+5. In the editor, choose the **`checkSetup`** function and **Run** it. Approve the permission prompts. The log should list the three sample regattas and how long building the list took.
 6. **Deploy → New deployment**, gear → **Web app**:
    - *Execute as:* **Me**
    - *Who has access:* **Anyone**
@@ -73,7 +74,11 @@ This is one of the hosting options in [`../README.md`](../README.md). It uses th
 
 ### Updating the code later
 
-Use **Deploy → Manage deployments → edit (pencil) → Version: New version → Deploy**. That keeps the same `/exec` URL. Choosing **New deployment** creates a **new URL** and breaks the Sites embed and any shared links.
+Paste the new `Code.gs`, `Index.html` and `appsscript.json`, then use **Deploy → Manage deployments → edit (pencil) → Version: New version → Deploy**. That keeps the same `/exec` URL. Choosing **New deployment** creates a **new URL** and breaks the Sites embed and any shared links.
+
+### Optional: keep it warm on race day
+
+Run **`installWarmer`** once from the editor (approve the prompt). It rebuilds the regatta list about every 5 minutes, just inside the list's 7-minute cache, so the cache never lapses and no visitor waits for a rebuild. New regatta files appear within 5 minutes, and a just-published file's results are cached before anyone asks. **`removeWarmer`** turns it off. Each run takes about a second and counts as one execution.
 
 ## Linking behavior
 
@@ -102,14 +107,14 @@ Use **Deploy → Manage deployments → edit (pencil) → Version: New version �
 | --- | --- | --- |
 | `/exec` works but the Sites embed is blank or asks for sign-in | The deployment access isn't *Anyone*, or the account's Workspace policy blocks anonymous web apps | Recheck step ② 6, or check the Workspace admin setting for Apps Script web-app access |
 | A "This application was created by another user" banner appears | Normal for personal (gmail) accounts | Deploy from a Workspace account on the same domain as the site, or accept the banner |
-| "Could not load results" | The script threw an error, or too many visitors loaded at once (see [Capacity](#capacity-and-rate-limits-a-risk-for-large-regattas)) | Run `checkSetup` in the editor, and check **Executions** in the Apps Script sidebar for failures |
+| "Could not load results" | The script threw an error, or too many visitors loaded at once (see [Capacity](#capacity-and-rate-limits-a-risk-for-large-regattas)) | Run `diagnose` in the editor and read its log, and check **Executions** in the Apps Script sidebar for failures |
 | A published race never appears | Drive for Desktop isn't syncing that folder, it's signed in to the wrong account, or the PFT points at another folder | Check the Drive for Desktop status, and the folder in **Publish Destinations…** |
 
 ## Things to check
 
 - **Banner:** web apps deployed from a personal Google account show a notice bar. A Workspace account usually avoids it, especially on a Workspace-owned site.
 - **Quotas:** the daily totals are not the problem; short bursts are. See [Capacity and rate limits](#capacity-and-rate-limits-a-risk-for-large-regattas).
-- **Load time:** the first view after a deploy or a quiet spell may take a second or two while the script starts up. This is normal for Apps Script.
+- **Load time:** the first view after a deploy or a quiet spell may take a second or two while the script starts up. This is normal for Apps Script. The very first run after adding many files opens each one once (several seconds for a few dozen); run `checkSetup` or `installWarmer` so a visitor doesn't.
 
 ## Capacity and rate limits: a risk for large regattas
 
@@ -139,9 +144,9 @@ That's **8,200 people** in all.
 | Reloads per followed race | 2 | 5 | 6 |
 | Popularity of the busiest race (vs. average) | 1.5× | 2× | 3× |
 
-Reloads per day = viewers × races followed × reloads per race. Reloads for one race bunch up in about **3 minutes** around its result. Each reload runs about 2.5 executions: **Reload** runs `getIndex` and `getResults`, and opening the page also runs `doGet`. Each execution takes about **0.7 s** today.
+Reloads per day = viewers × races followed × reloads per race. Reloads for one race bunch up in about **3 minutes** around its result. Before the speed-up, each reload ran about 2.5 executions of about **0.7 s** (**Reload** ran `getIndex` and `getResults`, and opening the page also ran `doGet`).
 
-So **simultaneous executions ≈ reloads per second × 2.5 × 0.7.**
+So, before the speed-up, **simultaneous executions ≈ reloads per second × 2.5 × 0.7.** With this version, opening the page is one execution that carries its data, and **Reload** two short ones, roughly **1.5 shorter executions** per reload.
 
 | Result | Low | Typical | High |
 | --- | --- | --- | --- |
@@ -149,22 +154,21 @@ So **simultaneous executions ≈ reloads per second × 2.5 × 0.7.**
 | Average per hour | 410 | 6,150 | 29,520 |
 | Reloads for the busiest race | 82 | 1,640 | 11,808 |
 | Peak reloads per second | 0.5 | 9 | 66 |
-| **Simultaneous executions at the peak (limit 30)** | **≈1** | **≈16** | **≈115** |
-| …once the folder holds about 20 regattas | ≈3 | **≈56** | **≈400** |
-| …after the planned speed-up (below) | ≈0 | ≈7 | **≈49** |
+| Simultaneous executions at the peak, before the speed-up (limit 30) | ≈1 | ≈16 | ≈115 |
+| …before the speed-up, with about 20 regattas in the folder | ≈3 | ≈56 | ≈400 |
+| **…with this version, however many regattas the folder holds** | **≈0** | **≈7** | **≈49** |
 
 **Reading it:**
 
 - **Low use is comfortable.**
 - **Typical use averages about half the limit.** But the averages hide spikes, for example when a result appears and many people reload within the same 30 seconds. Expect occasional failures at the busiest races.
 - **High use is well over the limit,** and some visitors will see errors for much of the day.
-- **The page slows as the folder fills.** `getIndex` currently reads every results file in the folder, about 0.25 s per file. With a season or two of regattas it takes several seconds, so each visitor holds an execution open for longer. That is the "about 20 regattas" row.
+- **Before the speed-up, the page slowed as the folder filled.** Building the regatta list asked Drive about every file on every visit, about 0.4 s per file: **17–20 s with 43 regattas** (measured). That is the "about 20 regattas" row. This version keeps the time flat however many files the folder holds.
 
 These are estimates from the assumptions above, not measurements. To redo them for your own regatta, change the first table and recompute with the formula.
 
 ### Reducing the risk
 
-1. **Keep the folder small.** Move past regattas' files into another folder (for example `Archive 2025`). The page only lists the live folder. This is the cheapest fix today.
-2. **The planned speed-up** (a follow-up to this example) caches the regatta list and sends the first view's data with the page. That cuts each reload to about 1.5 shorter executions and keeps the time flat however many files the folder holds. It brings typical use well under the limit, but not the high case.
-3. **For large regattas, use a plain web host instead** ([`../static/`](../static/README.md)). There, visitors fetch static JSON files, which an ordinary web server, or a free CDN in front of it, serves at thousands of requests per second with no execution limit. The same PFT folder can feed both, so you can keep the Google Sites page for small events and point a big regatta at the web host.
-4. **Watch it on the day.** Apps Script's **Executions** page lists failed runs. If failures appear around popular races, the limit is being hit.
+1. **Use this version** (with the Drive API service on, and `installWarmer` on race day). It brings typical use well under the limit, but not the high case.
+2. **For large regattas, use a plain web host instead** ([`../static/`](../static/README.md)). There, visitors fetch static JSON files, which an ordinary web server, or a free CDN in front of it, serves at thousands of requests per second with no execution limit. The same PFT folder can feed both, so you can keep the Google Sites page for small events and point a big regatta at the web host.
+3. **Watch it on the day.** Apps Script's **Executions** page lists failed runs. If failures appear around popular races, the limit is being hit.
