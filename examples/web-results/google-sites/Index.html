@@ -100,7 +100,8 @@
 (function () {
   "use strict";
 
-  // Query parameters + the web app's /exec URL, injected by doGet() in Code.gs.
+  // Injected by doGet() in Code.gs: the query parameters, plus the regatta list
+  // and the first regatta's results, so the first view needs no server calls.
   var INITIAL = <?!= initial ?>;
   // Middle dot as an escape, not a literal, so the source stays pure ASCII.
   var SEP = " \u00B7 ";
@@ -276,11 +277,19 @@
   }
 
   // --- loading ------------------------------------------------------------
+  // Data that came with the page, each used once (Reload always asks again).
+  function prefetched(key, file) {
+    var v = INITIAL[key];
+    if (!v || (file !== undefined && v.file !== file)) { return null; }
+    INITIAL[key] = null;
+    return Promise.resolve(file !== undefined ? v.data : v);
+  }
+
   function loadRegatta() {
     var entry = selectedEntry();
     if (!entry) { state.results = null; render(); return Promise.resolve(); }
     $("meta").textContent = "Loading " + entry.name + "...";
-    return server("getResults", entry.file).then(function (data) {
+    return (prefetched("results", entry.file) || server("getResults", entry.file)).then(function (data) {
       if (data.schemaVersion !== 1) { throw new Error("unsupported schemaVersion " + data.schemaVersion); }
       if (data.regatta.regattaKey !== entry.regattaKey) {
         throw new Error(entry.name + " file belongs to a different regatta (" + data.regatta.name + ")");
@@ -293,7 +302,7 @@
   function loadAll() {
     var q = readQuery();
     var keep = { season: $("season").value || q.season, regatta: $("regatta").value || q.regatta };
-    return server("getIndex").then(function (idx) {
+    return (prefetched("index") || server("getIndex")).then(function (idx) {
       if (idx.schemaVersion !== 1) { throw new Error("unsupported index schemaVersion " + idx.schemaVersion); }
       state.index = idx;
       fillSeasons(keep.season);
@@ -306,7 +315,10 @@
   $("season").addEventListener("change", function () { fillRegattas(); writeQuery(); loadRegatta().catch(showError); });
   $("regatta").addEventListener("change", function () { writeQuery(); loadRegatta().catch(showError); });
   $("school").addEventListener("input", function () { writeQuery(); render(); });
-  $("reload").addEventListener("click", loadAll);
+  $("reload").addEventListener("click", function () {
+    INITIAL.index = INITIAL.results = null; // Reload always asks the server
+    loadAll();
+  });
 
   $("school").value = readQuery().school;
   loadAll();
