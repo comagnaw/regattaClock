@@ -107,7 +107,7 @@ Run **`installWarmer`** once from the editor (approve the prompt). It rebuilds t
 | --- | --- | --- |
 | `/exec` works but the Sites embed is blank or asks for sign-in | The deployment access isn't *Anyone*, or the account's Workspace policy blocks anonymous web apps | Recheck step ② 6, or check the Workspace admin setting for Apps Script web-app access |
 | A "This application was created by another user" banner appears | Normal for personal (gmail) accounts | Deploy from a Workspace account on the same domain as the site, or accept the banner |
-| "Could not load results" | The script threw an error, or too many visitors loaded at once (see [Capacity](#capacity-and-rate-limits-a-risk-for-large-regattas)) | Run `checkSetup` in the editor, and check **Executions** in the Apps Script sidebar for failures |
+| "Could not load results" | The script threw an error, or too many visitors loaded at once (see [Capacity](#capacity-and-rate-limits-a-risk-for-large-regattas)) | Run `diagnose` in the editor and read its log, and check **Executions** in the Apps Script sidebar for failures |
 | A published race never appears | Drive for Desktop isn't syncing that folder, it's signed in to the wrong account, or the PFT points at another folder | Check the Drive for Desktop status, and the folder in **Publish Destinations…** |
 
 ## Things to check

@@ -60,10 +60,68 @@ function getIndex() {
 function getResults(fileId) {
   fileId = String(fileId);
   // Never serve an arbitrary Drive file the deploying account can read: only
-  // results files in the configured folder, i.e. in the regatta list.
-  var listed = JSON.parse(indexJSON_()).regattas.some(function (r) { return r.file === fileId; });
-  if (!listed) { throw new Error('Results file not found.'); }
+  // results files in the configured folder. The regatta list answers that
+  // cheaply; if the file isn't in it (the list may be a few minutes old),
+  // rebuild the list once, then fall back to asking Drive directly.
+  if (!listed_(indexJSON_(), fileId) && !listed_(buildIndex_(), fileId)) {
+    console.warn('getResults: ' + fileId + ' not in the regatta list; checking the folder directly');
+    if (!inResultsFolder_(fileId)) { throw new Error('Results file not found.'); }
+  }
   return resultsText_(fileId);
+}
+
+function listed_(indexText, fileId) {
+  return JSON.parse(indexText).regattas.some(function (r) { return r.file === fileId; });
+}
+
+function inResultsFolder_(fileId) {
+  try {
+    var f = DriveApp.getFileById(fileId);
+    if (!RESULTS_NAME.test(f.getName())) { return false; }
+    var parents = f.getParents();
+    while (parents.hasNext()) {
+      if (parents.next().getId() === FOLDER_ID) { return true; }
+    }
+  } catch (err) {
+    console.warn('inResultsFolder_: ' + err.message);
+  }
+  return false;
+}
+
+/**
+ * Run from the editor when something looks wrong, and share the log. It
+ * compares the folder listing both ways, shows the cache, and fetches every
+ * regatta the way the page does.
+ */
+function diagnose() {
+  var t = Date.now(), lap = function () { var d = Date.now() - t; t = Date.now(); return d + ' ms'; };
+  console.log('Drive API service: ' + (typeof Drive === 'undefined' ? 'OFF' : 'on'));
+  var api = listFolder_();
+  console.log('listing: ' + api.length + ' results files (' + lap() + ')');
+  var direct = [], it = folder_().getFiles();
+  while (it.hasNext()) { var f = it.next(); if (RESULTS_NAME.test(f.getName())) { direct.push(f.getId()); } }
+  console.log('DriveApp listing: ' + direct.length + ' results files (' + lap() + ')');
+  var apiIds = api.map(function (x) { return x.id; });
+  direct.filter(function (id) { return apiIds.indexOf(id) < 0; }).forEach(function (id) {
+    console.log('  only in DriveApp listing: ' + id);
+  });
+  apiIds.filter(function (id) { return direct.indexOf(id) < 0; }).forEach(function (id) {
+    console.log('  only in Drive API listing: ' + id);
+  });
+  var cached = CacheService.getScriptCache().get(INDEX_KEY);
+  console.log('cached regatta list: ' + (cached === null ? 'none' : JSON.parse(cached).regattas.length + ' regattas'));
+  var idx = JSON.parse(buildIndex_());
+  console.log('rebuilt regatta list: ' + idx.regattas.length + ' regattas (' + lap() + ')');
+  var props = PropertiesService.getScriptProperties().getProperties();
+  console.log('remembered file headers: ' + Object.keys(props).filter(function (k) { return k.indexOf('h:') === 0; }).length);
+  idx.regattas.forEach(function (r) {
+    try {
+      getResults(r.file);
+      console.log('  ok   ' + r.season + ' ' + r.name + ' (' + lap() + ')');
+    } catch (err) {
+      console.log('  FAIL ' + r.season + ' ' + r.name + ' ' + r.file + ': ' + err.message);
+    }
+  });
 }
 
 /** Run once from the editor: authorizes Drive access and logs what it sees. */
