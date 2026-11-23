@@ -20,7 +20,8 @@
 var FOLDER_ID = 'PASTE_FOLDER_ID_HERE';
 
 var RESULTS_NAME = /^results-.*\.json$/i; // anything else in the folder is ignored
-var INDEX_TTL = 300;                      // 5 min: how soon a NEW regatta file appears
+var INDEX_TTL = 420;                      // 7 min: how soon a NEW regatta file appears without the
+                                          // warmer; just over its 5-min interval, so it never lapses
 var CACHE_TTL = 21600;                    // 6 h, CacheService's maximum
 var CHUNK = 90 * 1024;                    // under CacheService's 100 KB per-value limit
 var INDEX_KEY = 'idx:v2';

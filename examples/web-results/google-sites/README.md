@@ -37,8 +37,8 @@ This is one of the hosting options in [`../README.md`](../README.md). It uses th
 
 - **No `index.json` to maintain.** The script builds the catalog by listing the folder. Any file named `results-*.json` that parses appears under its `regatta.season`. Other files are ignored, and a half-synced file that doesn't parse yet is skipped.
 - **The folder stays private.** Visitors never get a Drive link. `getResults` only returns files that are inside the configured folder, so a guessed file ID can't read anything else in the account.
-- **Fast, whatever the folder holds.** The regatta list is cached for 5 minutes. Rebuilding it lists the folder in one Drive API call and opens only files it hasn't seen before; each file's regatta name and date are remembered in the script's properties. The page arrives with the list and the newest regatta's results inside it, so the first view makes no further calls.
-- **No staleness for results.** Each results file is cached under its ID plus its last-modified time. A new sync changes that time, so the next page load or **Reload** shows the new results immediately. Only a **new** regatta file can take up to 5 minutes to appear in the list.
+- **Fast, whatever the folder holds.** The regatta list is cached for 7 minutes. Rebuilding it lists the folder in one Drive API call and opens only files it hasn't seen before; each file's regatta name and date are remembered in the script's properties. The page arrives with the list and the newest regatta's results inside it, so the first view makes no further calls.
+- **No staleness for results.** Each results file is cached under its ID plus its last-modified time. A new sync changes that time, so the next page load or **Reload** shows the new results immediately. Only a **new** regatta file can take up to 7 minutes to appear in the list (up to 5 with the race-day warmer).
 - **If two files contain the same regatta,** the newer file wins. This can happen with a duplicate web upload.
 
 ## Setup
@@ -78,7 +78,7 @@ Paste the new `Code.gs`, `Index.html` and `appsscript.json`, then use **Deploy â
 
 ### Optional: keep it warm on race day
 
-Run **`installWarmer`** once from the editor (approve the prompt). It rebuilds the regatta list every 5 minutes, so no visitor ever waits for a rebuild, and new regatta files appear within 5 minutes even with no visitors. **`removeWarmer`** turns it off. Each run takes about a second and counts as one execution.
+Run **`installWarmer`** once from the editor (approve the prompt). It rebuilds the regatta list about every 5 minutes, just inside the list's 7-minute cache, so the cache never lapses and no visitor waits for a rebuild. New regatta files appear within 5 minutes, and a just-published file's results are cached before anyone asks. **`removeWarmer`** turns it off. Each run takes about a second and counts as one execution.
 
 ## Linking behavior
 
