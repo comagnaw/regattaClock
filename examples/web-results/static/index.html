@@ -229,6 +229,13 @@
 
     var needle = $("school").value.trim().toLowerCase();
     var shown = 0;
+    // Archive races can share a number ("Race 27A" and "Race 27B" are both 27);
+    // the sort keeps file order for ties and each section gets its own anchor.
+    var anchors = {};
+    var anchorFor = function (n) {
+      anchors[n] = (anchors[n] || 0) + 1;
+      return "race-" + n + (anchors[n] > 1 ? "-" + anchors[n] : "");
+    };
 
     data.races.slice().sort(function (a, b) { return a.raceNumber - b.raceNumber; })
       .forEach(function (race) {
@@ -249,7 +256,7 @@
           ]);
         }));
 
-        main.appendChild(el("section", { "class": "race", id: "race-" + race.raceNumber }, [
+        main.appendChild(el("section", { "class": "race", id: anchorFor(race.raceNumber) }, [
           el("h2", {}, [
             el("span", {}, [
               el("span", { text: race.title }),
