@@ -45,7 +45,7 @@ Anything that can read JSON can show these results. Readers **must ignore fields
 | `races[].revision` | Changes whenever anything visible in the race changes. |
 | `races[].cancelled` | Optional. `{reason, note}` for a race that was cancelled: `reason` is `weather`, `water` (water / course conditions) or `other` (then `note` says why). Its `results` are empty; its `lanes` still list the boats entered. |
 | `regatta.cancelled` | Optional. The same shape for a regatta cancelled outright. Its `races` list is empty. |
-| `races[].progression` | Optional. A heat's advancement rule, e.g. `Top 3 to Final` or `Top 2 to Final, Next 2 to Petite Final`. The page shows it after the race title. Imported past results carry it; the app doesn't write it yet. |
+| `races[].progression` | Optional. A heat's advancement rule, e.g. `Top 3 to Final` or `Top 2 to Final, Next 2 to Petite Final`. One wording: the first rule is `Top N to <round>` and each later one `Next N to <round>` (the places just behind), with `N` a plain number and the round `Final`, `Semi Final`, `Petite Final` or `Grand Final`. The page shows it after the race title. Imported past results carry it; the app doesn't write it yet. |
 | `races[].note` | Optional. A remark about the whole race, e.g. `No splits recorded. Only order of finish and winning time.` The page shows it under the race title. Imported past results carry it; the app doesn't write it yet. |
 | `races[].lanes` | Lane number → `{school, additionalInfo, status}`. `status` is `"SCR"` for a scratched boat, otherwise empty. |
 | `races[].results[]` | Finish order: `{place, lane, school, additionalInfo, split, time}`. `place` is `1`–`6`, or `DQ`, `DNF` or `DNS`. |
