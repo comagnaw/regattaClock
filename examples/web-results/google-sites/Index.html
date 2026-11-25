@@ -14,12 +14,14 @@
     --bg: #f6f7f9; --card: #ffffff; --ink: #1b1f24; --muted: #5d6670;
     --line: #dde1e6; --accent: #0b5cad; --hi: #fff3bf; --scr: #8a929b;
     --head: #f2c94c; --head-ink: #1b1f24; --cancel: #b3261e;
+    --bar: #eef1f5;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #111418; --card: #1a1f25; --ink: #e8ebef; --muted: #9aa3ad;
       --line: #2c333b; --accent: #6cb0ff; --hi: #4a4118; --scr: #6b737c;
       --head: #c9a227; --head-ink: #111418; --cancel: #ff8a80;
+      --bar: #141920;
     }
   }
   * { box-sizing: border-box; }
@@ -29,11 +31,17 @@
   }
   header {
     position: sticky; top: 0; z-index: 1; background: var(--card);
-    border-bottom: 1px solid var(--line); padding: 12px 16px;
+    border-bottom: 3px solid var(--head); padding: 14px 16px 0; text-align: center;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, .08);
   }
-  h1 { margin: 0 0 2px; font-size: 1.3rem; }
+  h1 { margin: 0 0 4px; font-size: clamp(1.4rem, 1rem + 2vw, 2rem); line-height: 1.2; }
   .meta { color: var(--muted); font-size: .85rem; }
-  .controls { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  /* The filters sit in their own band, set off from the title above. */
+  .controls {
+    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+    margin: 12px -16px 0; padding: 10px 16px; background: var(--bar);
+    border-top: 1px solid var(--line); text-align: left;
+  }
   .controls label { display: flex; flex-direction: column; font-size: .75rem; color: var(--muted); }
   select, input, button {
     font: inherit; color: var(--ink); background: var(--bg);
@@ -75,6 +83,13 @@
   .status { padding: 24px; text-align: center; color: var(--muted); }
   .error { color: #c0392b; }
   @media (max-width: 560px) {
+    /* On a phone the header scrolls away, and the filters take three rows:
+       season, regatta and Reload; then School; then Event. */
+    header { position: static; }
+    .controls { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: end; }
+    .controls label.grow { grid-column: 1 / -1; }
+    #reload { grid-column: 3; grid-row: 1; }
+    select, input[type=search] { min-width: 0; width: 100%; }
     .col-info, .col-split { display: none; }
     .former { display: block; }
     th, td { padding: 6px 8px; }
@@ -88,7 +103,9 @@
   <div class="controls">
     <label>Season <select id="season"></select></label>
     <label>Regatta <select id="regatta"></select></label>
-    <label>School <input type="search" id="school" placeholder="Filter by school"></label>
+    <label class="grow">School <input type="search" id="school" placeholder="Filter by school"></label>
+    <label class="grow">Event <input type="search" id="event" placeholder="Filter by event, e.g. M-1-8" list="events"></label>
+    <datalist id="events"></datalist>
     <button type="button" id="reload" title="Fetch the latest published results">Reload</button>
   </div>
 </header>
@@ -135,9 +152,10 @@
 
   function option(value, label) { return el("option", { value: value, text: label }); }
 
-  // --- URL state: ?season=2026&regatta=<regattaKey>&school=<text> ----------
+  // --- URL state: ?season=2026&regatta=<regattaKey>&school=<text>&event=<text>
   function readQuery() {
-    return { season: INITIAL.season, regatta: INITIAL.regatta, school: INITIAL.school || "" };
+    return { season: INITIAL.season, regatta: INITIAL.regatta, school: INITIAL.school || "",
+             event: INITIAL.event || "" };
   }
   // Keeps the address bar pointing at the current selection when the page is
   // opened directly at /exec. Inside a Google Sites embed the outer page URL
@@ -147,6 +165,7 @@
     if ($("season").value) { params.season = $("season").value; }
     if ($("regatta").value) { params.regatta = $("regatta").value; }
     if ($("school").value) { params.school = $("school").value; }
+    if ($("event").value) { params.event = $("event").value; }
     try { google.script.history.replace(null, params); } catch (e) { /* not fatal */ }
   }
 
@@ -188,6 +207,44 @@
     var why = c.reason === "other" ? (c.note || "Other")
       : (REASONS[c.reason] || c.reason) + (c.note ? " (" + c.note + ")" : "");
     return "Cancelled" + SEP + why;
+  }
+
+  // --- event filter ---------------------------------------------------------
+  // A coach follows one event through the day: "M-1-8" shows its heats,
+  // semi-finals and finals. A combined race matches through any of its parts:
+  // "W-1x & M-1x" is found by "M-1x", and "M-2/Jr-4+" by "M-Jr-4" (one gender
+  // and one boat, classes joined with "/").
+  function eventKey(s) { return s.toLowerCase().replace(/\s+/g, "").replace(/\+/g, ""); }
+  function eventNames(boatClass) {
+    var names = [boatClass];
+    boatClass.split(" & ").forEach(function (part) {
+      names.push(part);
+      var m = /^([MW])-(.+)-([^-]+)$/.exec(part.trim());
+      if (m && m[2].indexOf("/") >= 0) {
+        m[2].split("/").forEach(function (c) { names.push(m[1] + "-" + c + "-" + m[3]); });
+      }
+    });
+    return names.map(eventKey);
+  }
+  // A typed size is the coxed boat: "M-1-4" finds the fours, not the quads
+  // ("M-1-4x"); "M-1" still finds every M-1 event.
+  function eventMatches(race, needle) {
+    var sized = /\d$/.test(needle);
+    return eventNames(race.boatClass || "").some(function (n) {
+      for (var i = n.indexOf(needle); i >= 0; i = n.indexOf(needle, i + 1)) {
+        if (!sized || n.charAt(i + needle.length) !== "x") { return true; }
+      }
+      return false;
+    });
+  }
+  // The regatta's events, offered as the Event box is typed in.
+  function fillEvents(data) {
+    var list = $("events"), seen = {};
+    list.innerHTML = "";
+    data.races.map(function (r) { return r.boatClass || ""; })
+      .filter(function (b) { return b && !seen[b] && (seen[b] = true); })
+      .sort()
+      .forEach(function (b) { list.appendChild(el("option", { value: b })); });
   }
 
   // "ACHS (formerly T.C. Williams)": an archive result keeps continuity with
@@ -240,7 +297,9 @@
       return;
     }
 
+    fillEvents(data);
     var needle = $("school").value.trim().toLowerCase();
+    var eventNeedle = eventKey($("event").value.trim());
     var shown = 0;
     // Archive races can share a number ("Race 27A" and "Race 27B" are both 27);
     // the sort keeps file order for ties and each section gets its own anchor.
@@ -252,6 +311,7 @@
 
     data.races.slice().sort(function (a, b) { return a.raceNumber - b.raceNumber; })
       .forEach(function (race) {
+        if (eventNeedle && !eventMatches(race, eventNeedle)) { return; }
         var rows = rowsFor(race);
         // A renamed school also matches its name at the time ("Williams" finds
         // ACHS rows from before the rename).
@@ -296,8 +356,11 @@
       });
 
     if (!shown) {
+      var ev = $("event").value.trim(), sc = $("school").value.trim();
       main.appendChild(el("div", { "class": "status",
-        text: needle ? "No results for \"" + $("school").value + "\"." : "No races published yet." }));
+        text: ev && sc ? "No races for \"" + ev + "\" with \"" + sc + "\"."
+          : ev ? "No races for \"" + ev + "\"."
+          : sc ? "No results for \"" + sc + "\"." : "No races published yet." }));
     }
   }
 
@@ -346,12 +409,14 @@
   $("season").addEventListener("change", function () { fillRegattas(); writeQuery(); loadRegatta().catch(showError); });
   $("regatta").addEventListener("change", function () { writeQuery(); loadRegatta().catch(showError); });
   $("school").addEventListener("input", function () { writeQuery(); render(); });
+  $("event").addEventListener("input", function () { writeQuery(); render(); });
   $("reload").addEventListener("click", function () {
     INITIAL.index = INITIAL.results = null; // Reload always asks the server
     loadAll();
   });
 
   $("school").value = readQuery().school;
+  $("event").value = readQuery().event;
   loadAll();
 })();
 </script>

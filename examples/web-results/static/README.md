@@ -4,7 +4,7 @@ Serve the regatta results page from any web server that can serve files: Apache,
 
 | File | Where it goes | Purpose |
 | --- | --- | --- |
-| `index.html` | web root | The results page: season and regatta pickers, a school filter, and race-by-race results. One self-contained file. |
+| `index.html` | web root | The results page: season and regatta pickers, school and event filters, and race-by-race results. One self-contained file. |
 | `build-index.py` | anywhere on the host | Rebuilds `index.json`, the list of regattas the page loads first, from the `results-*.json` files. Python 3 standard library only. |
 | `sync-results.sh` | next to `build-index.py` | The race-day job: copies newly published results from the cloud folder into the web root, then rebuilds `index.json`. |
 
@@ -30,7 +30,7 @@ cd /tmp/results-site && python3 -m http.server 8000
 # open http://localhost:8000/
 ```
 
-Try `http://localhost:8000/?season=2025&school=coldspring` for a deep link.
+Try `http://localhost:8000/?season=2025&school=coldspring` for a deep link, or add `&event=M-1-8` to follow one event from its heats to its final.
 
 ## Install on the web host
 

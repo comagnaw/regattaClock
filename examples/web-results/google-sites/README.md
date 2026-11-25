@@ -21,7 +21,7 @@ This is one of the hosting options in [`../README.md`](../README.md). It uses th
                                            ▼
                                 ② Apps Script web app                     ◄── direct link
                                    Code.gs, Index.html                         script.google.com/macros/s/<ID>/exec
-                                           │                                   ?season=2025&regatta=<key>&school=<text>
+                                           │                                   ?season=2025&regatta=<key>&school=<text>&event=<text>
                                            ▼  embedded (iframe)
                                 ③ Google Sites "Results" page             ◄── site navigation / anchor links
                                                                                sites.google.com/view/<site>/results
@@ -30,7 +30,7 @@ This is one of the hosting options in [`../README.md`](../README.md). It uses th
 | File | Purpose |
 | --- | --- |
 | `Code.gs` | Server side. `doGet` serves the page with the regatta list and the first regatta's results already in it; `getIndex` and `getResults` answer **Reload** and later picks; `checkSetup` is a one-time check, and `installWarmer` an optional race-day helper, both run from the editor. |
-| `Index.html` | The page: the same layout, pickers and school filter as [`../static/index.html`](../static/index.html). It asks `Code.gs` for its data with `google.script.run`. |
+| `Index.html` | The page: the same layout, pickers and school and event filters as [`../static/index.html`](../static/index.html). It asks `Code.gs` for its data with `google.script.run`. |
 | `appsscript.json` | The manifest. It turns on the **Drive API** advanced service (lists the folder in one call), sets the Drive read-only and trigger scopes, and the web-app settings (runs as you, anyone can open it). |
 
 **Points about the design:**
@@ -82,8 +82,8 @@ Run **`installWarmer`** once from the editor (approve the prompt). It rebuilds t
 
 ## Linking behavior
 
-- **Deep links don't pass through the Sites embed.** The embed URL is fixed when you insert it, so adding `?season=2025` to the Sites page's own URL has no effect. Two ways to link to a specific season or school:
-  - Share the `/exec` URL with the selection added, e.g. `…/exec?season=2025&school=coldspring`. It opens the page on its own, outside the site.
+- **Deep links don't pass through the Sites embed.** The embed URL is fixed when you insert it, so adding `?season=2025` to the Sites page's own URL has no effect. Two ways to link to a specific season, school or event:
+  - Share the `/exec` URL with the selection added, e.g. `…/exec?season=2025&school=coldspring` or `…/exec?season=2025&event=M-1-8`. It opens the page on its own, outside the site.
   - Or create one Sites page per season, each embedding `/exec?season=<year>`.
 - **Links inside the app** open in the top window (`<base target="_top">`) or a new tab. Apps Script's sandbox frame can't navigate itself.
 
