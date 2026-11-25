@@ -71,10 +71,12 @@
   tr.scr td { color: var(--scr); font-style: italic; }
   tr.match td { background: var(--hi); }
   .info { color: var(--muted); font-size: .85rem; }
+  .former { color: var(--muted); font-size: .85rem; }
   .status { padding: 24px; text-align: center; color: var(--muted); }
   .error { color: #c0392b; }
   @media (max-width: 560px) {
     .col-info, .col-split { display: none; }
+    .former { display: block; }
     th, td { padding: 6px 8px; }
   }
 </style>
@@ -188,6 +190,15 @@
     return "Cancelled" + SEP + why;
   }
 
+  // "ACHS (formerly T.C. Williams)": an archive result keeps continuity with
+  // the name the school rowed under at the time (formerName, optional).
+  function schoolCell(r) {
+    return el("td", {}, [
+      document.createTextNode(r.school),
+      r.formerName ? el("span", { "class": "former", text: " (formerly " + r.formerName + ")" }) : null
+    ]);
+  }
+
   function rowsFor(race) {
     // Finish order first, then every entered lane without a result: a scratch,
     // or a boat in a race that was cancelled or has no results yet.
@@ -199,7 +210,8 @@
       if (placed[ln]) { return; }
       var scr = e.status === "SCR";
       rows.push({ kind: scr ? "scr" : "entry", r: { place: scr ? "SCR" : "", lane: ln, school: e.school,
-                                                     additionalInfo: e.additionalInfo, split: "", time: "" } });
+                                                     formerName: e.formerName, additionalInfo: e.additionalInfo,
+                                                     split: "", time: "" } });
     });
     return rows;
   }
@@ -241,7 +253,13 @@
     data.races.slice().sort(function (a, b) { return a.raceNumber - b.raceNumber; })
       .forEach(function (race) {
         var rows = rowsFor(race);
-        var hit = function (x) { return needle && x.r.school.toLowerCase().indexOf(needle) >= 0; };
+        // A renamed school also matches its name at the time ("Williams" finds
+        // ACHS rows from before the rename).
+        var hit = function (x) {
+          return needle && [x.r.school, x.r.formerName || ""].some(function (n) {
+            return n.toLowerCase().indexOf(needle) >= 0;
+          });
+        };
         if (needle && !rows.some(hit)) { return; }
         shown++;
 
@@ -250,7 +268,7 @@
           return el("tr", { "class": cls.trim() }, [
             el("td", {}, [el("span", { "class": "place", text: x.r.place })]),
             el("td", { "class": "num", text: x.r.lane }),
-            el("td", { text: x.r.school }),
+            schoolCell(x.r),
             el("td", { "class": "info col-info", text: x.r.additionalInfo || "" }),
             el("td", { "class": "num col-split", text: x.r.split }),
             el("td", { "class": "num", text: x.r.time })

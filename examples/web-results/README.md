@@ -46,9 +46,11 @@ Anything that can read JSON can show these results. Readers **must ignore fields
 | `races[].cancelled` | Optional. `{reason, note}` for a race that was cancelled: `reason` is `weather`, `water` (water / course conditions) or `other` (then `note` says why). Its `results` are empty; its `lanes` still list the boats entered. |
 | `regatta.cancelled` | Optional. The same shape for a regatta cancelled outright. Its `races` list is empty. |
 | `races[].progression` | Optional. A heat's advancement rule, e.g. `Top 3 to Final` or `Top 2 to Final, Next 2 to Petite Final`. The page shows it after the race title. Imported past results carry it; the app doesn't write it yet. |
+| `races[].note` | Optional. A remark about the whole race, e.g. `No splits recorded. Only order of finish and winning time.` The page shows it under the race title. Imported past results carry it; the app doesn't write it yet. |
 | `races[].lanes` | Lane number → `{school, additionalInfo, status}`. `status` is `"SCR"` for a scratched boat, otherwise empty. |
 | `races[].results[]` | Finish order: `{place, lane, school, additionalInfo, split, time}`. `place` is `1`–`6`, or `DQ`, `DNF` or `DNS`. |
 | `additionalInfo` (in lanes and results) | The heat sheet's info for that entry, often empty. For example `Exhibition`, `A` / `B` / `C` for a school's second or third entry, or a boat class when it differs from the race's (`W-Jr-2x`). |
+| `formerName` (in lanes and results) | Optional. The name a school rowed under at the time, when it has since been renamed. `school` is always the current name, so one school's results line up across the years. The page shows `ACHS (formerly T.C. Williams)`, and the school filter matches either name. Imported past results carry it; the app doesn't write it. |
 
 ## Getting the file from the PFT laptop to the website
 
