@@ -40,6 +40,7 @@ Anything that can read JSON can show these results. Readers **must ignore fields
 | `publishedAt` | When the latest race in this file was published (UTC, RFC 3339). |
 | `races[]` | One entry per published race, in race order. |
 | `races[].raceNumber`, `title`, `scheduledTime`, `boatClass`, `flightInfo` | The race, as on the heat sheet. |
+| `boatClass` (form) | One event code, e.g. `M-1-8+`, `W-Jr-4x`, `M-N-4+`. A coxed four or eight always carries its `+`. A race for one gender and one boat that mixes classes joins them with `/`, in the order 1, 2, 3, 4, 5, Jr, Fr, N, LT: `M-2/Jr-4+`, `W-3/4-8+`. A race that mixes genders or boats (to compress the schedule) lists each event in full, joined with ` & `, women first, then by boat 1x, 2x, 4x, 4+, 8+: `W-1x & M-1x`, `M-1x & M-2x`. Imported past results follow this form; the app writes the heat sheet's event. |
 | `races[].winningTime` | The winner's time. |
 | `races[].approvedAt`, `races[].publishedAt` | When the referee approved it, and when it was published (UTC). |
 | `races[].revision` | Changes whenever anything visible in the race changes. |
