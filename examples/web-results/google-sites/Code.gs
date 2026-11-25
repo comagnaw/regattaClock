@@ -29,7 +29,8 @@ var INDEX_KEY = 'idx:v2';
 /** Web app entry point: renders Index.html with the first view's data in it. */
 function doGet(e) {
   var p = (e && e.parameter) || {};
-  var initial = { season: p.season || '', regatta: p.regatta || '', school: p.school || '' };
+  var initial = { season: p.season || '', regatta: p.regatta || '', school: p.school || '',
+                  event: p.event || '' };
   try {
     var index = JSON.parse(indexJSON_());
     var pick = defaultRegatta_(index, initial.season, initial.regatta);
