@@ -70,7 +70,7 @@ remaining work:
   - **Read:** a `Progression` field from `RawData` row 2, column 0, on `reader.RaceData`. The same row's lane columns are the rowers' names in 1x/2x boats; leave those alone.
   - **Store:** `store.ScheduleRace.Progression` in `regattaSchedule.json`, set at import and reload like `FlightInfo`, so it reaches every persona.
   - **Publish:** `publish.PublishableRace.Progression`, part of the revision, written as the web JSON's optional `races[].progression` ([format](../../examples/web-results/README.md#the-file-format-schemaversion-1)) and shown in the workbook's race block.
-  - **Open question:** wording. Keep the heat sheet's text ("2 to Advance"), or normalize it the way the archive import does ("Top 2 to Final")?
+  - **Wording (decided 2026-11-25):** normalize to the archive's wording, so live and past results read the same: the first rule `Top N to <round>`, each later one `Next N to <round>`, `N` a plain number (e.g. "2 to Advance" → `Top 2 to Final`, or `Top 2 to Semi Final` when the next round is a semi; "2 Final 2 Petite" → `Top 2 to Final, Next 2 to Petite Final`). See the [format](../../examples/web-results/README.md#the-file-format-schemaversion-1).
 - [ ] Windows folder-picker hang on a stale/disconnected mapped network drive — `dialog.NewFolderOpen`'s sidebar enumerates every drive letter and calls `os.Stat` on each before showing, which can hang indefinitely. Current mitigation is operator-side (README.md's Troubleshooting section); investigate a Fyne version bump that might fix this upstream, or a custom enumeration-free directory picker, before this becomes an app-level fix — [README.md](../../README.md#troubleshooting)
 
 ## Persona additions — requirements & constraints not yet charted
