@@ -37,6 +37,7 @@
   }
   h1 { margin: 0 0 4px; font-size: clamp(1.4rem, 1rem + 2vw, 2rem); line-height: 1.2; }
   .meta { color: var(--muted); font-size: .85rem; }
+  #filters-toggle { display: none; }
   /* The filters sit in their own band, set off from the title above. */
   .controls {
     display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
@@ -84,9 +85,23 @@
   .status { padding: 24px; text-align: center; color: var(--muted); }
   .error { color: #c0392b; }
   @media (max-width: 560px) {
-    /* On a phone the header scrolls away, and the filters take three rows:
-       season, regatta and Reload; then School; then Event. */
-    header { position: static; }
+    /* On a phone the header is one slim pinned bar - the regatta's name and a
+       Filters button showing what is filtered. The button opens the filters
+       below it: season, regatta and Reload; then School; then Event. */
+    header { padding: 8px 12px 0; }
+    .titlebar { display: flex; align-items: center; gap: 8px; padding-bottom: 8px; }
+    h1 {
+      flex: 1; min-width: 0; margin: 0; font-size: 1.1rem; text-align: left;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    #filters-toggle {
+      display: block; flex: 0 1 auto; max-width: 55%; padding: 5px 10px; font-size: .85rem;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    #filters-toggle.active { border-color: var(--accent); color: var(--accent); }
+    header:not(.open) .meta, header:not(.open) .controls { display: none; }
+    .meta { text-align: left; padding-bottom: 6px; }
+    .controls { margin: 0 -12px; padding: 10px 12px; }
     .controls { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: end; }
     .controls label.grow { grid-column: 1 / -1; }
     #reload { grid-column: 3; grid-row: 1; }
@@ -98,10 +113,13 @@
 </style>
 </head>
 <body>
-<header>
-  <h1 id="title">Regatta Results</h1>
+<header id="header">
+  <div class="titlebar">
+    <h1 id="title">Regatta Results</h1>
+    <button type="button" id="filters-toggle" aria-expanded="false" aria-controls="filters">Filters</button>
+  </div>
   <div class="meta" id="meta">Loading...</div>
-  <div class="controls">
+  <div class="controls" id="filters">
     <label>Season <select id="season"></select></label>
     <label>Regatta <select id="regatta"></select></label>
     <label class="grow">School <input type="search" id="school" placeholder="Filter by school"></label>
@@ -272,7 +290,16 @@
     return rows;
   }
 
+  // The phone's Filters button names what is filtered: "Filters: W-1-4 · Robinson".
+  function updateFiltersToggle() {
+    var on = [$("event").value.trim(), $("school").value.trim()].filter(Boolean);
+    var b = $("filters-toggle");
+    b.textContent = on.length ? "Filters: " + on.join(SEP) : "Filters";
+    b.classList.toggle("active", on.length > 0);
+  }
+
   function render() {
+    updateFiltersToggle();
     var main = $("races"), data = state.results;
     main.innerHTML = "";
     if (!data) {
@@ -400,6 +427,11 @@
   $("regatta").addEventListener("change", function () { writeQuery(); loadRegatta().catch(showError); });
   $("school").addEventListener("input", function () { writeQuery(); render(); });
   $("event").addEventListener("input", function () { writeQuery(); render(); });
+  // Phone: the Filters button opens and closes the filter panel.
+  $("filters-toggle").addEventListener("click", function () {
+    var open = $("header").classList.toggle("open");
+    this.setAttribute("aria-expanded", open ? "true" : "false");
+  });
   $("reload").addEventListener("click", loadAll);
 
   $("school").value = readQuery().school;
