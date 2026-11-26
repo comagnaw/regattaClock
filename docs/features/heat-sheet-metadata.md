@@ -123,7 +123,11 @@ In [schedule.go](../../internal/persona/store/schedule.go):
   the other publish settings in `finish.json`. See the next section.
 - **Cancelling a race** is already planned as its own TODO ("PFT: cancel a
   race, with a reason"). It supplies `races[].cancelled` below.
-- **A race note** (`races[].note`) has no author yet; see the open questions.
+- **Race notes (decided 2026-11-26: the PFT adds them):** a short free-text
+  note per race, e.g. "Restarted after equipment failure in lane 3". The PFT
+  adds or edits it from the race tree or the results window. It is stored in
+  `finish.json` (`RaceResult.Note`), published as `races[].note`, and covered
+  by `Revision`, so editing a published race's note shows **Re-publish**.
 
 ## The school list (optional runtime configuration)
 
@@ -156,9 +160,9 @@ which is the format's existing rule.
 | --- | --- | --- |
 | Race | `progression` | the Heat Sheet's advancement rule, as printed |
 | Race | `cancelled` | the PFT's cancel-race TODO |
-| Race | `note` | not decided yet (open question) |
+| Race | `note` | the PFT's race note (`finish.json`) |
 | Race | `status` | `scheduled` for a race not yet raced; see [Every scheduled race](#every-scheduled-race-in-the-web-results) |
-| Lane | `seed` | the number from row 1 |
+| Lane | `seed` | the number from row 1; published and shown on the results page (decided 2026-11-26) |
 | Lane | `status` | `SCR`, or the new `EXH` |
 | Lane | `athletes` | the rowers' names from row 2, as printed (decided 2026-11-26: published) |
 | Lane and result | `school`, `formerName` | the school list's names, only when a list is configured |
@@ -316,8 +320,8 @@ gap; the progression badge simply shows each file's own wording.
 - **RegattaCentral:** its results format is still unknown. Nothing here is
   committed for it beyond the note that it would read the same enriched data.
 - **Results pages:** they already show `progression`, `cancelled`,
-  `formerName` and Exhibition (via `additionalInfo`). An `EXH` status and the
-  seed are small additions to `rowsFor`.
+  `formerName`, `note` and Exhibition (via `additionalInfo`). The `EXH`
+  status and showing each entry's seed are small additions to `rowsFor`.
 
 ### Docs to update when this is built
 
@@ -346,7 +350,9 @@ Each phase is its own PR, in this order.
 3. **Capture.** The reader and schedule model: progression, athletes, the
    row-1 parts and the `EXH` status; `ContentHash`; the RD's import summary.
 4. **Publish.** `PublishableRace` and web results fields, `Revision`
-   coverage, the PFT's exhibition placing, and the results-page additions.
+   coverage, the PFT's exhibition placing, the PFT's race note
+   (`RaceResult.Note` and its editor), and the results-page additions
+   (seed, `EXH`).
 5. **School list.** `internal/schools`, the PFT setting, and the school names
    and `formerName` in the web results.
 6. **Cancel race.** Already a TODO; it adds `races[].cancelled`.
@@ -354,8 +360,6 @@ Each phase is its own PR, in this order.
 
 ## Open questions
 
-- **Seeds:** does the results page show them, or only the data carry them?
-- **Race notes:** who can add one: the RD, the PFT, or both?
 - **Advancement placeholders:** how unfilled lanes in a final (`1st`, `2nd`
   waiting for a heat's result) are shown.
 - **The archive tool's normalization code** (`canonEvent`, `progressionOf`,
