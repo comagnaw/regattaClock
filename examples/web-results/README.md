@@ -50,8 +50,24 @@ Anything that can read JSON can show these results. Readers **must ignore fields
 | `races[].note` | Optional. A remark about the whole race, e.g. `No splits recorded. Only order of finish and winning time.` The page shows it under the race title. Imported past results carry it; the app doesn't write it yet. |
 | `races[].lanes` | Lane number → `{school, additionalInfo, status}`. `status` is `"SCR"` for a scratched boat, otherwise empty. |
 | `races[].results[]` | Finish order: `{place, lane, school, additionalInfo, split, time}`. `place` is `1`–`6`, or `DQ`, `DNF` or `DNS`. |
-| `additionalInfo` (in lanes and results) | The heat sheet's info for that entry, often empty. For example `Exhibition`, `A` / `B` / `C` for a school's second or third entry, or a boat class when it differs from the race's (`W-Jr-2x`). |
+| `additionalInfo` (in lanes and results) | Free text about that entry, often empty: usually the coxswain's or sculler's name as the heat sheet prints it. See [What `additionalInfo` holds](#what-additionalinfo-holds) for the forms used. |
 | `formerName` (in lanes and results) | Optional. The name a school rowed under at the time, when it has since been renamed. `school` is always the current name, so one school's results line up across the years. The page shows `ACHS (formerly T.C. Williams)`, and the school filter matches either name. Imported past results carry it; the app doesn't write it. |
+
+### What `additionalInfo` holds
+
+It is text for people to read, not a field to compute with. The app writes the heat sheet's info for each entry. Imported past results use the forms below, and several can appear together, separated by spaces: `B C. Devany`, `M-4-8 C. Mollencop`, `Lightweight Exhibition`.
+
+| Form | Meaning |
+| --- | --- |
+| A name, e.g. `C. Devany` | The coxswain, or the sculler in a single. The most common value. |
+| `A`, `B`, `C`, `D` | A school's 1st, 2nd, 3rd or 4th boat in the same event. |
+| `Exhibition` | Rowed for exhibition. It has no place, and the others are placed without it. It may still have a time and a split. |
+| An event code, e.g. `M-4-8`, `W-Jr-2x`, `1x` | The boat belongs to a different event from the race's: a school's 4th-string eight in a novice race, or a single in a doubles race. In a combined race placed by group, it names the group. |
+| `Lightweight`, `Freshman` | A lightweight or freshman boat in a race that isn't one of those events. |
+| `W`, `M`, `LW` | In a race mixing men and women, the boat's gender (`LW`: lightweight women). Each gender is placed separately. |
+| `1st`, `2nd`, `3rd`, … | Printed by some sheets in place of `A`, `B`, `C`: which of a school's boats it is (`3rd D. Jones`: the school's 3rd eight). |
+| `Heat 1`, `Heat 2`, … | In a final: the heat the boat came from. |
+| Other short words, e.g. `LTW`, `JR`, `late to start` | Printed tags and remarks kept as they appear. |
 
 ## Getting the file from the PFT laptop to the website
 
