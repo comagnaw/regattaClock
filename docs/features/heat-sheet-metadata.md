@@ -157,6 +157,7 @@ which is the format's existing rule.
 | Race | `progression` | the Heat Sheet's advancement rule, as printed |
 | Race | `cancelled` | the PFT's cancel-race TODO |
 | Race | `note` | not decided yet (open question) |
+| Race | `status` | `scheduled` for a race not yet raced; see [Every scheduled race](#every-scheduled-race-in-the-web-results) |
 | Lane | `seed` | the number from row 1 |
 | Lane | `status` | `SCR`, or the new `EXH` |
 | Lane | athletes | the rowers' names from row 2, if they are published (open question) |
@@ -200,6 +201,76 @@ Race 1 of 2025 VSRC Day 2 today and after (two lanes shown):
 
 Fields the example leaves out are unchanged (`revision`, `publishedAt`,
 `approvedAt`, the other lanes).
+
+### Every scheduled race in the web results
+
+**The idea.** A parent or coach opens the results page in the morning, types
+their event or school into the filters, and sees what amounts to their own
+slice of the Heat Sheet: every race they care about, with lanes and entries,
+and results appearing race by race as the PFT publishes them. To do that, the
+web results file has to list **every scheduled race**, not only the ones with
+results.
+
+**Where each output stands today:**
+
+| Output | Unraced races |
+| --- | --- |
+| Excel results workbook | already written: `render` in `internal/publish/spreadsheet/write.go` writes a block for every scheduled race, with blank place, split and time. It already reads like the Heat Sheet. **No change.** |
+| Web results | left out: `webjson.Write` writes only races in the publish ledger, i.e. published ones |
+| RegattaCentral | must stay results-only. Sending unraced races would waste API calls and isn't what RC's results are for. |
+
+**The change:** the web results file lists every race on the schedule. A race
+without results yet is written with its lanes and entries, an empty `results`
+list, and `"status": "scheduled"`. It has no `revision`, `publishedAt` or
+`winningTime`. Once its results are approved and published, it becomes an
+ordinary published race, and `status` is left out. Leaving it out keeps
+the archive's races and published races reading as they do today.
+
+**How it stays current:** the file is regenerated whole on every Publish
+(that's already how it works), from the schedule as it stands. Each publish
+therefore also refreshes every unraced race: a scratch, a lane change or a
+final's lanes filled in from the heats. Two additions make it useful before
+the first result:
+
+- **Publish Schedule:** a PFT action that writes the file with every race
+  scheduled, so the regatta appears on the results page before racing starts.
+  It needs no approval, since no results are involved.
+- **Refresh on schedule change:** when the RD's schedule changes (the PFT
+  already sees schedule reloads), the PFT is offered a refresh, or does it
+  automatically. Which one is an open question.
+
+**Risks, and how the design handles each:**
+
+- **A scheduled race taken for a published one.** `webjson.Read` builds the
+  publish ledger from every race in the file. If it counted scheduled races,
+  the Publish button would show **Published** for races never raced, and
+  carry-forward would keep empty results. **Read skips `scheduled` races**;
+  only races with a revision enter the ledger. A test pins this.
+- **Out-of-date entries between publishes.** An unraced race only changes when
+  the file is rewritten. Every Publish rewrites it, and the refresh-on-change
+  addition above closes the gap.
+- **Finals before their heats are done.** A final's lanes may still hold
+  placeholders (`1st`, `2nd`). They publish as printed until the RD fills the
+  draw. The results page should show them as "to be decided", not as schools
+  (see the open question on placeholders).
+- **Telling scheduled from "no results recorded".** The archive has a few
+  races that were raced but have no results (`entries only`). The explicit
+  `scheduled` status keeps an upcoming race apart from those, and from a
+  cancelled race (`cancelled`).
+- **Earlier exposure of names.** Entries, and athletes' names if they are
+  published, appear before racing instead of after. Heat Sheets are usually
+  public already, but this makes the rowers'-names question more pressing.
+- **The page's wording.** Today the page says "47 races published". With every
+  race listed, it should say how many are official ("12 of 47 official"), mark
+  each scheduled race ("Scheduled · 09:00", no results table) and, for the
+  sake of the race tree, not count scheduled races as published.
+- **Size and sync.** A whole day's schedule is a few hundred kilobytes at most,
+  and the file is already rewritten whole on every publish, so Drive sync and
+  the Google Sites cache behave as today.
+
+**Which outputs take the whole schedule** becomes a property of each publish
+destination. Web results: yes (new). Excel workbook: yes (as today).
+RegattaCentral: no, published results only.
 
 ### One definition of the format
 
@@ -262,14 +333,19 @@ Each phase is its own PR, in this order.
 1. **Format contract.** The new optional fields on the webjson struct, the
    contract test against the archive, the archive guard in `webjson.Read`, and
    the README format table. Nothing changes on race day.
-2. **Capture.** The reader and schedule model: progression, athletes, the
+2. **The whole day's schedule.** Web results list every scheduled race
+   (`status: scheduled`), `Read` keeps them out of the ledger, a per-destination
+   "takes the whole schedule" property (web results and Excel yes,
+   RegattaCentral no), **Publish Schedule**, and the results page's scheduled
+   races and "N of M official". Independent of capture, so it can come early.
+3. **Capture.** The reader and schedule model: progression, athletes, the
    row-1 parts and the `EXH` status; `ContentHash`; the RD's import summary.
-3. **Publish.** `PublishableRace` and web results fields, `Revision`
+4. **Publish.** `PublishableRace` and web results fields, `Revision`
    coverage, the PFT's exhibition placing, and the results-page additions.
-4. **School list.** `internal/schools`, the PFT setting, and the school names
+5. **School list.** `internal/schools`, the PFT setting, and the school names
    and `formerName` in the web results.
-5. **Cancel race.** Already a TODO; it adds `races[].cancelled`.
-6. **Later: normalization**, with the Heat Sheet Creator persona.
+6. **Cancel race.** Already a TODO; it adds `races[].cancelled`.
+7. **Later: normalization**, with the Heat Sheet Creator persona.
 
 ## Open questions
 
@@ -279,6 +355,10 @@ Each phase is its own PR, in this order.
 - **Race notes:** who can add one: the RD, the PFT, or both?
 - **Advancement placeholders:** how unfilled lanes in a final (`1st`, `2nd`
   waiting for a heat's result) are shown.
+- **Refreshing the schedule:** when the RD's schedule changes, does the PFT's
+  app refresh the web results automatically, or offer a one-click refresh?
+- **Publish Schedule:** a separate button, or done automatically when the PFT
+  starts the regatta with a web results destination chosen?
 - **The archive tool's normalization code** (`canonEvent`, `progressionOf`,
   the heat-sheet rules, `canonSchool`) lives on a local, unpushed branch. It
   should be kept somewhere the Heat Sheet Creator work can reuse it.
