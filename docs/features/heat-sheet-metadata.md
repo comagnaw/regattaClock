@@ -160,7 +160,7 @@ which is the format's existing rule.
 | Race | `status` | `scheduled` for a race not yet raced; see [Every scheduled race](#every-scheduled-race-in-the-web-results) |
 | Lane | `seed` | the number from row 1 |
 | Lane | `status` | `SCR`, or the new `EXH` |
-| Lane | athletes | the rowers' names from row 2, if they are published (open question) |
+| Lane | `athletes` | the rowers' names from row 2, as printed (decided 2026-11-26: published) |
 | Lane and result | `school`, `formerName` | the school list's names, only when a list is configured |
 | Result | an exhibition boat's row | an empty `place`, with its time and split |
 
@@ -232,12 +232,15 @@ therefore also refreshes every unraced race: a scratch, a lane change or a
 final's lanes filled in from the heats. Two additions make it useful before
 the first result:
 
-- **Publish Schedule:** a PFT action that writes the file with every race
-  scheduled, so the regatta appears on the results page before racing starts.
-  It needs no approval, since no results are involved.
-- **Refresh on schedule change:** when the RD's schedule changes (the PFT
-  already sees schedule reloads), the PFT is offered a refresh, or does it
-  automatically. Which one is an open question.
+- **Publish Schedule (decided 2026-11-26: its own button):** a PFT button
+  that writes the file with every race scheduled, so the regatta appears on
+  the results page before racing starts. It needs no approval, since no
+  results are involved. It is not done automatically when the regatta starts;
+  the PFT chooses when the schedule goes public.
+- **Refresh on schedule change (decided 2026-11-26: one click):** when the
+  RD's schedule changes (the PFT already sees schedule reloads), the PFT is
+  offered a one-click **Refresh published schedule**. Nothing is republished
+  without the PFT's click.
 
 **Risks, and how the design handles each:**
 
@@ -247,8 +250,8 @@ the first result:
   carry-forward would keep empty results. **Read skips `scheduled` races**;
   only races with a revision enter the ledger. A test pins this.
 - **Out-of-date entries between publishes.** An unraced race only changes when
-  the file is rewritten. Every Publish rewrites it, and the refresh-on-change
-  addition above closes the gap.
+  the file is rewritten. Every Publish rewrites it, and the one-click refresh
+  above closes the gap when the schedule changes between races.
 - **Finals before their heats are done.** A final's lanes may still hold
   placeholders (`1st`, `2nd`). They publish as printed until the RD fills the
   draw. The results page should show them as "to be decided", not as schools
@@ -257,9 +260,9 @@ the first result:
   races that were raced but have no results (`entries only`). The explicit
   `scheduled` status keeps an upcoming race apart from those, and from a
   cancelled race (`cancelled`).
-- **Earlier exposure of names.** Entries, and athletes' names if they are
-  published, appear before racing instead of after. Heat Sheets are usually
-  public already, but this makes the rowers'-names question more pressing.
+- **Earlier exposure of names.** Entries and rowers' names appear before
+  racing instead of after. That is accepted (decided 2026-11-26): Heat Sheets
+  are public already, and rowers' names are published.
 - **The page's wording.** Today the page says "47 races published". With every
   race listed, it should say how many are official ("12 of 47 official"), mark
   each scheduled race ("Scheduled · 09:00", no results table) and, for the
@@ -320,7 +323,7 @@ gap; the progression badge simply shows each file's own wording.
 
 - The format table in
   [`examples/web-results/README.md`](../../examples/web-results/README.md):
-  `seed`, the `EXH` status, athletes if published, and the archive's
+  `seed`, the `EXH` status, `athletes`, and the archive's
   `source` / `sourceFile`.
 - [`publish-destinations.md`](publish-destinations.md): its web JSON example
   already shows a `note` the code doesn't write, and its interface sketch
@@ -336,7 +339,9 @@ Each phase is its own PR, in this order.
 2. **The whole day's schedule.** Web results list every scheduled race
    (`status: scheduled`), `Read` keeps them out of the ledger, a per-destination
    "takes the whole schedule" property (web results and Excel yes,
-   RegattaCentral no), **Publish Schedule**, and the results page's scheduled
+   RegattaCentral no), the **Publish Schedule** button, the one-click
+   **Refresh published schedule** after a schedule change, and the results
+   page's scheduled
    races and "N of M official". Independent of capture, so it can come early.
 3. **Capture.** The reader and schedule model: progression, athletes, the
    row-1 parts and the `EXH` status; `ContentHash`; the RD's import summary.
@@ -349,16 +354,10 @@ Each phase is its own PR, in this order.
 
 ## Open questions
 
-- **Rowers' names:** are they published? They are students' names; the
-  archive already publishes coxswains' names.
 - **Seeds:** does the results page show them, or only the data carry them?
 - **Race notes:** who can add one: the RD, the PFT, or both?
 - **Advancement placeholders:** how unfilled lanes in a final (`1st`, `2nd`
   waiting for a heat's result) are shown.
-- **Refreshing the schedule:** when the RD's schedule changes, does the PFT's
-  app refresh the web results automatically, or offer a one-click refresh?
-- **Publish Schedule:** a separate button, or done automatically when the PFT
-  starts the regatta with a web results destination chosen?
 - **The archive tool's normalization code** (`canonEvent`, `progressionOf`,
   the heat-sheet rules, `canonSchool`) lives on a local, unpushed branch. It
   should be kept somewhere the Heat Sheet Creator work can reuse it.
